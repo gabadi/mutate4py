@@ -1,0 +1,11 @@
+# Local Workflow Rules
+
+## Handoff Startup
+- Before processing any new handoff, `ready_for_next.sh` automatically syncs your worktree to trunk. Do not add per-role sync steps — the delivery script handles this.
+
+## Swarmforge Feedback
+- When ≥2 roles in the same pipeline run report the same failure mechanism (same failure class, similar root cause), the curator must surface this as a systemic gap in `.agents/backlog.md` regardless of whether individual items were `swarmforge`-scoped.
+
+## QA Handoffs
+- A QA handoff does not interrupt current work. If a QA wake-up arrives while working, ignore it and let `done_with_current.sh` deliver the next queued task or batch after the current work is complete.
+- When a helper-delivered QA task is only an audit/completion notification, acknowledge the printed payload, rely on the handoff audit files for recordkeeping, and do not apply role-specific work to that QA handoff.
