@@ -5,3 +5,5 @@
 .swarmforge/
 .worktrees/
 swarmforge/scripts/
+tmp/
+.claude/skills/swarm-persona/
