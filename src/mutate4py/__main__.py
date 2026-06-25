@@ -8,7 +8,9 @@ from mutate4py._discovery import discover_sites
 DEFAULT_WARNING_THRESHOLD = 1000
 
 
-def scan_report(path: str, source: str, warning_threshold: int) -> tuple[list[str], bool]:
+def scan_report(
+    path: str, source: str, warning_threshold: int
+) -> tuple[list[str], bool]:
     """Return (output_lines, exceeded_threshold) for a --scan run."""
     sites = discover_sites(source)
     total = len(sites)
@@ -20,7 +22,9 @@ def scan_report(path: str, source: str, warning_threshold: int) -> tuple[list[st
     ]
     exceeded = total > warning_threshold
     if exceeded:
-        lines.append(f"Warning: {total} mutation sites exceeds threshold {warning_threshold}.")
+        lines.append(
+            f"Warning: {total} mutation sites exceeds threshold {warning_threshold}."
+        )
     return lines, exceeded
 
 

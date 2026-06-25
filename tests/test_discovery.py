@@ -77,11 +77,14 @@ def test_sites_sorted_by_line_col():
 # ── Function attribution ───────────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("src,expected_id", [
-    ("def foo():\n    x = a + b\n", "func/foo"),
-    ("async def foo():\n    x = a + b\n", "func/foo"),
-    ("class C:\n    def m(self):\n        x = a + b\n", "func/C.m"),
-])
+@pytest.mark.parametrize(
+    "src,expected_id",
+    [
+        ("def foo():\n    x = a + b\n", "func/foo"),
+        ("async def foo():\n    x = a + b\n", "func/foo"),
+        ("class C:\n    def m(self):\n        x = a + b\n", "func/C.m"),
+    ],
+)
 def test_basic_function_attribution(src, expected_id):
     sites = scan(src)
     assert sites[0].function_id == expected_id
@@ -93,10 +96,13 @@ def test_module_level_no_def():
     assert sites[0].function_id == ""
 
 
-@pytest.mark.parametrize("src", [
-    "def outer():\n    def inner():\n        x = a + b\n",
-    "def outer():\n    f = lambda: a + b\n",
-])
+@pytest.mark.parametrize(
+    "src",
+    [
+        "def outer():\n    def inner():\n        x = a + b\n",
+        "def outer():\n    f = lambda: a + b\n",
+    ],
+)
 def test_nested_constructs_fold_into_outer(src):
     sites = scan(src)
     assert all(s.function_id == "func/outer" for s in sites)
@@ -193,14 +199,18 @@ def test_sort_key_uses_col_not_function_id():
 # These parametrize over the boundary cases to avoid structural duplication while
 # keeping all three outermost_idx branches covered.
 
-@pytest.mark.parametrize("src,expected_id", [
-    # outermost_idx = 2, ancestor[1] = ClassDef → method format (idx > 0 guard)
-    ("class C:\n    def m(self):\n        x = a + b\n", "func/C.m"),
-    # outermost_idx = 1, ancestors[0] = Module (not ClassDef) → func format
-    ("def foo():\n    x = a + b\n", "func/foo"),
-    # ancestors[1] = ClassDef, idx > 0 → method format (different class name)
-    ("class A:\n    def method(self):\n        return a + b\n", "func/A.method"),
-])
+
+@pytest.mark.parametrize(
+    "src,expected_id",
+    [
+        # outermost_idx = 2, ancestor[1] = ClassDef → method format (idx > 0 guard)
+        ("class C:\n    def m(self):\n        x = a + b\n", "func/C.m"),
+        # outermost_idx = 1, ancestors[0] = Module (not ClassDef) → func format
+        ("def foo():\n    x = a + b\n", "func/foo"),
+        # ancestors[1] = ClassDef, idx > 0 → method format (different class name)
+        ("class A:\n    def method(self):\n        return a + b\n", "func/A.method"),
+    ],
+)
 def test_format_function_id_outermost_idx_boundary(src, expected_id):
     sites = scan(src)
     assert sites[0].function_id == expected_id

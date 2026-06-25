@@ -127,7 +127,9 @@ def test_scan_report_warning_above_threshold():
     src = "x = a + b\ny = c - d\n"
     lines, exceeded = scan_report("f.py", src, 1)
     assert exceeded
-    assert any("Warning: 2 mutation sites exceeds threshold 1." in line for line in lines)
+    assert any(
+        "Warning: 2 mutation sites exceeds threshold 1." in line for line in lines
+    )
 
 
 def test_scan_report_total_equals_changed():
@@ -143,6 +145,7 @@ def test_scan_report_total_equals_changed():
 
 def test_main_scan_prints_output(tmp_path, capsys):
     import mutate4py.__main__ as m
+
     p = tmp_path / "s.py"
     p.write_text("x = a + b\n")
     sys.argv = ["mutate4py", str(p), "--scan"]
@@ -153,6 +156,7 @@ def test_main_scan_prints_output(tmp_path, capsys):
 
 def test_main_missing_file_exits(tmp_path):
     import mutate4py.__main__ as m
+
     sys.argv = ["mutate4py", str(tmp_path / "nope.py"), "--scan"]
     with pytest.raises(SystemExit) as exc:
         m.main()
@@ -161,6 +165,7 @@ def test_main_missing_file_exits(tmp_path):
 
 def test_main_no_scan_flag_exits(tmp_path):
     import mutate4py.__main__ as m
+
     p = tmp_path / "s.py"
     p.write_text("pass\n")
     sys.argv = ["mutate4py", str(p)]
