@@ -38,7 +38,7 @@ def _run_job(job: dict) -> dict:
     generated_dir = job.get("generated_dir", "")
     timeout_s = _parse_timeout_ns(job.get("timeout", "30s"))
 
-    feature_stem = _stem_from_feature_json(feature_json)
+    feature_stem = _stem_from_feature_json(feature_json, generated_dir)
     entrypoint = os.path.join(generated_dir, f"{feature_stem}_acceptance.py")
 
     if not os.path.isfile(entrypoint):
@@ -95,13 +95,18 @@ def _run_job(job: dict) -> dict:
         }
 
 
-def _stem_from_feature_json(feature_json: str) -> str:
+def _stem_from_feature_json(feature_json: str, generated_dir: str = "") -> str:
     """Derive acceptance entrypoint stem from the mutated feature JSON path.
 
     Mutator places the JSON at: <work_dir>/mutations/<id>/feature.json
     The generated dir holds: <feature_stem>_acceptance.py
-    We find the stem by reading the feature_path from the JSON IR.
+
+    Strategy:
+    1. Read feature_path from the JSON IR (present in parsed IR, absent in mutated JSONs).
+    2. Read the feature name from the mutated JSON and match it against APS metadata
+       entries to find the canonical feature_path → stem.
     """
+    feature_name = None
     try:
         with open(feature_json) as f:
             ir = json.load(f)
@@ -109,11 +114,37 @@ def _stem_from_feature_json(feature_json: str) -> str:
         stem = os.path.basename(feature_path).replace(".feature", "")
         if stem:
             return stem
+        feature_name = ir.get("name", "")
     except Exception:
         pass
-    # fallback: walk up to find a stem from path components
-    parts = os.path.normpath(feature_json).split(os.sep)
-    return "complexity"
+
+    # Mutated JSON has no feature_path — match by feature name against metadata.
+    if generated_dir:
+        metadata_dir = os.path.join(generated_dir, "metadata")
+        if os.path.isdir(metadata_dir):
+            for meta_file in sorted(os.listdir(metadata_dir)):
+                if not meta_file.endswith(".json"):
+                    continue
+                try:
+                    with open(os.path.join(metadata_dir, meta_file)) as f:
+                        meta = json.load(f)
+                    fp = meta.get("feature_path", "")
+                    stem = os.path.basename(fp).replace(".feature", "")
+                    if not stem:
+                        continue
+                    # Match if feature name appears in the parsed IR for this stem.
+                    ir_path = meta.get("ir_path", "")
+                    if feature_name and ir_path and os.path.isfile(ir_path):
+                        with open(ir_path) as f:
+                            parsed = json.load(f)
+                        if parsed.get("name", "") == feature_name:
+                            return stem
+                    elif stem and not feature_name:
+                        return stem
+                except Exception:
+                    pass
+
+    return "site-discovery"
 
 
 def main():

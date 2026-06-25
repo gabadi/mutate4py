@@ -1,3 +1,7 @@
+# acceptance-mutation-manifest-begin
+# {"version":1,"tested_at":"2026-06-25T04:40:57.574723Z","feature_name":"Mutation site discovery and the --scan count surface","feature_path":"features/site-discovery.feature","background_hash":"74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b","implementation_hash":"sha256:7d11c2780158ee167578924c3fe438ab5232fb807625a999b4a362e76ed04fdf","scenarios":[]}
+# acceptance-mutation-manifest-end
+
 Feature: Mutation site discovery and the --scan count surface
 
   # TRACKING: F1 (site-discovery) — docs/plan.md; docs/spec.md §3, §4, §8 (--scan);

@@ -6,6 +6,8 @@ import sys
 import tempfile
 import textwrap
 
+import pytest
+
 from mutate4py.__main__ import scan_report
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -134,3 +136,34 @@ def test_scan_report_total_equals_changed():
     total_line = next(line for line in lines if "Total mutation sites:" in line)
     changed_line = next(line for line in lines if "Changed mutation sites:" in line)
     assert total_line.split(": ")[1] == changed_line.split(": ")[1]
+
+
+# ── main() direct invocation (CRAP coverage) ──────────────────────────────────
+
+
+def test_main_scan_prints_output(tmp_path, capsys):
+    import mutate4py.__main__ as m
+    p = tmp_path / "s.py"
+    p.write_text("x = a + b\n")
+    sys.argv = ["mutate4py", str(p), "--scan"]
+    m.main()
+    out = capsys.readouterr().out
+    assert "Total mutation sites: 1" in out
+
+
+def test_main_missing_file_exits(tmp_path):
+    import mutate4py.__main__ as m
+    sys.argv = ["mutate4py", str(tmp_path / "nope.py"), "--scan"]
+    with pytest.raises(SystemExit) as exc:
+        m.main()
+    assert exc.value.code != 0
+
+
+def test_main_no_scan_flag_exits(tmp_path):
+    import mutate4py.__main__ as m
+    p = tmp_path / "s.py"
+    p.write_text("pass\n")
+    sys.argv = ["mutate4py", str(p)]
+    with pytest.raises(SystemExit) as exc:
+        m.main()
+    assert exc.value.code != 0
