@@ -1,10 +1,14 @@
 """Step handlers for features/site-discovery_qa.feature (end-to-end CLI tests)."""
 import os
-import subprocess
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
-from acceptance.steps.step_lib import make_registry
+from acceptance.steps.step_lib import (
+    assert_no_scan_block,
+    assert_nonzero_exit,
+    make_registry,
+    run_mutate4py,
+)
 
 STEP_HANDLERS, step, run_step = make_registry()
 
@@ -24,27 +28,12 @@ class QACtx:
 ctx = QACtx()
 
 
-def _run_cli(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["uv", "run", "mutate4py"] + list(args),
-        capture_output=True,
-        text=True,
-        cwd=_REPO_ROOT,
-    )
-
-
 # Background steps
 
 @step(r"the mutate4py command-line tool is installed")
 def given_cli_installed(m, params):
-    result = subprocess.run(
-        ["uv", "run", "mutate4py", "--help"],
-        capture_output=True,
-        text=True,
-        cwd=_REPO_ROOT,
-    )
+    run_mutate4py("--help")
     # --help may exit 0 or with usage; either way the tool exists
-    pass
 
 
 @step(r"a committed Python fixture whose header states its expected total sites")
@@ -69,7 +58,7 @@ def given_fixture_with_total(m, params):
 def when_scan_fixture(m, params):
     fixture = params.get("fixture") or ""
     path = os.path.join(_FIXTURES_DIR, fixture) if fixture else ctx.fixture_path
-    ctx.result = _run_cli(path, "--scan")
+    ctx.result = run_mutate4py(path, "--scan")
 
 
 @step(r"the command exits successfully")
@@ -128,7 +117,7 @@ def when_run_through_cli(m, params):
             args.append(os.path.join(_FIXTURES_DIR, p))
         else:
             args.append(p)
-    ctx.result = _run_cli(*args)
+    ctx.result = run_mutate4py(*args)
 
 
 @step(r"the fixture contents on disk match the recorded copy exactly")
@@ -149,7 +138,7 @@ def when_scan_with_warning(m, params):
     threshold = params.get("threshold") or m.group(2)
     path = os.path.join(_FIXTURES_DIR, fixture)
     ctx.fixture_path = path
-    ctx.result = _run_cli(path, "--scan", "--mutation-warning", threshold)
+    ctx.result = run_mutate4py(path, "--scan", "--mutation-warning", threshold)
 
 
 @step(r'the warning line shown is "(.*)"')
@@ -177,28 +166,24 @@ def when_scan_path(m, params):
     path = m.group(1)
     if not os.path.isabs(path):
         path = os.path.join(_FIXTURES_DIR, path)
-    ctx.result = _run_cli(path, "--scan")
+    ctx.result = run_mutate4py(path, "--scan")
 
 
 @step(r"the command exits with a non-zero status")
 def then_nonzero_exit(m, params):
-    assert ctx.result.returncode != 0, (
-        f"expected non-zero exit, got {ctx.result.returncode}"
-    )
+    assert_nonzero_exit(ctx.result)
 
 
 @step(r'no "Mutation scan:" line is printed')
 def then_no_scan_line(m, params):
-    assert "Mutation scan:" not in ctx.result.stdout, (
-        f"scan line unexpectedly in stdout:\n{ctx.result.stdout}"
-    )
+    assert_no_scan_block(ctx.result)
 
 
 @step(r'the command "mutate4py mixed_operators.py --scan" is run twice')
 def when_scan_twice(m, params):
     path = os.path.join(_FIXTURES_DIR, "mixed_operators.py")
-    ctx.result = _run_cli(path, "--scan")
-    ctx.result2 = _run_cli(path, "--scan")
+    ctx.result = run_mutate4py(path, "--scan")
+    ctx.result2 = run_mutate4py(path, "--scan")
 
 
 @step(r"both runs print the same scan block")

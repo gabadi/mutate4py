@@ -6,6 +6,16 @@ import subprocess
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
+def run_mutate4py(*args: str) -> subprocess.CompletedProcess:
+    """Run 'uv run mutate4py <args>' and return the CompletedProcess."""
+    return subprocess.run(
+        ["uv", "run", "mutate4py"] + list(args),
+        capture_output=True,
+        text=True,
+        cwd=_REPO_ROOT,
+    )
+
+
 class QAState:
     """Mutable state bag for QA step modules (report output + fixture paths)."""
     def __init__(self, source_path: str, lcov_path: str):
@@ -35,6 +45,16 @@ def run_cli(lcov_path: str, source_path: str, cli_available: bool) -> str:
         text=True,
     )
     return result.stdout
+
+
+def assert_nonzero_exit(result: subprocess.CompletedProcess, label: str = "exit") -> None:
+    assert result.returncode != 0, f"expected non-zero {label}, got {result.returncode}"
+
+
+def assert_no_scan_block(result: subprocess.CompletedProcess) -> None:
+    assert "Mutation scan:" not in result.stdout, (
+        f"scan block unexpectedly in stdout:\n{result.stdout}"
+    )
 
 
 def make_registry():

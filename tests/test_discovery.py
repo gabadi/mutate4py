@@ -77,23 +77,14 @@ def test_sites_sorted_by_line_col():
 # ── Function attribution ───────────────────────────────────────────────────────
 
 
-def test_top_level_def():
-    src = "def foo():\n    x = a + b\n"
+@pytest.mark.parametrize("src,expected_id", [
+    ("def foo():\n    x = a + b\n", "func/foo"),
+    ("async def foo():\n    x = a + b\n", "func/foo"),
+    ("class C:\n    def m(self):\n        x = a + b\n", "func/C.m"),
+])
+def test_basic_function_attribution(src, expected_id):
     sites = scan(src)
-    assert len(sites) == 1
-    assert sites[0].function_id == "func/foo"
-
-
-def test_async_def():
-    src = "async def foo():\n    x = a + b\n"
-    sites = scan(src)
-    assert sites[0].function_id == "func/foo"
-
-
-def test_method_in_class():
-    src = "class C:\n    def m(self):\n        x = a + b\n"
-    sites = scan(src)
-    assert sites[0].function_id == "func/C.m"
+    assert sites[0].function_id == expected_id
 
 
 def test_module_level_no_def():
@@ -102,21 +93,11 @@ def test_module_level_no_def():
     assert sites[0].function_id == ""
 
 
-def test_nested_def_folds_into_outer():
-    src = """\
-        def outer():
-            def inner():
-                x = a + b
-    """
-    sites = scan(src)
-    assert all(s.function_id == "func/outer" for s in sites)
-
-
-def test_lambda_folds_into_enclosing():
-    src = """\
-        def outer():
-            f = lambda: a + b
-    """
+@pytest.mark.parametrize("src", [
+    "def outer():\n    def inner():\n        x = a + b\n",
+    "def outer():\n    f = lambda: a + b\n",
+])
+def test_nested_constructs_fold_into_outer(src):
     sites = scan(src)
     assert all(s.function_id == "func/outer" for s in sites)
 
@@ -209,30 +190,20 @@ def test_sort_key_uses_col_not_function_id():
 
 
 # ── _format_function_id: outermost_idx boundary (> 0 guard) ──────────────────
+# These parametrize over the boundary cases to avoid structural duplication while
+# keeping all three outermost_idx branches covered.
 
-
-def test_top_level_method_attribution_at_idx_zero():
-    # Class at module root: ancestors = [Module, ClassDef, FunctionDef]
-    # outermost_idx = 2 (FunctionDef), ancestor[1] = ClassDef → method format.
-    # Also exercises outermost_idx > 0 with a real positive index.
-    src = "class C:\n    def m(self):\n        x = a + b\n"
+@pytest.mark.parametrize("src,expected_id", [
+    # outermost_idx = 2, ancestor[1] = ClassDef → method format (idx > 0 guard)
+    ("class C:\n    def m(self):\n        x = a + b\n", "func/C.m"),
+    # outermost_idx = 1, ancestors[0] = Module (not ClassDef) → func format
+    ("def foo():\n    x = a + b\n", "func/foo"),
+    # ancestors[1] = ClassDef, idx > 0 → method format (different class name)
+    ("class A:\n    def method(self):\n        return a + b\n", "func/A.method"),
+])
+def test_format_function_id_outermost_idx_boundary(src, expected_id):
     sites = scan(src)
-    assert sites[0].function_id == "func/C.m"
-
-
-def test_function_at_module_root_has_no_class_parent():
-    # Module → FunctionDef: outermost_idx = 1, ancestors[0] = Module (not ClassDef)
-    # Tests that the > 0 guard lets idx=1 look up ancestors[0] and find non-class.
-    src = "def foo():\n    x = a + b\n"
-    sites = scan(src)
-    assert sites[0].function_id == "func/foo"
-
-
-def test_outermost_idx_boundary_class_at_depth_one():
-    # Explicit check: function inside class at ancestors[1] = ClassDef, idx > 0 → class format.
-    src = "class A:\n    def method(self):\n        return a + b\n"
-    sites = scan(src)
-    assert sites[0].function_id == "func/A.method"
+    assert sites[0].function_id == expected_id
 
 
 # ── _classify: Compare with non-catalogue op emits no site ───────────────────

@@ -1,26 +1,21 @@
 """Step handlers for features/site-discovery.feature."""
 import os
-import subprocess
 import sys
 import tempfile
 import textwrap
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 from mutate4py._discovery import discover_sites
-from acceptance.steps.step_lib import make_registry
+from acceptance.steps.step_lib import (
+    assert_no_scan_block,
+    assert_nonzero_exit,
+    make_registry,
+    run_mutate4py,
+)
 
 STEP_HANDLERS, step, run_step = make_registry()
 
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-
-
-def _run_cli(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["uv", "run", "mutate4py"] + list(args),
-        capture_output=True,
-        text=True,
-        cwd=_REPO_ROOT,
-    )
 
 
 _CONSTRUCT_SOURCES = {
@@ -84,20 +79,20 @@ class Context:
 ctx = Context()
 
 
-@step(r'a Python file whose only mutable construct is "(.+)"')
-def given_mutable_construct(m, params):
-    construct = params.get("construct") or m.group(1)
+def _scan_construct(construct: str) -> None:
     src = _CONSTRUCT_SOURCES.get(construct, f"x = {construct}")
     ctx.sites = discover_sites(src)
     ctx.total = len(ctx.sites)
+
+
+@step(r'a Python file whose only mutable construct is "(.+)"')
+def given_mutable_construct(m, params):
+    _scan_construct(params.get("construct") or m.group(1))
 
 
 @step(r'a Python file whose only candidate construct is "(.+)"')
 def given_candidate_construct(m, params):
-    construct = params.get("construct") or m.group(1)
-    src = _CONSTRUCT_SOURCES.get(construct, f"x = {construct}")
-    ctx.sites = discover_sites(src)
-    ctx.total = len(ctx.sites)
+    _scan_construct(params.get("construct") or m.group(1))
 
 
 @step(r"the file is scanned")
@@ -184,7 +179,7 @@ def then_warning_line_is(m, params):
 
 @step(r'the command "mutate4py <file> --scan" is run')
 def when_cli_scan(m, params):
-    ctx.cli_result = _run_cli(ctx.source_path, "--scan")
+    ctx.cli_result = run_mutate4py(ctx.source_path, "--scan")
 
 
 @step(r'the output line "(.+)" is printed')
@@ -219,18 +214,14 @@ def given_missing_path(m, params):
 
 @step(r'the command "mutate4py <missing> --scan" is run')
 def when_cli_scan_missing(m, params):
-    ctx.cli_result = _run_cli(ctx.source_path, "--scan")
+    ctx.cli_result = run_mutate4py(ctx.source_path, "--scan")
 
 
 @step(r"the command exits with a usage error")
 def then_usage_error(m, params):
-    assert ctx.cli_result.returncode != 0, (
-        f"expected non-zero exit, got {ctx.cli_result.returncode}"
-    )
+    assert_nonzero_exit(ctx.cli_result, "usage error")
 
 
 @step(r"no mutation scan block is printed")
-def then_no_scan_block(m, params):
-    assert "Mutation scan:" not in ctx.cli_result.stdout, (
-        f"scan block in stdout:\n{ctx.cli_result.stdout}"
-    )
+def then_no_scan_block_main(m, params):
+    assert_no_scan_block(ctx.cli_result)
