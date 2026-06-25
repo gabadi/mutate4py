@@ -7,3 +7,21 @@
 swarmforge/scripts/
 tmp/
 .claude/skills/swarm-persona/
+
+# Python build / test / coverage artifacts
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.coverage
+coverage.lcov
+lcov.info
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+acceptance/parsed/
+acceptance/generated/
+
+# mutate4py crash-safety backup
+.mutate4py.bak
