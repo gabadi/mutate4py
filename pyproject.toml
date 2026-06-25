@@ -32,3 +32,10 @@ addopts = "--tb=short"
 [tool.coverage.run]
 source = ["mutate4py"]
 branch = true
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.15.18",
+]
