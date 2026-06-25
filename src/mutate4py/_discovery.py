@@ -17,10 +17,9 @@ _RELATIONAL_OPS = {ast.Gt, ast.GtE, ast.Lt, ast.LtE}
 _EQUALITY_OPS = {ast.Eq, ast.NotEq}
 _IDENTITY_OPS = {ast.Is, ast.IsNot}
 _MEMBERSHIP_OPS = {ast.In, ast.NotIn}
+_COMPARE_OPS = _RELATIONAL_OPS | _EQUALITY_OPS | _IDENTITY_OPS | _MEMBERSHIP_OPS
 
 _BOOL_OPS = {ast.And, ast.Or}
-
-_EXCLUDED_AUGASSIGN_OPS = {ast.Add, ast.Sub}
 
 
 def _enclosing_function_id(node: ast.AST, ancestors: list[ast.AST]) -> str:
@@ -30,7 +29,6 @@ def _enclosing_function_id(node: ast.AST, ancestors: list[ast.AST]) -> str:
     Method attribution uses the class of that outermost function.
     Returns empty string for module-level code.
     """
-    # Find the outermost (first) named function/async-def in ancestors
     outermost_fn = None
     outermost_idx = -1
     for i, ancestor in enumerate(ancestors):
@@ -42,11 +40,18 @@ def _enclosing_function_id(node: ast.AST, ancestors: list[ast.AST]) -> str:
     if outermost_fn is None:
         return ""
 
-    # Check if this outermost function is a method (parent is ClassDef)
     parent = ancestors[outermost_idx - 1] if outermost_idx > 0 else None
     if isinstance(parent, ast.ClassDef):
         return f"func/{parent.name}.{outermost_fn.name}"
     return f"func/{outermost_fn.name}"
+
+
+def _emit(
+    node: ast.AST,
+    ancestors: list[ast.AST],
+    sites: list[tuple[int, int, str]],
+) -> None:
+    sites.append((node.lineno, node.col_offset, _enclosing_function_id(node, ancestors)))  # type: ignore[attr-defined]
 
 
 def discover_sites(source: str) -> list[Site]:
@@ -65,50 +70,27 @@ def _walk(
     node: ast.AST, ancestors: list[ast.AST], sites: list[tuple[int, int, str]]
 ) -> None:
     if isinstance(node, ast.BinOp):
-        op = node.op
-        if type(op) in _ARITH_OPS:
-            sites.append(
-                (node.lineno, node.col_offset, _enclosing_function_id(node, ancestors))
-            )
+        if type(node.op) in _ARITH_OPS:
+            _emit(node, ancestors, sites)
         # / is excluded; * is catalogued (* → /)
 
     elif isinstance(node, ast.Compare):
-        for op in node.ops:
-            t = type(op)
-            if (
-                t in _RELATIONAL_OPS
-                or t in _EQUALITY_OPS
-                or t in _IDENTITY_OPS
-                or t in _MEMBERSHIP_OPS
-            ):
-                sites.append(
-                    (
-                        node.lineno,
-                        node.col_offset,
-                        _enclosing_function_id(node, ancestors),
-                    )
-                )
-                break  # one site per Compare node
+        if any(type(op) in _COMPARE_OPS for op in node.ops):
+            _emit(node, ancestors, sites)  # one site per Compare node
 
     elif isinstance(node, ast.BoolOp):
         if type(node.op) in _BOOL_OPS:
-            sites.append(
-                (node.lineno, node.col_offset, _enclosing_function_id(node, ancestors))
-            )
+            _emit(node, ancestors, sites)
 
     elif isinstance(node, ast.Constant):
         if node.value is True or node.value is False:
-            sites.append(
-                (node.lineno, node.col_offset, _enclosing_function_id(node, ancestors))
-            )
+            _emit(node, ancestors, sites)
         elif (
             isinstance(node.value, int)
             and not isinstance(node.value, bool)
             and node.value in (0, 1)
         ):
-            sites.append(
-                (node.lineno, node.col_offset, _enclosing_function_id(node, ancestors))
-            )
+            _emit(node, ancestors, sites)
 
     # AugAssign (+=, -=, etc.) is explicitly excluded — no site emitted
     # Unary ops excluded — no site emitted

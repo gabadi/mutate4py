@@ -8,6 +8,22 @@ from mutate4py._discovery import discover_sites
 DEFAULT_WARNING_THRESHOLD = 1000
 
 
+def scan_report(path: str, source: str, warning_threshold: int) -> tuple[list[str], bool]:
+    """Return (output_lines, exceeded_threshold) for a --scan run."""
+    sites = discover_sites(source)
+    total = len(sites)
+    lines = [
+        f"Mutation scan: {path}",
+        f"Total mutation sites: {total}",
+        f"Changed mutation sites: {total}",  # F1: no manifest, Changed == Total
+        "Manifest exists: false",
+    ]
+    exceeded = total > warning_threshold
+    if exceeded:
+        lines.append(f"Warning: {total} mutation sites exceeds threshold {warning_threshold}.")
+    return lines, exceeded
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="mutate4py",
@@ -33,19 +49,8 @@ def main() -> None:
         sys.exit(2)
 
     if args.scan:
-        sites = discover_sites(source)
-        total = len(sites)
-        changed = total  # F1: no manifest, Changed == Total
-
-        print(f"Mutation scan: {args.file}")
-        print(f"Total mutation sites: {total}")
-        print(f"Changed mutation sites: {changed}")
-        print("Manifest exists: false")
-
-        if total > args.warning_threshold:
-            print(
-                f"Warning: {total} mutation sites exceeds threshold {args.warning_threshold}."
-            )
+        lines, _ = scan_report(args.file, source, args.warning_threshold)
+        print("\n".join(lines))
     else:
         parser.print_help(file=sys.stderr)
         sys.exit(2)
