@@ -32,3 +32,15 @@ addopts = "--tb=short"
 [tool.coverage.run]
 source = ["mutate4py"]
 branch = true
+
+[tool.mutmut]
+source_paths = ["src/"]
+mutate_only_covered_lines = true
+
+[dependency-groups]
+dev = [
+    "mutmut>=3.6.0",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.15.18",
+]
