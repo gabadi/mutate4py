@@ -43,7 +43,8 @@ def main() -> None:
     args = parser.parse_args()
 
     try:
-        source = open(args.file).read()
+        with open(args.file) as f:
+            source = f.read()
     except (FileNotFoundError, PermissionError, IsADirectoryError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(2)
