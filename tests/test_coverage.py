@@ -19,16 +19,22 @@ def _site(line: int) -> Site:
     return Site(index=0, line=line, col=0, end_line=line, end_col=1, function_id="", orig_text="x", mutant_text="y", desc="x -> y")
 
 
-def test_parse_lcov_covered_line():
-    lcov = "SF:src/foo.py\nDA:5,3\nend_of_record\n"
-    result = parse_lcov(lcov, "src/foo.py")
-    assert 5 in result
+@pytest.mark.parametrize("lcov,sf", [
+    ("SF:src/foo.py\nDA:5,3\nend_of_record\n", "src/foo.py"),
+    ("SF:/abs/path/src/foo.py\nDA:5,1\nend_of_record\n", "src/foo.py"),
+    ("SF:foo.py\nDA:5,1\nend_of_record\n", "/abs/path/foo.py"),
+])
+def test_parse_lcov_line_5_covered(lcov, sf):
+    assert 5 in parse_lcov(lcov, sf)
 
 
-def test_parse_lcov_zero_count_is_uncovered():
-    lcov = "SF:src/foo.py\nDA:5,0\nend_of_record\n"
-    result = parse_lcov(lcov, "src/foo.py")
-    assert 5 not in result
+@pytest.mark.parametrize("lcov", [
+    "SF:src/foo.py\nDA:5,0\nend_of_record\n",
+    "SF:src/foo.py\nBRDA:5,0,0,1\nend_of_record\n",
+    "SF:/unrelated/other.py\nDA:5,1\nend_of_record\n",
+])
+def test_parse_lcov_line_5_not_covered(lcov):
+    assert 5 not in parse_lcov(lcov, "src/foo.py")
 
 
 def test_parse_lcov_absent_line_is_uncovered():
@@ -38,35 +44,11 @@ def test_parse_lcov_absent_line_is_uncovered():
     assert 3 in result
 
 
-def test_parse_lcov_brda_ignored():
-    lcov = "SF:src/foo.py\nBRDA:5,0,0,1\nend_of_record\n"
-    result = parse_lcov(lcov, "src/foo.py")
-    assert 5 not in result
-
-
 def test_parse_lcov_brda_does_not_mark_covered_when_no_da():
     lcov = "SF:src/foo.py\nBRDA:5,0,0,1\nDA:3,2\nend_of_record\n"
     result = parse_lcov(lcov, "src/foo.py")
     assert 5 not in result
     assert 3 in result
-
-
-def test_parse_lcov_suffix_match_absolute_sf():
-    lcov = "SF:/abs/path/src/foo.py\nDA:5,1\nend_of_record\n"
-    result = parse_lcov(lcov, "src/foo.py")
-    assert 5 in result
-
-
-def test_parse_lcov_suffix_match_relative_basename():
-    lcov = "SF:foo.py\nDA:5,1\nend_of_record\n"
-    result = parse_lcov(lcov, "/abs/path/foo.py")
-    assert 5 in result
-
-
-def test_parse_lcov_unrelated_sf_not_matched():
-    lcov = "SF:/unrelated/other.py\nDA:5,1\nend_of_record\n"
-    result = parse_lcov(lcov, "src/foo.py")
-    assert 5 not in result
 
 
 def test_parse_lcov_multiple_files_only_matching_counted():

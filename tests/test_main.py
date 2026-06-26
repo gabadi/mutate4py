@@ -746,13 +746,13 @@ def test_build_parser_lcov_dest_is_lcov():
     assert args.lcov == "/path/to/cov.info"
 
 
-def test_build_parser_lcov_default_is_none():
-    # mutmut_12: default=None omitted → argparse uses None anyway (equivalent)
-    # Verify default behavior: no --lcov flag → args.lcov is None
+def test_build_parser_defaults_no_flags():
+    # mutmut_12: default=None omitted; mutmut_18: --mutate-all default is False
     from mutate4py.__main__ import _build_parser
     parser = _build_parser()
     args = parser.parse_args(["somefile.py"])
     assert args.lcov is None
+    assert args.mutate_all is False
 
 
 def test_build_parser_mutate_all_flag_exists():
@@ -762,10 +762,3 @@ def test_build_parser_mutate_all_flag_exists():
     parser = _build_parser()
     args = parser.parse_args(["somefile.py", "--mutate-all"])
     assert args.mutate_all is True
-
-
-def test_build_parser_mutate_all_default_false():
-    from mutate4py.__main__ import _build_parser
-    parser = _build_parser()
-    args = parser.parse_args(["somefile.py"])
-    assert args.mutate_all is False
