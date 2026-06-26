@@ -179,6 +179,7 @@ def test_main_no_scan_flag_exits(tmp_path):
 
 def _mse():
     from mutate4py._manifest import manifests_structurally_equal
+
     return manifests_structurally_equal
 
 
@@ -217,10 +218,13 @@ def test_mse_ignores_tested_at():
     assert fn(a, b) is True
 
 
-@pytest.mark.parametrize("a,b", [
-    ({"module_hash": "h"}, {"module_hash": "h", "functions": []}),
-    ({"module_hash": "h", "functions": []}, {"module_hash": "h"}),
-])
+@pytest.mark.parametrize(
+    "a,b",
+    [
+        ({"module_hash": "h"}, {"module_hash": "h", "functions": []}),
+        ({"module_hash": "h", "functions": []}, {"module_hash": "h"}),
+    ],
+)
 def test_mse_missing_functions_key_treated_as_empty(a, b):
     fn = _mse()
     assert fn(a, b) is True

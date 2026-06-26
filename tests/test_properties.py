@@ -21,12 +21,14 @@ _BODY = st.text(
     max_size=200,
 ).filter(lambda s: "mutate4py-manifest-begin" not in s)
 
-_MANIFEST = st.fixed_dictionaries({
-    "version": st.just(1),
-    "tested_at": st.just("2026-01-01T00:00:00Z"),
-    "module_hash": st.text(min_size=1, max_size=64),
-    "functions": st.just([]),
-})
+_MANIFEST = st.fixed_dictionaries(
+    {
+        "version": st.just(1),
+        "tested_at": st.just("2026-01-01T00:00:00Z"),
+        "module_hash": st.text(min_size=1, max_size=64),
+        "functions": st.just([]),
+    }
+)
 
 
 @given(body=_BODY, manifest=_MANIFEST)
@@ -64,17 +66,23 @@ def test_embed_exactly_one_begin_marker(body, manifest):
 
 # ── manifests_structurally_equal ──────────────────────────────────────────────
 
-_FN_ENTRY = st.fixed_dictionaries({
-    "id": st.from_regex(r"func/[a-zA-Z_]\w*", fullmatch=True),
-    "hash": st.text(min_size=8, max_size=64),
-})
+_FN_ENTRY = st.fixed_dictionaries(
+    {
+        "id": st.from_regex(r"func/[a-zA-Z_]\w*", fullmatch=True),
+        "hash": st.text(min_size=8, max_size=64),
+    }
+)
 
-_MANIFEST_WITH_FNS = st.fixed_dictionaries({
-    "version": st.just(1),
-    "tested_at": st.just("2026-01-01T00:00:00Z"),
-    "module_hash": st.text(min_size=1, max_size=64),
-    "functions": st.lists(_FN_ENTRY, min_size=0, max_size=5, unique_by=lambda f: f["id"]),
-})
+_MANIFEST_WITH_FNS = st.fixed_dictionaries(
+    {
+        "version": st.just(1),
+        "tested_at": st.just("2026-01-01T00:00:00Z"),
+        "module_hash": st.text(min_size=1, max_size=64),
+        "functions": st.lists(
+            _FN_ENTRY, min_size=0, max_size=5, unique_by=lambda f: f["id"]
+        ),
+    }
+)
 
 
 @given(m=_MANIFEST_WITH_FNS)
@@ -85,12 +93,14 @@ def test_manifest_equal_to_itself(m):
 @given(m=_MANIFEST_WITH_FNS, tested_at=st.text(min_size=1, max_size=30))
 def test_manifest_equal_ignores_tested_at(m, tested_at):
     import copy
+
     m2 = copy.deepcopy(m)
     m2["tested_at"] = tested_at
     assert manifests_structurally_equal(m, m2)
 
 
 # ── diff_manifests ────────────────────────────────────────────────────────────
+
 
 @given(m=_MANIFEST_WITH_FNS)
 def test_diff_none_previous_returns_all_ids(m):
@@ -102,12 +112,14 @@ def test_diff_none_previous_returns_all_ids(m):
 @given(m=_MANIFEST_WITH_FNS)
 def test_diff_same_manifest_no_changes(m):
     import copy
+
     assert diff_manifests(m, copy.deepcopy(m)) == set()
 
 
 @given(m=_MANIFEST_WITH_FNS)
 def test_diff_result_subset_of_current_ids(m):
     import copy
+
     changed = diff_manifests(copy.deepcopy(m), m)
     current_ids = {fn["id"] for fn in m["functions"]}
     assert changed <= current_ids
@@ -115,13 +127,15 @@ def test_diff_result_subset_of_current_ids(m):
 
 # ── build_manifest + strip ────────────────────────────────────────────────────
 
-_SIMPLE_PY = st.sampled_from([
-    "x = 1\n",
-    "def foo():\n    return 1\n",
-    "def foo(a, b):\n    return a + b\n",
-    "class C:\n    def m(self):\n        pass\n",
-    "pass\n",
-])
+_SIMPLE_PY = st.sampled_from(
+    [
+        "x = 1\n",
+        "def foo():\n    return 1\n",
+        "def foo(a, b):\n    return a + b\n",
+        "class C:\n    def m(self):\n        pass\n",
+        "pass\n",
+    ]
+)
 
 
 @given(src=_SIMPLE_PY)

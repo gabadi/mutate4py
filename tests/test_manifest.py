@@ -202,7 +202,11 @@ def test_extract_valid_returns_manifest_true():
 
 def test_extract_is_inverse_of_embed():
     src = "def foo():\n    return 1\n"
-    m = _make_manifest(functions=[{"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "abc"}])
+    m = _make_manifest(
+        functions=[
+            {"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "abc"}
+        ]
+    )
     embedded = embed_manifest(src, m)
     result, ok = extract_manifest(embedded)
     assert ok is True
@@ -286,10 +290,13 @@ def test_build_manifest_hash_stable_across_whitespace_reformat():
     assert m1["functions"][0]["hash"] == m2["functions"][0]["hash"]
 
 
-@pytest.mark.parametrize("src1,src2", [
-    ("def foo(a, b):\n    return a + b\n", "def foo(a, b):\n    return a - b\n"),
-    ("def foo():\n    return 1\n", "def bar():\n    return 1\n"),
-])
+@pytest.mark.parametrize(
+    "src1,src2",
+    [
+        ("def foo(a, b):\n    return a + b\n", "def foo(a, b):\n    return a - b\n"),
+        ("def foo():\n    return 1\n", "def bar():\n    return 1\n"),
+    ],
+)
 def test_build_manifest_hash_changes_for_semantic_edit(src1, src2):
     m1 = build_manifest(src1, tested_at="2026-01-01T00:00:00Z")
     m2 = build_manifest(src2, tested_at="2026-01-01T00:00:00Z")
@@ -324,7 +331,13 @@ def test_build_manifest_nested_function_not_recorded():
 
 
 def _fn(id_: str, hash_: str) -> dict:
-    return {"id": id_, "name": id_.split("/")[-1], "line": 1, "end_line": 2, "hash": hash_}
+    return {
+        "id": id_,
+        "name": id_.split("/")[-1],
+        "line": 1,
+        "end_line": 2,
+        "hash": hash_,
+    }
 
 
 def test_diff_none_previous_returns_all_current_ids():

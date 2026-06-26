@@ -33,13 +33,7 @@ def embed_manifest(source: str, manifest: dict) -> str:
     """
     clean = strip_manifest(source).rstrip("\n")
     json_line = json.dumps(manifest, separators=(",", ":"))
-    return (
-        clean
-        + "\n\n"
-        + _BEGIN + "\n"
-        + "# " + json_line + "\n"
-        + _END + "\n"
-    )
+    return clean + "\n\n" + _BEGIN + "\n" + "# " + json_line + "\n" + _END + "\n"
 
 
 def _uncomment_line(line: str) -> str:
@@ -58,7 +52,7 @@ def _find_manifest_block(source: str) -> str | None:
     end_idx = source.find(_END)
     if begin_idx == -1 or end_idx == -1 or end_idx <= begin_idx:
         return None
-    return source[begin_idx + len(_BEGIN):end_idx]
+    return source[begin_idx + len(_BEGIN) : end_idx]
 
 
 def _parse_json_safe(text: str) -> tuple[dict | None, bool]:
@@ -127,13 +121,15 @@ def _extract_functions(tree: ast.Module) -> list[dict]:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             if not inside_fn:
                 fid = function_unit_id(node, parent)
-                results.append({
-                    "id": fid,
-                    "name": node.name,
-                    "line": node.lineno,
-                    "end_line": node.end_lineno,
-                    "hash": _sha256_ast(node),
-                })
+                results.append(
+                    {
+                        "id": fid,
+                        "name": node.name,
+                        "line": node.lineno,
+                        "end_line": node.end_lineno,
+                        "hash": _sha256_ast(node),
+                    }
+                )
             # children are inside a function now
             for child in ast.iter_child_nodes(node):
                 stack.append((child, node, True))

@@ -79,7 +79,9 @@ def main() -> None:
 def _do_update_manifest(path: str, source: str) -> None:
     existing, _ = extract_manifest(source)
     clean = strip_manifest(source)
-    tested_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    tested_at = datetime.datetime.now(datetime.timezone.utc).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
     candidate = build_manifest(clean, tested_at=tested_at)
 
     if existing is not None and manifests_structurally_equal(existing, candidate):
