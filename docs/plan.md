@@ -73,24 +73,46 @@ The analysis core, made observable through a thin CLI, on a green CI pipeline.
 
 ---
 
-## F2 — Manifest (embed / extract / diff)
-**Spec:** §5
+## F2 — Manifest (embed / extract / diff) (+ thin `--update-manifest` CLI)
+**Spec:** §5, plus the thin `--update-manifest` surface (§2 / §8 output string)
 **Slug:** `manifest`
 **Depends on:** F1 (function units, AST subtrees).
 
-**In scope**
+The manifest core, made observable through the one CLI mode that writes it —
+mirroring how F1 shipped the analysis core behind a thin `--scan`. Every feature
+stays user-facing and gets a real end-to-end `_qa.feature`.
+
+**In scope — manifest core**
 - Embed manifest in file footer between `# mutate4py-manifest-begin/-end` markers;
   strip-then-append rules (§5 [PORT] embed).
 - Extract: find markers, strip `# ` prefixes, JSON-parse (§5 [PORT] extract).
+- Function-unit records (new in F2; F1 exposed `Site.function_id` only): per unit
+  `id, name, line, end_line, hash`. Pin `line`/`end_line` semantics against §4's
+  unit definition during grilling (decorator/blank-line boundaries).
 - Hash = SHA-256 of `ast.dump()` of the unit's subtree ([PY] normalization).
 - `module_hash` = SHA-256 of `ast.dump()` of the manifest-stripped module.
-- Per-function records: `id, name, line, end_line, hash`; `version`, `tested_at`
-  (RFC3339), `module_hash`.
-- Diff current vs previous manifest → `changed` function IDs.
+- Top-level fields: `version`, `tested_at` (RFC3339), `module_hash`, `functions`.
+- Diff current vs previous manifest → `changed` function IDs (changed / new / removed).
 
-**Out of scope**
+**In scope — user-facing surface (so F2 is end-to-end testable)**
+- Thin `--update-manifest` mode: strip + re-embed the footer (no mutation run),
+  printing the §8 update string. **Idempotent under `ast.dump()` hashing** — when
+  the freshly-computed `functions` + `module_hash` equal the already-embedded
+  manifest, skip the write and the `tested_at` bump (`Manifest unchanged: <file>`);
+  otherwise rewrite and report `Updated manifest: <file>`. This is a deliberate
+  divergence from mutate4go's unconditional rewrite, justified by the §5 [PY] hash
+  divergence (`ast.dump()` is immune to reformat/comment edits) — record as an ADR
+  in grilling. Keeps the file and downstream PRs clean when nothing testable changed.
+- `features/manifest.feature` + `features/manifest_qa.feature` (QA drives the real
+  `--update-manifest` CLI; never a project API).
+
+**Out of scope (fog → later features)**
 - Does NOT decide which sites to mutate based on `changed` (that selection is F4).
 - Does NOT acquire coverage (F3).
+- Does NOT own the full flag matrix or mutual-exclusion validation (F5) — F2 ships
+  `--update-manifest`'s existence and output; F5 wires it into the validation matrix.
+- Does NOT touch `--scan`'s manifest interaction (`Changed`/`Manifest exists`) — that
+  wiring stays F5; F2's `--update-manifest` is the manifest-writing affordance.
 
 ---
 
@@ -141,16 +163,17 @@ The analysis core, made observable through a thin CLI, on a green CI pipeline.
 ---
 
 ## F5 — CLI surface & validation
-**Spec:** §2, plus §8 `--scan` / `--update-manifest` output
+**Spec:** §2, plus §8 `--scan` output and `--update-manifest` validation wiring
 **Slug:** `cli-surface`
 **Depends on:** F1–F4 (wires them behind flags).
 
 **In scope**
-- Flag parsing for the whole §2 table (F1 shipped only `<file>`/`--scan`/`--help`;
-  F5 adds the rest and the full validation matrix).
-- `--update-manifest` (rewrite footer only) mode and its §8 output string;
-  `--scan`'s full interaction with the manifest (`Changed`/`Manifest exists` once
-  F2 exists). The `--scan` skeleton itself is delivered in F1.
+- Flag parsing for the whole §2 table (F1 shipped only `<file>`/`--scan`/`--help`,
+  F2 added thin `--update-manifest`; F5 adds the rest and the full validation matrix).
+- `--scan`'s full interaction with the manifest (`Changed`/`Manifest exists` once
+  F2 exists). The `--scan` skeleton itself is delivered in F1; the thin
+  `--update-manifest` mode and its §8 output string are delivered in F2. F5 wires
+  both into validation/mutual-exclusion — it does not re-create their surface.
 - Mutual-exclusion rules ([PORT]): scan/update-manifest exclusive & incompatible
   with execution options; since-last-run/mutate-all/lines pairwise exclusive.
 - Numeric-flag validation (reject non-positive / non-integer).
