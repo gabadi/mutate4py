@@ -10,6 +10,7 @@ from mutate4py._manifest import (
     diff_manifests,
     embed_manifest,
     extract_manifest,
+    manifests_structurally_equal,
     strip_manifest,
 )
 
@@ -82,7 +83,7 @@ def _do_update_manifest(path: str, source: str) -> None:
     tested_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     candidate = build_manifest(clean, tested_at=tested_at)
 
-    if existing is not None and _manifests_structurally_equal(existing, candidate):
+    if existing is not None and manifests_structurally_equal(existing, candidate):
         print(f"Manifest unchanged: {path}")
         return
 
@@ -90,15 +91,6 @@ def _do_update_manifest(path: str, source: str) -> None:
     with open(path, "w") as f:
         f.write(embedded)
     print(f"Updated manifest: {path}")
-
-
-def _manifests_structurally_equal(a: dict, b: dict) -> bool:
-    """Compare module_hash and functions (id+hash), ignoring tested_at."""
-    if a.get("module_hash") != b.get("module_hash"):
-        return False
-    a_fns = {fn["id"]: fn["hash"] for fn in a.get("functions", [])}
-    b_fns = {fn["id"]: fn["hash"] for fn in b.get("functions", [])}
-    return a_fns == b_fns
 
 
 if __name__ == "__main__":

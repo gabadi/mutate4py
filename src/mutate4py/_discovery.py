@@ -3,6 +3,8 @@
 import ast
 import dataclasses
 
+from mutate4py._ids import function_unit_id
+
 
 @dataclasses.dataclass(frozen=True)
 class Site:
@@ -39,9 +41,7 @@ def _format_function_id(ancestors: list[ast.AST]) -> str:
         return ""
 
     parent = ancestors[outermost_idx - 1] if outermost_idx > 0 else None
-    if isinstance(parent, ast.ClassDef):
-        return f"func/{parent.name}.{outermost_fn.name}"
-    return f"func/{outermost_fn.name}"
+    return function_unit_id(outermost_fn, parent)
 
 
 def discover_sites(source: str) -> list[Site]:

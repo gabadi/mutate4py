@@ -178,8 +178,8 @@ def test_main_no_scan_flag_exits(tmp_path):
 
 
 def _mse():
-    from mutate4py.__main__ import _manifests_structurally_equal
-    return _manifests_structurally_equal
+    from mutate4py._manifest import manifests_structurally_equal
+    return manifests_structurally_equal
 
 
 def test_mse_equal_manifests():

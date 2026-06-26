@@ -4,6 +4,8 @@ import ast
 import hashlib
 import json
 
+from mutate4py._ids import function_unit_id
+
 _BEGIN = "# mutate4py-manifest-begin"
 _END = "# mutate4py-manifest-end"
 
@@ -83,10 +85,16 @@ def _sha256_ast(node: ast.AST) -> str:
     return hashlib.sha256(ast.dump(node).encode()).hexdigest()
 
 
-def _function_id(node: ast.FunctionDef | ast.AsyncFunctionDef, parent: ast.AST | None) -> str:
-    if isinstance(parent, ast.ClassDef):
-        return f"func/{parent.name}.{node.name}"
-    return f"func/{node.name}"
+def manifests_structurally_equal(a: dict, b: dict) -> bool:
+    """Return True if a and b have the same module_hash and function id→hash mapping.
+
+    Ignores tested_at.
+    """
+    if a.get("module_hash") != b.get("module_hash"):
+        return False
+    a_fns = {fn["id"]: fn["hash"] for fn in a.get("functions", [])}
+    b_fns = {fn["id"]: fn["hash"] for fn in b.get("functions", [])}
+    return a_fns == b_fns
 
 
 def build_manifest(source: str, *, tested_at: str) -> dict:
@@ -118,7 +126,7 @@ def _extract_functions(tree: ast.Module) -> list[dict]:
 
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             if not inside_fn:
-                fid = _function_id(node, parent)
+                fid = function_unit_id(node, parent)
                 results.append({
                     "id": fid,
                     "name": node.name,
