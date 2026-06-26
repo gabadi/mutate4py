@@ -13,3 +13,11 @@ Format: `<date> | <session-id> | <role> | <failure-class> | <verdict> | <one-lin
 2026-06-25 | ba459785 | hardender | missing-artifact | promoted→AGENTS.md | crap4py installed from local sibling ~/workspace/addi/crap4py (not PyPI or GitHub URL)
 2026-06-25 | ba459785 | hardender | missing-artifact | rejected→first-occurrence | gherkin-mutator --help not supported; read source to find --feature flag
 2026-06-25 | 4c684992 | QA | tool-error | rejected→first-occurrence | extract.py null-arc: QA session confirms pattern (5th role reporting same failure)
+2026-06-26 | ae4e1d02 | cleaner | convention-gap | promoted→AGENTS.md | uv run mutate4py is correct invocation; uvx breaks self-referential scanning
+2026-06-26 | 93e42778 | coder | convention-gap | promoted→.agents/roles/coder.md | dead-code guard: delete stale partial impl after extracting a helper, before running tests
+2026-06-26 | 93e42778 | coder | convention-gap | rejected→first-occurrence | Gherkin label "renaming the function" ambiguous (function vs parameter rename); specifier should clarify
+2026-06-26 | 86d7f06f | hardender | convention-gap | promoted→.agents/roles/hardender.md | merge_and_process means git merge + hardening sequence, not a script on PATH
+2026-06-26 | 86d7f06f | hardender | convention-gap | promoted→.agents/roles/hardender.md | mutmut 3.x uses --max-children not --max-workers
+2026-06-26 | ba459785 | hardender | missing-artifact | promoted→AGENTS.md | gherkin-mutator flags: --feature, --generated-dir required; no --help; defaults to features/a-feature.feature
+2026-06-26 | 48c13d25 | QA | convention-gap | promoted→AGENTS.md | manifest QA fixtures are committed inputs; all manifest QA steps must use writable-copy pattern
+2026-06-26 | 14e97446 | specifier | convention-gap | promoted→AGENTS.md | gherkin-parser requires two args: gherkin-parser <feature-file> <json-output>
