@@ -169,6 +169,14 @@ def _mutate_boolop(source: str, line_index: list[int], node: ast.BoolOp) -> tupl
     return orig, mutant
 
 
+def _mutate_int_constant(value: int) -> tuple[str, str] | None:
+    if value == 0:
+        return "0", "1"
+    if value == 1:
+        return "1", "0"
+    return None
+
+
 def _mutate_constant(node: ast.Constant) -> tuple[str, str] | None:
     """Return (orig_text, mutant_text) for a Constant mutation, or None."""
     if node.value is True:
@@ -176,10 +184,7 @@ def _mutate_constant(node: ast.Constant) -> tuple[str, str] | None:
     if node.value is False:
         return "False", "True"
     if isinstance(node.value, int) and not isinstance(node.value, bool):
-        if node.value == 0:
-            return "0", "1"
-        if node.value == 1:
-            return "1", "0"
+        return _mutate_int_constant(node.value)
     return None
 
 
@@ -250,6 +255,22 @@ def _is_mutable(node: ast.AST) -> bool:
     return False
 
 
+def _dispatch_mutation(
+    node: ast.AST,
+    source: str,
+    line_index: list[int],
+) -> tuple[str, str] | None:
+    if isinstance(node, ast.BinOp):
+        return _mutate_binop(source, line_index, node)
+    if isinstance(node, ast.Compare):
+        return _mutate_compare(source, line_index, node)
+    if isinstance(node, ast.BoolOp):
+        return _mutate_boolop(source, line_index, node)
+    if isinstance(node, ast.Constant):
+        return _mutate_constant(node)
+    return None
+
+
 def _classify(
     node: ast.AST,
     ancestors: list[ast.AST],
@@ -259,18 +280,10 @@ def _classify(
 ) -> None:
     if not _is_mutable(node):
         return
-    fid = _format_function_id(ancestors)
-    mutation: tuple[str, str] | None = None
-    if isinstance(node, ast.BinOp):
-        mutation = _mutate_binop(source, line_index, node)
-    elif isinstance(node, ast.Compare):
-        mutation = _mutate_compare(source, line_index, node)
-    elif isinstance(node, ast.BoolOp):
-        mutation = _mutate_boolop(source, line_index, node)
-    elif isinstance(node, ast.Constant):
-        mutation = _mutate_constant(node)
+    mutation = _dispatch_mutation(node, source, line_index)
     if mutation is None:
         return
+    fid = _format_function_id(ancestors)
     orig, mutant = mutation
     sites.append((
         node.lineno,  # type: ignore[attr-defined]

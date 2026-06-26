@@ -370,24 +370,6 @@ def test_run_scan_with_lcov(tmp_path, capsys):
     assert "Covered mutation sites:" in out
 
 
-def test_run_scan_coverage_error_exits(tmp_path):
-    import argparse
-    from mutate4py.__main__ import _run_scan
-
-    src_file = tmp_path / "foo.py"
-    src_file.write_text("x = a + b\n")
-    args = argparse.Namespace(
-        file=str(src_file),
-        warning_threshold=1000,
-        cov_cmd=None,
-        lcov=str(tmp_path / "missing.info"),
-        reuse_coverage=False,
-    )
-    with pytest.raises(SystemExit) as exc:
-        _run_scan(args, src_file.read_text(), str(tmp_path))
-    assert exc.value.code != 0
-
-
 # ── Mutant-killing gap tests ──────────────────────────────────────────────────
 
 
@@ -620,8 +602,9 @@ def test_run_scan_passes_cov_cmd_to_coverage(tmp_path, capsys):
     assert "Covered mutation sites:" in out
 
 
-def test_run_scan_passes_reuse_coverage_flag(tmp_path, capsys):
-    # mutmut_12: reuse_coverage=None vs args.reuse_coverage
+def test_run_scan_reuse_coverage_with_cwd(tmp_path, capsys):
+    # mutmut_12/13: reuse_coverage and cwd are passed through to acquire_coverage;
+    # coverage.lcov in cwd is found only when cwd is correct
     import argparse
     from mutate4py.__main__ import _run_scan
 
@@ -636,28 +619,6 @@ def test_run_scan_passes_reuse_coverage_flag(tmp_path, capsys):
         lcov=None,
         reuse_coverage=True,
     )
-    _run_scan(args, src_file.read_text(), str(tmp_path))
-    out = capsys.readouterr().out
-    assert "Covered mutation sites:" in out
-
-
-def test_run_scan_passes_cwd_for_coverage(tmp_path, capsys):
-    # mutmut_13: cwd=None vs cwd — None would break path resolution
-    import argparse
-    from mutate4py.__main__ import _run_scan
-
-    src_file = tmp_path / "foo.py"
-    src_file.write_text("x = a + b\n")
-    lcov_file = tmp_path / "coverage.lcov"
-    lcov_file.write_text(f"SF:{src_file}\nDA:1,1\nend_of_record\n")
-    args = argparse.Namespace(
-        file=str(src_file),
-        warning_threshold=1000,
-        cov_cmd=None,
-        lcov=None,
-        reuse_coverage=True,
-    )
-    # With correct cwd=tmp_path, coverage.lcov in tmp_path is found
     _run_scan(args, src_file.read_text(), str(tmp_path))
     out = capsys.readouterr().out
     assert "Covered mutation sites:" in out
@@ -748,3 +709,26 @@ def test_mutation_warning_threshold_comparison_is_numeric(tmp_path, capsys):
     m.main()  # must not raise TypeError; threshold=2, 1 site → no warning
     out = capsys.readouterr().out
     assert "Warning" not in out
+
+
+# ── _parse_lines ──────────────────────────────────────────────────────────────
+
+
+def test_parse_lines_none():
+    from mutate4py.__main__ import _parse_lines
+    assert _parse_lines(None) is None
+
+
+def test_parse_lines_single():
+    from mutate4py.__main__ import _parse_lines
+    assert _parse_lines("5") == {5}
+
+
+def test_parse_lines_multiple():
+    from mutate4py.__main__ import _parse_lines
+    assert _parse_lines("3,7,12") == {3, 7, 12}
+
+
+def test_parse_lines_with_spaces():
+    from mutate4py.__main__ import _parse_lines
+    assert _parse_lines(" 3 , 7 ") == {3, 7}

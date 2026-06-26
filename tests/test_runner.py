@@ -10,7 +10,7 @@ import pytest
 
 from mutate4py._discovery import Site, discover_sites
 from mutate4py._mutator import apply_mutant
-from mutate4py._runner import _run_command, _select_sites, run_mutations
+from mutate4py._runner import _print_uncovered_block, _run_command, _select_sites, run_mutations
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -469,3 +469,109 @@ def test_run_mutations_timeout_counts_as_killed(tmp_path):
     assert "timeout" in output
     assert "Killed: 1" in output  # timeout counts as killed
     assert "Survived: 0" in output
+
+
+# ── _print_uncovered_block ────────────────────────────────────────────────────
+
+
+def test_print_uncovered_block_with_uncovered(capsys):
+    sites = [
+        _make_site(0, 1, "func/f"),
+        _make_site(1, 2, "func/g"),
+    ]
+    covered_lines = {1}  # line 2 is uncovered
+    _print_uncovered_block(sites, covered_lines)
+    out = capsys.readouterr().out
+    assert "Uncovered mutations:" in out
+    assert "line 2" in out
+    assert "func/g" in out
+
+
+def test_print_uncovered_block_no_uncovered(capsys):
+    sites = [_make_site(0, 1, "func/f"), _make_site(1, 2, "func/g")]
+    covered_lines = {1, 2}
+    _print_uncovered_block(sites, covered_lines)
+    out = capsys.readouterr().out
+    assert out == ""
+
+
+def test_print_uncovered_block_no_function_id(capsys):
+    site = Site(index=0, line=5, col=0, end_line=5, end_col=3,
+                function_id="", orig_text=">", mutant_text=">=", desc="> -> >=")
+    _print_uncovered_block([site], set())
+    out = capsys.readouterr().out
+    assert "line 5" in out
+    assert "Uncovered mutations:" in out
+
+
+# ── run_mutations: warning threshold and CoverageError ───────────────────────
+
+
+def test_run_mutations_warning_threshold_exceeded(tmp_path):
+    src = "def f(a, b):\n    return a > b\n"
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+
+    sites = discover_sites(src)
+    lcov_path = str(tmp_path / "cov.lcov")
+    _write_lcov(lcov_path, src_path, [s.line for s in sites])
+
+    script_path = str(tmp_path / "test.sh")
+    _make_pass_script(script_path)
+
+    import io
+    from contextlib import redirect_stdout
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        rc = run_mutations(
+            path=src_path,
+            source=src,
+            cov_cmd=None,
+            lcov_path=lcov_path,
+            reuse_coverage=False,
+            test_command=f"sh {script_path}",
+            timeout_factor=10,
+            lines_filter=None,
+            since_last_run=False,
+            mutate_all=False,
+            warning_threshold=0,  # any sites exceed this
+            cwd=str(tmp_path),
+        )
+    output = buf.getvalue()
+    assert rc == 0
+    assert "Warning:" in output
+
+
+def test_run_mutations_coverage_error_returns_1(tmp_path, monkeypatch):
+    from mutate4py._coverage import CoverageError
+    import mutate4py._runner as runner_mod
+
+    src = "def f(a, b):\n    return a > b\n"
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+
+    monkeypatch.setattr(runner_mod, "acquire_coverage", lambda **_kw: (_ for _ in ()).throw(CoverageError("no coverage")))
+
+    import io
+    from contextlib import redirect_stdout
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        rc = run_mutations(
+            path=src_path,
+            source=src,
+            cov_cmd=None,
+            lcov_path=None,
+            reuse_coverage=False,
+            test_command="exit 0",
+            timeout_factor=10,
+            lines_filter=None,
+            since_last_run=False,
+            mutate_all=False,
+            warning_threshold=1000,
+            cwd=str(tmp_path),
+        )
+    output = buf.getvalue()
+    assert rc == 1
+    assert "error:" in output

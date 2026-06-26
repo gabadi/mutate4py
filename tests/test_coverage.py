@@ -229,16 +229,10 @@ def test_update_lcov_state_sf_absolute_path_suffix_match():
 
 
 def test_update_lcov_state_end_of_record_resets_to_false():
-    # end_of_record returns False, not in_matching_file
+    # end_of_record always returns False regardless of in_matching_file
     covered: set[int] = set()
-    result = _update_lcov_state("end_of_record", True, "foo.py", covered)
-    assert result is False
-
-
-def test_update_lcov_state_end_of_record_on_non_matching_stays_false():
-    covered: set[int] = set()
-    result = _update_lcov_state("end_of_record", False, "foo.py", covered)
-    assert result is False
+    assert _update_lcov_state("end_of_record", True, "foo.py", covered) is False
+    assert _update_lcov_state("end_of_record", False, "foo.py", covered) is False
 
 
 def test_parse_lcov_da_before_first_sf_not_collected():
@@ -285,23 +279,6 @@ def test_resolve_lcov_path_reuse_uses_cwd():
         cov_cmd=None, lcov_path=None, reuse=True, cwd="/some/dir"
     )
     assert result == "/some/dir/coverage.lcov"
-
-
-def test_acquire_coverage_reuse_true_not_falsy_none():
-    # mutmut_4: reuse=None passed to _resolve_lcov_path — None is falsy so reuse branch
-    # would be skipped, falling to os.path.join(cwd, DEFAULT_LCOV_PATH) anyway.
-    # Test that reuse=True (not None) actually uses the default path
-    with tempfile.TemporaryDirectory() as d:
-        src = os.path.join(d, "foo.py")
-        lcov = os.path.join(d, "coverage.lcov")
-        with open(src, "w") as f:
-            f.write("x = a + b\n")
-        with open(lcov, "w") as f:
-            f.write(f"SF:{src}\nDA:1,2\nend_of_record\n")
-        result = acquire_coverage(
-            cov_cmd=None, lcov_path=None, reuse=True, cwd=d, source_path=src
-        )
-        assert 1 in result
 
 
 def test_parse_lcov_initial_in_matching_file_is_false_not_none():
