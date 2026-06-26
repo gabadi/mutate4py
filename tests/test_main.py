@@ -732,3 +732,40 @@ def test_parse_lines_multiple():
 def test_parse_lines_with_spaces():
     from mutate4py.__main__ import _parse_lines
     assert _parse_lines(" 3 , 7 ") == {3, 7}
+
+
+# ── _build_parser: dest and flag-name mutants ─────────────────────────────────
+
+
+def test_build_parser_lcov_dest_is_lcov():
+    # mutmut_8: dest=None → --lcov value stored as None key (unreachable as args.lcov)
+    # mutmut_11: dest omitted → argparse derives "lcov" from "--lcov" (equivalent)
+    from mutate4py.__main__ import _build_parser
+    parser = _build_parser()
+    args = parser.parse_args(["somefile.py", "--lcov", "/path/to/cov.info"])
+    assert args.lcov == "/path/to/cov.info"
+
+
+def test_build_parser_lcov_default_is_none():
+    # mutmut_12: default=None omitted → argparse uses None anyway (equivalent)
+    # Verify default behavior: no --lcov flag → args.lcov is None
+    from mutate4py.__main__ import _build_parser
+    parser = _build_parser()
+    args = parser.parse_args(["somefile.py"])
+    assert args.lcov is None
+
+
+def test_build_parser_mutate_all_flag_exists():
+    # mutmut_18: "--mutate-all" → "--MUTATE-ALL" (different flag name)
+    # Correct: --mutate-all must be parseable and set mutate_all=True
+    from mutate4py.__main__ import _build_parser
+    parser = _build_parser()
+    args = parser.parse_args(["somefile.py", "--mutate-all"])
+    assert args.mutate_all is True
+
+
+def test_build_parser_mutate_all_default_false():
+    from mutate4py.__main__ import _build_parser
+    parser = _build_parser()
+    args = parser.parse_args(["somefile.py"])
+    assert args.mutate_all is False

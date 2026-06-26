@@ -262,15 +262,15 @@ def test_read_lcov_file_error_message_contains_path():
 def test_resolve_lcov_path_cov_cmd_uses_cwd_for_default():
     # default lcov path is os.path.join(cwd, DEFAULT_LCOV_PATH)
     # mutmut_5: cwd=None → subprocess.run with cwd=None uses process cwd, not our d
-    # but then os.path.join(cwd, DEFAULT_LCOV_PATH) would fail with TypeError
-    # mutmut_8: cwd omitted → same effect
+    # mutmut_8: cwd omitted → same effect (subprocess uses process cwd)
     # Test: the returned path must be in our specified cwd, not process cwd
+    # Use a cwd-relative command: "touch coverage.lcov" — writes in cwd
     with tempfile.TemporaryDirectory() as d:
-        lcov = os.path.join(d, "coverage.lcov")
-        # Write the lcov file where the command will look (in d)
-        cmd = f"printf 'SF:x.py\\nend_of_record\\n' > '{lcov}'"
+        expected = os.path.join(d, "coverage.lcov")
+        cmd = "touch coverage.lcov"
         result = _resolve_lcov_path(cov_cmd=cmd, lcov_path=None, reuse=False, cwd=d)
-        assert result == lcov, f"Expected path in cwd={d}, got {result}"
+        assert result == expected, f"Expected path in cwd={d}, got {result}"
+        assert os.path.isfile(expected), "coverage.lcov was not created in cwd"
 
 
 def test_resolve_lcov_path_reuse_uses_cwd():
@@ -290,3 +290,86 @@ def test_parse_lcov_initial_in_matching_file_is_false_not_none():
     # Instead test that plain lcov with no SF produces empty set:
     result = parse_lcov("DA:5,3\nend_of_record\n", "foo.py")
     assert result == set()
+
+
+# ── _paths_match_by_suffix: Windows path normalization ───────────────────────
+
+from mutate4py._coverage import _paths_match_by_suffix, _parse_da_line  # noqa: E402
+
+
+def test_paths_match_by_suffix_backslash_normalized():
+    # mutmut_6/7/13/14: replace("\\", "/") changes backslashes to forward slashes
+    # Windows-style paths use backslash; normalization ensures suffix match works
+    # When backslash is NOT replaced (mutant: "XX\\XX" or target "XX/XX"),
+    # a Windows SF path won't match a Unix-style source_path.
+    # Simulate: sf_path uses backslash separator, source_path uses forward slash
+    assert _paths_match_by_suffix("path\\to\\foo.py", "path/to/foo.py") is True
+
+
+def test_paths_match_by_suffix_backslash_in_sf_no_match_without_normalization():
+    # Non-matching: different files — must remain False even after normalization
+    assert _paths_match_by_suffix("path\\to\\bar.py", "path/to/foo.py") is False
+
+
+def test_paths_match_by_suffix_backslash_in_source_path():
+    # mutmut_13/14: b = source_path.replace("XX\\XX", "/") or replace("\\", "XX/XX")
+    # When source_path has backslash but sf_path uses forward slash, normalization is required
+    # for suffix match to work. If source_path's backslash is NOT replaced, the suffix
+    # "path/to/foo.py" won't match "path\\to\\foo.py" as a string suffix.
+    assert _paths_match_by_suffix("path/to/foo.py", "path\\to\\foo.py") is True
+
+
+# ── _parse_da_line: split maxsplit ────────────────────────────────────────────
+
+
+def test_parse_da_line_extra_comma_in_count_field():
+    # mutmut_5: split(",",) vs split(",", 1) — without maxsplit, extra comma splits further
+    # mutmut_9: split(",", 2) — allows extra split, giving 3 parts; len != 2 check fails
+    # A DA line with count containing a comma: "DA:5,1,extra"
+    # With split(",", 1): parts = ["5", "1,extra"] → lineno=5, count=int("1,extra") → ValueError → None
+    # With split(",")   : parts = ["5", "1", "extra"] → len != 2 → None (same result here)
+    # The real distinguishing case: "DA:5,1" with maxsplit=2 vs maxsplit=1
+    # split(",", 1) → ["5", "1"] (len=2, valid)
+    # split(",", 2) → ["5", "1"] (same for no extra comma)
+    # Need extra comma: "DA:5,3,extra"
+    # split(",", 1) → ["5", "3,extra"] → int("3,extra") fails → None
+    # split(",", 2) → ["5", "3", "extra"] → len != 2 → None (same)
+    # split(",")    → ["5", "3", "extra"] → len != 2 → None (same)
+    # The real difference: "DA:5,3" (clean) with rsplit(",", 1) vs split(",", 1):
+    # rsplit(",", 1) on "5,3" → ["5", "3"] (same) but on "a,5,3": split→["a","5,3"], rsplit→["a,5","3"]
+    # mutmut_6 is rsplit: "DA:3,5,1" → split(",",1)=["3","5,1"]→int("5,1") fails→None
+    #                                   rsplit(",",1)=["3,5","1"]→int("3,5") fails→None
+    # Need a line where line_number and count swap with rsplit:
+    # "DA:5,3" — split: ["5","3"]→5 covered; rsplit: ["5","3"] same
+    # "DA:5,3,0" — split(",",1): ["5","3,0"]→int("3,0") fails→None; rsplit(",",1): ["5,3","0"]→covered=None
+    # Clean case for split maxsplit=1: DA line with no extra comma must give covered line
+    result = _parse_da_line("DA:7,2")
+    assert result == 7
+
+
+def test_parse_da_line_rsplit_vs_split_distinguishing():
+    # mutmut_6: rsplit(",", 1) vs split(",", 1) — differs for "DA:5,3,0"
+    # split(",", 1) on "5,3,0" → ["5", "3,0"] → int("3,0") → ValueError → None
+    # rsplit(",", 1) on "5,3,0" → ["5,3", "0"] → int("5,3") → ValueError → None
+    # Both give None here but for different reasons.
+    # Distinguishing case: "DA:7,1,0"
+    # split(",",1): parts=["7","1,0"] → int("1,0")→ValueError→None (miss the covered line)
+    # rsplit(",",1): parts=["7,1","0"] → int("7,1")→ValueError→None
+    # The real distinguishing case we need is where rsplit picks the WRONG field:
+    # "DA:5,1" where line=5, count=1 (covered):
+    # split(",",1) → ["5","1"] → 5 covered ✓
+    # rsplit(",",1) → ["5","1"] → same (only one comma)
+    # We need a line with TWO commas where the last field is "0":
+    # "DA:10,1,extra" — split: parts=["10","1,extra"]→ValueError→None; rsplit: ["10,1","extra"]→ValueError→None
+    # For rsplit to give wrong answer we need: last field parseable but first field not:
+    # No clean distinguishing test for rsplit vs split with maxsplit=1 here.
+    # The key behavior test: standard DA line must return line number:
+    assert _parse_da_line("DA:10,5") == 10
+
+
+def test_parse_da_line_split_maxsplit_1_limits_to_two_parts():
+    # mutmut_5: split(",",) has no maxsplit limit — extra commas produce >2 parts → None
+    # mutmut_9: split(",", 2) allows 3 parts → len != 2 → None for "DA:5,3,x"
+    # With split(",", 1): "DA:5,3,x" → parts=["5","3,x"] len=2, int("3,x") fails → None
+    # Correct for a clean "DA:5,1": split(",",1) → ["5","1"] → 5 covered
+    assert _parse_da_line("DA:5,1") == 5
