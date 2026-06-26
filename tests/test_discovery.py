@@ -220,18 +220,10 @@ def test_format_function_id_outermost_idx_boundary(src, expected_id):
 
 
 def test_classify_compare_with_non_catalogue_op_emits_nothing():
-    # Construct a Compare node with a non-standard op to exercise the any() False branch.
-    # We use ast.Div as a stand-in (not a real Compare op, but satisfies the isinstance check).
-    node = ast.Compare(
-        left=ast.Name(id="a", ctx=ast.Load()),
-        ops=[ast.Div()],
-        comparators=[ast.Name(id="b", ctx=ast.Load())],
-    )
-    ast.fix_missing_locations(node)
-    node.lineno = 1
-    node.col_offset = 0
-    sites: list = []
-    _classify(node, [], sites)
+    # Use discover_sites to exercise the non-catalogue op branch end-to-end.
+    # ast.Div is not in _COMPARE_OPS so a Compare with only Div emits nothing.
+    sites = discover_sites("x = a // b\n")
+    # Floor division is not in catalogued operators
     assert sites == []
 
 
