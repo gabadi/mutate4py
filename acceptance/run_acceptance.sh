@@ -11,6 +11,7 @@ mkdir -p "$PARSED_DIR" "$GENERATED_DIR"
 
 declare -A STEPS_MAP
 STEPS_MAP[site-discovery]="site_discovery_steps"
+STEPS_MAP[manifest]="manifest_steps"
 
 declare -A QA_STEPS_MAP
 QA_STEPS_MAP[site-discovery_qa]="site_discovery_qa_steps"
