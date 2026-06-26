@@ -250,3 +250,124 @@ class C:
     fids = {s.function_id for s in sites}
     assert "func/standalone" in fids
     assert "func/C.meth" in fids
+
+
+# ── Mutant-killing gap tests ──────────────────────────────────────────────────
+
+from mutate4py._discovery import _format_function_id, _is_mutable
+
+
+def test_format_function_id_top_level_function_parent_is_none():
+    # mutmut_14: outermost_idx=0 → parent = None (not ancestors[-1])
+    # Top-level def: ancestors = [Module]; outermost_idx=0; parent = None → func/foo
+    tree = ast.parse("def foo():\n    x = a + b\n")
+    module = tree
+    fn_def = tree.body[0]
+    # ancestors for a site inside foo: [Module, FunctionDef]
+    result = _format_function_id([module, fn_def])
+    # outermost_fn = fn_def (idx=1 in ancestors), parent = ancestors[0] = Module
+    # Since Module is not ClassDef, result should be "func/foo"
+    assert result == "func/foo"
+
+
+def test_format_function_id_outermost_idx_zero_means_no_parent():
+    # outermost_idx=0 means ancestors[0] is the function itself
+    # parent = ancestors[outermost_idx - 1] if outermost_idx > 0 else None
+    # With [FunctionDef] as ancestors: outermost_idx=0, parent=None → func/foo
+    tree = ast.parse("def foo():\n    pass\n")
+    fn_def = tree.body[0]
+    result = _format_function_id([fn_def])
+    assert result == "func/foo"
+
+
+def test_format_function_id_method_in_class_outermost_idx_1():
+    # mutmut_15: ancestors = [Module, ClassDef, FunctionDef] for site inside method
+    # outermost_fn=FunctionDef, outermost_idx=2, parent=ancestors[1]=ClassDef → func/C.m
+    tree = ast.parse("class C:\n    def m(self):\n        x = a + b\n")
+    module = tree
+    class_def = tree.body[0]
+    fn_def = class_def.body[0]
+    result = _format_function_id([module, class_def, fn_def])
+    assert result == "func/C.m"
+
+
+def test_is_mutable_compare_in_operator():
+    # mutmut_3,4: Compare with In op → _is_mutable = True
+    node = ast.parse("a in b").body[0].value
+    assert _is_mutable(node) is True
+
+
+def test_is_mutable_compare_not_in_operator():
+    # mutmut_5,6: Compare with NotIn op → _is_mutable = True
+    node = ast.parse("a not in b").body[0].value
+    assert _is_mutable(node) is True
+
+
+def test_is_mutable_boolop_or():
+    # mutmut_7: BoolOp with Or → _is_mutable = True (isinstance check)
+    node = ast.parse("a or b").body[0].value
+    assert _is_mutable(node) is True
+
+
+def test_is_mutable_boolop_and():
+    node = ast.parse("a and b").body[0].value
+    assert _is_mutable(node) is True
+
+
+def test_is_mutable_non_arith_binop_returns_false():
+    # BinOp with Div → not in _ARITH_OPS → False
+    node = ast.parse("a / b").body[0].value
+    assert _is_mutable(node) is False
+
+
+def test_format_function_id_outermost_idx_sentinel_not_used_when_no_fn():
+    # mutmut_2,3,4: outermost_idx=-1/None/+1/-2 initial value
+    # If no FunctionDef in ancestors, outermost_fn stays None → return ""
+    # The initial outermost_idx value must not matter in this path
+    tree = ast.parse("x = 1\n")
+    module = tree
+    result = _format_function_id([module])
+    assert result == ""
+
+
+def test_format_function_id_outermost_idx_zero_parent_is_none_not_ancestors_minus_one():
+    # mutmut_14: >= 0 vs > 0
+    # outermost_idx=0 means ancestors[0] is the function (no parent before it)
+    # parent should be None, not ancestors[-1] which would be the function itself
+    # Test: single-element ancestor list with a function def → no class parent
+    tree = ast.parse("def foo():\n    pass\n")
+    fn_def = tree.body[0]
+    # ancestors=[fn_def], outermost_idx=0: parent = None → func/foo
+    result = _format_function_id([fn_def])
+    assert result == "func/foo"
+
+
+def test_format_function_id_outermost_idx_1_parent_is_module_not_class():
+    # mutmut_15: > 1 vs > 0
+    # outermost_idx=1 → parent = ancestors[0]
+    # If ancestors[0] is Module (not ClassDef), must still return "func/foo"
+    # With > 1: idx=1 would NOT enter the if, so parent=None → same result (equivalent for Module)
+    # With > 0: idx=1 DOES enter → parent=ancestors[0]=Module → function_unit_id handles it
+    # Actually both give "func/foo" because function_unit_id with Module parent → "func/foo"
+    # The real distinguishing case: ancestors=[Module, FunctionDef], outermost_idx=1
+    tree = ast.parse("def foo():\n    x = a + b\n")
+    module = tree
+    fn_def = tree.body[0]
+    result = _format_function_id([module, fn_def])
+    assert result == "func/foo"
+
+
+def test_discover_sites_sort_key_uses_line_and_col():
+    # mutmut_8: sort(key=None) vs sort(key=lambda x: (x[0], x[1]))
+    # Default tuple sort IS (x[0], x[1], x[2]) which includes function_id string.
+    # If two sites have same (line,col) but different function_id, default sort might reorder.
+    # More robustly: test that sites with same line are ordered by col, not by function_id.
+    from mutate4py._discovery import discover_sites
+    # Two different ops on same line: BinOp at different column offsets
+    src = "x = a + b; y = c > d\n"
+    sites = discover_sites(src)
+    assert len(sites) >= 2
+    same_line = [s for s in sites if s.line == 1]
+    if len(same_line) >= 2:
+        cols = [s.col for s in same_line]
+        assert cols == sorted(cols), f"Same-line sites not sorted by col: {cols}"
