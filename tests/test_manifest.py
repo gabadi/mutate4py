@@ -7,6 +7,9 @@ import textwrap
 import pytest
 
 from mutate4py._manifest import (
+    _find_manifest_block,
+    _parse_json_safe,
+    _uncomment_line,
     build_manifest,
     diff_manifests,
     embed_manifest,
@@ -105,6 +108,67 @@ def test_embed_exactly_one_begin_marker_after_re_embed():
     first = embed_manifest(src, m)
     second = embed_manifest(first, m)
     assert second.count("# mutate4py-manifest-begin") == 1
+
+
+# ── _find_manifest_block ──────────────────────────────────────────────────────
+
+
+def test_find_manifest_block_no_markers_returns_none():
+    assert _find_manifest_block("x = 1\n") is None
+
+
+def test_find_manifest_block_begin_only_returns_none():
+    assert _find_manifest_block("x = 1\n# mutate4py-manifest-begin\n") is None
+
+
+def test_find_manifest_block_end_before_begin_returns_none():
+    src = "# mutate4py-manifest-end\n# mutate4py-manifest-begin\n"
+    assert _find_manifest_block(src) is None
+
+
+def test_find_manifest_block_returns_between_markers():
+    src = "# mutate4py-manifest-begin\n# payload\n# mutate4py-manifest-end\n"
+    block = _find_manifest_block(src)
+    assert block is not None
+    assert "payload" in block
+
+
+# ── _parse_json_safe ──────────────────────────────────────────────────────────
+
+
+def test_parse_json_safe_valid():
+    result, ok = _parse_json_safe('{"a": 1}')
+    assert ok is True
+    assert result == {"a": 1}
+
+
+def test_parse_json_safe_invalid():
+    result, ok = _parse_json_safe("not-json")
+    assert ok is False
+    assert result is None
+
+
+# ── _uncomment_line ───────────────────────────────────────────────────────────
+
+
+def test_uncomment_line_empty_returns_empty():
+    assert _uncomment_line("") == ""
+
+
+def test_uncomment_line_whitespace_only_returns_empty():
+    assert _uncomment_line("   ") == ""
+
+
+def test_uncomment_line_hash_only_returns_empty():
+    assert _uncomment_line("#") == ""
+
+
+def test_uncomment_line_strips_hash_prefix():
+    assert _uncomment_line("# hello") == "hello"
+
+
+def test_uncomment_line_non_comment_returns_stripped():
+    assert _uncomment_line("  hello  ") == "hello"
 
 
 # ── extract_manifest ──────────────────────────────────────────────────────────
@@ -255,6 +319,14 @@ def test_build_manifest_module_hash_stable_for_comment_edit():
     m1 = build_manifest(src1, tested_at="2026-01-01T00:00:00Z")
     m2 = build_manifest(src2, tested_at="2026-01-01T00:00:00Z")
     assert m1["module_hash"] == m2["module_hash"]
+
+
+def test_build_manifest_nested_function_not_recorded():
+    src = "def outer():\n    def inner():\n        pass\n    return inner\n"
+    m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
+    ids = [fn["id"] for fn in m["functions"]]
+    assert "func/outer" in ids
+    assert "func/inner" not in ids
 
 
 # ── diff_manifests ────────────────────────────────────────────────────────────

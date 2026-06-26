@@ -40,34 +40,43 @@ def embed_manifest(source: str, manifest: dict) -> str:
     )
 
 
+def _uncomment_line(line: str) -> str:
+    """Strip leading whitespace and a single `#` prefix; return the payload or ''."""
+    stripped = line.strip()
+    if not stripped:
+        return ""
+    if stripped.startswith("#"):
+        stripped = stripped[1:].strip()
+    return stripped
+
+
+def _find_manifest_block(source: str) -> str | None:
+    """Return the text between the begin and end markers, or None if not found."""
+    begin_idx = source.find(_BEGIN)
+    end_idx = source.find(_END)
+    if begin_idx == -1 or end_idx == -1 or end_idx <= begin_idx:
+        return None
+    return source[begin_idx + len(_BEGIN):end_idx]
+
+
+def _parse_json_safe(text: str) -> tuple[dict | None, bool]:
+    try:
+        return json.loads(text), True
+    except (json.JSONDecodeError, ValueError):
+        return None, False
+
+
 def extract_manifest(source: str) -> tuple[dict | None, bool]:
     """Extract the manifest from source.
 
     Returns (manifest_dict, True) on success, (None, False) on missing markers
     or parse failure.
     """
-    begin_idx = source.find(_BEGIN)
-    end_idx = source.find(_END)
-    if begin_idx == -1 or end_idx == -1 or end_idx <= begin_idx:
+    block = _find_manifest_block(source)
+    if block is None:
         return None, False
-
-    block = source[begin_idx + len(_BEGIN):end_idx]
-    parts = []
-    for line in block.splitlines():
-        stripped = line.strip()
-        if not stripped:
-            continue
-        if stripped.startswith("#"):
-            stripped = stripped[1:].strip()
-        if stripped:
-            parts.append(stripped)
-
-    try:
-        manifest = json.loads(" ".join(parts))
-    except (json.JSONDecodeError, ValueError):
-        return None, False
-
-    return manifest, True
+    parts = [p for line in block.splitlines() if (p := _uncomment_line(line))]
+    return _parse_json_safe(" ".join(parts))
 
 
 def _sha256_ast(node: ast.AST) -> str:

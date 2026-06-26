@@ -172,3 +172,85 @@ def test_main_no_scan_flag_exits(tmp_path):
     with pytest.raises(SystemExit) as exc:
         m.main()
     assert exc.value.code != 0
+
+
+# ── _manifests_structurally_equal unit tests ──────────────────────────────────
+
+
+def _mse():
+    from mutate4py.__main__ import _manifests_structurally_equal
+    return _manifests_structurally_equal
+
+
+def test_mse_equal_manifests():
+    fn = _mse()
+    a = {"module_hash": "h1", "functions": [{"id": "func/foo", "hash": "fh1"}]}
+    b = {"module_hash": "h1", "functions": [{"id": "func/foo", "hash": "fh1"}]}
+    assert fn(a, b) is True
+
+
+def test_mse_different_module_hash():
+    fn = _mse()
+    a = {"module_hash": "h1", "functions": []}
+    b = {"module_hash": "h2", "functions": []}
+    assert fn(a, b) is False
+
+
+def test_mse_different_function_hash():
+    fn = _mse()
+    a = {"module_hash": "h", "functions": [{"id": "func/foo", "hash": "old"}]}
+    b = {"module_hash": "h", "functions": [{"id": "func/foo", "hash": "new"}]}
+    assert fn(a, b) is False
+
+
+def test_mse_different_function_set():
+    fn = _mse()
+    a = {"module_hash": "h", "functions": [{"id": "func/foo", "hash": "fh"}]}
+    b = {"module_hash": "h", "functions": [{"id": "func/bar", "hash": "fh"}]}
+    assert fn(a, b) is False
+
+
+def test_mse_ignores_tested_at():
+    fn = _mse()
+    a = {"module_hash": "h", "tested_at": "2026-01-01T00:00:00Z", "functions": []}
+    b = {"module_hash": "h", "tested_at": "2026-06-01T00:00:00Z", "functions": []}
+    assert fn(a, b) is True
+
+
+# ── _do_update_manifest unit tests ────────────────────────────────────────────
+
+
+def test_do_update_manifest_writes_footer(tmp_path, capsys):
+    from mutate4py.__main__ import _do_update_manifest
+
+    p = tmp_path / "s.py"
+    p.write_text("def foo():\n    return 1\n")
+    _do_update_manifest(str(p), p.read_text())
+    content = p.read_text()
+    assert "# mutate4py-manifest-begin" in content
+    assert "Updated manifest:" in capsys.readouterr().out
+
+
+def test_do_update_manifest_idempotent(tmp_path, capsys):
+    from mutate4py.__main__ import _do_update_manifest
+
+    p = tmp_path / "s.py"
+    p.write_text("def foo():\n    return 1\n")
+    _do_update_manifest(str(p), p.read_text())
+    first_content = p.read_text()
+    capsys.readouterr()  # clear
+    _do_update_manifest(str(p), first_content)
+    assert "Manifest unchanged:" in capsys.readouterr().out
+    assert p.read_text() == first_content
+
+
+def test_main_update_manifest_mode(tmp_path, capsys):
+    import mutate4py.__main__ as m
+
+    p = tmp_path / "s.py"
+    p.write_text("def foo():\n    return 1\n")
+    sys.argv = ["mutate4py", str(p), "--update-manifest"]
+    m.main()
+    out = capsys.readouterr().out
+    assert "manifest" in out.lower()
+    assert "# mutate4py-manifest-begin" in p.read_text()
