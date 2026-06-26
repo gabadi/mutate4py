@@ -26,3 +26,11 @@ Format: `<date> | <session-id> | <role> | <failure-class> | <verdict> | <one-lin
 2026-06-26 | b2aa029b | cleaner | convention-gap | promoted→AGENTS.md | coverage_helpers.py is testable module for acceptance step helper functions; tests in tests/test_coverage_helpers.py
 2026-06-26 | b2aa029b | cleaner | convention-gap | rejected→first-occurrence | agent-retro step 5: scan site list for per-pattern contributors before starting boundary-file mutation-site reduction
 2026-06-26 | c53799e5 | architect | tool-error | rejected→first-occurrence | fork agent stalled (600s) when dispatched for open-ended architectural review with large inherited context
+2026-06-26 | 0fe93f63 | coder | convention-gap | promoted→AGENTS.md | gherkin-parser must be called without rtk prefix; rtk breaks it
+2026-06-26 | 0fe93f63 | coder | convention-gap | promoted→AGENTS.md | generate_acceptance.py: pass just module_name, not acceptance.steps.module_name
+2026-06-26 | 0fe93f63 | coder | convention-gap | promoted→AGENTS.md | strip+modify+re-embed pattern: when modifying source with embedded manifest, strip first then re-embed
+2026-06-26 | bb18021c | architect | convention-gap | rejected→first-occurrence | apply_mutant must stay in _discovery.py alongside Site and line-index helpers; do not re-extract
+2026-06-26 | f72497fa | cleaner | convention-gap | promoted→AGENTS.md | mutate4py --scan accepts one file at a time; loop over files separately
+2026-06-26 | da863ce7 | hardender | convention-gap | promoted→.agents/roles/hardender.md | mutmut run takes mutant-name patterns, not file paths; use bare mutmut run to run all
+2026-06-26 | da863ce7 | hardender | convention-gap | promoted→AGENTS.md | runner_adapter.py must be executable (chmod +x) before gherkin-mutator can use it
+2026-06-26 | da863ce7 | hardender | convention-gap | promoted→.agents/references/equivalent-mutants.md | five equivalent mutant categories for this project (falsy None, argparse dest, help-text, single-comma DA, single-op compare)

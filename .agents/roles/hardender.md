@@ -11,3 +11,9 @@ mutmut 3.x uses `--max-children` (not `--max-workers`). Use `mutmut run --max-ch
 
 ## merge_and_process Directive
 `merge_and_process <role> <commit>` in a handoff payload is NOT a script on PATH. It means: run `git merge <commit>` in the hardender worktree, then execute the standard hardening sequence (unit → acceptance → property tests → mutmut → Gherkin mutation → CRAP → DRY).
+
+## mutmut CLI Syntax
+`mutmut run` takes mutant-name PATTERNS, not file paths. Use bare `mutmut run` to run all mutants. Use `mutmut run <pattern>` to run matching mutant names. Never pass a file path as the first positional argument.
+
+## Equivalent Mutant Categories (Python)
+See `.agents/references/equivalent-mutants.md` for recognized equivalent mutant patterns that do not need test coverage.
