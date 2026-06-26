@@ -15,6 +15,7 @@ STEPS_MAP[manifest]="manifest_steps"
 
 declare -A QA_STEPS_MAP
 QA_STEPS_MAP[site-discovery_qa]="site_discovery_qa_steps"
+QA_STEPS_MAP[manifest_qa]="manifest_qa_steps"
 
 FAILED=0
 PASSED=0

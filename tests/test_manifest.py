@@ -288,20 +288,13 @@ def test_build_manifest_hash_stable_across_whitespace_reformat():
     assert m1["functions"][0]["hash"] == m2["functions"][0]["hash"]
 
 
-def test_build_manifest_hash_changes_for_operator_change():
-    src1 = "def foo(a, b):\n    return a + b\n"
-    src2 = "def foo(a, b):\n    return a - b\n"
+@pytest.mark.parametrize("src1,src2", [
+    ("def foo(a, b):\n    return a + b\n", "def foo(a, b):\n    return a - b\n"),
+    ("def foo():\n    return 1\n", "def bar():\n    return 1\n"),
+])
+def test_build_manifest_hash_changes_for_semantic_edit(src1, src2):
     m1 = build_manifest(src1, tested_at="2026-01-01T00:00:00Z")
     m2 = build_manifest(src2, tested_at="2026-01-01T00:00:00Z")
-    assert m1["functions"][0]["hash"] != m2["functions"][0]["hash"]
-
-
-def test_build_manifest_hash_changes_for_rename():
-    src1 = "def foo():\n    return 1\n"
-    src2 = "def bar():\n    return 1\n"
-    m1 = build_manifest(src1, tested_at="2026-01-01T00:00:00Z")
-    m2 = build_manifest(src2, tested_at="2026-01-01T00:00:00Z")
-    # Different id, so comparing by id isn't meaningful; compare hash directly
     assert m1["functions"][0]["hash"] != m2["functions"][0]["hash"]
 
 

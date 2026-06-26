@@ -217,17 +217,12 @@ def test_mse_ignores_tested_at():
     assert fn(a, b) is True
 
 
-def test_mse_missing_functions_key_in_a_treated_as_empty():
+@pytest.mark.parametrize("a,b", [
+    ({"module_hash": "h"}, {"module_hash": "h", "functions": []}),
+    ({"module_hash": "h", "functions": []}, {"module_hash": "h"}),
+])
+def test_mse_missing_functions_key_treated_as_empty(a, b):
     fn = _mse()
-    a = {"module_hash": "h"}
-    b = {"module_hash": "h", "functions": []}
-    assert fn(a, b) is True
-
-
-def test_mse_missing_functions_key_in_b_treated_as_empty():
-    fn = _mse()
-    a = {"module_hash": "h", "functions": []}
-    b = {"module_hash": "h"}
     assert fn(a, b) is True
 
 
