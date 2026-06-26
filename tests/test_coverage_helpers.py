@@ -3,6 +3,8 @@
 import os
 import tempfile
 
+import pytest
+
 from acceptance.steps.coverage_helpers import (
     assert_cmd_ran_n_times,
     make_calc_source,
@@ -217,11 +219,8 @@ def test_assert_stdout_contains_passes():
 
 
 def test_assert_stdout_contains_fails():
-    try:
+    with pytest.raises(AssertionError):
         assert_stdout_contains(_FakeResult("something else"), "Total mutation sites: 5")
-        assert False
-    except AssertionError:
-        pass
 
 
 def test_assert_stdout_not_contains_passes():
@@ -229,13 +228,10 @@ def test_assert_stdout_not_contains_passes():
 
 
 def test_assert_stdout_not_contains_fails():
-    try:
+    with pytest.raises(AssertionError):
         assert_stdout_not_contains(
             _FakeResult("Covered mutation sites: 3"), "Covered mutation sites:"
         )
-        assert False
-    except AssertionError:
-        pass
 
 
 def test_assert_exit_zero_passes():
@@ -243,11 +239,8 @@ def test_assert_exit_zero_passes():
 
 
 def test_assert_exit_zero_fails():
-    try:
+    with pytest.raises(AssertionError):
         assert_exit_zero(_FakeResult("", returncode=1))
-        assert False
-    except AssertionError:
-        pass
 
 
 def test_assert_exit_nonzero_passes():
@@ -255,11 +248,8 @@ def test_assert_exit_nonzero_passes():
 
 
 def test_assert_exit_nonzero_fails():
-    try:
+    with pytest.raises(AssertionError):
         assert_exit_nonzero(_FakeResult("", returncode=0))
-        assert False
-    except AssertionError:
-        pass
 
 
 def test_assert_baseline_scan_passes():
@@ -267,11 +257,8 @@ def test_assert_baseline_scan_passes():
 
 
 def test_assert_baseline_scan_fails_wrong_count():
-    try:
+    with pytest.raises(AssertionError):
         assert_baseline_scan(_FakeResult("Total mutation sites: 5"), 3)
-        assert False
-    except AssertionError:
-        pass
 
 
 def test_make_lcov_da_zero():

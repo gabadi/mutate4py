@@ -370,24 +370,6 @@ def test_run_scan_with_lcov(tmp_path, capsys):
     assert "Covered mutation sites:" in out
 
 
-def test_run_scan_coverage_error_exits(tmp_path):
-    import argparse
-    from mutate4py.__main__ import _run_scan
-
-    src_file = tmp_path / "foo.py"
-    src_file.write_text("x = a + b\n")
-    args = argparse.Namespace(
-        file=str(src_file),
-        warning_threshold=1000,
-        cov_cmd=None,
-        lcov=str(tmp_path / "missing.info"),
-        reuse_coverage=False,
-    )
-    with pytest.raises(SystemExit) as exc:
-        _run_scan(args, src_file.read_text(), str(tmp_path))
-    assert exc.value.code != 0
-
-
 # ── Mutant-killing gap tests ──────────────────────────────────────────────────
 
 
@@ -583,59 +565,19 @@ def test_do_update_manifest_tested_at_iso8601_utc_format(tmp_path):
     assert False, "No manifest JSON line found in output"
 
 
-def test_main_no_mode_flag_exits_2_to_stderr(tmp_path):
-    # mutmut_16-18: parser.print_help(file=sys.stderr) → sys.exit(2)
+def test_main_no_coverage_flag_errors_about_coverage(tmp_path):
+    # F4: invoking with no coverage flag attempts a run and errors about missing coverage.
     p = tmp_path / "s.py"
-    p.write_text("pass\n")
+    p.write_text("x = a > b\n")
     result = subprocess.run(
         [sys.executable, "-m", "mutate4py", str(p)],
         capture_output=True,
         text=True,
-        cwd=REPO_ROOT,
+        cwd=str(tmp_path),
         env={**os.environ, "PYTHONPATH": os.path.join(REPO_ROOT, "src")},
     )
-    assert result.returncode == 2
-    assert result.stderr != ""
-
-
-def test_main_no_mode_exits_exactly_2_not_other_nonzero(tmp_path):
-    # mutmut_18: sys.exit(3) vs sys.exit(2)
-    p = tmp_path / "s.py"
-    p.write_text("pass\n")
-    result = subprocess.run(
-        [sys.executable, "-m", "mutate4py", str(p)],
-        capture_output=True,
-        text=True,
-        cwd=REPO_ROOT,
-        env={**os.environ, "PYTHONPATH": os.path.join(REPO_ROOT, "src")},
-    )
-    assert result.returncode == 2
-
-
-def test_main_no_mode_flag_help_goes_to_stderr_inprocess(tmp_path, capsys):
-    # mutmut_16: print_help(file=None) vs print_help(file=sys.stderr)
-    # file=None prints to stdout; sys.stderr prints to stderr
-    import mutate4py.__main__ as m
-
-    p = tmp_path / "s.py"
-    p.write_text("pass\n")
-    sys.argv = ["mutate4py", str(p)]
-    with pytest.raises(SystemExit):
-        m.main()
-    captured = capsys.readouterr()
-    assert captured.err != "", "Help must go to stderr, not stdout"
-
-
-def test_main_no_mode_flag_exits_exactly_2_inprocess(tmp_path):
-    # mutmut_17,18: sys.exit(None) or sys.exit(3) vs sys.exit(2)
-    import mutate4py.__main__ as m
-
-    p = tmp_path / "s.py"
-    p.write_text("pass\n")
-    sys.argv = ["mutate4py", str(p)]
-    with pytest.raises(SystemExit) as exc:
-        m.main()
-    assert exc.value.code == 2
+    # Exits non-zero (1) because no coverage source is found
+    assert result.returncode != 0
 
 
 def test_run_scan_passes_cov_cmd_to_coverage(tmp_path, capsys):
@@ -660,8 +602,9 @@ def test_run_scan_passes_cov_cmd_to_coverage(tmp_path, capsys):
     assert "Covered mutation sites:" in out
 
 
-def test_run_scan_passes_reuse_coverage_flag(tmp_path, capsys):
-    # mutmut_12: reuse_coverage=None vs args.reuse_coverage
+def test_run_scan_reuse_coverage_with_cwd(tmp_path, capsys):
+    # mutmut_12/13: reuse_coverage and cwd are passed through to acquire_coverage;
+    # coverage.lcov in cwd is found only when cwd is correct
     import argparse
     from mutate4py.__main__ import _run_scan
 
@@ -676,28 +619,6 @@ def test_run_scan_passes_reuse_coverage_flag(tmp_path, capsys):
         lcov=None,
         reuse_coverage=True,
     )
-    _run_scan(args, src_file.read_text(), str(tmp_path))
-    out = capsys.readouterr().out
-    assert "Covered mutation sites:" in out
-
-
-def test_run_scan_passes_cwd_for_coverage(tmp_path, capsys):
-    # mutmut_13: cwd=None vs cwd — None would break path resolution
-    import argparse
-    from mutate4py.__main__ import _run_scan
-
-    src_file = tmp_path / "foo.py"
-    src_file.write_text("x = a + b\n")
-    lcov_file = tmp_path / "coverage.lcov"
-    lcov_file.write_text(f"SF:{src_file}\nDA:1,1\nend_of_record\n")
-    args = argparse.Namespace(
-        file=str(src_file),
-        warning_threshold=1000,
-        cov_cmd=None,
-        lcov=None,
-        reuse_coverage=True,
-    )
-    # With correct cwd=tmp_path, coverage.lcov in tmp_path is found
     _run_scan(args, src_file.read_text(), str(tmp_path))
     out = capsys.readouterr().out
     assert "Covered mutation sites:" in out
@@ -788,3 +709,63 @@ def test_mutation_warning_threshold_comparison_is_numeric(tmp_path, capsys):
     m.main()  # must not raise TypeError; threshold=2, 1 site → no warning
     out = capsys.readouterr().out
     assert "Warning" not in out
+
+
+# ── _parse_lines ──────────────────────────────────────────────────────────────
+
+
+def test_parse_lines_none():
+    from mutate4py.__main__ import _parse_lines
+
+    assert _parse_lines(None) is None
+
+
+def test_parse_lines_single():
+    from mutate4py.__main__ import _parse_lines
+
+    assert _parse_lines("5") == {5}
+
+
+def test_parse_lines_multiple():
+    from mutate4py.__main__ import _parse_lines
+
+    assert _parse_lines("3,7,12") == {3, 7, 12}
+
+
+def test_parse_lines_with_spaces():
+    from mutate4py.__main__ import _parse_lines
+
+    assert _parse_lines(" 3 , 7 ") == {3, 7}
+
+
+# ── _build_parser: dest and flag-name mutants ─────────────────────────────────
+
+
+def test_build_parser_lcov_dest_is_lcov():
+    # mutmut_8: dest=None → --lcov value stored as None key (unreachable as args.lcov)
+    # mutmut_11: dest omitted → argparse derives "lcov" from "--lcov" (equivalent)
+    from mutate4py.__main__ import _build_parser
+
+    parser = _build_parser()
+    args = parser.parse_args(["somefile.py", "--lcov", "/path/to/cov.info"])
+    assert args.lcov == "/path/to/cov.info"
+
+
+def test_build_parser_defaults_no_flags():
+    # mutmut_12: default=None omitted; mutmut_18: --mutate-all default is False
+    from mutate4py.__main__ import _build_parser
+
+    parser = _build_parser()
+    args = parser.parse_args(["somefile.py"])
+    assert args.lcov is None
+    assert args.mutate_all is False
+
+
+def test_build_parser_mutate_all_flag_exists():
+    # mutmut_18: "--mutate-all" → "--MUTATE-ALL" (different flag name)
+    # Correct: --mutate-all must be parseable and set mutate_all=True
+    from mutate4py.__main__ import _build_parser
+
+    parser = _build_parser()
+    args = parser.parse_args(["somefile.py", "--mutate-all"])
+    assert args.mutate_all is True

@@ -170,7 +170,20 @@ _COVERED_LINES = st.frozensets(st.integers(min_value=1, max_value=100))
 
 
 def _sites_from_lines(lines: list[int]) -> list[Site]:
-    return [Site(index=i, line=ln, col=0, function_id="") for i, ln in enumerate(lines)]
+    return [
+        Site(
+            index=i,
+            line=ln,
+            col=0,
+            end_line=ln,
+            end_col=1,
+            function_id="",
+            orig_text="x",
+            mutant_text="y",
+            desc="x -> y",
+        )
+        for i, ln in enumerate(lines)
+    ]
 
 
 @given(lines=_SITE_LINES, covered=_COVERED_LINES)

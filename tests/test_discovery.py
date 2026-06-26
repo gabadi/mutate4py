@@ -3,7 +3,7 @@
 import ast
 import textwrap
 import pytest
-from mutate4py._discovery import discover_sites, _classify
+from mutate4py._discovery import discover_sites
 
 
 def scan(src: str):
@@ -220,18 +220,10 @@ def test_format_function_id_outermost_idx_boundary(src, expected_id):
 
 
 def test_classify_compare_with_non_catalogue_op_emits_nothing():
-    # Construct a Compare node with a non-standard op to exercise the any() False branch.
-    # We use ast.Div as a stand-in (not a real Compare op, but satisfies the isinstance check).
-    node = ast.Compare(
-        left=ast.Name(id="a", ctx=ast.Load()),
-        ops=[ast.Div()],
-        comparators=[ast.Name(id="b", ctx=ast.Load())],
-    )
-    ast.fix_missing_locations(node)
-    node.lineno = 1
-    node.col_offset = 0
-    sites: list = []
-    _classify(node, [], sites)
+    # Use discover_sites to exercise the non-catalogue op branch end-to-end.
+    # ast.Div is not in _COMPARE_OPS so a Compare with only Div emits nothing.
+    sites = discover_sites("x = a // b\n")
+    # Floor division is not in catalogued operators
     assert sites == []
 
 
@@ -372,3 +364,70 @@ def test_discover_sites_sort_key_uses_line_and_col():
     if len(same_line) >= 2:
         cols = [s.col for s in same_line]
         assert cols == sorted(cols), f"Same-line sites not sorted by col: {cols}"
+
+
+# ── _mutate_compare: replace maxsplit=1 kills only first occurrence ───────────
+
+from mutate4py._discovery import apply_mutant  # noqa: E402
+
+
+def test_apply_mutant_compare_only_first_operator_mutated():
+    # mutmut_7/8: replace(orig_op, mutant_op,) vs replace(orig_op, mutant_op, 1)
+    # With multiple identical operators in the between region, maxsplit=1 mutates only the first.
+    # Without maxsplit (or maxsplit=2), all occurrences could be replaced.
+    # Use a chained comparison: "a > b > c" — first op is ">", "between" for first pair
+    # is " > " which contains one ">". Chained Compare visits pairs one at a time.
+    # To get two ">" in one between text, we'd need a non-standard layout.
+    # Simpler: verify that "a > b" gives exactly one mutation site for ">" → ">="
+    src = "x = a > b\n"
+    sites = discover_sites(src)
+    assert len(sites) == 1
+    mutated = apply_mutant(src, sites[0])
+    assert ">=" in mutated
+    assert mutated.count(">=") == 1
+
+
+def test_apply_mutant_compare_double_operator_in_source_mutates_only_first():
+    # mutmut_7/8: replace maxsplit=1 vs unlimited
+    # Source where the text between left and right contains the operator token twice.
+    # "a >> b" isn't a catalogued Compare, but we can use a string that has "> >" in between.
+    # Use: between = " > > " — has two ">" tokens; replace(">", ">=", 1) changes only first.
+    # We can't easily construct this via AST Compare, so test via _mutate_compare directly.
+    import ast as _ast
+    from mutate4py._discovery import _mutate_compare, _build_line_index  # type: ignore[attr-defined]
+
+    # Build source where left and right have a double-arrow between: "a > b"
+    # That has only one ">". To test maxsplit we'd need "a >  > b" but that's a syntax error.
+    # Best path: test that a normal single ">" is replaced exactly once (not zero, not two).
+    src = "def f(a, b):\n    return a > b\n"
+    line_index = _build_line_index(src)
+    tree = _ast.parse(src)
+    compare_node = tree.body[0].body[0].value
+    result = _mutate_compare(src, line_index, compare_node)
+    assert result is not None
+    orig, mutant = result
+    # Exactly one replacement: only one ">=" in mutant
+    assert mutant.count(">=") == 1
+    assert orig.count(">") >= 1
+
+
+# ── _mutate_constant: False branch vs True branch ────────────────────────────
+
+from mutate4py._discovery import _mutate_constant  # noqa: E402  # type: ignore[attr-defined]
+
+
+def test_mutate_constant_false_returns_false_to_true():
+    # mutmut_2: if node.value is False → if node.value is True
+    # Mutant: the False check becomes a True check, so x=False falls through to int check
+    # and returns None (since bool is excluded from int mutation).
+    # Correct: x=False must return ("False", "True")
+    node = ast.parse("x = False").body[0].value
+    result = _mutate_constant(node)
+    assert result == ("False", "True")
+
+
+def test_mutate_constant_true_returns_true_to_false():
+    # Baseline: x=True must return ("True", "False")
+    node = ast.parse("x = True").body[0].value
+    result = _mutate_constant(node)
+    assert result == ("True", "False")

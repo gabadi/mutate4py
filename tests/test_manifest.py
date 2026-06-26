@@ -549,3 +549,77 @@ def test_extract_manifest_space_join_matters():
     result, ok = extract_manifest(src)
     assert ok is True
     assert result == {"a": 1}
+
+
+def test_extract_manifest_multiline_json_space_join():
+    # mutmut_9: join separator matters when JSON is split across multiple comment lines.
+    # Build a manifest where the JSON object spans two comment lines:
+    # "# {\"version\":" on one line and "# 1}" on the next.
+    # " ".join gives '{"version": 1}' (valid); "XX XX".join gives '{"version":XX XX1}' (invalid).
+    src = (
+        "x = 1\n"
+        "# mutate4py-manifest-begin\n"
+        '# {"version":\n'
+        "# 1}\n"
+        "# mutate4py-manifest-end\n"
+    )
+    result, ok = extract_manifest(src)
+    assert ok is True
+    assert result == {"version": 1}
+
+
+def test_strip_manifest_find_vs_rfind_double_begin():
+    # mutmut_3: find vs rfind for strip_manifest
+    # With two begin markers, find returns the first (correct: strip from earliest marker).
+    # rfind returns the second, leaving the first marker in the body.
+    src = (
+        "x = 1\n"
+        "# mutate4py-manifest-begin\n"
+        "# old stuff\n"
+        "# mutate4py-manifest-end\n"
+        "# mutate4py-manifest-begin\n"
+        "# {}\n"
+        "# mutate4py-manifest-end\n"
+    )
+    result = strip_manifest(src)
+    assert "# mutate4py-manifest-begin" not in result
+
+
+def test_find_manifest_block_find_vs_rfind_double_markers():
+    # mutmut_3 (_find_manifest_block): find vs rfind for begin marker
+    # mutmut_6 (_find_manifest_block): find vs rfind for end marker
+    # With two begin markers, find returns the first begin; rfind returns the second.
+    # With two end markers, find returns the first end; rfind returns the last.
+    # We want the canonical block (first begin to first end after it).
+    # Test: source with content before the final begin+end block — find should locate correct block.
+    src = (
+        "# mutate4py-manifest-begin\n"
+        "# {}\n"
+        "# mutate4py-manifest-end\n"
+        "# mutate4py-manifest-begin\n"
+        '# {"version": 1}\n'
+        "# mutate4py-manifest-end\n"
+    )
+    block = _find_manifest_block(src)
+    # find returns first begin, first end → block is the first one: # {}
+    assert block is not None
+    assert "{}" in block
+
+
+def test_find_manifest_block_rfind_end_includes_too_much():
+    # mutmut_6: rfind for end marker returns the LAST end marker position.
+    # With two end markers, rfind would extend the block past the first end,
+    # including content between the two end markers.
+    # Verify: the block must NOT include content after the first end marker.
+    src = (
+        "# mutate4py-manifest-begin\n"
+        '# {"a": 1}\n'
+        "# mutate4py-manifest-end\n"
+        "# ONLY_IN_SECOND_BLOCK\n"
+        "# mutate4py-manifest-end\n"
+    )
+    block = _find_manifest_block(src)
+    # Correct (find for end): block = '\n# {"a": 1}\n' — does NOT contain ONLY_IN_SECOND_BLOCK
+    # Mutant (rfind for end): block extends to last end marker, includes ONLY_IN_SECOND_BLOCK
+    assert block is not None
+    assert "ONLY_IN_SECOND_BLOCK" not in block
