@@ -1,9 +1,7 @@
-"""LCOV coverage acquisition and line-gate partitioning for mutate4py."""
+"""LCOV coverage acquisition for mutate4py."""
 
 import os
 import subprocess
-
-from mutate4py._discovery import Site
 
 DEFAULT_LCOV_PATH = "coverage.lcov"
 
@@ -64,12 +62,6 @@ def parse_lcov(lcov_text: str, source_path: str) -> set[int]:
             raw_line.strip(), in_matching_file, source_path, covered
         )
     return covered
-
-
-def partition_sites(sites: list[Site], covered_lines: set[int]) -> tuple[int, int]:
-    """Return (covered_count, uncovered_count) for the given sites."""
-    covered = sum(1 for s in sites if s.line in covered_lines)
-    return covered, len(sites) - covered
 
 
 def _read_lcov_file(path: str, source_path: str) -> set[int]:

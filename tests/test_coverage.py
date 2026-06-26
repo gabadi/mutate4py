@@ -8,8 +8,8 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from mutate4py._coverage import CoverageError, acquire_coverage, parse_lcov, partition_sites
-from mutate4py._discovery import Site
+from mutate4py._coverage import CoverageError, acquire_coverage, parse_lcov
+from mutate4py._discovery import Site, partition_sites
 
 
 # ── parse_lcov ────────────────────────────────────────────────────────────────

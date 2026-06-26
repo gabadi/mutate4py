@@ -5,8 +5,8 @@ import datetime
 import os
 import sys
 
-from mutate4py._coverage import CoverageError, acquire_coverage, partition_sites
-from mutate4py._discovery import discover_sites
+from mutate4py._coverage import CoverageError, acquire_coverage
+from mutate4py._discovery import discover_sites, partition_sites
 from mutate4py._manifest import (
     build_manifest,
     embed_manifest,

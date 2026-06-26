@@ -44,6 +44,12 @@ def _format_function_id(ancestors: list[ast.AST]) -> str:
     return function_unit_id(outermost_fn, parent)
 
 
+def partition_sites(sites: list[Site], covered_lines: set[int]) -> tuple[int, int]:
+    """Return (covered_count, uncovered_count) for the given sites."""
+    covered = sum(1 for s in sites if s.line in covered_lines)
+    return covered, len(sites) - covered
+
+
 def discover_sites(source: str) -> list[Site]:
     """Parse source and return all mutation sites, sorted by (line, col)."""
     tree = ast.parse(source)
