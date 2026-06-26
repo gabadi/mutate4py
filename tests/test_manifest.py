@@ -1,0 +1,378 @@
+"""Unit tests for manifest embed/extract/diff (F2)."""
+
+import ast
+import hashlib
+import json
+import pytest
+
+from mutate4py._manifest import (
+    _find_manifest_block,
+    _parse_json_safe,
+    _uncomment_line,
+    build_manifest,
+    diff_manifests,
+    embed_manifest,
+    extract_manifest,
+    strip_manifest,
+)
+
+
+# ── Helpers ────────────────────────────────────────────────────────────────────
+
+
+def _hash(src: str) -> str:
+    return hashlib.sha256(ast.dump(ast.parse(src)).encode()).hexdigest()
+
+
+def _make_manifest(**overrides) -> dict:
+    base = {
+        "version": 1,
+        "tested_at": "2026-01-01T00:00:00Z",
+        "module_hash": "abc123",
+        "functions": [],
+    }
+    base.update(overrides)
+    return base
+
+
+# ── strip_manifest ────────────────────────────────────────────────────────────
+
+
+def test_strip_no_marker_returns_source_unchanged():
+    src = "x = 1\n"
+    assert strip_manifest(src) == src
+
+
+def test_strip_removes_footer():
+    src = "x = 1\n"
+    marker = "# mutate4py-manifest-begin\n# {}\n# mutate4py-manifest-end\n"
+    embedded = src.rstrip("\n") + "\n\n" + marker
+    assert strip_manifest(embedded) == "x = 1\n"
+
+
+def test_strip_leaves_trailing_single_newline():
+    marker = "# mutate4py-manifest-begin\n# {}\n# mutate4py-manifest-end\n"
+    embedded = "x = 1\n\n" + marker
+    stripped = strip_manifest(embedded)
+    assert stripped == "x = 1\n"
+
+
+# ── embed_manifest ────────────────────────────────────────────────────────────
+
+
+def test_embed_appends_begin_end_markers():
+    src = "x = 1\n"
+    m = _make_manifest()
+    result = embed_manifest(src, m)
+    assert "# mutate4py-manifest-begin\n" in result
+    assert "# mutate4py-manifest-end\n" in result
+
+
+def test_embed_json_line_starts_with_hash_space():
+    src = "x = 1\n"
+    m = _make_manifest()
+    result = embed_manifest(src, m)
+    lines = result.splitlines()
+    begin_idx = lines.index("# mutate4py-manifest-begin")
+    json_line = lines[begin_idx + 1]
+    assert json_line.startswith("# ")
+    json.loads(json_line[2:])  # must parse
+
+
+def test_embed_body_above_footer_is_trimmed_original():
+    src = "x = 1\n\n\n"
+    m = _make_manifest()
+    result = embed_manifest(src, m)
+    begin_idx = result.index("# mutate4py-manifest-begin")
+    body = result[:begin_idx]
+    assert body == "x = 1\n\n"
+
+
+def test_embed_strip_then_re_embed_is_idempotent_body():
+    src = "def foo():\n    return 1\n"
+    m = _make_manifest()
+    first = embed_manifest(src, m)
+    # Re-embed: strip old footer first (embed does this)
+    second = embed_manifest(first, m)
+    # Body above footer must be byte-identical
+    begin_first = first.index("# mutate4py-manifest-begin")
+    begin_second = second.index("# mutate4py-manifest-begin")
+    assert first[:begin_first] == second[:begin_second]
+
+
+def test_embed_exactly_one_begin_marker_after_re_embed():
+    src = "x = 1\n"
+    m = _make_manifest()
+    first = embed_manifest(src, m)
+    second = embed_manifest(first, m)
+    assert second.count("# mutate4py-manifest-begin") == 1
+
+
+# ── _find_manifest_block ──────────────────────────────────────────────────────
+
+
+def test_find_manifest_block_no_markers_returns_none():
+    assert _find_manifest_block("x = 1\n") is None
+
+
+def test_find_manifest_block_begin_only_returns_none():
+    assert _find_manifest_block("x = 1\n# mutate4py-manifest-begin\n") is None
+
+
+def test_find_manifest_block_end_before_begin_returns_none():
+    src = "# mutate4py-manifest-end\n# mutate4py-manifest-begin\n"
+    assert _find_manifest_block(src) is None
+
+
+def test_find_manifest_block_returns_between_markers():
+    src = "# mutate4py-manifest-begin\n# payload\n# mutate4py-manifest-end\n"
+    block = _find_manifest_block(src)
+    assert block is not None
+    assert "payload" in block
+
+
+# ── _parse_json_safe ──────────────────────────────────────────────────────────
+
+
+def test_parse_json_safe_valid():
+    result, ok = _parse_json_safe('{"a": 1}')
+    assert ok is True
+    assert result == {"a": 1}
+
+
+def test_parse_json_safe_invalid():
+    result, ok = _parse_json_safe("not-json")
+    assert ok is False
+    assert result is None
+
+
+# ── _uncomment_line ───────────────────────────────────────────────────────────
+
+
+def test_uncomment_line_empty_returns_empty():
+    assert _uncomment_line("") == ""
+
+
+def test_uncomment_line_whitespace_only_returns_empty():
+    assert _uncomment_line("   ") == ""
+
+
+def test_uncomment_line_hash_only_returns_empty():
+    assert _uncomment_line("#") == ""
+
+
+def test_uncomment_line_strips_hash_prefix():
+    assert _uncomment_line("# hello") == "hello"
+
+
+def test_uncomment_line_non_comment_returns_stripped():
+    assert _uncomment_line("  hello  ") == "hello"
+
+
+# ── extract_manifest ──────────────────────────────────────────────────────────
+
+
+def test_extract_no_markers_returns_none_false():
+    assert extract_manifest("x = 1\n") == (None, False)
+
+
+def test_extract_begin_only_returns_none_false():
+    src = "x = 1\n# mutate4py-manifest-begin\n"
+    assert extract_manifest(src) == (None, False)
+
+
+def test_extract_end_before_begin_returns_none_false():
+    src = "# mutate4py-manifest-end\n# mutate4py-manifest-begin\n"
+    assert extract_manifest(src) == (None, False)
+
+
+def test_extract_bad_json_returns_none_false():
+    src = "x = 1\n# mutate4py-manifest-begin\n# not-json\n# mutate4py-manifest-end\n"
+    assert extract_manifest(src) == (None, False)
+
+
+def test_extract_valid_returns_manifest_true():
+    src = "x = 1\n"
+    m = _make_manifest()
+    embedded = embed_manifest(src, m)
+    result, ok = extract_manifest(embedded)
+    assert ok is True
+    assert result is not None
+
+
+def test_extract_is_inverse_of_embed():
+    src = "def foo():\n    return 1\n"
+    m = _make_manifest(
+        functions=[
+            {"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "abc"}
+        ]
+    )
+    embedded = embed_manifest(src, m)
+    result, ok = extract_manifest(embedded)
+    assert ok is True
+    assert result["version"] == m["version"]
+    assert result["module_hash"] == m["module_hash"]
+    assert result["functions"] == m["functions"]
+
+
+# ── build_manifest ────────────────────────────────────────────────────────────
+
+
+def test_build_manifest_version_is_1():
+    src = "x = 1\n"
+    m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
+    assert m["version"] == 1
+
+
+def test_build_manifest_tested_at_is_passed_value():
+    src = "x = 1\n"
+    m = build_manifest(src, tested_at="2026-06-26T00:00:00Z")
+    assert m["tested_at"] == "2026-06-26T00:00:00Z"
+
+
+def test_build_manifest_functions_empty_for_no_defs():
+    src = "x = 1\n"
+    m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
+    assert m["functions"] == []
+
+
+def test_build_manifest_module_hash_non_empty():
+    src = "x = 1\n"
+    m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
+    assert isinstance(m["module_hash"], str) and len(m["module_hash"]) > 0
+
+
+def test_build_manifest_records_def_function():
+    src = "def foo():\n    return 1\n"
+    m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
+    assert len(m["functions"]) == 1
+    fn = m["functions"][0]
+    assert fn["id"] == "func/foo"
+    assert fn["name"] == "foo"
+
+
+def test_build_manifest_records_async_def():
+    src = "async def foo():\n    return 1\n"
+    m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
+    assert len(m["functions"]) == 1
+    assert m["functions"][0]["id"] == "func/foo"
+
+
+def test_build_manifest_method_id():
+    src = "class C:\n    def m(self):\n        return 1\n"
+    m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
+    assert m["functions"][0]["id"] == "func/C.m"
+    assert m["functions"][0]["name"] == "m"
+
+
+def test_build_manifest_line_is_def_line_not_decorator():
+    src = "@decorator\ndef foo():\n    return 1\n"
+    m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
+    fn = m["functions"][0]
+    assert fn["line"] == 2
+
+
+def test_build_manifest_function_has_line_end_line_hash():
+    src = "def foo():\n    return 1\n"
+    m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
+    fn = m["functions"][0]
+    assert "line" in fn
+    assert "end_line" in fn
+    assert "hash" in fn
+
+
+def test_build_manifest_hash_stable_across_whitespace_reformat():
+    src1 = "def foo():\n    return 1\n"
+    src2 = "def foo():\n    return   1\n"
+    m1 = build_manifest(src1, tested_at="2026-01-01T00:00:00Z")
+    m2 = build_manifest(src2, tested_at="2026-01-01T00:00:00Z")
+    # ast.dump is whitespace-insensitive within expressions
+    assert m1["functions"][0]["hash"] == m2["functions"][0]["hash"]
+
+
+@pytest.mark.parametrize(
+    "src1,src2",
+    [
+        ("def foo(a, b):\n    return a + b\n", "def foo(a, b):\n    return a - b\n"),
+        ("def foo():\n    return 1\n", "def bar():\n    return 1\n"),
+    ],
+)
+def test_build_manifest_hash_changes_for_semantic_edit(src1, src2):
+    m1 = build_manifest(src1, tested_at="2026-01-01T00:00:00Z")
+    m2 = build_manifest(src2, tested_at="2026-01-01T00:00:00Z")
+    assert m1["functions"][0]["hash"] != m2["functions"][0]["hash"]
+
+
+def test_build_manifest_hash_stable_for_comment_edit():
+    src1 = "def foo():\n    return 1\n"
+    src2 = "def foo():\n    # a comment\n    return 1\n"
+    m1 = build_manifest(src1, tested_at="2026-01-01T00:00:00Z")
+    m2 = build_manifest(src2, tested_at="2026-01-01T00:00:00Z")
+    assert m1["functions"][0]["hash"] == m2["functions"][0]["hash"]
+
+
+def test_build_manifest_module_hash_stable_for_comment_edit():
+    src1 = "x = 1\n"
+    src2 = "# comment\nx = 1\n"
+    m1 = build_manifest(src1, tested_at="2026-01-01T00:00:00Z")
+    m2 = build_manifest(src2, tested_at="2026-01-01T00:00:00Z")
+    assert m1["module_hash"] == m2["module_hash"]
+
+
+def test_build_manifest_nested_function_not_recorded():
+    src = "def outer():\n    def inner():\n        pass\n    return inner\n"
+    m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
+    ids = [fn["id"] for fn in m["functions"]]
+    assert "func/outer" in ids
+    assert "func/inner" not in ids
+
+
+# ── diff_manifests ────────────────────────────────────────────────────────────
+
+
+def _fn(id_: str, hash_: str) -> dict:
+    return {
+        "id": id_,
+        "name": id_.split("/")[-1],
+        "line": 1,
+        "end_line": 2,
+        "hash": hash_,
+    }
+
+
+def test_diff_none_previous_returns_all_current_ids():
+    current = _make_manifest(functions=[_fn("func/a", "h1"), _fn("func/b", "h2")])
+    changed = diff_manifests(None, current)
+    assert changed == {"func/a", "func/b"}
+
+
+def test_diff_same_hash_no_change():
+    prev = _make_manifest(functions=[_fn("func/a", "h1")])
+    curr = _make_manifest(functions=[_fn("func/a", "h1")])
+    assert diff_manifests(prev, curr) == set()
+
+
+def test_diff_changed_hash_reports_id():
+    prev = _make_manifest(functions=[_fn("func/a", "h1")])
+    curr = _make_manifest(functions=[_fn("func/a", "h2")])
+    assert diff_manifests(prev, curr) == {"func/a"}
+
+
+def test_diff_new_id_in_current_is_changed():
+    prev = _make_manifest(functions=[_fn("func/a", "h1")])
+    curr = _make_manifest(functions=[_fn("func/a", "h1"), _fn("func/b", "h3")])
+    assert diff_manifests(prev, curr) == {"func/b"}
+
+
+def test_diff_removed_id_silently_dropped():
+    prev = _make_manifest(functions=[_fn("func/a", "h1"), _fn("func/b", "h2")])
+    curr = _make_manifest(functions=[_fn("func/a", "h1")])
+    assert diff_manifests(prev, curr) == set()
+
+
+def test_diff_module_hash_not_in_changed_set():
+    prev = _make_manifest(module_hash="old", functions=[_fn("func/a", "h1")])
+    curr = _make_manifest(module_hash="new", functions=[_fn("func/a", "h1")])
+    changed = diff_manifests(prev, curr)
+    assert "module_hash" not in changed
+    assert changed == set()
