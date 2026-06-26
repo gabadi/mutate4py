@@ -1,12 +1,7 @@
 """Unit tests for F4 run loop (_runner.py)."""
 
 import os
-import subprocess
-import sys
-import tempfile
-import textwrap
 
-import pytest
 
 from mutate4py._discovery import Site, apply_mutant, discover_sites
 from mutate4py._runner import _print_uncovered_block, _run_command, _select_sites, run_mutations

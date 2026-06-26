@@ -3,7 +3,7 @@
 import ast
 import textwrap
 import pytest
-from mutate4py._discovery import discover_sites, _classify
+from mutate4py._discovery import discover_sites
 
 
 def scan(src: str):
