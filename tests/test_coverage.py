@@ -16,7 +16,7 @@ from mutate4py._discovery import Site, partition_sites
 
 
 def _site(line: int) -> Site:
-    return Site(index=0, line=line, col=0, function_id="")
+    return Site(index=0, line=line, col=0, end_line=line, end_col=1, function_id="", orig_text="x", mutant_text="y", desc="x -> y")
 
 
 def test_parse_lcov_covered_line():

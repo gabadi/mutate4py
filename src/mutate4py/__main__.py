@@ -14,6 +14,7 @@ from mutate4py._manifest import (
     manifests_structurally_equal,
     strip_manifest,
 )
+from mutate4py._runner import run_mutations
 
 DEFAULT_WARNING_THRESHOLD = 1000
 
@@ -111,6 +112,37 @@ def _build_parser() -> argparse.ArgumentParser:
         dest="reuse_coverage",
         help="Read LCOV from coverage.lcov (default path)",
     )
+    parser.add_argument(
+        "--test-command",
+        dest="test_command",
+        default="pytest",
+        help="Command to run tests (default: pytest)",
+    )
+    parser.add_argument(
+        "--timeout-factor",
+        type=int,
+        default=10,
+        dest="timeout_factor",
+        help="Mutant timeout = max(1s, factor × baseline duration) (default: 10)",
+    )
+    parser.add_argument(
+        "--lines",
+        dest="lines",
+        default=None,
+        help="Comma-separated line numbers to mutate",
+    )
+    parser.add_argument(
+        "--since-last-run",
+        action="store_true",
+        dest="since_last_run",
+        help="Only mutate sites in changed functions",
+    )
+    parser.add_argument(
+        "--mutate-all",
+        action="store_true",
+        dest="mutate_all",
+        help="Mutate all covered sites regardless of manifest",
+    )
     return parser
 
 
@@ -134,6 +166,14 @@ def _load_source(path: str) -> str:
     except (FileNotFoundError, PermissionError, IsADirectoryError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(2)
+
+
+def _parse_lines(lines_str: str | None) -> set[int] | None:
+    """Parse --lines argument into a set of ints, or None if not given."""
+    if lines_str is None:
+        return None
+    parts = [p.strip() for p in lines_str.split(",") if p.strip()]
+    return {int(p) for p in parts}
 
 
 def _run_scan(args: argparse.Namespace, source: str, cwd: str) -> None:
@@ -171,8 +211,22 @@ def main() -> None:
     elif args.update_manifest:
         _do_update_manifest(args.file, source)
     else:
-        parser.print_help(file=sys.stderr)
-        sys.exit(2)
+        lines_filter = _parse_lines(args.lines)
+        exit_code = run_mutations(
+            path=args.file,
+            source=source,
+            cov_cmd=args.cov_cmd,
+            lcov_path=args.lcov,
+            reuse_coverage=args.reuse_coverage,
+            test_command=args.test_command,
+            timeout_factor=args.timeout_factor,
+            lines_filter=lines_filter,
+            since_last_run=args.since_last_run,
+            mutate_all=args.mutate_all,
+            warning_threshold=args.warning_threshold,
+            cwd=os.getcwd(),
+        )
+        sys.exit(exit_code)
 
 
 def _do_update_manifest(path: str, source: str) -> None:
