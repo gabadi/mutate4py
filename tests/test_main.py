@@ -217,6 +217,34 @@ def test_mse_ignores_tested_at():
     assert fn(a, b) is True
 
 
+def test_mse_missing_functions_key_in_a_treated_as_empty():
+    fn = _mse()
+    a = {"module_hash": "h"}
+    b = {"module_hash": "h", "functions": []}
+    assert fn(a, b) is True
+
+
+def test_mse_missing_functions_key_in_b_treated_as_empty():
+    fn = _mse()
+    a = {"module_hash": "h", "functions": []}
+    b = {"module_hash": "h"}
+    assert fn(a, b) is True
+
+
+def test_mse_missing_functions_key_in_both_treated_as_empty():
+    fn = _mse()
+    a = {"module_hash": "h"}
+    b = {"module_hash": "h"}
+    assert fn(a, b) is True
+
+
+def test_mse_a_missing_functions_differs_from_b_with_functions():
+    fn = _mse()
+    a = {"module_hash": "h"}
+    b = {"module_hash": "h", "functions": [{"id": "func/foo", "hash": "fh"}]}
+    assert fn(a, b) is False
+
+
 # ── _do_update_manifest unit tests ────────────────────────────────────────────
 
 

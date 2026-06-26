@@ -1,3 +1,7 @@
+# acceptance-mutation-manifest-begin
+# {"version":1,"tested_at":"2026-06-26T05:38:00.295378Z","feature_name":"Manifest embed, extract, diff, and the --update-manifest mode","feature_path":"features/manifest.feature","background_hash":"74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b","implementation_hash":"sha256:6f798cadd06dbc960a138d7025464cfcf9dbe2d714d65dc2be5bfbb02d687c32","scenarios":[{"index":1,"name":"the embedded manifest records the required fields","scenario_hash":"762143347a153841cd6aaa6a368a17acf2d93ac3202016cf503f916e409e3dd7","mutation_count":4,"result":{"Total":4,"Killed":4,"Survived":0,"Errors":0},"tested_at":"2026-06-26T05:33:41.208835Z"}]}
+# acceptance-mutation-manifest-end
+
 Feature: Manifest embed, extract, diff, and the --update-manifest mode
 
   # TRACKING: F2 (manifest) — docs/plan.md; docs/spec.md §5 (manifest), §4 (units),

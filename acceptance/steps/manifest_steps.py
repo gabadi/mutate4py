@@ -383,6 +383,8 @@ def then_footer_state(m, params):
         )
         _, ok = extract_manifest(current)
         assert ok, "rewritten file has no valid manifest"
+    else:
+        raise AssertionError(f"unknown footer_state: {state!r}")
 
 
 @step(r"the command exits with a usage error")
