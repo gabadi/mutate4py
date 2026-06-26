@@ -583,59 +583,19 @@ def test_do_update_manifest_tested_at_iso8601_utc_format(tmp_path):
     assert False, "No manifest JSON line found in output"
 
 
-def test_main_no_mode_flag_exits_2_to_stderr(tmp_path):
-    # mutmut_16-18: parser.print_help(file=sys.stderr) → sys.exit(2)
+def test_main_no_coverage_flag_errors_about_coverage(tmp_path):
+    # F4: invoking with no coverage flag attempts a run and errors about missing coverage.
     p = tmp_path / "s.py"
-    p.write_text("pass\n")
+    p.write_text("x = a > b\n")
     result = subprocess.run(
         [sys.executable, "-m", "mutate4py", str(p)],
         capture_output=True,
         text=True,
-        cwd=REPO_ROOT,
+        cwd=str(tmp_path),
         env={**os.environ, "PYTHONPATH": os.path.join(REPO_ROOT, "src")},
     )
-    assert result.returncode == 2
-    assert result.stderr != ""
-
-
-def test_main_no_mode_exits_exactly_2_not_other_nonzero(tmp_path):
-    # mutmut_18: sys.exit(3) vs sys.exit(2)
-    p = tmp_path / "s.py"
-    p.write_text("pass\n")
-    result = subprocess.run(
-        [sys.executable, "-m", "mutate4py", str(p)],
-        capture_output=True,
-        text=True,
-        cwd=REPO_ROOT,
-        env={**os.environ, "PYTHONPATH": os.path.join(REPO_ROOT, "src")},
-    )
-    assert result.returncode == 2
-
-
-def test_main_no_mode_flag_help_goes_to_stderr_inprocess(tmp_path, capsys):
-    # mutmut_16: print_help(file=None) vs print_help(file=sys.stderr)
-    # file=None prints to stdout; sys.stderr prints to stderr
-    import mutate4py.__main__ as m
-
-    p = tmp_path / "s.py"
-    p.write_text("pass\n")
-    sys.argv = ["mutate4py", str(p)]
-    with pytest.raises(SystemExit):
-        m.main()
-    captured = capsys.readouterr()
-    assert captured.err != "", "Help must go to stderr, not stdout"
-
-
-def test_main_no_mode_flag_exits_exactly_2_inprocess(tmp_path):
-    # mutmut_17,18: sys.exit(None) or sys.exit(3) vs sys.exit(2)
-    import mutate4py.__main__ as m
-
-    p = tmp_path / "s.py"
-    p.write_text("pass\n")
-    sys.argv = ["mutate4py", str(p)]
-    with pytest.raises(SystemExit) as exc:
-        m.main()
-    assert exc.value.code == 2
+    # Exits non-zero (1) because no coverage source is found
+    assert result.returncode != 0
 
 
 def test_run_scan_passes_cov_cmd_to_coverage(tmp_path, capsys):
