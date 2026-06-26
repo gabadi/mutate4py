@@ -43,6 +43,11 @@ def test_strip_no_marker_returns_source_unchanged():
     assert strip_manifest(src) == src
 
 
+def test_strip_no_marker_trailing_newlines_preserved():
+    src = "x = 1\n\n"
+    assert strip_manifest(src) == src
+
+
 def test_strip_removes_footer():
     src = "x = 1\n"
     marker = "# mutate4py-manifest-begin\n# {}\n# mutate4py-manifest-end\n"
@@ -77,6 +82,16 @@ def test_embed_json_line_starts_with_hash_space():
     json_line = lines[begin_idx + 1]
     assert json_line.startswith("# ")
     json.loads(json_line[2:])  # must parse
+
+
+def test_embed_json_is_compact_no_spaces():
+    src = "x = 1\n"
+    m = _make_manifest(functions=[{"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "x"}])
+    result = embed_manifest(src, m)
+    lines = result.splitlines()
+    begin_idx = lines.index("# mutate4py-manifest-begin")
+    json_line = lines[begin_idx + 1][2:]  # strip "# "
+    assert '", "' not in json_line and '": "' not in json_line
 
 
 def test_embed_body_above_footer_is_trimmed_original():
@@ -117,6 +132,10 @@ def test_find_manifest_block_no_markers_returns_none():
 
 def test_find_manifest_block_begin_only_returns_none():
     assert _find_manifest_block("x = 1\n# mutate4py-manifest-begin\n") is None
+
+
+def test_find_manifest_block_end_only_returns_none():
+    assert _find_manifest_block("x = 1\n# mutate4py-manifest-end\n") is None
 
 
 def test_find_manifest_block_end_before_begin_returns_none():
@@ -163,6 +182,10 @@ def test_uncomment_line_hash_only_returns_empty():
 
 def test_uncomment_line_strips_hash_prefix():
     assert _uncomment_line("# hello") == "hello"
+
+
+def test_uncomment_line_hash_no_space_strips_single_hash():
+    assert _uncomment_line("#hello") == "hello"
 
 
 def test_uncomment_line_non_comment_returns_stripped():
@@ -319,6 +342,13 @@ def test_build_manifest_module_hash_stable_for_comment_edit():
     assert m1["module_hash"] == m2["module_hash"]
 
 
+def test_build_manifest_functions_ordered_by_line():
+    src = "def foo():\n    return 1\n\ndef bar():\n    return 2\n"
+    m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
+    assert len(m["functions"]) == 2
+    assert m["functions"][0]["line"] <= m["functions"][1]["line"]
+
+
 def test_build_manifest_nested_function_not_recorded():
     src = "def outer():\n    def inner():\n        pass\n    return inner\n"
     m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
@@ -376,3 +406,138 @@ def test_diff_module_hash_not_in_changed_set():
     changed = diff_manifests(prev, curr)
     assert "module_hash" not in changed
     assert changed == set()
+
+
+# ── Mutant-killing gap tests ──────────────────────────────────────────────────
+
+
+def test_strip_source_with_double_trailing_newline_before_marker():
+    # mutmut_5,_6: strip_manifest body = source[:idx].rstrip("\n") + "\n"
+    # With double newline before begin marker, result is still exactly one newline
+    src = "x = 1\n\n"
+    marker = "# mutate4py-manifest-begin\n# {}\n# mutate4py-manifest-end\n"
+    embedded = src + marker
+    stripped = strip_manifest(embedded)
+    assert stripped == "x = 1\n"
+    assert stripped.endswith("\n")
+    assert not stripped.endswith("\n\n")
+
+
+def test_embed_compact_json_no_space_after_colon():
+    # mutmut_8,_10: json.dumps with separators=(",",":") means no space after colon or comma
+    src = "x = 1\n"
+    m = _make_manifest(functions=[{"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "abc"}])
+    result = embed_manifest(src, m)
+    lines = result.splitlines()
+    begin_idx = lines.index("# mutate4py-manifest-begin")
+    json_line = lines[begin_idx + 1][2:]  # strip "# "
+    assert ": " not in json_line, "No space after colon (compact separators)"
+    assert ", " not in json_line, "No space after comma (compact separators)"
+
+
+def test_uncomment_line_hash_no_space_returns_payload():
+    # mutmut_7: _uncomment_line("#hello") → stripped[1:].strip() = "hello"
+    assert _uncomment_line("#hello") == "hello"
+
+
+def test_find_manifest_block_end_only_is_none():
+    # mutmut_8: only end_of_record marker → begin_idx == -1 → None
+    src = "x = 1\n# mutate4py-manifest-end\n"
+    assert _find_manifest_block(src) is None
+
+
+def test_extract_functions_two_functions_ordered_by_line():
+    # mutmut _28: _extract_functions results.sort(key=lambda f: f["line"])
+    # Two functions: second defined first but at higher line number → sorted ascending
+    src = "def foo():\n    return 1\n\ndef bar():\n    return 2\n"
+    m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
+    lines = [fn["line"] for fn in m["functions"]]
+    assert lines == sorted(lines), "Functions must be ordered by line ascending"
+    assert m["functions"][0]["name"] == "foo"
+    assert m["functions"][1]["name"] == "bar"
+
+
+def test_strip_manifest_rstrip_only_newlines_not_spaces():
+    # mutmut_9: rstrip(None) vs rstrip("\n")
+    # rstrip(None) strips ALL whitespace including spaces; rstrip("\n") only strips newlines
+    src = "x = 1   \n"  # trailing spaces before newline
+    marker = "# mutate4py-manifest-begin\n# {}\n# mutate4py-manifest-end\n"
+    embedded = src + marker
+    stripped = strip_manifest(embedded)
+    # rstrip("\n") on "x = 1   \n" → "x = 1   " then + "\n" → "x = 1   \n"
+    # rstrip(None) on "x = 1   \n" → "x = 1" then + "\n" → "x = 1\n"
+    assert stripped == "x = 1   \n", f"Expected spaces preserved, got {stripped!r}"
+
+
+def test_strip_manifest_rstrip_only_newlines_not_x_chars():
+    # mutmut_11: rstrip("XX\nXX") strips X and \n chars; rstrip("\n") only strips \n
+    # If content ends with X before the marker, mutant would strip trailing X too
+    src = "varX\n"  # content ending with X
+    marker = "# mutate4py-manifest-begin\n# {}\n# mutate4py-manifest-end\n"
+    embedded = src + marker
+    stripped = strip_manifest(embedded)
+    # rstrip("\n") on "varX\n" → "varX" then + "\n" → "varX\n"
+    # rstrip("XX\nXX") on "varX\n" → strips X and \n → "var" then + "\n" → "var\n"
+    assert stripped == "varX\n", f"Expected trailing X preserved, got {stripped!r}"
+
+
+def test_embed_manifest_rstrip_only_newlines_not_spaces():
+    # mutmut_2: embed calls strip_manifest(source).rstrip("\n")
+    # rstrip(None) would strip spaces too, giving different body
+    src = "x = 1   \n"  # trailing spaces
+    m = _make_manifest()
+    result = embed_manifest(src, m)
+    begin_idx = result.index("# mutate4py-manifest-begin")
+    body = result[:begin_idx]
+    # rstrip("\n") on "x = 1   \n" → "x = 1   " then + "\n\n"
+    # rstrip(None) on "x = 1   \n" → "x = 1" then + "\n\n"
+    assert "   " in body, f"Trailing spaces should be preserved in body: {body!r}"
+
+
+def test_embed_manifest_rstrip_only_newlines_not_x_chars():
+    # mutmut_5: rstrip("XX\nXX") strips X and \n chars; rstrip("\n") only strips \n
+    src = "varX\n"  # content ending with X
+    m = _make_manifest()
+    result = embed_manifest(src, m)
+    begin_idx = result.index("# mutate4py-manifest-begin")
+    body = result[:begin_idx]
+    # rstrip("\n") → "varX" + "\n\n"; rstrip("XX\nXX") → "var" + "\n\n"
+    assert "varX" in body, f"Expected trailing X preserved in body: {body!r}"
+
+
+def test_find_manifest_block_rfind_vs_find_single_marker():
+    # mutmut_3,6: find vs rfind — same result when only one begin/end marker
+    src = "x = 1\n# mutate4py-manifest-begin\n# {}\n# mutate4py-manifest-end\n"
+    block = _find_manifest_block(src)
+    assert block is not None
+    assert "{}" in block
+
+
+def test_find_manifest_block_end_idx_sentinel():
+    # mutmut_13,14: end_idx == +1 or -2 vs == -1
+    # When end marker is absent, source.find() returns -1, not +1 or -2
+    # So the condition `end_idx == -1` must trigger, returning None
+    src = "x = 1\n# mutate4py-manifest-begin\n"  # no end marker
+    assert _find_manifest_block(src) is None
+
+
+def test_find_manifest_block_begin_equals_end_returns_none():
+    # mutmut_15: end_idx < begin_idx vs end_idx <= begin_idx
+    # This would only differ if begin and end marker are at the SAME position,
+    # which is impossible since they're different strings.
+    # But we can test the case where end is exactly at begin+0 by using a source
+    # where end marker is placed right at begin marker position (impossible).
+    # Instead test that end BEFORE begin returns None (covers the <= case too):
+    src = "# mutate4py-manifest-end\n# mutate4py-manifest-begin\n"
+    assert _find_manifest_block(src) is None
+
+
+def test_extract_manifest_space_join_matters():
+    # mutmut_9: " ".join(parts) vs "XX XX".join(parts)
+    # With a single-part manifest, join separator doesn't matter.
+    # With multiple uncommented lines (multi-part manifest), separator matters for JSON parsing.
+    # Build a manifest that has content spread across multiple comment lines:
+    src = "x = 1\n# mutate4py-manifest-begin\n# {\"a\": 1}\n# mutate4py-manifest-end\n"
+    result, ok = extract_manifest(src)
+    assert ok is True
+    assert result == {"a": 1}

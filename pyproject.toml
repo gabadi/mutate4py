@@ -36,6 +36,8 @@ branch = true
 [tool.mutmut]
 source_paths = ["src/"]
 mutate_only_covered_lines = true
+also_copy = ["acceptance/"]
+debug = false
 
 [dependency-groups]
 dev = [

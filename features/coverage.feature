@@ -1,3 +1,8 @@
+# mutation-stamp: sha256=81adf311528548ac343689a2a20fc485e5f85a4198c78ee69569302c9367f339
+# acceptance-mutation-manifest-begin
+# {"version":1,"tested_at":"2026-06-26T13:42:50.034839Z","feature_name":"Coverage acquisition and the line gate","feature_path":"features/coverage.feature","background_hash":"341d97015f76800118b02f8fc2eae53ad9d58056a2abce3274d450ae126da206","implementation_hash":"sha256:140bbd992c0d5d8d4ef30859852c6ab14a64d6082d6ba0494a6ba392535d72e2","scenarios":[{"index":0,"name":"a site is covered iff its line has a positive DA count","scenario_hash":"eac213fd71affb40dc285e8eed21fdcfbeb138d4fdabd3bb2ebab5b42010b773","mutation_count":9,"result":{"Total":9,"Killed":9,"Survived":0,"Errors":0},"tested_at":"2026-06-26T13:42:50.034839Z"},{"index":3,"name":"an LCOV SF path matches the target by suffix","scenario_hash":"538cb99467e54f1ad3ba09884544ef59aeccfb8a3be7109227a9c4ffc20d2231","mutation_count":6,"result":{"Total":6,"Killed":6,"Survived":0,"Errors":0},"tested_at":"2026-06-26T13:42:50.034839Z"},{"index":6,"name":"a missing or unusable coverage source exits non-zero and prints no counts","scenario_hash":"c6097e6c450c6b9729127e4b1a1c73bdb73186c46fe8b5a603705ea426f50dd5","mutation_count":4,"result":{"Total":4,"Killed":4,"Survived":0,"Errors":0},"tested_at":"2026-06-26T13:42:50.034839Z"},{"index":7,"name":"supplying more than one coverage flag is a usage error","scenario_hash":"6c9d710d5364bf76980a8f32e58b7e6b6eaa7500a919fc47a2d789e22e332319","mutation_count":3,"result":{"Total":3,"Killed":3,"Survived":0,"Errors":0},"tested_at":"2026-06-26T13:42:50.034839Z"}]}
+# acceptance-mutation-manifest-end
+
 Feature: Coverage acquisition and the line gate
 
   # TRACKING: F3 (coverage-gate) — docs/plan.md; docs/spec.md §6 (coverage),
