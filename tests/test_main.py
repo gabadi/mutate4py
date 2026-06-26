@@ -303,8 +303,8 @@ def test_scan_report_with_coverage_basic(tmp_path):
         reuse_coverage=False,
         cwd=str(tmp_path),
     )
-    assert any("Covered mutation sites:" in l for l in lines)
-    assert any("Uncovered mutation sites:" in l for l in lines)
+    assert any("Covered mutation sites:" in line for line in lines)
+    assert any("Uncovered mutation sites:" in line for line in lines)
     assert not exceeded
 
 
@@ -326,7 +326,7 @@ def test_scan_report_with_coverage_warning(tmp_path):
         cwd=str(tmp_path),
     )
     assert exceeded
-    assert any("Warning:" in l for l in lines)
+    assert any("Warning:" in line for line in lines)
 
 
 # ── _run_scan direct unit tests ───────────────────────────────────────────────
@@ -542,7 +542,7 @@ def test_scan_report_with_coverage_no_warning_at_threshold(tmp_path):
         cov_cmd=None, lcov_path=str(lcov_file), reuse_coverage=False, cwd=str(tmp_path),
     )
     assert not exceeded
-    assert not any("Warning" in l for l in lines)
+    assert not any("Warning" in line for line in lines)
 
 
 def test_do_update_manifest_tested_at_iso8601_utc_format(tmp_path):

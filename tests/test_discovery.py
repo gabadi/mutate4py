@@ -254,7 +254,7 @@ class C:
 
 # ── Mutant-killing gap tests ──────────────────────────────────────────────────
 
-from mutate4py._discovery import _format_function_id, _is_mutable
+from mutate4py._discovery import _format_function_id, _is_mutable  # noqa: E402
 
 
 def test_format_function_id_top_level_function_parent_is_none():

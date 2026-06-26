@@ -1,6 +1,5 @@
 """Unit tests for mutate4py._coverage (TDD — written before implementation)."""
 import os
-import subprocess
 import sys
 import tempfile
 
@@ -192,7 +191,7 @@ def test_acquire_cov_cmd_runs_exactly_once():
 
 # ── Mutant-killing gap tests ──────────────────────────────────────────────────
 
-from mutate4py._coverage import _parse_da_line, _read_lcov_file, _resolve_lcov_path, _update_lcov_state
+from mutate4py._coverage import _read_lcov_file, _resolve_lcov_path, _update_lcov_state  # noqa: E402
 
 
 def test_update_lcov_state_sf_strips_sf_prefix_not_extra_char():

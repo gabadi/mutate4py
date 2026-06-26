@@ -178,7 +178,7 @@ class _FakeResult:
         self.returncode = returncode
 
 
-from acceptance.steps.coverage_helpers import (
+from acceptance.steps.coverage_helpers import (  # noqa: E402
     assert_baseline_scan,
     assert_exit_nonzero,
     assert_exit_zero,
