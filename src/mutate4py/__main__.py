@@ -7,7 +7,6 @@ import sys
 from mutate4py._discovery import discover_sites
 from mutate4py._manifest import (
     build_manifest,
-    diff_manifests,
     embed_manifest,
     extract_manifest,
     manifests_structurally_equal,

@@ -1,6 +1,6 @@
 """Property tests for manifest round-trips and ID-format invariants."""
 
-from hypothesis import given, assume, settings
+from hypothesis import given
 from hypothesis import strategies as st
 
 from mutate4py._manifest import (

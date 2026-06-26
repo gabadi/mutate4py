@@ -3,7 +3,6 @@
 import ast
 import hashlib
 import json
-import textwrap
 import pytest
 
 from mutate4py._manifest import (
@@ -52,7 +51,6 @@ def test_strip_removes_footer():
 
 
 def test_strip_leaves_trailing_single_newline():
-    src = "x = 1\n\n\n"
     marker = "# mutate4py-manifest-begin\n# {}\n# mutate4py-manifest-end\n"
     embedded = "x = 1\n\n" + marker
     stripped = strip_manifest(embedded)
