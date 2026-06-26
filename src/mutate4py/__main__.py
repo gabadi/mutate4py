@@ -96,12 +96,21 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Embed or refresh the manifest footer in the source file; no test run",
     )
-    parser.add_argument("--cov-cmd", dest="cov_cmd", default=None,
-                        help="Shell command to run once to generate LCOV coverage")
-    parser.add_argument("--lcov", dest="lcov", default=None,
-                        help="Path to a pre-generated LCOV file")
-    parser.add_argument("--reuse-coverage", action="store_true", dest="reuse_coverage",
-                        help="Read LCOV from coverage.lcov (default path)")
+    parser.add_argument(
+        "--cov-cmd",
+        dest="cov_cmd",
+        default=None,
+        help="Shell command to run once to generate LCOV coverage",
+    )
+    parser.add_argument(
+        "--lcov", dest="lcov", default=None, help="Path to a pre-generated LCOV file"
+    )
+    parser.add_argument(
+        "--reuse-coverage",
+        action="store_true",
+        dest="reuse_coverage",
+        help="Read LCOV from coverage.lcov (default path)",
+    )
     return parser
 
 
@@ -129,7 +138,9 @@ def _load_source(path: str) -> str:
 
 def _run_scan(args: argparse.Namespace, source: str, cwd: str) -> None:
     """Execute --scan logic and print output."""
-    has_coverage = args.cov_cmd is not None or args.lcov is not None or args.reuse_coverage
+    has_coverage = (
+        args.cov_cmd is not None or args.lcov is not None or args.reuse_coverage
+    )
     if has_coverage:
         try:
             lines, _ = scan_report_with_coverage(

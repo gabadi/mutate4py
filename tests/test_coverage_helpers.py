@@ -1,4 +1,5 @@
 """Unit tests for acceptance/steps/coverage_helpers.py."""
+
 import os
 import tempfile
 
@@ -15,6 +16,7 @@ from acceptance.steps.coverage_helpers import (
 
 
 # ── make_source_with_sites_on_lines ──────────────────────────────────────────
+
 
 def test_make_source_sites_on_given_lines():
     src = make_source_with_sites_on_lines("3,5")
@@ -37,6 +39,7 @@ def test_make_source_single_line():
 
 # ── make_calc_source ─────────────────────────────────────────────────────────
 
+
 def test_make_calc_source_puts_compare_expr():
     src = make_calc_source("2,4")
     lines = src.splitlines()
@@ -47,6 +50,7 @@ def test_make_calc_source_puts_compare_expr():
 
 
 # ── make_lcov ────────────────────────────────────────────────────────────────
+
 
 def test_make_lcov_format():
     text = make_lcov("/src/foo.py", {3, 5})
@@ -63,6 +67,7 @@ def test_make_lcov_empty_lines():
 
 
 # ── resolve_sf_path ──────────────────────────────────────────────────────────
+
 
 def test_resolve_sf_absolute_suffix():
     result = resolve_sf_path("absolute-suffix", "/abs/path/foo.py")
@@ -81,6 +86,7 @@ def test_resolve_sf_passthrough():
 
 # ── write_counter_script ─────────────────────────────────────────────────────
 
+
 def test_write_counter_script_creates_executable():
     with tempfile.TemporaryDirectory() as d:
         script = os.path.join(d, "run.sh")
@@ -91,6 +97,7 @@ def test_write_counter_script_creates_executable():
 
 
 # ── assert_cmd_ran_n_times ───────────────────────────────────────────────────
+
 
 def test_assert_cmd_ran_zero_no_file():
     with tempfile.TemporaryDirectory() as d:
@@ -127,6 +134,7 @@ def test_assert_cmd_ran_mismatch_fails():
 
 # ── substitute_cmd_placeholders ───────────────────────────────────────────────
 
+
 def test_substitute_cmd_cmd_token():
     result = substitute_cmd_placeholders("--cov-cmd CMD", "/tmp/d", "/scripts/run.sh")
     assert result == "--cov-cmd /scripts/run.sh"
@@ -144,32 +152,42 @@ def test_substitute_cmd_no_change():
 
 # ── substitute_qa_cmd_placeholders ────────────────────────────────────────────
 
+
 def test_substitute_qa_cmd_token():
     result = substitute_qa_cmd_placeholders("--cov-cmd CMD", "/tmp/d", "/run.sh", None)
     assert "--cov-cmd /run.sh" in result
 
 
 def test_substitute_qa_that_command_token():
-    result = substitute_qa_cmd_placeholders("--cov-cmd '<that command>'", "/tmp/d", "/run.sh", None)
+    result = substitute_qa_cmd_placeholders(
+        "--cov-cmd '<that command>'", "/tmp/d", "/run.sh", None
+    )
     assert "--cov-cmd /run.sh" in result
 
 
 def test_substitute_qa_abspath_calc():
-    result = substitute_qa_cmd_placeholders("<abspath>/calc.py --scan", "/tmp/d", None, "/abs/calc.py")
+    result = substitute_qa_cmd_placeholders(
+        "<abspath>/calc.py --scan", "/tmp/d", None, "/abs/calc.py"
+    )
     assert result.startswith("/abs/calc.py")
 
 
 def test_substitute_qa_bare_calc():
-    result = substitute_qa_cmd_placeholders("calc.py --scan", "/tmp/d", None, "/abs/calc.py")
+    result = substitute_qa_cmd_placeholders(
+        "calc.py --scan", "/tmp/d", None, "/abs/calc.py"
+    )
     assert result.startswith("/abs/calc.py")
 
 
 def test_substitute_qa_lcov_path():
-    result = substitute_qa_cmd_placeholders("calc.py --lcov cov.info", "/tmp/d", None, "/abs/calc.py")
+    result = substitute_qa_cmd_placeholders(
+        "calc.py --lcov cov.info", "/tmp/d", None, "/abs/calc.py"
+    )
     assert f"--lcov {os.path.join('/tmp/d', 'cov.info')}" in result
 
 
 # ── assert_stdout_contains / assert_stdout_not_contains ──────────────────────
+
 
 class _FakeResult:
     def __init__(self, stdout, stderr="", returncode=0):
@@ -193,7 +211,9 @@ from acceptance.steps.coverage_helpers import (  # noqa: E402
 
 
 def test_assert_stdout_contains_passes():
-    assert_stdout_contains(_FakeResult("Total mutation sites: 5"), "Total mutation sites: 5")
+    assert_stdout_contains(
+        _FakeResult("Total mutation sites: 5"), "Total mutation sites: 5"
+    )
 
 
 def test_assert_stdout_contains_fails():
@@ -210,7 +230,9 @@ def test_assert_stdout_not_contains_passes():
 
 def test_assert_stdout_not_contains_fails():
     try:
-        assert_stdout_not_contains(_FakeResult("Covered mutation sites: 3"), "Covered mutation sites:")
+        assert_stdout_not_contains(
+            _FakeResult("Covered mutation sites: 3"), "Covered mutation sites:"
+        )
         assert False
     except AssertionError:
         pass
@@ -272,6 +294,7 @@ def test_make_lcov_single_da():
 
 def test_make_noop_script_runs():
     import subprocess
+
     with tempfile.TemporaryDirectory() as d:
         script = make_noop_script(os.path.join(d, "noop.sh"))
         result = subprocess.run([script], capture_output=True)
@@ -282,6 +305,7 @@ def test_step_param_uses_params_when_present():
     class FakeM:
         def group(self, n):
             return "from_match"
+
     assert step_param(FakeM(), {"key": "from_params"}, "key") == "from_params"
 
 
@@ -289,4 +313,5 @@ def test_step_param_falls_back_to_match():
     class FakeM:
         def group(self, n):
             return "from_match"
+
     assert step_param(FakeM(), {}, "key") == "from_match"

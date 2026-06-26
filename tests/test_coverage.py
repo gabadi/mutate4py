@@ -1,4 +1,5 @@
 """Unit tests for mutate4py._coverage (TDD — written before implementation)."""
+
 import os
 import sys
 import tempfile
@@ -12,6 +13,7 @@ from mutate4py._discovery import Site, partition_sites
 
 
 # ── parse_lcov ────────────────────────────────────────────────────────────────
+
 
 def _site(line: int) -> Site:
     return Site(index=0, line=line, col=0, function_id="")
@@ -68,10 +70,7 @@ def test_parse_lcov_unrelated_sf_not_matched():
 
 
 def test_parse_lcov_multiple_files_only_matching_counted():
-    lcov = (
-        "SF:other.py\nDA:5,1\nend_of_record\n"
-        "SF:src/foo.py\nDA:3,2\nend_of_record\n"
-    )
+    lcov = "SF:other.py\nDA:5,1\nend_of_record\nSF:src/foo.py\nDA:3,2\nend_of_record\n"
     result = parse_lcov(lcov, "src/foo.py")
     assert 3 in result
     assert 5 not in result
@@ -91,6 +90,7 @@ def test_parse_lcov_empty_text_returns_empty():
 
 
 # ── partition_sites ───────────────────────────────────────────────────────────
+
 
 def test_partition_all_covered():
     sites = [_site(3), _site(5), _site(7)]
@@ -128,6 +128,7 @@ def test_partition_empty_sites():
 
 # ── acquire_coverage ──────────────────────────────────────────────────────────
 
+
 def test_acquire_from_lcov_path():
     with tempfile.TemporaryDirectory() as d:
         src = os.path.join(d, "foo.py")
@@ -136,14 +137,22 @@ def test_acquire_from_lcov_path():
             f.write("x = a + b\n")
         with open(lcov_path, "w") as f:
             f.write(f"SF:{src}\nDA:1,5\nend_of_record\n")
-        result = acquire_coverage(cov_cmd=None, lcov_path=lcov_path, reuse=False, cwd=d, source_path=src)
+        result = acquire_coverage(
+            cov_cmd=None, lcov_path=lcov_path, reuse=False, cwd=d, source_path=src
+        )
         assert 1 in result
 
 
 def test_acquire_missing_lcov_path_raises():
     with tempfile.TemporaryDirectory() as d:
         with pytest.raises(CoverageError):
-            acquire_coverage(cov_cmd=None, lcov_path=os.path.join(d, "missing.info"), reuse=False, cwd=d, source_path="foo.py")
+            acquire_coverage(
+                cov_cmd=None,
+                lcov_path=os.path.join(d, "missing.info"),
+                reuse=False,
+                cwd=d,
+                source_path="foo.py",
+            )
 
 
 def test_acquire_reuse_reads_coverage_lcov():
@@ -154,14 +163,18 @@ def test_acquire_reuse_reads_coverage_lcov():
             f.write("x = a + b\n")
         with open(default_lcov, "w") as f:
             f.write(f"SF:{src}\nDA:1,1\nend_of_record\n")
-        result = acquire_coverage(cov_cmd=None, lcov_path=None, reuse=True, cwd=d, source_path=src)
+        result = acquire_coverage(
+            cov_cmd=None, lcov_path=None, reuse=True, cwd=d, source_path=src
+        )
         assert 1 in result
 
 
 def test_acquire_reuse_missing_default_raises():
     with tempfile.TemporaryDirectory() as d:
         with pytest.raises(CoverageError):
-            acquire_coverage(cov_cmd=None, lcov_path=None, reuse=True, cwd=d, source_path="foo.py")
+            acquire_coverage(
+                cov_cmd=None, lcov_path=None, reuse=True, cwd=d, source_path="foo.py"
+            )
 
 
 def test_acquire_cov_cmd_runs_and_reads_coverage_lcov():
@@ -172,7 +185,9 @@ def test_acquire_cov_cmd_runs_and_reads_coverage_lcov():
             f.write("x = a + b\n")
         # Command writes coverage.lcov into cwd
         cmd = f"echo 'SF:{src}\\nDA:1,1\\nend_of_record' > {lcov_path}"
-        result = acquire_coverage(cov_cmd=cmd, lcov_path=None, reuse=False, cwd=d, source_path=src)
+        result = acquire_coverage(
+            cov_cmd=cmd, lcov_path=None, reuse=False, cwd=d, source_path=src
+        )
         assert 1 in result
 
 
@@ -184,7 +199,9 @@ def test_acquire_cov_cmd_runs_exactly_once():
         with open(src, "w") as f:
             f.write("x = a + b\n")
         cmd = f"printf 'x' >> {counter} && echo 'SF:{src}\\nDA:1,1\\nend_of_record' > {lcov_path}"
-        acquire_coverage(cov_cmd=cmd, lcov_path=None, reuse=False, cwd=d, source_path=src)
+        acquire_coverage(
+            cov_cmd=cmd, lcov_path=None, reuse=False, cwd=d, source_path=src
+        )
         with open(counter) as f:
             assert f.read() == "x"
 
@@ -233,10 +250,7 @@ def test_parse_lcov_da_before_first_sf_not_collected():
 
 def test_parse_lcov_matched_sf_then_end_of_record_then_unmatched():
     # After end_of_record, subsequent SF for unmatched file must not contribute lines
-    lcov = (
-        "SF:foo.py\nDA:3,1\nend_of_record\n"
-        "SF:other.py\nDA:5,1\nend_of_record\n"
-    )
+    lcov = "SF:foo.py\nDA:3,1\nend_of_record\nSF:other.py\nDA:5,1\nend_of_record\n"
     result = parse_lcov(lcov, "foo.py")
     assert 3 in result
     assert 5 not in result
@@ -267,7 +281,9 @@ def test_resolve_lcov_path_cov_cmd_uses_cwd_for_default():
 
 def test_resolve_lcov_path_reuse_uses_cwd():
     # reuse path joins cwd with DEFAULT_LCOV_PATH
-    result = _resolve_lcov_path(cov_cmd=None, lcov_path=None, reuse=True, cwd="/some/dir")
+    result = _resolve_lcov_path(
+        cov_cmd=None, lcov_path=None, reuse=True, cwd="/some/dir"
+    )
     assert result == "/some/dir/coverage.lcov"
 
 
@@ -282,7 +298,9 @@ def test_acquire_coverage_reuse_true_not_falsy_none():
             f.write("x = a + b\n")
         with open(lcov, "w") as f:
             f.write(f"SF:{src}\nDA:1,2\nend_of_record\n")
-        result = acquire_coverage(cov_cmd=None, lcov_path=None, reuse=True, cwd=d, source_path=src)
+        result = acquire_coverage(
+            cov_cmd=None, lcov_path=None, reuse=True, cwd=d, source_path=src
+        )
         assert 1 in result
 
 

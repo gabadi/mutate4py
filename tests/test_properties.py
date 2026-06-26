@@ -165,9 +165,7 @@ def test_build_manifest_module_hash_stable(src):
 
 # ── partition_sites ───────────────────────────────────────────────────────────
 
-_SITE_LINES = st.lists(
-    st.integers(min_value=1, max_value=100), min_size=0, max_size=30
-)
+_SITE_LINES = st.lists(st.integers(min_value=1, max_value=100), min_size=0, max_size=30)
 _COVERED_LINES = st.frozensets(st.integers(min_value=1, max_value=100))
 
 

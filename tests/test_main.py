@@ -405,7 +405,9 @@ def test_check_coverage_flags_two_flags_exits_2(capsys):
     import argparse
     from mutate4py.__main__ import _check_coverage_flags
 
-    args = argparse.Namespace(cov_cmd="echo hi", lcov="/some/path", reuse_coverage=False)
+    args = argparse.Namespace(
+        cov_cmd="echo hi", lcov="/some/path", reuse_coverage=False
+    )
     with pytest.raises(SystemExit) as exc:
         _check_coverage_flags(args)
     assert exc.value.code == 2
@@ -522,8 +524,13 @@ def test_scan_report_with_coverage_manifest_exists_false(tmp_path):
     lcov_file.write_text(f"SF:{src_file}\nDA:1,1\nend_of_record\n")
 
     lines, _ = scan_report_with_coverage(
-        str(src_file), src_file.read_text(), 1000,
-        cov_cmd=None, lcov_path=str(lcov_file), reuse_coverage=False, cwd=str(tmp_path),
+        str(src_file),
+        src_file.read_text(),
+        1000,
+        cov_cmd=None,
+        lcov_path=str(lcov_file),
+        reuse_coverage=False,
+        cwd=str(tmp_path),
     )
     assert "Manifest exists: false" in lines
 
@@ -538,8 +545,13 @@ def test_scan_report_with_coverage_no_warning_at_threshold(tmp_path):
     lcov_file.write_text(f"SF:{src_file}\nDA:1,1\nend_of_record\n")
 
     lines, exceeded = scan_report_with_coverage(
-        str(src_file), src_file.read_text(), 1,
-        cov_cmd=None, lcov_path=str(lcov_file), reuse_coverage=False, cwd=str(tmp_path),
+        str(src_file),
+        src_file.read_text(),
+        1,
+        cov_cmd=None,
+        lcov_path=str(lcov_file),
+        reuse_coverage=False,
+        cwd=str(tmp_path),
     )
     assert not exceeded
     assert not any("Warning" in line for line in lines)
@@ -554,15 +566,19 @@ def test_do_update_manifest_tested_at_iso8601_utc_format(tmp_path):
     p.write_text("def foo():\n    return 1\n")
     _do_update_manifest(str(p), p.read_text())
     import json
+
     content = p.read_text()
     # Extract the JSON line from the manifest footer
     for line in content.splitlines():
-        if line.startswith("# {") or (line.startswith("# ") and line[2:].startswith("{")):
+        if line.startswith("# {") or (
+            line.startswith("# ") and line[2:].startswith("{")
+        ):
             manifest = json.loads(line[2:])
             tested_at = manifest["tested_at"]
             # Must match ISO-8601 UTC format: YYYY-MM-DDTHH:MM:SSZ
-            assert re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", tested_at), \
+            assert re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", tested_at), (
                 f"tested_at format wrong: {tested_at!r}"
+            )
             return
     assert False, "No manifest JSON line found in output"
 
@@ -573,7 +589,9 @@ def test_main_no_mode_flag_exits_2_to_stderr(tmp_path):
     p.write_text("pass\n")
     result = subprocess.run(
         [sys.executable, "-m", "mutate4py", str(p)],
-        capture_output=True, text=True, cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
         env={**os.environ, "PYTHONPATH": os.path.join(REPO_ROOT, "src")},
     )
     assert result.returncode == 2
@@ -586,7 +604,9 @@ def test_main_no_mode_exits_exactly_2_not_other_nonzero(tmp_path):
     p.write_text("pass\n")
     result = subprocess.run(
         [sys.executable, "-m", "mutate4py", str(p)],
-        capture_output=True, text=True, cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
         env={**os.environ, "PYTHONPATH": os.path.join(REPO_ROOT, "src")},
     )
     assert result.returncode == 2
@@ -738,6 +758,7 @@ def test_do_update_manifest_uses_utc_not_local_tz(tmp_path):
     _do_update_manifest(str(p), p.read_text())
     content = p.read_text()
     import json
+
     for line in content.splitlines():
         if line.startswith("# ") and line[2:].startswith("{"):
             m = json.loads(line[2:])

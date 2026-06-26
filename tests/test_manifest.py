@@ -86,7 +86,11 @@ def test_embed_json_line_starts_with_hash_space():
 
 def test_embed_json_is_compact_no_spaces():
     src = "x = 1\n"
-    m = _make_manifest(functions=[{"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "x"}])
+    m = _make_manifest(
+        functions=[
+            {"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "x"}
+        ]
+    )
     result = embed_manifest(src, m)
     lines = result.splitlines()
     begin_idx = lines.index("# mutate4py-manifest-begin")
@@ -426,7 +430,11 @@ def test_strip_source_with_double_trailing_newline_before_marker():
 def test_embed_compact_json_no_space_after_colon():
     # mutmut_8,_10: json.dumps with separators=(",",":") means no space after colon or comma
     src = "x = 1\n"
-    m = _make_manifest(functions=[{"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "abc"}])
+    m = _make_manifest(
+        functions=[
+            {"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "abc"}
+        ]
+    )
     result = embed_manifest(src, m)
     lines = result.splitlines()
     begin_idx = lines.index("# mutate4py-manifest-begin")
@@ -537,7 +545,7 @@ def test_extract_manifest_space_join_matters():
     # With a single-part manifest, join separator doesn't matter.
     # With multiple uncommented lines (multi-part manifest), separator matters for JSON parsing.
     # Build a manifest that has content spread across multiple comment lines:
-    src = "x = 1\n# mutate4py-manifest-begin\n# {\"a\": 1}\n# mutate4py-manifest-end\n"
+    src = 'x = 1\n# mutate4py-manifest-begin\n# {"a": 1}\n# mutate4py-manifest-end\n'
     result, ok = extract_manifest(src)
     assert ok is True
     assert result == {"a": 1}

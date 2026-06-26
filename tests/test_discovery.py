@@ -363,6 +363,7 @@ def test_discover_sites_sort_key_uses_line_and_col():
     # If two sites have same (line,col) but different function_id, default sort might reorder.
     # More robustly: test that sites with same line are ordered by col, not by function_id.
     from mutate4py._discovery import discover_sites
+
     # Two different ops on same line: BinOp at different column offsets
     src = "x = a + b; y = c > d\n"
     sites = discover_sites(src)
