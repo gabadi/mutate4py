@@ -67,34 +67,32 @@ def _walk(root: ast.AST, sites: list[tuple[int, int, str]]) -> None:
             stack.append((child, next_ancestors))
 
 
+def _constant_is_mutable(node: ast.Constant) -> bool:
+    if node.value is True or node.value is False:
+        return True
+    return (
+        isinstance(node.value, int)
+        and not isinstance(node.value, bool)
+        and node.value in (0, 1)
+    )
+
+
+def _is_mutable(node: ast.AST) -> bool:
+    if isinstance(node, ast.BinOp):
+        return type(node.op) in _ARITH_OPS
+    if isinstance(node, ast.Compare):
+        return any(type(op) in _COMPARE_OPS for op in node.ops)
+    if isinstance(node, ast.BoolOp):
+        return True
+    if isinstance(node, ast.Constant):
+        return _constant_is_mutable(node)
+    return False
+
+
 def _classify(
     node: ast.AST,
     ancestors: list[ast.AST],
     sites: list[tuple[int, int, str]],
 ) -> None:
-    if isinstance(node, ast.BinOp):
-        if type(node.op) in _ARITH_OPS:
-            sites.append((node.lineno, node.col_offset, _format_function_id(ancestors)))  # type: ignore[attr-defined]
-
-    elif isinstance(node, ast.Compare):
-        if any(type(op) in _COMPARE_OPS for op in node.ops):
-            sites.append((node.lineno, node.col_offset, _format_function_id(ancestors)))  # type: ignore[attr-defined]
-
-    elif isinstance(node, ast.BoolOp):
-        # ast.BoolOp.op is always And or Or — no other values exist in Python's AST
+    if _is_mutable(node):
         sites.append((node.lineno, node.col_offset, _format_function_id(ancestors)))  # type: ignore[attr-defined]
-
-    elif isinstance(node, ast.Constant):
-        if node.value is True or node.value is False:
-            sites.append((node.lineno, node.col_offset, _format_function_id(ancestors)))  # type: ignore[attr-defined]
-        elif (
-            isinstance(node.value, int)
-            and not isinstance(node.value, bool)
-            and node.value in (0, 1)
-        ):
-            sites.append((node.lineno, node.col_offset, _format_function_id(ancestors)))  # type: ignore[attr-defined]
-
-    # AugAssign (+=, -=, etc.) is explicitly excluded — no site emitted
-    # Unary ops excluded — no site emitted
-    # / operator excluded — no site emitted
-    # integers other than 0 and 1 excluded — no site emitted

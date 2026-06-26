@@ -281,3 +281,108 @@ def test_main_update_manifest_mode(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "manifest" in out.lower()
     assert "# mutate4py-manifest-begin" in p.read_text()
+
+
+# ── scan_report_with_coverage unit tests ─────────────────────────────────────
+
+
+def test_scan_report_with_coverage_basic(tmp_path):
+    from mutate4py.__main__ import scan_report_with_coverage
+
+    src_file = tmp_path / "foo.py"
+    src_file.write_text("x = a + b\n")
+    lcov_file = tmp_path / "cov.info"
+    lcov_file.write_text(f"SF:{src_file}\nDA:1,1\nend_of_record\n")
+
+    lines, exceeded = scan_report_with_coverage(
+        str(src_file),
+        src_file.read_text(),
+        1000,
+        cov_cmd=None,
+        lcov_path=str(lcov_file),
+        reuse_coverage=False,
+        cwd=str(tmp_path),
+    )
+    assert any("Covered mutation sites:" in l for l in lines)
+    assert any("Uncovered mutation sites:" in l for l in lines)
+    assert not exceeded
+
+
+def test_scan_report_with_coverage_warning(tmp_path):
+    from mutate4py.__main__ import scan_report_with_coverage
+
+    src_file = tmp_path / "foo.py"
+    src_file.write_text("x = a + b\ny = c - d\n")
+    lcov_file = tmp_path / "cov.info"
+    lcov_file.write_text(f"SF:{src_file}\nDA:1,1\nend_of_record\n")
+
+    lines, exceeded = scan_report_with_coverage(
+        str(src_file),
+        src_file.read_text(),
+        1,
+        cov_cmd=None,
+        lcov_path=str(lcov_file),
+        reuse_coverage=False,
+        cwd=str(tmp_path),
+    )
+    assert exceeded
+    assert any("Warning:" in l for l in lines)
+
+
+# ── _run_scan direct unit tests ───────────────────────────────────────────────
+
+
+def test_run_scan_no_coverage(tmp_path, capsys):
+    import argparse
+    from mutate4py.__main__ import _run_scan
+
+    src_file = tmp_path / "foo.py"
+    src_file.write_text("x = a + b\n")
+    args = argparse.Namespace(
+        file=str(src_file),
+        warning_threshold=1000,
+        cov_cmd=None,
+        lcov=None,
+        reuse_coverage=False,
+    )
+    _run_scan(args, src_file.read_text(), str(tmp_path))
+    out = capsys.readouterr().out
+    assert "Total mutation sites: 1" in out
+
+
+def test_run_scan_with_lcov(tmp_path, capsys):
+    import argparse
+    from mutate4py.__main__ import _run_scan
+
+    src_file = tmp_path / "foo.py"
+    src_file.write_text("x = a + b\n")
+    lcov_file = tmp_path / "cov.info"
+    lcov_file.write_text(f"SF:{src_file}\nDA:1,1\nend_of_record\n")
+    args = argparse.Namespace(
+        file=str(src_file),
+        warning_threshold=1000,
+        cov_cmd=None,
+        lcov=str(lcov_file),
+        reuse_coverage=False,
+    )
+    _run_scan(args, src_file.read_text(), str(tmp_path))
+    out = capsys.readouterr().out
+    assert "Covered mutation sites:" in out
+
+
+def test_run_scan_coverage_error_exits(tmp_path):
+    import argparse
+    from mutate4py.__main__ import _run_scan
+
+    src_file = tmp_path / "foo.py"
+    src_file.write_text("x = a + b\n")
+    args = argparse.Namespace(
+        file=str(src_file),
+        warning_threshold=1000,
+        cov_cmd=None,
+        lcov=str(tmp_path / "missing.info"),
+        reuse_coverage=False,
+    )
+    with pytest.raises(SystemExit) as exc:
+        _run_scan(args, src_file.read_text(), str(tmp_path))
+    assert exc.value.code != 0
