@@ -1,9 +1,17 @@
 """CLI entry point for mutate4py."""
 
 import argparse
+import datetime
 import sys
 
 from mutate4py._discovery import discover_sites
+from mutate4py._manifest import (
+    build_manifest,
+    diff_manifests,
+    embed_manifest,
+    extract_manifest,
+    strip_manifest,
+)
 
 DEFAULT_WARNING_THRESHOLD = 1000
 
@@ -43,6 +51,11 @@ def main() -> None:
         default=DEFAULT_WARNING_THRESHOLD,
         dest="warning_threshold",
     )
+    parser.add_argument(
+        "--update-manifest",
+        action="store_true",
+        help="Embed or refresh the manifest footer in the source file; no test run",
+    )
 
     args = parser.parse_args()
 
@@ -56,9 +69,36 @@ def main() -> None:
     if args.scan:
         lines, _ = scan_report(args.file, source, args.warning_threshold)
         print("\n".join(lines))
+    elif args.update_manifest:
+        _do_update_manifest(args.file, source)
     else:
         parser.print_help(file=sys.stderr)
         sys.exit(2)
+
+
+def _do_update_manifest(path: str, source: str) -> None:
+    existing, _ = extract_manifest(source)
+    clean = strip_manifest(source)
+    tested_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    candidate = build_manifest(clean, tested_at=tested_at)
+
+    if existing is not None and _manifests_structurally_equal(existing, candidate):
+        print(f"Manifest unchanged: {path}")
+        return
+
+    embedded = embed_manifest(source, candidate)
+    with open(path, "w") as f:
+        f.write(embedded)
+    print(f"Updated manifest: {path}")
+
+
+def _manifests_structurally_equal(a: dict, b: dict) -> bool:
+    """Compare module_hash and functions (id+hash), ignoring tested_at."""
+    if a.get("module_hash") != b.get("module_hash"):
+        return False
+    a_fns = {fn["id"]: fn["hash"] for fn in a.get("functions", [])}
+    b_fns = {fn["id"]: fn["hash"] for fn in b.get("functions", [])}
+    return a_fns == b_fns
 
 
 if __name__ == "__main__":
