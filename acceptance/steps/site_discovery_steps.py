@@ -110,7 +110,9 @@ def then_total_is(m, params):
 @step(r'a Python file defining "(.+)" containing one mutable site')
 def given_definition_with_site(m, params):
     definition = params.get("definition") or m.group(1)
-    src = _DEFINITION_SOURCES.get(definition, "def foo():\n    x = a + b\n")
+    if definition not in _DEFINITION_SOURCES:
+        raise ValueError(f"unknown definition fixture: {definition!r}")
+    src = _DEFINITION_SOURCES[definition]
     ctx.sites = discover_sites(src)
     ctx.total = len(ctx.sites)
 

@@ -98,12 +98,14 @@ def given_clean_file(m, params):
 @step(r'a Python source file defining "(.*)"')
 def given_file_defining(m, params):
     key = params.get("definition") or m.group(1)
-    ctx.source = _DEFINITION_SOURCES.get(key, "def foo():\n    return 1\n")
+    if key not in _DEFINITION_SOURCES:
+        raise ValueError(f"unknown definition fixture: {key!r}")
+    ctx.source = _DEFINITION_SOURCES[key]
     ctx.embedded = ""
     ctx.source_path = _write_tmp(ctx.source)
 
 
-@step(r'a Python source file with a decorator on line (\d+) and "def foo" on line (\d+)')
+@step(r'a Python source file with a decorator above "def foo" on line (\d+)')
 def given_decorated_file(m, params):
     ctx.source = "@decorator\ndef foo():\n    return 1\n"
     ctx.embedded = ""
@@ -120,7 +122,9 @@ def given_module_level_only(m, params):
 @step(r'a Python source file whose footer is "(.*)"')
 def given_footer_file(m, params):
     key = params.get("footer") or m.group(1)
-    ctx.source = _FOOTER_SOURCES.get(key, "x = 1\n")
+    if key not in _FOOTER_SOURCES:
+        raise ValueError(f"unknown footer fixture: {key!r}")
+    ctx.source = _FOOTER_SOURCES[key]
     ctx.embedded = ""
 
 
@@ -142,7 +146,9 @@ def given_prev_manifest_from_fn(m, params):
 @step(r'the function is changed by "(.*)"')
 def given_fn_changed_by(m, params):
     edit = params.get("edit") or m.group(1)
-    edited = _EDITED_SOURCES.get(edit, _BASE_FN_SRC)
+    if edit not in _EDITED_SOURCES:
+        raise ValueError(f"unknown edit fixture: {edit!r}")
+    edited = _EDITED_SOURCES[edit]
     if edited is None:
         edited = _BASE_FN_SRC
     ctx.curr_manifest = build_manifest(edited, tested_at=_TESTED_AT)
@@ -185,7 +191,7 @@ def given_file_then_changed(m, params):
     elif edit == "changing an operator":
         new_src = "def foo(a, b):\n    return a - b\n"
     else:
-        new_src = _EDITED_SOURCES.get(edit, ctx.source)
+        raise ValueError(f"unknown edit: {edit!r}")
     # Re-embed manifest with new source (keep current manifest footer)
     manifest = build_manifest(ctx.source, tested_at=_TESTED_AT)
     ctx.embedded = embed_manifest(new_src, manifest)

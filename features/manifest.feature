@@ -1,5 +1,5 @@
 # acceptance-mutation-manifest-begin
-# {"version":1,"tested_at":"2026-06-26T05:38:00.295378Z","feature_name":"Manifest embed, extract, diff, and the --update-manifest mode","feature_path":"features/manifest.feature","background_hash":"74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b","implementation_hash":"sha256:6f798cadd06dbc960a138d7025464cfcf9dbe2d714d65dc2be5bfbb02d687c32","scenarios":[{"index":1,"name":"the embedded manifest records the required fields","scenario_hash":"762143347a153841cd6aaa6a368a17acf2d93ac3202016cf503f916e409e3dd7","mutation_count":4,"result":{"Total":4,"Killed":4,"Survived":0,"Errors":0},"tested_at":"2026-06-26T05:33:41.208835Z"}]}
+# {"version":1,"tested_at":"2026-06-26T13:50:44.958412Z","feature_name":"Manifest embed, extract, diff, and the --update-manifest mode","feature_path":"features/manifest.feature","background_hash":"74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b","implementation_hash":"sha256:6f798cadd06dbc960a138d7025464cfcf9dbe2d714d65dc2be5bfbb02d687c32","scenarios":[{"index":2,"name":"a function unit is recorded with its id, name, range, and hash","scenario_hash":"f1b67b87d293436a66ba3bbfa024a9e52742419da99aeb8812fcaf856402756c","mutation_count":9,"result":{"Total":9,"Killed":9,"Survived":0,"Errors":0},"tested_at":"2026-06-26T13:46:49.198823Z"},{"index":3,"name":"a decorated function records the def line, not the decorator line","scenario_hash":"4eac71c06811061134588d22b5827cec4c37a299f895b1ef3fdc9b8686ce7aa4","mutation_count":1,"result":{"Total":1,"Killed":1,"Survived":0,"Errors":0},"tested_at":"2026-06-26T13:45:44.918891Z"},{"index":6,"name":"extracting a file without a valid manifest yields none","scenario_hash":"0b169723922d2ed700e5740684fde4c34ef67726c9c9d5bef04f8f11403eb7e8","mutation_count":3,"result":{"Total":3,"Killed":3,"Survived":0,"Errors":0},"tested_at":"2026-06-26T13:45:44.918891Z"},{"index":8,"name":"a \"<edit>\" edit leaves the function unchanged in the diff","scenario_hash":"86eb4f8c773a445799ba813c67bea84a62e36fade38280e83e69f16ca96ea12b","mutation_count":10,"result":{"Total":10,"Killed":10,"Survived":0,"Errors":0},"tested_at":"2026-06-26T13:45:44.918891Z"},{"index":11,"name":"re-running --update-manifest reflects whether anything changed","scenario_hash":"bc90c8304c7e2ed75c747fa17facd4ad5070d5097296ffe52ffd04170abfbe06","mutation_count":9,"result":{"Total":9,"Killed":9,"Survived":0,"Errors":0},"tested_at":"2026-06-26T13:45:44.918891Z"},{"index":1,"name":"the embedded manifest records the required fields","scenario_hash":"762143347a153841cd6aaa6a368a17acf2d93ac3202016cf503f916e409e3dd7","mutation_count":4,"result":{"Total":4,"Killed":4,"Survived":0,"Errors":0},"tested_at":"2026-06-26T05:33:41.208835Z"}]}
 # acceptance-mutation-manifest-end
 
 Feature: Manifest embed, extract, diff, and the --update-manifest mode
@@ -111,14 +111,14 @@ Feature: Manifest embed, extract, diff, and the --update-manifest mode
 
   # manifest-4: a decorated def excludes the decorator line from its range
   Scenario: a decorated function records the def line, not the decorator line
-    Given a Python source file with a decorator on line <decorator_line> and "def foo" on line <def_line>
+    Given a Python source file with a decorator above "def foo" on line <def_line>
     When a manifest is embedded into the file
     And the embedded manifest is extracted
     Then the first function record "line" is <def_line>
 
     Examples:
-      | decorator_line | def_line |
-      | 1              | 2        |
+      | def_line |
+      | 2        |
 
   # manifest-5: a module with no functions records an empty list but a real module_hash
   Scenario: a module with only module-level code records no functions

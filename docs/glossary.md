@@ -34,3 +34,30 @@ Ubiquitous language for the port. Terms are introduced as features need them.
 - **`--update-manifest`** — the thin CLI mode that rewrites the footer without
   running mutations. Idempotent: prints `Updated manifest: <file>` when it writes,
   `Manifest unchanged: <file>` when the file already matches (ADR 0006).
+
+## Coverage (F3)
+
+- **Coverage gate** — the line-coverage filter that partitions F1's discovered
+  mutation sites into `covered` and `uncovered`. A site is **covered** iff its line has
+  an LCOV `DA:<line>,<count>` record with `count > 0`; absent line or `count == 0` ⇒
+  **uncovered**. Branch (`BRDA`) data is ignored on purpose (ADR 0007).
+- **`covered` / `uncovered`** — the two disjoint, exhaustive partitions of the
+  discovered sites. `covered + uncovered == total`; each site keeps its stable F1 index.
+- **`DA` record** — an LCOV line record `DA:<line>,<count>`; the only coverage signal
+  the gate reads. `count > 0` means the line executed.
+- **`BRDA` record** — an LCOV branch record. Read-and-discarded (or never parsed);
+  never affects the gate, so boundary survivors (`>` vs `>=`) are not suppressed.
+- **`SF` suffix match** — reconciling an LCOV `SF:<path>` record with the target source
+  file by path suffix (one path is a path-suffix of the other), bridging
+  absolute-vs-relative path forms. Ports `mutate4go`'s matching.
+- **Coverage acquisition** — obtaining the LCOV for a run via exactly one of three
+  mutually-exclusive modes (ADR 0008):
+  - **`--cov-cmd <CMD>`** — run the command **once** (never per site); it must emit LCOV.
+  - **`--lcov <PATH>`** — read a pre-generated LCOV file at `PATH`.
+  - **`--reuse-coverage`** — read LCOV from the default path **`coverage.lcov`** (the
+    coverage.py `coverage lcov` default; ADR 0007). Missing file ⇒ hard usage error.
+- **`coverage.lcov`** — the default on-disk LCOV path for `--reuse-coverage`; what
+  coverage.py's `coverage lcov` writes by default (ADR 0007).
+- **Covered/Uncovered scan lines** — the two `--scan` output lines
+  (`Covered mutation sites: <c>` / `Uncovered mutation sites: <u>`) F3 adds to the §8
+  scan block when a coverage source is supplied; F3's observable surface (ADR 0009).

@@ -1,8 +1,9 @@
-"""Property tests for manifest round-trips and ID-format invariants."""
+"""Property tests for manifest round-trips, ID-format invariants, and partition_sites."""
 
 from hypothesis import given
 from hypothesis import strategies as st
 
+from mutate4py._discovery import Site, partition_sites
 from mutate4py._manifest import (
     build_manifest,
     diff_manifests,
@@ -160,3 +161,42 @@ def test_build_manifest_module_hash_stable(src):
     m2 = build_manifest(src, tested_at="2099-12-31T00:00:00Z")
     assert m1["module_hash"] == m2["module_hash"]
     assert m1["functions"] == m2["functions"]
+
+
+# ── partition_sites ───────────────────────────────────────────────────────────
+
+_SITE_LINES = st.lists(st.integers(min_value=1, max_value=100), min_size=0, max_size=30)
+_COVERED_LINES = st.frozensets(st.integers(min_value=1, max_value=100))
+
+
+def _sites_from_lines(lines: list[int]) -> list[Site]:
+    return [Site(index=i, line=ln, col=0, function_id="") for i, ln in enumerate(lines)]
+
+
+@given(lines=_SITE_LINES, covered=_COVERED_LINES)
+def test_partition_sites_count_conserved(lines, covered):
+    sites = _sites_from_lines(lines)
+    c, u = partition_sites(sites, set(covered))
+    assert c + u == len(sites)
+
+
+@given(lines=_SITE_LINES, covered=_COVERED_LINES)
+def test_partition_sites_covered_non_negative(lines, covered):
+    sites = _sites_from_lines(lines)
+    c, u = partition_sites(sites, set(covered))
+    assert c >= 0 and u >= 0
+
+
+@given(lines=_SITE_LINES)
+def test_partition_sites_empty_covered_all_uncovered(lines):
+    sites = _sites_from_lines(lines)
+    c, u = partition_sites(sites, set())
+    assert c == 0 and u == len(sites)
+
+
+@given(lines=_SITE_LINES)
+def test_partition_sites_full_covered_all_covered(lines):
+    sites = _sites_from_lines(lines)
+    all_lines = {s.line for s in sites}
+    c, u = partition_sites(sites, all_lines)
+    assert c == len(sites) and u == 0
