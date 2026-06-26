@@ -188,6 +188,14 @@ def _mutate_constant(node: ast.Constant) -> tuple[str, str] | None:
     return None
 
 
+def apply_mutant(source: str, site: Site) -> str:
+    """Return source with the site's mutation spliced in."""
+    line_index = _build_line_index(source)
+    start = _abs_offset(line_index, site.line, site.col)
+    end = _abs_offset(line_index, site.end_line, site.end_col)
+    return source[:start] + site.mutant_text + source[end:]
+
+
 def partition_sites(sites: list[Site], covered_lines: set[int]) -> tuple[int, int]:
     """Return (covered_count, uncovered_count) for the given sites."""
     covered = sum(1 for s in sites if s.line in covered_lines)

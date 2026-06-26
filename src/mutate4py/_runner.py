@@ -6,7 +6,7 @@ import subprocess
 import time
 
 from mutate4py._coverage import CoverageError, acquire_coverage
-from mutate4py._discovery import Site, discover_sites, partition_sites
+from mutate4py._discovery import Site, apply_mutant, discover_sites, partition_sites
 from mutate4py._manifest import (
     build_manifest,
     diff_manifests,
@@ -14,7 +14,6 @@ from mutate4py._manifest import (
     extract_manifest,
     strip_manifest,
 )
-from mutate4py._mutator import apply_mutant
 
 
 def _run_command(cmd: str, cwd: str, timeout: float) -> tuple[str, bool]:
