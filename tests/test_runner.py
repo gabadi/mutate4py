@@ -4,7 +4,12 @@ import os
 
 
 from mutate4py._discovery import Site, apply_mutant, discover_sites
-from mutate4py._runner import _print_uncovered_block, _run_command, _select_sites, run_mutations
+from mutate4py._runner import (
+    _print_uncovered_block,
+    _run_command,
+    _select_sites,
+    run_mutations,
+)
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -70,8 +75,17 @@ def test_run_command_timeout_is_timeout():
 
 
 def _make_site(index, line, fid="func/f") -> Site:
-    return Site(index=index, line=line, col=0, end_line=line, end_col=5,
-                function_id=fid, orig_text=">", mutant_text=">=", desc="> -> >=")
+    return Site(
+        index=index,
+        line=line,
+        col=0,
+        end_line=line,
+        end_col=5,
+        function_id=fid,
+        orig_text=">",
+        mutant_text=">=",
+        desc="> -> >=",
+    )
 
 
 def test_select_sites_all_covered_non_differential():
@@ -162,6 +176,7 @@ def test_run_mutations_killed_mutant(tmp_path):
 
     import io
     from contextlib import redirect_stdout
+
     buf = io.StringIO()
     with redirect_stdout(buf):
         rc = run_mutations(
@@ -200,6 +215,7 @@ def test_run_mutations_survived_mutant(tmp_path):
 
     import io
     from contextlib import redirect_stdout
+
     buf = io.StringIO()
     with redirect_stdout(buf):
         rc = run_mutations(
@@ -238,6 +254,7 @@ def test_run_mutations_baseline_failure_exits_1(tmp_path):
 
     import io
     from contextlib import redirect_stdout
+
     buf = io.StringIO()
     with redirect_stdout(buf):
         rc = run_mutations(
@@ -277,6 +294,7 @@ def test_run_mutations_restores_source_after_run(tmp_path):
 
     import io
     from contextlib import redirect_stdout
+
     buf = io.StringIO()
     with redirect_stdout(buf):
         run_mutations(
@@ -321,6 +339,7 @@ def test_run_mutations_crash_safety_restores_bak(tmp_path):
 
     import io
     from contextlib import redirect_stdout
+
     buf = io.StringIO()
     with redirect_stdout(buf):
         run_mutations(
@@ -357,6 +376,7 @@ def test_run_mutations_reuse_coverage_warns(tmp_path):
 
     import io
     from contextlib import redirect_stdout
+
     buf = io.StringIO()
     with redirect_stdout(buf):
         run_mutations(
@@ -396,6 +416,7 @@ def test_run_mutations_header_counts(tmp_path):
 
     import io
     from contextlib import redirect_stdout
+
     buf = io.StringIO()
     with redirect_stdout(buf):
         run_mutations(
@@ -437,12 +458,15 @@ def test_run_mutations_timeout_counts_as_killed(tmp_path):
     baseline_script = str(tmp_path / "baseline.sh")
     with open(baseline_script, "w") as f:
         f.write("#!/bin/sh\n")
-        f.write(f"if grep -qF '{sites[0].mutant_text}' '{src_path}'; then sleep 5; fi\n")
+        f.write(
+            f"if grep -qF '{sites[0].mutant_text}' '{src_path}'; then sleep 5; fi\n"
+        )
         f.write("exit 0\n")
     os.chmod(baseline_script, 0o755)
 
     import io
     from contextlib import redirect_stdout
+
     buf = io.StringIO()
     with redirect_stdout(buf):
         run_mutations(
@@ -490,8 +514,17 @@ def test_print_uncovered_block_no_uncovered(capsys):
 
 
 def test_print_uncovered_block_no_function_id(capsys):
-    site = Site(index=0, line=5, col=0, end_line=5, end_col=3,
-                function_id="", orig_text=">", mutant_text=">=", desc="> -> >=")
+    site = Site(
+        index=0,
+        line=5,
+        col=0,
+        end_line=5,
+        end_col=3,
+        function_id="",
+        orig_text=">",
+        mutant_text=">=",
+        desc="> -> >=",
+    )
     _print_uncovered_block([site], set())
     out = capsys.readouterr().out
     assert "line 5" in out
@@ -516,6 +549,7 @@ def test_run_mutations_warning_threshold_exceeded(tmp_path):
 
     import io
     from contextlib import redirect_stdout
+
     buf = io.StringIO()
     with redirect_stdout(buf):
         rc = run_mutations(
@@ -546,10 +580,15 @@ def test_run_mutations_coverage_error_returns_1(tmp_path, monkeypatch):
     with open(src_path, "w") as f:
         f.write(src)
 
-    monkeypatch.setattr(runner_mod, "acquire_coverage", lambda **_kw: (_ for _ in ()).throw(CoverageError("no coverage")))
+    monkeypatch.setattr(
+        runner_mod,
+        "acquire_coverage",
+        lambda **_kw: (_ for _ in ()).throw(CoverageError("no coverage")),
+    )
 
     import io
     from contextlib import redirect_stdout
+
     buf = io.StringIO()
     with redirect_stdout(buf):
         rc = run_mutations(

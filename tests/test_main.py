@@ -716,21 +716,25 @@ def test_mutation_warning_threshold_comparison_is_numeric(tmp_path, capsys):
 
 def test_parse_lines_none():
     from mutate4py.__main__ import _parse_lines
+
     assert _parse_lines(None) is None
 
 
 def test_parse_lines_single():
     from mutate4py.__main__ import _parse_lines
+
     assert _parse_lines("5") == {5}
 
 
 def test_parse_lines_multiple():
     from mutate4py.__main__ import _parse_lines
+
     assert _parse_lines("3,7,12") == {3, 7, 12}
 
 
 def test_parse_lines_with_spaces():
     from mutate4py.__main__ import _parse_lines
+
     assert _parse_lines(" 3 , 7 ") == {3, 7}
 
 
@@ -741,6 +745,7 @@ def test_build_parser_lcov_dest_is_lcov():
     # mutmut_8: dest=None → --lcov value stored as None key (unreachable as args.lcov)
     # mutmut_11: dest omitted → argparse derives "lcov" from "--lcov" (equivalent)
     from mutate4py.__main__ import _build_parser
+
     parser = _build_parser()
     args = parser.parse_args(["somefile.py", "--lcov", "/path/to/cov.info"])
     assert args.lcov == "/path/to/cov.info"
@@ -749,6 +754,7 @@ def test_build_parser_lcov_dest_is_lcov():
 def test_build_parser_defaults_no_flags():
     # mutmut_12: default=None omitted; mutmut_18: --mutate-all default is False
     from mutate4py.__main__ import _build_parser
+
     parser = _build_parser()
     args = parser.parse_args(["somefile.py"])
     assert args.lcov is None
@@ -759,6 +765,7 @@ def test_build_parser_mutate_all_flag_exists():
     # mutmut_18: "--mutate-all" → "--MUTATE-ALL" (different flag name)
     # Correct: --mutate-all must be parseable and set mutate_all=True
     from mutate4py.__main__ import _build_parser
+
     parser = _build_parser()
     args = parser.parse_args(["somefile.py", "--mutate-all"])
     assert args.mutate_all is True

@@ -16,23 +16,39 @@ from mutate4py._discovery import Site, partition_sites
 
 
 def _site(line: int) -> Site:
-    return Site(index=0, line=line, col=0, end_line=line, end_col=1, function_id="", orig_text="x", mutant_text="y", desc="x -> y")
+    return Site(
+        index=0,
+        line=line,
+        col=0,
+        end_line=line,
+        end_col=1,
+        function_id="",
+        orig_text="x",
+        mutant_text="y",
+        desc="x -> y",
+    )
 
 
-@pytest.mark.parametrize("lcov,sf", [
-    ("SF:src/foo.py\nDA:5,3\nend_of_record\n", "src/foo.py"),
-    ("SF:/abs/path/src/foo.py\nDA:5,1\nend_of_record\n", "src/foo.py"),
-    ("SF:foo.py\nDA:5,1\nend_of_record\n", "/abs/path/foo.py"),
-])
+@pytest.mark.parametrize(
+    "lcov,sf",
+    [
+        ("SF:src/foo.py\nDA:5,3\nend_of_record\n", "src/foo.py"),
+        ("SF:/abs/path/src/foo.py\nDA:5,1\nend_of_record\n", "src/foo.py"),
+        ("SF:foo.py\nDA:5,1\nend_of_record\n", "/abs/path/foo.py"),
+    ],
+)
 def test_parse_lcov_line_5_covered(lcov, sf):
     assert 5 in parse_lcov(lcov, sf)
 
 
-@pytest.mark.parametrize("lcov", [
-    "SF:src/foo.py\nDA:5,0\nend_of_record\n",
-    "SF:src/foo.py\nBRDA:5,0,0,1\nend_of_record\n",
-    "SF:/unrelated/other.py\nDA:5,1\nend_of_record\n",
-])
+@pytest.mark.parametrize(
+    "lcov",
+    [
+        "SF:src/foo.py\nDA:5,0\nend_of_record\n",
+        "SF:src/foo.py\nBRDA:5,0,0,1\nend_of_record\n",
+        "SF:/unrelated/other.py\nDA:5,1\nend_of_record\n",
+    ],
+)
 def test_parse_lcov_line_5_not_covered(lcov):
     assert 5 not in parse_lcov(lcov, "src/foo.py")
 

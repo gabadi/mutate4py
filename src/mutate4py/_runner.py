@@ -104,7 +104,9 @@ def _compute_manifest_diff(
     """Strip manifest, discover sites, diff; return (clean_source, manifest_exists, changed_fn_ids, tested_at)."""
     clean_source = strip_manifest(source)
     existing_manifest, manifest_exists = extract_manifest(source)
-    tested_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    tested_at = datetime.datetime.now(datetime.timezone.utc).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
     current_manifest = build_manifest(clean_source, tested_at=tested_at)
     changed_fn_ids = diff_manifests(existing_manifest, current_manifest)
     return clean_source, manifest_exists, changed_fn_ids, tested_at
@@ -152,7 +154,9 @@ def _run_mutation_loop(
         if status == "survived":
             survivors.append(site)
         fid_suffix = f": {site.function_id}" if site.function_id else ""
-        print(f"[{i}/{total_selected}] {status} line {site.line} {site.desc}{fid_suffix}")
+        print(
+            f"[{i}/{total_selected}] {status} line {site.line} {site.desc}{fid_suffix}"
+        )
     return counts, survivors
 
 
@@ -185,7 +189,9 @@ def _acquire_covered_lines(
 ) -> tuple[set[int] | None, str | None]:
     """Acquire coverage; return (covered_lines, error_message_or_None)."""
     if reuse_coverage:
-        print("Reusing existing coverage; covered/uncovered classification may be stale.")
+        print(
+            "Reusing existing coverage; covered/uncovered classification may be stale."
+        )
     try:
         covered_lines = acquire_coverage(
             cov_cmd=cov_cmd,
@@ -205,7 +211,9 @@ def _is_effective_since_last_run(
     mutate_all: bool,
     lines_filter: set[int] | None,
 ) -> bool:
-    return since_last_run or (manifest_exists and not mutate_all and lines_filter is None)
+    return since_last_run or (
+        manifest_exists and not mutate_all and lines_filter is None
+    )
 
 
 def _print_uncovered_if_needed(
@@ -218,7 +226,9 @@ def _print_uncovered_if_needed(
         _print_uncovered_block(all_sites, covered_lines)
 
 
-def _finalize_source(path: str, clean_source: str, tested_at: str, bak_path: str) -> None:
+def _finalize_source(
+    path: str, clean_source: str, tested_at: str, bak_path: str
+) -> None:
     fresh_manifest = build_manifest(clean_source, tested_at=tested_at)
     with open(path, "w") as f:
         f.write(embed_manifest(clean_source, fresh_manifest))
@@ -249,7 +259,9 @@ def run_mutations(
     if rescued is not None:
         source = rescued
 
-    clean_source, manifest_exists, changed_fn_ids, tested_at = _compute_manifest_diff(source)
+    clean_source, manifest_exists, changed_fn_ids, tested_at = _compute_manifest_diff(
+        source
+    )
     all_sites = discover_sites(clean_source)
     changed_count = len([s for s in all_sites if s.function_id in changed_fn_ids])
 
@@ -270,10 +282,18 @@ def run_mutations(
     )
 
     _print_run_header(
-        path, total, covered_count, uncovered_count, changed_count,
-        manifest_exists, len(selected_sites), warning_threshold,
+        path,
+        total,
+        covered_count,
+        uncovered_count,
+        changed_count,
+        manifest_exists,
+        len(selected_sites),
+        warning_threshold,
     )
-    _print_uncovered_if_needed(all_sites, covered_lines, effective_since_last_run, lines_filter)
+    _print_uncovered_if_needed(
+        all_sites, covered_lines, effective_since_last_run, lines_filter
+    )
 
     baseline_duration, baseline_error = _run_baseline(test_command, source_dir)
     if baseline_error is not None:

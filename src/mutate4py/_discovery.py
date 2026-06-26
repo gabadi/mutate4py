@@ -101,7 +101,9 @@ def _replace_op_token(node_text: str, orig_op: str, mutant_op: str) -> str:
     return node_text.replace(orig_op, mutant_op, 1)
 
 
-def _mutate_binop(source: str, line_index: list[int], node: ast.BinOp) -> tuple[str, str] | None:
+def _mutate_binop(
+    source: str, line_index: list[int], node: ast.BinOp
+) -> tuple[str, str] | None:
     """Return (orig_text, mutant_text) for a BinOp mutation, or None."""
     token_pair = _ARITH_TOKEN_MUTATIONS.get(type(node.op))
     if token_pair is None:
@@ -123,7 +125,9 @@ def _mutate_binop(source: str, line_index: list[int], node: ast.BinOp) -> tuple[
     return orig, mutant
 
 
-def _mutate_compare(source: str, line_index: list[int], node: ast.Compare) -> tuple[str, str] | None:
+def _mutate_compare(
+    source: str, line_index: list[int], node: ast.Compare
+) -> tuple[str, str] | None:
     """Return (orig_text, mutant_text) for first mutable Compare op, or None."""
     # Pairs: (left_node, op, right_node)
     lefts = [node.left] + list(node.comparators[:-1])
@@ -133,7 +137,9 @@ def _mutate_compare(source: str, line_index: list[int], node: ast.Compare) -> tu
             continue
         orig_op, mutant_op = token_pair
         orig = _node_text(source, line_index, node)
-        left_end = _abs_offset(line_index, left_node.end_lineno, left_node.end_col_offset)  # type: ignore[attr-defined]
+        left_end = _abs_offset(
+            line_index, left_node.end_lineno, left_node.end_col_offset
+        )  # type: ignore[attr-defined]
         right_start = _abs_offset(line_index, right_node.lineno, right_node.col_offset)  # type: ignore[attr-defined]
         node_start = _abs_offset(line_index, node.lineno, node.col_offset)  # type: ignore[attr-defined]
         between = source[left_end:right_start]
@@ -147,7 +153,9 @@ def _mutate_compare(source: str, line_index: list[int], node: ast.Compare) -> tu
     return None
 
 
-def _mutate_boolop(source: str, line_index: list[int], node: ast.BoolOp) -> tuple[str, str] | None:
+def _mutate_boolop(
+    source: str, line_index: list[int], node: ast.BoolOp
+) -> tuple[str, str] | None:
     """Return (orig_text, mutant_text) for a BoolOp mutation, or None."""
     token_pair = _BOOL_OP_TOKEN_MUTATIONS.get(type(node.op))
     if token_pair is None:
@@ -155,8 +163,12 @@ def _mutate_boolop(source: str, line_index: list[int], node: ast.BoolOp) -> tupl
     orig_op, mutant_op = token_pair
     orig = _node_text(source, line_index, node)
     # Find the operator between first and second values
-    first_end = _abs_offset(line_index, node.values[0].end_lineno, node.values[0].end_col_offset)  # type: ignore[attr-defined]
-    second_start = _abs_offset(line_index, node.values[1].lineno, node.values[1].col_offset)  # type: ignore[attr-defined]
+    first_end = _abs_offset(
+        line_index, node.values[0].end_lineno, node.values[0].end_col_offset
+    )  # type: ignore[attr-defined]
+    second_start = _abs_offset(
+        line_index, node.values[1].lineno, node.values[1].col_offset
+    )  # type: ignore[attr-defined]
     node_start = _abs_offset(line_index, node.lineno, node.col_offset)  # type: ignore[attr-defined]
     between = source[first_end:second_start]
     # Replace " and " or " or " with space-padded mutant
@@ -293,12 +305,14 @@ def _classify(
         return
     fid = _format_function_id(ancestors)
     orig, mutant = mutation
-    sites.append((
-        node.lineno,  # type: ignore[attr-defined]
-        node.col_offset,  # type: ignore[attr-defined]
-        node.end_lineno,  # type: ignore[attr-defined]
-        node.end_col_offset,  # type: ignore[attr-defined]
-        fid,
-        orig,
-        mutant,
-    ))
+    sites.append(
+        (
+            node.lineno,  # type: ignore[attr-defined]
+            node.col_offset,  # type: ignore[attr-defined]
+            node.end_lineno,  # type: ignore[attr-defined]
+            node.end_col_offset,  # type: ignore[attr-defined]
+            fid,
+            orig,
+            mutant,
+        )
+    )
