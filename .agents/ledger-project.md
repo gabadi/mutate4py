@@ -21,3 +21,8 @@ Format: `<date> | <session-id> | <role> | <failure-class> | <verdict> | <one-lin
 2026-06-26 | ba459785 | hardender | missing-artifact | promoted→AGENTS.md | gherkin-mutator flags: --feature, --generated-dir required; no --help; defaults to features/a-feature.feature
 2026-06-26 | 48c13d25 | QA | convention-gap | promoted→AGENTS.md | manifest QA fixtures are committed inputs; all manifest QA steps must use writable-copy pattern
 2026-06-26 | 14e97446 | specifier | convention-gap | promoted→AGENTS.md | gherkin-parser requires two args: gherkin-parser <feature-file> <json-output>
+2026-06-26 | d24200ea | architect | convention-gap | promoted→AGENTS.md | _coverage.py must not import _discovery.py; IO-near code must not depend on IO-free domain types
+2026-06-26 | b2aa029b | cleaner | convention-gap | promoted→AGENTS.md | acceptance step files are boundary files (15-site threshold); pure logic belongs in *_helpers.py modules
+2026-06-26 | b2aa029b | cleaner | convention-gap | promoted→AGENTS.md | coverage_helpers.py is testable module for acceptance step helper functions; tests in tests/test_coverage_helpers.py
+2026-06-26 | b2aa029b | cleaner | convention-gap | rejected→first-occurrence | agent-retro step 5: scan site list for per-pattern contributors before starting boundary-file mutation-site reduction
+2026-06-26 | c53799e5 | architect | tool-error | rejected→first-occurrence | fork agent stalled (600s) when dispatched for open-ended architectural review with large inherited context

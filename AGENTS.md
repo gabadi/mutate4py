@@ -19,6 +19,11 @@ Navigation and universal invariants for all agents in this project.
 ## Acceptance Test Safety
 - Manifest QA fixtures (`acceptance/fixtures/plain.py`, `acceptance/fixtures/stale.py`) are committed inputs and MUST NOT be overwritten; all manifest QA steps must use a writable-copy pattern (see `acceptance/steps/manifest_qa_steps.py:setup_copy()`)
 
+## Module Dependency Invariants
+- `_coverage.py` must not import from `_discovery.py`; if coverage code needs Site objects, move that function to `_discovery.py` (IO-free domain boundary).
+- Acceptance step files are boundary files (15-site mutation threshold); extractable pure logic belongs in `*_helpers.py` modules with their own unit tests.
+- `coverage_helpers.py` is the testable module for acceptance step helper functions; unit tests live in `tests/test_coverage_helpers.py`.
+
 ## References
 - See `.agents/roles/` for per-role operational rules.
 - See `.agents/references/` for deep-dive topics.
