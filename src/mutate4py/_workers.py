@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import time
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable
 
@@ -64,6 +65,7 @@ def _provision_worker(worker_root: str) -> None:
 
 
 def _run_command(cmd: str, cwd: str, timeout: float) -> tuple[str, bool]:
+    """Run cmd via shell; return (status, timed_out) where status in {killed,timeout,survived}."""
     try:
         result = subprocess.run(
             cmd,
@@ -90,7 +92,6 @@ def _run_one_site(
     on_result: Callable,
 ) -> dict:
     """Mutate the worker copy, run test, restore, call on_result, return result dict."""
-    original_source = clean_source
     with open(worker_file_path) as f:
         original_source = f.read()
 
@@ -121,6 +122,40 @@ def _run_one_site(
     }
     on_result(result)
     return result
+
+
+def _provision_workers(run_root: str, n_workers: int, real_cwd: str) -> list[str]:
+    """Create and provision n_workers isolated tree copies; return their root paths."""
+    worker_roots = []
+    for k in range(1, n_workers + 1):
+        worker_root = os.path.join(run_root, f"worker-{k}")
+        _copy_tree(real_cwd, worker_root)
+        _provision_worker(worker_root)
+        worker_roots.append(worker_root)
+    return worker_roots
+
+
+def _assign_sites_to_workers(
+    selected_sites: list[Site], n_workers: int
+) -> dict[int, list[tuple[int, Site, int]]]:
+    """Round-robin assign sites to workers; return by_worker grouping."""
+    by_worker: dict[int, list[tuple[int, Site, int]]] = defaultdict(list)
+    for i, site in enumerate(selected_sites):
+        worker_idx = (site.index % n_workers) + 1
+        by_worker[worker_idx].append((worker_idx, site, i + 1))
+    return by_worker
+
+
+def _summarize_results(results: list[dict]) -> tuple[dict[str, int], list[Site]]:
+    """Tally counts and collect survivors from sorted result list."""
+    counts: dict[str, int] = {"killed": 0, "timeout": 0, "survived": 0}
+    survivors: list[Site] = []
+    for r in results:
+        counts[r["status"]] += 1
+        if r["status"] == "survived":
+            survivors.append(r["site"])
+    survivors.sort(key=lambda s: s.index)
+    return counts, survivors
 
 
 def run_parallel(
@@ -158,32 +193,21 @@ def run_parallel(
     run_root = os.path.join(real_cwd, ".mutate4py", "workers", f"run-{pid}-{nanos}")
 
     try:
-        worker_roots = []
-        for k in range(1, n_workers + 1):
-            worker_root = os.path.join(run_root, f"worker-{k}")
-            _copy_tree(real_cwd, worker_root)
-            _provision_worker(worker_root)
-            worker_roots.append(worker_root)
+        worker_roots = _provision_workers(run_root, n_workers, real_cwd)
+        by_worker = _assign_sites_to_workers(selected_sites, n_workers)
 
-        assignments: list[tuple[int, Site, int]] = []
-        for i, site in enumerate(selected_sites):
-            worker_idx = (site.index % n_workers) + 1
-            assignments.append((worker_idx, site, i + 1))
+        short_fail = os.environ.get("_MUTATE4PY_TEST_WORKER_SHORT_RESULT") == "1"
 
-        results: list[dict] = []
-
-        def _run_assignment(assignment: tuple[int, Site, int]) -> dict:
+        def _run_one_assignment(assignment: tuple[int, Site, int]) -> dict:
             worker_idx, site, site_idx = assignment
-            worker_root = worker_roots[worker_idx - 1]
-            worker_file_path = os.path.join(worker_root, source_rel)
             return _run_one_site(
                 worker_idx=worker_idx,
                 site=site,
                 site_idx=site_idx,
                 total=len(selected_sites),
                 clean_source=clean_source,
-                worker_root=worker_root,
-                worker_file_path=worker_file_path,
+                worker_root=worker_roots[worker_idx - 1],
+                worker_file_path=os.path.join(worker_roots[worker_idx - 1], source_rel),
                 test_command=test_command,
                 mutant_timeout=mutant_timeout,
                 on_result=on_result,
@@ -191,47 +215,28 @@ def run_parallel(
 
         # Sites for the same worker must run sequentially (same file path).
         # Group by worker, then run groups in parallel across workers.
-        from collections import defaultdict
-        by_worker: dict[int, list[tuple[int, Site, int]]] = defaultdict(list)
-        for assignment in assignments:
-            by_worker[assignment[0]].append(assignment)
-
-        short_fail = os.environ.get("_MUTATE4PY_TEST_WORKER_SHORT_RESULT") == "1"
-
-        def _run_worker_assignments(worker_assignments: list[tuple[int, Site, int]]) -> list[dict]:
-            worker_results = []
-            for assignment in worker_assignments:
-                worker_results.append(_run_assignment(assignment))
+        def _run_worker_group(worker_assignments: list[tuple[int, Site, int]]) -> list[dict]:
+            worker_results = [_run_one_assignment(a) for a in worker_assignments]
             if short_fail and worker_results:
                 worker_results.pop()
             return worker_results
 
+        results: list[dict] = []
         with ThreadPoolExecutor(max_workers=n_workers) as executor:
             futures = {
-                executor.submit(_run_worker_assignments, worker_assignments): worker_idx
-                for worker_idx, worker_assignments in by_worker.items()
+                executor.submit(_run_worker_group, assignments): worker_idx
+                for worker_idx, assignments in by_worker.items()
             }
             for future in as_completed(futures):
-                worker_results = future.result()
-                results.extend(worker_results)
+                results.extend(future.result())
 
         if len(results) != len(selected_sites):
-            collected = len(results)
             raise ParallelRunError(
-                f"mutation workers stopped after {collected}/{len(selected_sites)} results"
+                f"mutation workers stopped after {len(results)}/{len(selected_sites)} results"
             )
 
         results.sort(key=lambda r: r["site_idx"])
-
-        counts: dict[str, int] = {"killed": 0, "timeout": 0, "survived": 0}
-        survivors: list[Site] = []
-        for r in results:
-            counts[r["status"]] += 1
-            if r["status"] == "survived":
-                survivors.append(r["site"])
-
-        survivors.sort(key=lambda s: s.index)
-        return counts, survivors
+        return _summarize_results(results)
 
     finally:
         shutil.rmtree(run_root, ignore_errors=True)

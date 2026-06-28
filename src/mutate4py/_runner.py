@@ -24,21 +24,7 @@ from mutate4py._manifest import (
     manifests_structurally_equal,
     strip_manifest,
 )
-
-
-def _run_command(cmd: str, cwd: str, timeout: float) -> tuple[str, bool]:
-    """Run cmd via shell; return (status, timed_out) where status in {killed,timeout,survived}."""
-    try:
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            cwd=cwd,
-            capture_output=True,
-            timeout=timeout,
-        )
-        return ("survived" if result.returncode == 0 else "killed", False)
-    except subprocess.TimeoutExpired:
-        return ("timeout", True)
+from mutate4py._workers import _run_command
 
 
 def _baseline_reason(result: subprocess.CompletedProcess) -> str:
@@ -233,6 +219,45 @@ def _print_mutation_report(
             print(f"  line {s.line} {s.desc}{fid}")
 
 
+def _print_workers_header(max_workers: int, use_parallel: bool, n_selected: int) -> None:
+    if max_workers > 0:
+        displayed = min(max_workers, n_selected) if use_parallel else max_workers
+        print(f"Mutation workers: {displayed}")
+
+
+def _execute_mutations(
+    *,
+    selected_sites: list[Site],
+    clean_source: str,
+    path: str,
+    source_dir: str,
+    cwd: str,
+    test_command: str,
+    mutant_timeout: float,
+    max_workers: int,
+    use_parallel: bool,
+    tested_at: str,
+    bak_path: str,
+    uncovered_count: int,
+) -> int:
+    """Run serial or parallel mutations, finalize source, print report. Returns exit code."""
+    if use_parallel:
+        counts, survivors, error_msg = _run_parallel_workers(
+            selected_sites, clean_source, path, cwd, test_command, mutant_timeout, max_workers
+        )
+        _finalize_source(path, clean_source, tested_at, bak_path)
+        if error_msg is not None:
+            print(error_msg)
+            return 1
+    else:
+        counts, survivors = _run_mutation_loop(
+            selected_sites, clean_source, path, source_dir, test_command, mutant_timeout
+        )
+        _finalize_source(path, clean_source, tested_at, bak_path)
+    _print_mutation_report(counts, survivors, uncovered_count)
+    return 0
+
+
 def _acquire_covered_lines(
     cov_cmd: str | None,
     lcov_path: str | None,
@@ -267,6 +292,10 @@ def _is_effective_since_last_run(
     return since_last_run or (
         manifest_exists and not mutate_all and lines_filter is None
     )
+
+
+def _should_run_parallel(max_workers: int, n_selected: int) -> bool:
+    return max_workers >= 2 and n_selected >= 2
 
 
 def _print_uncovered_if_needed(
@@ -451,11 +480,9 @@ def run_mutations(
     )
 
     n_selected = len(selected_sites)
-    use_parallel = max_workers >= 2 and n_selected >= 2
+    use_parallel = _should_run_parallel(max_workers, n_selected)
 
-    if max_workers > 0:
-        displayed_workers = min(max_workers, n_selected) if use_parallel else max_workers
-        print(f"Mutation workers: {displayed_workers}")
+    _print_workers_header(max_workers, use_parallel, n_selected)
 
     baseline_duration, baseline_error = _run_baseline(test_command, source_dir)
     if baseline_error is not None:
@@ -467,20 +494,17 @@ def run_mutations(
 
     mutant_timeout = max(1.0, timeout_factor * baseline_duration)
 
-    if use_parallel:
-        counts, survivors, error_msg = _run_parallel_workers(
-            selected_sites, clean_source, path, cwd, test_command, mutant_timeout, max_workers
-        )
-        _finalize_source(path, clean_source, tested_at, bak_path)
-        if error_msg is not None:
-            print(error_msg)
-            return 1
-        _print_mutation_report(counts, survivors, uncovered_count)
-    else:
-        counts, survivors = _run_mutation_loop(
-            selected_sites, clean_source, path, source_dir, test_command, mutant_timeout
-        )
-        _finalize_source(path, clean_source, tested_at, bak_path)
-        _print_mutation_report(counts, survivors, uncovered_count)
-
-    return 0
+    return _execute_mutations(
+        selected_sites=selected_sites,
+        clean_source=clean_source,
+        path=path,
+        source_dir=source_dir,
+        cwd=cwd,
+        test_command=test_command,
+        mutant_timeout=mutant_timeout,
+        max_workers=max_workers,
+        use_parallel=use_parallel,
+        tested_at=tested_at,
+        bak_path=bak_path,
+        uncovered_count=uncovered_count,
+    )
