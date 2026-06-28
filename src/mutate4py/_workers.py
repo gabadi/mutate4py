@@ -12,6 +12,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable
 
+from mutate4py._cmd import run_command as _run_command
 from mutate4py._discovery import Site, apply_mutant
 
 __all__ = ["ParallelRunError", "WorkerFailureError", "run_parallel"]
@@ -63,20 +64,6 @@ def _provision_worker(worker_root: str) -> None:
         check=True,
     )
 
-
-def _run_command(cmd: str, cwd: str, timeout: float) -> tuple[str, bool]:
-    """Run cmd via shell; return (status, timed_out) where status in {killed,timeout,survived}."""
-    try:
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            cwd=cwd,
-            capture_output=True,
-            timeout=timeout,
-        )
-        return ("survived" if result.returncode == 0 else "killed", False)
-    except subprocess.TimeoutExpired:
-        return ("timeout", True)
 
 
 def _run_one_site(

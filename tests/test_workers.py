@@ -85,6 +85,97 @@ def test_copy_tree_skips_venv(tmp_path):
     assert (dst / "a.py").exists()
 
 
+def test_copy_tree_skips_pycache(tmp_path):
+    src = tmp_path / "src"
+    (src / "__pycache__").mkdir(parents=True)
+    (src / "__pycache__" / "mod.cpython-312.pyc").write_text("")
+    (src / "a.py").write_text("x = 1")
+    dst = tmp_path / "dst"
+    _copy_tree(str(src), str(dst))
+    assert not (dst / "__pycache__").exists()
+    assert (dst / "a.py").exists()
+
+
+def test_copy_tree_skips_git(tmp_path):
+    src = tmp_path / "src"
+    (src / ".git").mkdir(parents=True)
+    (src / ".git" / "HEAD").write_text("ref: refs/heads/main\n")
+    (src / "a.py").write_text("x = 1")
+    dst = tmp_path / "dst"
+    _copy_tree(str(src), str(dst))
+    assert not (dst / ".git").exists()
+    assert (dst / "a.py").exists()
+
+
+def test_copy_tree_skips_mutate4py_dir(tmp_path):
+    src = tmp_path / "src"
+    (src / ".mutate4py").mkdir(parents=True)
+    (src / ".mutate4py" / "marker").write_text("present\n")
+    (src / "a.py").write_text("x = 1")
+    dst = tmp_path / "dst"
+    _copy_tree(str(src), str(dst))
+    assert not (dst / ".mutate4py").exists()
+    assert (dst / "a.py").exists()
+
+
+def test_copy_tree_copies_regular_subdir(tmp_path):
+    src = tmp_path / "src"
+    (src / "src").mkdir(parents=True)
+    (src / "src" / "module.py").write_text("x = 1")
+    (src / "a.py").write_text("root = True")
+    dst = tmp_path / "dst"
+    _copy_tree(str(src), str(dst))
+    assert (dst / "src" / "module.py").exists()
+    assert (dst / "a.py").exists()
+
+
+def test_copy_tree_idempotent_to_existing_dst(tmp_path):
+    """_copy_tree is callable twice to same dst (exist_ok=True required)."""
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "a.py").write_text("x = 1")
+    dst = tmp_path / "dst"
+    _copy_tree(str(src), str(dst))
+    _copy_tree(str(src), str(dst))
+    assert (dst / "a.py").exists()
+
+
+def test_copy_tree_skips_all_skip_entries_copies_all_regular(tmp_path):
+    """continue (not break): ALL regular files are copied even with multiple skip entries interspersed.
+
+    With 3 regular files and 3 skip-list dirs, break would stop after the first skip,
+    leaving some regular files uncopied. continue copies all regular files.
+    """
+    src = tmp_path / "src"
+    src.mkdir()
+    for skip in ["__pycache__", ".git", ".venv"]:
+        (src / skip).mkdir()
+        (src / skip / "dummy").write_text("")
+    for name in ["a.py", "b.py", "c.py"]:
+        (src / name).write_text("x = 1")
+    dst = tmp_path / "dst"
+    _copy_tree(str(src), str(dst))
+    for skip in ["__pycache__", ".git", ".venv"]:
+        assert not (dst / skip).exists(), f"Skip entry {skip} should not be copied"
+    for name in ["a.py", "b.py", "c.py"]:
+        assert (dst / name).exists(), f"Regular file {name} should be copied"
+
+
+def test_copy_tree_symlink_to_file_is_copied(tmp_path):
+    """follow_symlinks=False: a symlink to a regular file is treated as a file and copied."""
+    import os
+    src = tmp_path / "src"
+    target = tmp_path / "real.txt"
+    target.write_text("contents")
+    src.mkdir()
+    (src / "link.txt").symlink_to(target)
+    (src / "a.py").write_text("x = 1")
+    dst = tmp_path / "dst"
+    _copy_tree(str(src), str(dst))
+    assert (dst / "a.py").exists()
+    assert (dst / "link.txt").exists()
+
+
 # ── _assign_sites_to_workers ──────────────────────────────────────────────────
 
 

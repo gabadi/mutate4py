@@ -6,9 +6,14 @@ import os
 from mutate4py._discovery import Site, apply_mutant, discover_sites
 from mutate4py._runner import (
     _baseline_reason,
+    _finalize_source,
+    _is_effective_since_last_run,
+    _on_parallel_result,
     _print_uncovered_block,
-    _run_command,
+    _run_mutation_loop,
+    _run_parallel_workers,
     _select_sites,
+    _should_run_parallel,
     run_mutations,
 )
 
@@ -49,27 +54,6 @@ def test_apply_mutant_integer_0_to_1():
     sites = discover_sites(src)
     mutated = apply_mutant(src, sites[0])
     assert mutated.strip() == "x = 1"
-
-
-# ── _run_command ──────────────────────────────────────────────────────────────
-
-
-def test_run_command_exit_zero_is_survived():
-    status, timed_out = _run_command("exit 0", "/tmp", timeout=5.0)
-    assert status == "survived"
-    assert not timed_out
-
-
-def test_run_command_exit_nonzero_is_killed():
-    status, timed_out = _run_command("exit 1", "/tmp", timeout=5.0)
-    assert status == "killed"
-    assert not timed_out
-
-
-def test_run_command_timeout_is_timeout():
-    status, timed_out = _run_command("sleep 10", "/tmp", timeout=0.1)
-    assert status == "timeout"
-    assert timed_out
 
 
 # ── _select_sites ─────────────────────────────────────────────────────────────
@@ -234,10 +218,12 @@ def test_run_mutations_survived_mutant(tmp_path):
             cwd=str(tmp_path),
         )
     output = buf.getvalue()
+    n_sites = len(sites)
     assert rc == 0
     assert "survived" in output
     assert "Survived: 1" in output
     assert "Survivors:" in output
+    assert f"[1/{n_sites}]" in output
 
 
 def test_run_mutations_baseline_failure_exits_1(tmp_path):
@@ -822,3 +808,242 @@ def test_parallel_path_original_file_restored(tmp_path, monkeypatch):
     body = strip_manifest(final)
     assert ">=" not in body
     assert "mutate4py-manifest-begin" in final
+
+
+# ── _run_mutation_loop ────────────────────────────────────────────────────────
+
+
+def test_run_mutation_loop_empty_sites_returns_zero_counts(tmp_path):
+    """Zero selected sites means all counts start and stay at zero — kills initial-value mutants."""
+    src_file = tmp_path / "calc.py"
+    src_file.write_text("x = 1\n")
+    counts, survivors = _run_mutation_loop(
+        selected_sites=[],
+        clean_source="x = 1\n",
+        path=str(src_file),
+        source_dir=str(tmp_path),
+        test_command="exit 0",
+        mutant_timeout=5.0,
+    )
+    assert counts == {"killed": 0, "timeout": 0, "survived": 0}
+    assert survivors == []
+
+
+# ── _should_run_parallel boundary conditions ──────────────────────────────────
+
+
+def test_should_run_parallel_exact_boundary():
+    """max_workers=2, n_selected=2 -> parallel (inclusive on both)."""
+    assert _should_run_parallel(max_workers=2, n_selected=2) is True
+
+
+def test_should_run_parallel_one_worker():
+    """max_workers=1 -> serial even with many sites."""
+    assert _should_run_parallel(max_workers=1, n_selected=10) is False
+
+
+def test_should_run_parallel_one_site():
+    """n_selected=1 -> serial even with many workers."""
+    assert _should_run_parallel(max_workers=8, n_selected=1) is False
+
+
+def test_should_run_parallel_two_workers_one_site():
+    """max_workers=2, n_selected=1 -> serial."""
+    assert _should_run_parallel(max_workers=2, n_selected=1) is False
+
+
+def test_should_run_parallel_three_workers():
+    """max_workers=3, n_selected=2 -> parallel."""
+    assert _should_run_parallel(max_workers=3, n_selected=2) is True
+
+
+# ── _is_effective_since_last_run logic ───────────────────────────────────────
+
+
+def test_is_effective_since_last_run_explicit():
+    """since_last_run=True -> effective regardless of other flags."""
+    assert _is_effective_since_last_run(True, False, True, {1, 2}) is True
+
+
+def test_is_effective_since_last_run_implicit_all_conditions():
+    """manifest exists, mutate_all=False, no lines_filter -> effective."""
+    assert _is_effective_since_last_run(False, True, False, None) is True
+
+
+def test_is_effective_since_last_run_no_manifest():
+    """No manifest -> not effective via implicit path."""
+    assert _is_effective_since_last_run(False, False, False, None) is False
+
+
+def test_is_effective_since_last_run_mutate_all_disables():
+    """mutate_all=True -> not effective via implicit path."""
+    assert _is_effective_since_last_run(False, True, True, None) is False
+
+
+def test_is_effective_since_last_run_lines_filter_disables():
+    """lines_filter present -> not effective via implicit path."""
+    assert _is_effective_since_last_run(False, True, False, {5}) is False
+
+
+# ── _on_parallel_result output ────────────────────────────────────────────────
+
+
+def _make_simple_site(line=42, function_id=""):
+    return Site(
+        index=0,
+        line=line,
+        col=11,
+        end_line=line,
+        end_col=12,
+        function_id=function_id,
+        orig_text=">",
+        mutant_text=">=",
+        desc="> -> >=",
+    )
+
+
+def test_on_parallel_result_includes_worker_idx(capsys):
+    """worker_idx from result dict must appear in the printed progress line."""
+    result = {
+        "site": _make_simple_site(42),
+        "site_idx": 3,
+        "total": 10,
+        "worker_idx": 7,
+        "status": "survived",
+    }
+    _on_parallel_result(result)
+    out = capsys.readouterr().out
+    assert "worker-7" in out
+    assert "[3/10]" in out
+
+
+def test_on_parallel_result_different_worker_idx(capsys):
+    """A different worker_idx produces a different label — ensures idx is not hardcoded."""
+    result = {"site": _make_simple_site(1), "site_idx": 1, "total": 5, "worker_idx": 2, "status": "killed"}
+    _on_parallel_result(result)
+    out = capsys.readouterr().out
+    assert "worker-2" in out
+    assert "worker-7" not in out
+
+
+def test_on_parallel_result_fid_suffix_when_empty(capsys):
+    """When function_id is empty, no trailing colon-suffix in the output line."""
+    result = {
+        "site": _make_simple_site(10, function_id=""),
+        "site_idx": 1,
+        "total": 1,
+        "worker_idx": 1,
+        "status": "killed",
+    }
+    _on_parallel_result(result)
+    out = capsys.readouterr().out
+    assert out.rstrip("\n").endswith("> -> >="), f"No extra suffix expected, got: {out!r}"
+
+
+def test_on_parallel_result_fid_suffix_when_present(capsys):
+    """When function_id is non-empty, the line ends with ': <function_id>'."""
+    result = {
+        "site": _make_simple_site(10, function_id="func/calc"),
+        "site_idx": 2,
+        "total": 4,
+        "worker_idx": 3,
+        "status": "killed",
+    }
+    _on_parallel_result(result)
+    out = capsys.readouterr().out
+    assert ": func/calc" in out, f"Expected fid suffix, got: {out!r}"
+
+
+# ── _run_parallel_workers passes mutant_timeout ───────────────────────────────
+
+
+def test_run_parallel_workers_passes_timeout(tmp_path, monkeypatch):
+    """mutant_timeout is forwarded to run_parallel (not silently replaced with None)."""
+    import mutate4py._workers as workers_mod
+
+    captured = {}
+
+    def fake_run_parallel(*, mutant_timeout, **_kw):
+        captured["mutant_timeout"] = mutant_timeout
+        return ({"killed": 0, "survived": 0, "timeout": 0}, [])
+
+    monkeypatch.setattr(workers_mod, "run_parallel", fake_run_parallel)
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+
+    src = "def f(a, b):\n    return a > b\n"
+    src_path = str(tmp_path / "f.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+
+    from mutate4py._discovery import discover_sites
+    sites = discover_sites(src)
+
+    _run_parallel_workers(
+        selected_sites=sites,
+        clean_source=src,
+        path=src_path,
+        cwd=str(tmp_path),
+        test_command="exit 0",
+        mutant_timeout=42.0,
+        max_workers=2,
+    )
+    assert captured["mutant_timeout"] == 42.0
+
+
+# ── _finalize_source manifest content ────────────────────────────────────────
+
+
+def test_finalize_source_embeds_manifest_with_tested_at(tmp_path):
+    """_finalize_source writes the file with a manifest containing the tested_at timestamp."""
+    import json
+    src = "def f(a, b):\n    return a > b\n"
+    src_path = str(tmp_path / "f.py")
+    bak_path = src_path + ".bak"
+    with open(src_path, "w") as f:
+        f.write(src)
+
+    tested_at = "2026-01-01T00:00:00Z"
+    _finalize_source(src_path, src, tested_at, bak_path)
+
+    with open(src_path) as f:
+        content = f.read()
+
+    assert "mutate4py-manifest-begin" in content
+    manifest_line = [ln for ln in content.splitlines() if ln.startswith("# {")][0]
+    manifest = json.loads(manifest_line[2:])
+    assert manifest["tested_at"] == tested_at
+
+
+def test_finalize_source_removes_bak_when_present(tmp_path):
+    """_finalize_source removes the .bak file if it exists after writing."""
+    src = "def f(a, b):\n    return a > b\n"
+    src_path = str(tmp_path / "f.py")
+    bak_path = src_path + ".bak"
+    with open(src_path, "w") as f:
+        f.write(src)
+    with open(bak_path, "w") as f:
+        f.write(src)
+
+    _finalize_source(src_path, src, "2026-01-01T00:00:00Z", bak_path)
+
+    assert not os.path.isfile(bak_path)
+
+
+def test_finalize_source_manifest_is_valid_dict(tmp_path):
+    """The embedded manifest is valid JSON dict (not null, not a string)."""
+    import json
+    src = "def f(a, b):\n    return a > b\n"
+    src_path = str(tmp_path / "f.py")
+    bak_path = src_path + ".bak"
+    with open(src_path, "w") as f:
+        f.write(src)
+
+    _finalize_source(src_path, src, "2026-01-01T00:00:00Z", bak_path)
+
+    with open(src_path) as f:
+        content = f.read()
+
+    manifest_line = [ln for ln in content.splitlines() if ln.startswith("# {")][0]
+    manifest = json.loads(manifest_line[2:])
+    assert isinstance(manifest, dict)
+    assert "sites" in manifest or "ast_hash" in manifest or "tested_at" in manifest

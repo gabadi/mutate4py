@@ -380,6 +380,8 @@ def then_takes_path(m, params):
         assert any("worker-" in ln for ln in progress), (
             f"Expected worker-k token in progress lines. stdout:\n{stdout}"
         )
+    else:
+        raise AssertionError(f"Unknown path value: {path!r}; expected 'serial' or 'parallel'")
 
 
 @step(r'the output line "Mutation workers: (\d+)" is printed')
@@ -512,25 +514,11 @@ def then_no_per_worker_bak(m, params):
                 assert not f.endswith(".bak"), f"Found .bak in worker dir: {os.path.join(root, f)}"
 
 
-@step(r'the "([^"]*)" entry "([^"]*)" copied into each worker root')
-def then_entry_copied_or_not(m, params):
-    entry = params.get("entry") or m.group(1)
-    copied = params.get("copied") or m.group(2)
+@step(r'the run completes successfully')
+def then_run_completes_successfully(m, params):
     stdout = ctx.cli_result.stdout
     stderr = ctx.cli_result.stderr
-    # The worker tree is cleaned up after the run. We verify behavior by checking
-    # the run succeeded (copy completed without error) and by inspecting if we can
-    # find evidence. Since cleanup happens, we check indirectly:
-    # - if "is not" copied: the run succeeds (no recursive copy explosion, no error)
-    # - if "is" copied: the run also succeeds (the entry was present and copied)
-    assert ctx.cli_result.returncode == 0 or "must be inside" in stdout or "must be inside" in stderr, (
-        f"Run failed unexpectedly: {stdout}\n{stderr}"
-    )
-    if copied == "is not":
-        # The skip-list entries should not cause issues; run completes normally
-        assert ctx.cli_result.returncode == 0, f"Run failed: {stdout}\n{stderr}"
-    elif copied == "is":
-        assert ctx.cli_result.returncode == 0, f"Run failed: {stdout}\n{stderr}"
+    assert ctx.cli_result.returncode == 0, f"Run failed unexpectedly: {stdout}\n{stderr}"
 
 
 @step(r'a worker run root existed under "\.mutate4py/workers/" during the run')
