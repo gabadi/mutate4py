@@ -8,7 +8,7 @@ import textwrap
 
 import pytest
 
-from mutate4py.__main__ import scan_report
+from mutate4py._runner import scan_report
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -248,25 +248,25 @@ def test_mse_a_missing_functions_differs_from_b_with_functions():
 
 
 def test_do_update_manifest_writes_footer(tmp_path, capsys):
-    from mutate4py.__main__ import _do_update_manifest
+    from mutate4py._runner import update_manifest
 
     p = tmp_path / "s.py"
     p.write_text("def foo():\n    return 1\n")
-    _do_update_manifest(str(p), p.read_text())
+    update_manifest(path=str(p), source=p.read_text())
     content = p.read_text()
     assert "# mutate4py-manifest-begin" in content
     assert "Updated manifest:" in capsys.readouterr().out
 
 
 def test_do_update_manifest_idempotent(tmp_path, capsys):
-    from mutate4py.__main__ import _do_update_manifest
+    from mutate4py._runner import update_manifest
 
     p = tmp_path / "s.py"
     p.write_text("def foo():\n    return 1\n")
-    _do_update_manifest(str(p), p.read_text())
+    update_manifest(path=str(p), source=p.read_text())
     first_content = p.read_text()
     capsys.readouterr()  # clear
-    _do_update_manifest(str(p), first_content)
+    update_manifest(path=str(p), source=first_content)
     assert "Manifest unchanged:" in capsys.readouterr().out
     assert p.read_text() == first_content
 
@@ -287,7 +287,7 @@ def test_main_update_manifest_mode(tmp_path, capsys):
 
 
 def test_scan_report_with_coverage_basic(tmp_path):
-    from mutate4py.__main__ import scan_report_with_coverage
+    from mutate4py._runner import scan_report_with_coverage
 
     src_file = tmp_path / "foo.py"
     src_file.write_text("x = a + b\n")
@@ -309,7 +309,7 @@ def test_scan_report_with_coverage_basic(tmp_path):
 
 
 def test_scan_report_with_coverage_warning(tmp_path):
-    from mutate4py.__main__ import scan_report_with_coverage
+    from mutate4py._runner import scan_report_with_coverage
 
     src_file = tmp_path / "foo.py"
     src_file.write_text("x = a + b\ny = c - d\n")
@@ -498,7 +498,7 @@ def test_run_scan_output_newline_separated(tmp_path, capsys):
 
 def test_scan_report_with_coverage_manifest_exists_false(tmp_path):
     # mutmut_22,23,24: "Manifest exists: false" must appear in output
-    from mutate4py.__main__ import scan_report_with_coverage
+    from mutate4py._runner import scan_report_with_coverage
 
     src_file = tmp_path / "foo.py"
     src_file.write_text("x = a + b\n")
@@ -519,7 +519,7 @@ def test_scan_report_with_coverage_manifest_exists_false(tmp_path):
 
 def test_scan_report_with_coverage_no_warning_at_threshold(tmp_path):
     # mutmut_26: exceeded = total > warning_threshold (not >=), so at threshold no warning
-    from mutate4py.__main__ import scan_report_with_coverage
+    from mutate4py._runner import scan_report_with_coverage
 
     src_file = tmp_path / "foo.py"
     src_file.write_text("x = a + b\n")  # 1 site
@@ -542,11 +542,11 @@ def test_scan_report_with_coverage_no_warning_at_threshold(tmp_path):
 def test_do_update_manifest_tested_at_iso8601_utc_format(tmp_path):
     # mutmut_5,7,8,9,10,13: tested_at = datetime.datetime.now(utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     import re
-    from mutate4py.__main__ import _do_update_manifest
+    from mutate4py._runner import update_manifest
 
     p = tmp_path / "s.py"
     p.write_text("def foo():\n    return 1\n")
-    _do_update_manifest(str(p), p.read_text())
+    update_manifest(path=str(p), source=p.read_text())
     import json
 
     content = p.read_text()
@@ -672,11 +672,11 @@ def test_do_update_manifest_uses_utc_not_local_tz(tmp_path):
     # The strftime format %Y-%m-%dT%H:%M:%SZ works for both but the timestamp
     # will differ. We verify by checking the format is valid ISO-8601 UTC.
     import re
-    from mutate4py.__main__ import _do_update_manifest
+    from mutate4py._runner import update_manifest
 
     p = tmp_path / "s.py"
     p.write_text("def foo():\n    return 1\n")
-    _do_update_manifest(str(p), p.read_text())
+    update_manifest(path=str(p), source=p.read_text())
     content = p.read_text()
     import json
 
@@ -769,3 +769,440 @@ def test_build_parser_mutate_all_flag_exists():
     parser = _build_parser()
     args = parser.parse_args(["somefile.py", "--mutate-all"])
     assert args.mutate_all is True
+
+
+# ── F5: --max-workers flag ────────────────────────────────────────────────────
+
+
+def test_build_parser_max_workers_sets_value():
+    from mutate4py.__main__ import _build_parser
+
+    parser = _build_parser()
+    args = parser.parse_args(["f.py", "--max-workers", "4"])
+    assert args.max_workers == 4
+
+
+def test_build_parser_flag_defaults():
+    from mutate4py.__main__ import _build_parser
+
+    parser = _build_parser()
+    args = parser.parse_args(["f.py"])
+    assert args.max_workers is None
+    assert args.verbose is False
+
+
+def test_max_workers_zero_is_usage_error(source="x = 1\n"):
+    result = run_cli("--max-workers", "0", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_max_workers_negative_is_usage_error():
+    result = run_cli("--max-workers", "-1", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_max_workers_non_integer_is_usage_error():
+    result = run_cli("--max-workers", "many", source="x = 1\n")
+    assert result.returncode != 0
+
+
+# ── F5: --mutation-warning default is 50 ─────────────────────────────────────
+
+
+def test_mutation_warning_default_is_50():
+    from mutate4py.__main__ import _build_parser
+
+    parser = _build_parser()
+    args = parser.parse_args(["f.py"])
+    assert args.warning_threshold == 50
+
+
+# ── F5: --lines positive-int validation ──────────────────────────────────────
+
+
+def test_lines_zero_is_usage_error():
+    result = run_cli("--scan", "--lines", "0", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_lines_negative_is_usage_error():
+    result = run_cli("--scan", "--lines", "7,-2", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_lines_non_integer_is_usage_error():
+    result = run_cli("--scan", "--lines", "7,x", source="x = 1\n")
+    assert result.returncode != 0
+
+
+# ── F5: mutual exclusion — --scan / --update-manifest ────────────────────────
+
+
+def test_scan_and_update_manifest_are_exclusive():
+    result = run_cli("--scan", "--update-manifest", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_scan_and_lines_are_exclusive():
+    result = run_cli("--scan", "--lines", "7", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_scan_and_since_last_run_are_exclusive():
+    result = run_cli("--scan", "--since-last-run", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_scan_and_mutate_all_are_exclusive():
+    result = run_cli("--scan", "--mutate-all", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_scan_and_timeout_factor_are_exclusive():
+    result = run_cli("--scan", "--timeout-factor", "5", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_scan_and_test_command_are_exclusive():
+    result = run_cli("--scan", "--test-command", "tox", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_scan_and_max_workers_are_exclusive():
+    result = run_cli("--scan", "--max-workers", "4", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_update_manifest_and_lines_are_exclusive():
+    result = run_cli("--update-manifest", "--lines", "7", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_update_manifest_and_since_last_run_are_exclusive():
+    result = run_cli("--update-manifest", "--since-last-run", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_update_manifest_and_mutate_all_are_exclusive():
+    result = run_cli("--update-manifest", "--mutate-all", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_update_manifest_and_max_workers_are_exclusive():
+    result = run_cli("--update-manifest", "--max-workers", "4", source="x = 1\n")
+    assert result.returncode != 0
+
+
+# ── F5: mutual exclusion — selection flags ────────────────────────────────────
+
+
+def test_since_last_run_and_mutate_all_are_exclusive():
+    result = run_cli("--since-last-run", "--mutate-all", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_since_last_run_and_lines_are_exclusive():
+    result = run_cli("--since-last-run", "--lines", "7", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_mutate_all_and_lines_are_exclusive():
+    result = run_cli("--mutate-all", "--lines", "7", source="x = 1\n")
+    assert result.returncode != 0
+
+
+# ── F5: --max-workers accepted with selection flags ───────────────────────────
+
+
+def test_max_workers_accepted_with_lines():
+    run_cli("--scan", "--lines", "7", "--max-workers", "4", source="x = 1\n")
+    # --scan + --lines is already exclusive, so test acceptance without --scan
+    # We can't actually run mutations without coverage, so just check parse acceptance
+    # by using --scan without --lines
+    result2 = run_cli("--max-workers", "4", "--lines", "7", source="x = 1\n")
+    # Will fail due to no coverage, but parse should accept (non-zero from coverage, not parse)
+    # The key is it should NOT fail with argparse/mutual-exclusion error (returncode 2)
+    # but may fail with coverage error (returncode 1 or non-zero)
+    # Check it doesn't print usage error about --max-workers and --lines
+    assert (
+        "--max-workers" not in result2.stderr
+        or "cannot be combined" not in result2.stderr
+    )
+
+
+def test_max_workers_with_lines_parse_accepted():
+    from mutate4py.__main__ import _build_parser, _validate_mutual_exclusions
+
+    parser = _build_parser()
+    args = parser.parse_args(["f.py", "--max-workers", "4", "--lines", "7"])
+    # Should not raise
+    _validate_mutual_exclusions(args)
+
+
+def test_max_workers_with_since_last_run_parse_accepted():
+    from mutate4py.__main__ import _build_parser, _validate_mutual_exclusions
+
+    parser = _build_parser()
+    args = parser.parse_args(["f.py", "--max-workers", "4", "--since-last-run"])
+    _validate_mutual_exclusions(args)
+
+
+def test_max_workers_with_mutate_all_parse_accepted():
+    from mutate4py.__main__ import _build_parser, _validate_mutual_exclusions
+
+    parser = _build_parser()
+    args = parser.parse_args(["f.py", "--max-workers", "4", "--mutate-all"])
+    _validate_mutual_exclusions(args)
+
+
+# ── F5: --help ────────────────────────────────────────────────────────────────
+
+
+def test_help_exits_zero():
+    result = run_cli("--help", source="x = 1\n")
+    assert result.returncode == 0
+
+
+def test_help_lists_max_workers():
+    result = run_cli("--help", source="x = 1\n")
+    assert "--max-workers" in result.stdout
+
+
+def test_help_with_invalid_args_still_exits_zero():
+    # --help is honoured before any validation
+    result = run_cli("--help", "--max-workers", "0", source="x = 1\n")
+    assert result.returncode == 0
+
+
+# ── F5: positive-int rejection ────────────────────────────────────────────────
+
+
+def test_mutation_warning_zero_is_usage_error():
+    result = run_cli("--scan", "--mutation-warning", "0", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_mutation_warning_negative_is_usage_error():
+    result = run_cli("--scan", "--mutation-warning", "-3", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_mutation_warning_non_integer_is_usage_error():
+    result = run_cli("--scan", "--mutation-warning", "two", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_timeout_factor_zero_is_usage_error():
+    result = run_cli("--scan", "--timeout-factor", "0", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_timeout_factor_float_is_usage_error():
+    result = run_cli("--scan", "--timeout-factor", "1.5", source="x = 1\n")
+    assert result.returncode != 0
+
+
+# ── F5: unknown flag / missing file ──────────────────────────────────────────
+
+
+def test_unknown_flag_is_usage_error():
+    result = run_cli("--bogus-flag", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_no_positional_file_is_usage_error():
+    result = subprocess.run(
+        [sys.executable, "-m", "mutate4py"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        env={**os.environ, "PYTHONPATH": os.path.join(REPO_ROOT, "src")},
+    )
+    assert result.returncode != 0
+
+
+# ── F5: --verbose flag ────────────────────────────────────────────────────────
+
+
+def test_verbose_flag_parses():
+    from mutate4py.__main__ import _build_parser
+
+    parser = _build_parser()
+    args = parser.parse_args(["f.py", "--verbose"])
+    assert args.verbose is True
+
+
+# ── _positive_int: error branches ────────────────────────────────────────────
+
+
+def test_positive_int_non_integer_raises():
+    import argparse
+    from mutate4py.__main__ import _positive_int
+
+    try:
+        _positive_int("abc")
+        assert False, "expected ArgumentTypeError"
+    except argparse.ArgumentTypeError as exc:
+        assert "not a valid integer" in str(exc)
+
+
+def test_positive_int_zero_raises():
+    import argparse
+    from mutate4py.__main__ import _positive_int
+
+    try:
+        _positive_int("0")
+        assert False, "expected ArgumentTypeError"
+    except argparse.ArgumentTypeError as exc:
+        assert "positive integer" in str(exc)
+
+
+def test_positive_int_negative_raises():
+    import argparse
+    from mutate4py.__main__ import _positive_int
+
+    try:
+        _positive_int("-5")
+        assert False, "expected ArgumentTypeError"
+    except argparse.ArgumentTypeError as exc:
+        assert "positive integer" in str(exc)
+
+
+# ── _parse_lines: error branches ──────────────────────────────────────────────
+
+
+def test_parse_lines_non_integer_exits(capsys):
+    from mutate4py.__main__ import _parse_lines
+
+    try:
+        _parse_lines("3,abc")
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    err = capsys.readouterr().err
+    assert "not a valid integer" in err
+
+
+def test_parse_lines_zero_exits(capsys):
+    from mutate4py.__main__ import _parse_lines
+
+    try:
+        _parse_lines("0")
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    err = capsys.readouterr().err
+    assert "positive integer" in err
+
+
+def test_parse_lines_negative_exits(capsys):
+    from mutate4py.__main__ import _parse_lines
+
+    try:
+        _parse_lines("-3")
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    err = capsys.readouterr().err
+    assert "positive integer" in err
+
+
+# ── _validate_mutual_exclusions: direct unit coverage ─────────────────────────
+
+
+def _make_args(**kwargs):
+    """Build a minimal argparse.Namespace for validation tests."""
+    import argparse
+
+    defaults = dict(
+        scan=False,
+        update_manifest=False,
+        lines=None,
+        since_last_run=False,
+        mutate_all=False,
+        max_workers=None,
+        timeout_factor=10,
+        test_command="pytest",
+    )
+    defaults.update(kwargs)
+    return argparse.Namespace(**defaults)
+
+
+def test_validate_scan_and_update_manifest_exits(capsys):
+    from mutate4py.__main__ import _validate_mutual_exclusions
+
+    try:
+        _validate_mutual_exclusions(_make_args(scan=True, update_manifest=True))
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    assert "--scan" in capsys.readouterr().err
+
+
+def test_validate_update_manifest_with_lines_exits(capsys):
+    from mutate4py.__main__ import _validate_mutual_exclusions
+
+    try:
+        _validate_mutual_exclusions(_make_args(update_manifest=True, lines="5"))
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    assert "--update-manifest" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"since_last_run": True},
+        {"mutate_all": True},
+        {"max_workers": 4},
+    ],
+)
+def test_validate_update_manifest_with_run_only_flag_exits(capsys, extra):
+    from mutate4py.__main__ import _validate_mutual_exclusions
+
+    try:
+        _validate_mutual_exclusions(_make_args(update_manifest=True, **extra))
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    assert "--update-manifest" in capsys.readouterr().err
+
+
+def test_validate_scan_with_timeout_factor_exits(capsys):
+    from mutate4py.__main__ import _validate_mutual_exclusions
+
+    try:
+        _validate_mutual_exclusions(_make_args(scan=True, timeout_factor=5))
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    assert "--timeout-factor" in capsys.readouterr().err
+
+
+def test_validate_scan_with_test_command_exits(capsys):
+    from mutate4py.__main__ import _validate_mutual_exclusions
+
+    try:
+        _validate_mutual_exclusions(_make_args(scan=True, test_command="tox"))
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    assert "--test-command" in capsys.readouterr().err
+
+
+def test_validate_pairwise_selection_exits(capsys):
+    from mutate4py.__main__ import _validate_mutual_exclusions
+
+    try:
+        _validate_mutual_exclusions(_make_args(since_last_run=True, mutate_all=True))
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    assert "pairwise exclusive" in capsys.readouterr().err
+
+
+def test_validate_no_flags_passes():
+    from mutate4py.__main__ import _validate_mutual_exclusions
+
+    _validate_mutual_exclusions(_make_args())  # must not raise

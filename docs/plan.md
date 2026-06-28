@@ -9,16 +9,18 @@ build order and mutate4go's module deps). Each feature is specified one at a tim
 frontier brief → user confirmation → `grill-with-docs` → Gherkin → prune →
 `ir-dry-checker` → `Background` → end-to-end QA suite → handoff to coder.
 
-**Dependency chain:** F1 → F2 → F3 → F4 → F5. Each feature builds on the prior
-and is testable without the later ones.
+**Dependency chain:** F1 → F2 → F3 → F4 → F5 → F6. Each feature builds on the
+prior and is testable without the later ones. (F6 — parallel `--max-workers`
+execution — was added when the §9 "parallelism removed" decision was reopened to
+keep `--max-workers` as a real working flag.)
 
 **Every feature is user-facing** (mirrors the `crap4py` sibling): the CLI exists
 from F1, and each feature owns the slice of CLI output it adds — so each gets a
 real end-to-end `_qa.feature` that drives the `mutate4py` command, never a project
 API. F1 therefore ships a thin CLI (`--scan`) plus the full CI/CD skeleton
 (ci.yml + release.yml ported from `crap4py`), landing a runnable, gated, releasable
-package. The full flag matrix, mutual-exclusion rules, and run-mode dispatch stay
-in F5.
+package. The full flag matrix, mutual-exclusion rules, and run-mode dispatch land
+in F5; parallel `--max-workers` execution is F6.
 
 **Sibling templates** (`~/workspace/addi/`): `crap4py` is the Python gold template
 (CI, release, `features/*.feature` + `*_qa.feature`, `acceptance/`, `docs/adr`);
@@ -178,19 +180,78 @@ stays user-facing and gets a real end-to-end `_qa.feature`.
   with execution options; since-last-run/mutate-all/lines pairwise exclusive.
 - Numeric-flag validation (reject non-positive / non-integer).
 - Missing source file → usage error.
-- `--max-workers` removed: passing it is a usage error pointing at serial
-  behaviour ([PY] §9).
+- `--max-workers N` parsing + validation ([PORT], restored): positive-int value,
+  default 0/1 = serial, and it joins the scan/update-manifest mutual-exclusion gate
+  exactly as upstream `internal/cli/cli.go` does (combining `--max-workers` with
+  `--scan` or `--update-manifest` is a usage error). F5 owns the **flag surface and
+  validation only**; the parallel execution it enables is F6.
 - `--help` usage text.
 
 **Out of scope**
 - Does NOT re-implement run-loop behaviour (F4) — dispatches to it.
+- Does NOT implement parallel execution for `--max-workers` (F6) — F5 parses and
+  validates the flag and passes the parsed worker count through; F6 acts on it.
+
+---
+
+## F6 — Parallel worker execution (`--max-workers`)
+**Spec:** §9 (REOPENED — parallelism restored via a Python-correct mechanism)
+**Slug:** `parallel-workers`
+**Depends on:** F4 (run loop), F5 (parsed `--max-workers`).
+
+Restores upstream mutate4go's `--max-workers` as a real working flag. mutate4go's
+own mechanism (copy the tree, trust `cwd`/`sys.path` to redirect imports) is
+**unsound in Python** — PEP 660 editable installs write an absolute path to the
+original source that no `cwd` override beats (mutmut v3 #456). So F6 keeps
+upstream's *isolated-worker* semantics but uses a Python-correct provisioning
+mechanism.
+
+**In scope — serial/parallel switch + `uv`-provisioned clone-per-worker**
+- Port upstream's per-run switch verbatim (`runner.go:319`):
+  `--max-workers <= 1 OR selected sites <= 1` → the **existing F4 serial loop,
+  unchanged**; `--max-workers >= 2 AND sites >= 2` → the new parallel engine.
+  Parallelism is across the **selected sites of the one target file** (upstream
+  mutates one file per run); `maxWorkers` is clamped to the site count.
+- Each worker gets its own isolated working copy of the project (clone or tree
+  copy) and a `uv`-provisioned venv, so the worker's editable install resolves to
+  *its own* copy — editable-install-proof by construction.
+- `uv` is the cost lever that makes clone-per-worker practical: `uv venv` is
+  near-instant and per-worker installs hardlink from the shared global cache, so
+  worker provisioning is close to free (the original §9 objection was the
+  `git clone` + full `pip install` cost; `uv` removes it).
+- Each worker reuses F1's byte-offset splice/restore on *its own* file copy — the
+  faithful mutation engine is preserved, just per worker (no bytecode-spoof rework).
+- Worker pool sized to `--max-workers`; sites distributed across workers; results
+  aggregated into the single §8 report.
+- Worker-tree lifecycle: provision, run, cleanup; skip-list for `.git`, caches,
+  the workers dir itself; test command runs with `cwd = workerRoot`.
+- Output: the `Mutation workers: <n>` header line and the `worker-<k>` token in
+  per-mutant progress lines ([PORT] §8) print **only on the parallel path** (workers
+  >= 2 AND sites >= 2). The serial path keeps F4's committed output verbatim — no
+  workers line, no worker token (ADR 0012 stays correct for serial).
+
+**Open questions to resolve in this feature's grilling**
+- Worker-copy granularity (full git-clone vs minimal tree copy) and the exact
+  `uv` provisioning command.
+- Worker output directory convention (mirror mutate4js `.mutate4js/workers/` →
+  `.mutate4py/workers/`?).
+- How `.mutate4py.bak` crash-safety (F4) composes with per-worker copies.
+- Whether `--max-workers 1`/0 stays on the serial F4 path (no worker provisioning).
+
+**Out of scope**
+- Does NOT change the serial run loop (F4) — F6 is an alternative execution path
+  selected when `--max-workers > 1`.
+- Does NOT parse/validate the flag (F5) — consumes the parsed worker count.
 
 ---
 
 ## Cross-feature notes
-- §9 (parallelism removed) is a global constraint, not a feature: it surfaces as
-  the `--max-workers` usage error (F5) and the absence of worker tokens in output
-  (F4). No standalone spec.
+- §9 is **reopened**: parallelism is restored as F6 (a Python-correct
+  `uv`-provisioned clone-per-worker model), not the unsound mutate4go tree-copy
+  model. F5 parses/validates `--max-workers`; F6 implements the parallel engine and
+  restores the `Mutation workers:` / `worker-<k>` output tokens. The spec §9 text
+  must be updated from "parallelism removed" to "parallelism via clone-per-worker"
+  during F6 grilling (record as an ADR).
 - §1 (substrate/distribution) and §11 (build order) are project setup, already
   reflected in `pyproject.toml`; not features.
 - Reuse from siblings (`crap4py` LCOV parser, `gabadi/mutate4js` output strings)

@@ -6,7 +6,8 @@
 Feature: The mutation run loop and report
 
   # TRACKING: F4 (run-loop) — docs/plan.md; docs/spec.md §7 (run loop), §8 (output),
-  #           §9 (parallelism removed); docs/glossary.md "Run loop & report (F4)";
+  #           §9 (serial path; parallelism reopened as F6 — ADR 0013/0015);
+  #           CONTEXT.md "Run loop & report (F4)";
   #           docs/adr/0010-run-loop-composes-f3-coverage-and-baseline-gate.md;
   #           docs/adr/0011-timeout-printed-verbatim-folded-into-killed.md;
   #           docs/adr/0012-run-loop-serial-only-no-worker-token.md
@@ -95,7 +96,8 @@ Feature: The mutation run loop and report
   #   - Does NOT: own --scan or --update-manifest output (F1/F2); does NOT re-implement
   #     site discovery (F1), manifest embed/diff (F2), or the LCOV line gate (F3).
   #   - Does NOT: print a "Mutation workers" line, a "worker-<k>" token, or a "Timeout:"
-  #     report line; does NOT parallelize (§9, ADR 0012). The --max-workers usage error is F5.
+  #     report line; does NOT parallelize — the serial path only (§9, ADR 0012).
+  #     Parsing --max-workers is F5; the parallel worker engine is F6 (§9 reopened, ADR 0013/0015).
   #   - ASSUMED: the injected exec seam runs --test-command via the shell and reports exit
   #     status and timeout; the exact subprocess mechanism is the coder's to pin.
   #   - ASSUMED: a coverage source is supplied (F3); a run with no coverage flag is an F5

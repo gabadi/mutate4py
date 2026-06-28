@@ -71,7 +71,7 @@ Feature: Coverage acquisition and the line gate
   #   - Does NOT: own the full flag-matrix validation — F3 specifies the exclusivity
   #     OUTCOME (non-zero exit, no counts); F5 owns where in the parse pipeline it fires,
   #     and whether --scan + a coverage flag is permitted (ADR 0008, ADR 0009).
-  #   - Does NOT: parallelize (--max-workers removed; that usage error is F5).
+  #   - Does NOT: parallelize (--max-workers is parsed in F5, executed in F6; §9 reopened).
   #   - ASSUMED: an LCOV file supplied to the tool is well-formed; malformed-LCOV handling
   #     is not specified here (flag if field use shows it matters).
   #   - ASSUMED: --cov-cmd writes its LCOV to a location the tool then reads; the exact

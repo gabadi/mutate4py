@@ -49,8 +49,8 @@ Feature: QA — the mutation run loop is observable end-to-end through the CLI
   #
   # SCOPE:
   #   - Does NOT: assert --scan or --update-manifest output (F1/F2 QA own those).
-  #   - Does NOT: exercise CLI flag validation / mutual-exclusion / --max-workers usage
-  #     error (F5 QA owns those); QA always supplies a valid, already-accepted flag set.
+  #   - Does NOT: exercise CLI flag validation / mutual-exclusion / --max-workers parsing
+  #     (F5 QA owns those); QA always supplies a valid, already-accepted flag set.
   #   - Does NOT: assert the internal coverage gate (F3 QA owns it); QA supplies covered
   #     LCOV so sites are selected, then asserts run behavior.
   #   - ASSUMED: the installed `mutate4py` entry point is on PATH (or invoked via the
