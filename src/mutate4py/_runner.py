@@ -249,6 +249,7 @@ def run_mutations(
     since_last_run: bool,
     mutate_all: bool,
     warning_threshold: int,
+    max_workers: int = 0,
     cwd: str,
 ) -> int:
     """Execute the mutation run loop. Returns exit code (0 or 1)."""

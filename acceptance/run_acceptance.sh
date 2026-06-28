@@ -14,6 +14,7 @@ STEPS_MAP[site-discovery]="site_discovery_steps"
 STEPS_MAP[manifest]="manifest_steps"
 STEPS_MAP[coverage]="coverage_steps"
 STEPS_MAP[run-loop]="run_loop_steps"
+STEPS_MAP[cli-surface]="cli_surface_steps"
 
 declare -A QA_STEPS_MAP
 QA_STEPS_MAP[site-discovery_qa]="site_discovery_qa_steps"

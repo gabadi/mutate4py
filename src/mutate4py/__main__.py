@@ -16,7 +16,7 @@ from mutate4py._manifest import (
 )
 from mutate4py._runner import run_mutations
 
-DEFAULT_WARNING_THRESHOLD = 1000
+DEFAULT_WARNING_THRESHOLD = 50
 
 
 def scan_report(
@@ -77,6 +77,19 @@ def scan_report_with_coverage(
     return lines, exceeded
 
 
+def _positive_int(value: str) -> int:
+    """argparse type: parse a positive integer (>= 1)."""
+    try:
+        n = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a valid integer")
+    if n < 1:
+        raise argparse.ArgumentTypeError(
+            f"{value!r} must be a positive integer (>= 1)"
+        )
+    return n
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="mutate4py",
@@ -88,9 +101,10 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--mutation-warning",
-        type=int,
+        type=_positive_int,
         default=DEFAULT_WARNING_THRESHOLD,
         dest="warning_threshold",
+        help="Warn when mutation sites exceed N (default: 50)",
     )
     parser.add_argument(
         "--update-manifest",
@@ -120,7 +134,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--timeout-factor",
-        type=int,
+        type=_positive_int,
         default=10,
         dest="timeout_factor",
         help="Mutant timeout = max(1s, factor × baseline duration) (default: 10)",
@@ -143,6 +157,19 @@ def _build_parser() -> argparse.ArgumentParser:
         dest="mutate_all",
         help="Mutate all covered sites regardless of manifest",
     )
+    parser.add_argument(
+        "--max-workers",
+        type=_positive_int,
+        default=None,
+        dest="max_workers",
+        help="Number of parallel workers; omit or 0 = serial (default: serial)",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        dest="verbose",
+        help="Log actions to stderr",
+    )
     return parser
 
 
@@ -152,6 +179,74 @@ def _check_coverage_flags(args: argparse.Namespace) -> None:
     if sum(cov_flags) > 1:
         print(
             "error: --cov-cmd, --lcov, and --reuse-coverage are mutually exclusive; "
+            "supply at most one.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+
+def _validate_mutual_exclusions(args: argparse.Namespace) -> None:
+    """Exit with error on illegal flag combinations (ADR 0008, 0014)."""
+    no_run_mode = args.scan or args.update_manifest
+
+    if args.scan and args.update_manifest:
+        print(
+            "error: --scan and --update-manifest are mutually exclusive.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    if no_run_mode:
+        if args.lines is not None:
+            flag = "--scan" if args.scan else "--update-manifest"
+            print(
+                f"error: {flag} cannot be combined with --lines.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        if args.since_last_run:
+            flag = "--scan" if args.scan else "--update-manifest"
+            print(
+                f"error: {flag} cannot be combined with --since-last-run.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        if args.mutate_all:
+            flag = "--scan" if args.scan else "--update-manifest"
+            print(
+                f"error: {flag} cannot be combined with --mutate-all.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        if args.max_workers is not None:
+            flag = "--scan" if args.scan else "--update-manifest"
+            print(
+                f"error: {flag} cannot be combined with --max-workers.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        if args.scan and args.timeout_factor != 10:
+            print(
+                "error: --scan cannot be combined with --timeout-factor.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        if args.scan and args.test_command != "pytest":
+            print(
+                "error: --scan cannot be combined with --test-command.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+
+    # Pairwise exclusion for selection flags
+    selection_count = sum([
+        args.since_last_run,
+        args.mutate_all,
+        args.lines is not None,
+    ])
+    if selection_count > 1:
+        print(
+            "error: --since-last-run, --mutate-all, and --lines are pairwise exclusive; "
             "supply at most one.",
             file=sys.stderr,
         )
@@ -169,11 +264,28 @@ def _load_source(path: str) -> str:
 
 
 def _parse_lines(lines_str: str | None) -> set[int] | None:
-    """Parse --lines argument into a set of ints, or None if not given."""
+    """Parse --lines argument into a set of positive ints, or None if not given."""
     if lines_str is None:
         return None
     parts = [p.strip() for p in lines_str.split(",") if p.strip()]
-    return {int(p) for p in parts}
+    result = set()
+    for p in parts:
+        try:
+            n = int(p)
+        except ValueError:
+            print(
+                f"error: --lines value {p!r} is not a valid integer.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        if n < 1:
+            print(
+                f"error: --lines value {p!r} must be a positive integer (>= 1).",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        result.add(n)
+    return result
 
 
 def _run_scan(args: argparse.Namespace, source: str, cwd: str) -> None:
@@ -204,6 +316,7 @@ def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
     _check_coverage_flags(args)
+    _validate_mutual_exclusions(args)
     source = _load_source(args.file)
 
     if args.scan:
@@ -212,6 +325,7 @@ def main() -> None:
         _do_update_manifest(args.file, source)
     else:
         lines_filter = _parse_lines(args.lines)
+        max_workers = args.max_workers if args.max_workers is not None else 0
         exit_code = run_mutations(
             path=args.file,
             source=source,
@@ -224,6 +338,7 @@ def main() -> None:
             since_last_run=args.since_last_run,
             mutate_all=args.mutate_all,
             warning_threshold=args.warning_threshold,
+            max_workers=max_workers,
             cwd=os.getcwd(),
         )
         sys.exit(exit_code)

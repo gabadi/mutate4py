@@ -769,3 +769,269 @@ def test_build_parser_mutate_all_flag_exists():
     parser = _build_parser()
     args = parser.parse_args(["somefile.py", "--mutate-all"])
     assert args.mutate_all is True
+
+
+# ── F5: --max-workers flag ────────────────────────────────────────────────────
+
+
+def test_build_parser_max_workers_sets_value():
+    from mutate4py.__main__ import _build_parser
+
+    parser = _build_parser()
+    args = parser.parse_args(["f.py", "--max-workers", "4"])
+    assert args.max_workers == 4
+
+
+def test_build_parser_max_workers_default_is_none():
+    from mutate4py.__main__ import _build_parser
+
+    parser = _build_parser()
+    args = parser.parse_args(["f.py"])
+    assert args.max_workers is None
+
+
+def test_max_workers_zero_is_usage_error(source="x = 1\n"):
+    result = run_cli("--max-workers", "0", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_max_workers_negative_is_usage_error():
+    result = run_cli("--max-workers", "-1", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_max_workers_non_integer_is_usage_error():
+    result = run_cli("--max-workers", "many", source="x = 1\n")
+    assert result.returncode != 0
+
+
+# ── F5: --mutation-warning default is 50 ─────────────────────────────────────
+
+
+def test_mutation_warning_default_is_50():
+    from mutate4py.__main__ import _build_parser
+
+    parser = _build_parser()
+    args = parser.parse_args(["f.py"])
+    assert args.warning_threshold == 50
+
+
+# ── F5: --lines positive-int validation ──────────────────────────────────────
+
+
+def test_lines_zero_is_usage_error():
+    result = run_cli("--scan", "--lines", "0", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_lines_negative_is_usage_error():
+    result = run_cli("--scan", "--lines", "7,-2", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_lines_non_integer_is_usage_error():
+    result = run_cli("--scan", "--lines", "7,x", source="x = 1\n")
+    assert result.returncode != 0
+
+
+# ── F5: mutual exclusion — --scan / --update-manifest ────────────────────────
+
+
+def test_scan_and_update_manifest_are_exclusive():
+    result = run_cli("--scan", "--update-manifest", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_scan_and_lines_are_exclusive():
+    result = run_cli("--scan", "--lines", "7", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_scan_and_since_last_run_are_exclusive():
+    result = run_cli("--scan", "--since-last-run", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_scan_and_mutate_all_are_exclusive():
+    result = run_cli("--scan", "--mutate-all", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_scan_and_timeout_factor_are_exclusive():
+    result = run_cli("--scan", "--timeout-factor", "5", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_scan_and_test_command_are_exclusive():
+    result = run_cli("--scan", "--test-command", "tox", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_scan_and_max_workers_are_exclusive():
+    result = run_cli("--scan", "--max-workers", "4", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_update_manifest_and_lines_are_exclusive():
+    result = run_cli("--update-manifest", "--lines", "7", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_update_manifest_and_since_last_run_are_exclusive():
+    result = run_cli("--update-manifest", "--since-last-run", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_update_manifest_and_mutate_all_are_exclusive():
+    result = run_cli("--update-manifest", "--mutate-all", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_update_manifest_and_max_workers_are_exclusive():
+    result = run_cli("--update-manifest", "--max-workers", "4", source="x = 1\n")
+    assert result.returncode != 0
+
+
+# ── F5: mutual exclusion — selection flags ────────────────────────────────────
+
+
+def test_since_last_run_and_mutate_all_are_exclusive():
+    result = run_cli("--since-last-run", "--mutate-all", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_since_last_run_and_lines_are_exclusive():
+    result = run_cli("--since-last-run", "--lines", "7", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_mutate_all_and_lines_are_exclusive():
+    result = run_cli("--mutate-all", "--lines", "7", source="x = 1\n")
+    assert result.returncode != 0
+
+
+# ── F5: --max-workers accepted with selection flags ───────────────────────────
+
+
+def test_max_workers_accepted_with_lines():
+    result = run_cli("--scan", "--lines", "7", "--max-workers", "4", source="x = 1\n")
+    # --scan + --lines is already exclusive, so test acceptance without --scan
+    # We can't actually run mutations without coverage, so just check parse acceptance
+    # by using --scan without --lines
+    result2 = run_cli("--max-workers", "4", "--lines", "7", source="x = 1\n")
+    # Will fail due to no coverage, but parse should accept (non-zero from coverage, not parse)
+    # The key is it should NOT fail with argparse/mutual-exclusion error (returncode 2)
+    # but may fail with coverage error (returncode 1 or non-zero)
+    # Check it doesn't print usage error about --max-workers and --lines
+    assert "--max-workers" not in result2.stderr or "cannot be combined" not in result2.stderr
+
+
+def test_max_workers_with_lines_parse_accepted():
+    from mutate4py.__main__ import _build_parser, _validate_mutual_exclusions
+    import argparse
+
+    parser = _build_parser()
+    args = parser.parse_args(["f.py", "--max-workers", "4", "--lines", "7"])
+    # Should not raise
+    _validate_mutual_exclusions(args)
+
+
+def test_max_workers_with_since_last_run_parse_accepted():
+    from mutate4py.__main__ import _build_parser, _validate_mutual_exclusions
+
+    parser = _build_parser()
+    args = parser.parse_args(["f.py", "--max-workers", "4", "--since-last-run"])
+    _validate_mutual_exclusions(args)
+
+
+def test_max_workers_with_mutate_all_parse_accepted():
+    from mutate4py.__main__ import _build_parser, _validate_mutual_exclusions
+
+    parser = _build_parser()
+    args = parser.parse_args(["f.py", "--max-workers", "4", "--mutate-all"])
+    _validate_mutual_exclusions(args)
+
+
+# ── F5: --help ────────────────────────────────────────────────────────────────
+
+
+def test_help_exits_zero():
+    result = run_cli("--help", source="x = 1\n")
+    assert result.returncode == 0
+
+
+def test_help_lists_max_workers():
+    result = run_cli("--help", source="x = 1\n")
+    assert "--max-workers" in result.stdout
+
+
+def test_help_with_invalid_args_still_exits_zero():
+    # --help is honoured before any validation
+    result = run_cli("--help", "--max-workers", "0", source="x = 1\n")
+    assert result.returncode == 0
+
+
+# ── F5: positive-int rejection ────────────────────────────────────────────────
+
+
+def test_mutation_warning_zero_is_usage_error():
+    result = run_cli("--scan", "--mutation-warning", "0", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_mutation_warning_negative_is_usage_error():
+    result = run_cli("--scan", "--mutation-warning", "-3", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_mutation_warning_non_integer_is_usage_error():
+    result = run_cli("--scan", "--mutation-warning", "two", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_timeout_factor_zero_is_usage_error():
+    result = run_cli("--scan", "--timeout-factor", "0", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_timeout_factor_float_is_usage_error():
+    result = run_cli("--scan", "--timeout-factor", "1.5", source="x = 1\n")
+    assert result.returncode != 0
+
+
+# ── F5: unknown flag / missing file ──────────────────────────────────────────
+
+
+def test_unknown_flag_is_usage_error():
+    result = run_cli("--bogus-flag", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_no_positional_file_is_usage_error():
+    result = subprocess.run(
+        [sys.executable, "-m", "mutate4py"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        env={**os.environ, "PYTHONPATH": os.path.join(REPO_ROOT, "src")},
+    )
+    assert result.returncode != 0
+
+
+# ── F5: --verbose flag ────────────────────────────────────────────────────────
+
+
+def test_verbose_flag_parses():
+    from mutate4py.__main__ import _build_parser
+
+    parser = _build_parser()
+    args = parser.parse_args(["f.py", "--verbose"])
+    assert args.verbose is True
+
+
+def test_verbose_flag_default_false():
+    from mutate4py.__main__ import _build_parser
+
+    parser = _build_parser()
+    args = parser.parse_args(["f.py"])
+    assert args.verbose is False
