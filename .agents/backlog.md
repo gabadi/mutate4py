@@ -4,6 +4,7 @@ Dated proposals for mechanical enforcement gates, config changes, or CI guardrai
 Format: `<date> | <category> | <failure-class> | <affected> | <status> | <description>`
 
 ---
+2026-06-28 | swarmforge-pattern | convention-gap | specifier | pending | Glossary canon is CONTEXT.md (## Glossary) per domain-modeling skill + sibling mutate4js, but F1-F4 specifier sessions wrote entries into an orphan docs/glossary.md (nothing linked it; the two drifted). Consolidated into CONTEXT.md and deleted docs/glossary.md in F5. specifier.prompt phase 3 says "glossary entries are part of the deliverable" without naming the file — add "write glossary terms to CONTEXT.md ## Glossary, never docs/glossary.md".
 2026-06-25 | project-config | tool-error | all-roles | pending | Disable GPG commit signing in all worktrees' .git/config to eliminate 1Password SSH agent failures (git config --local commit.gpgsign false per worktree, or a global swarm setup step)
 2026-06-25 | swarmforge-pattern | tool-error | architect,cleaner | pending | 1Password SSH agent unavailable in swarm sessions causes git fetch and commit signing failures; two roles required manual workaround (-c commit.gpgsign=false); setup-swarm should disable signing in each worktree
 2026-06-25 | swarmforge-pattern | tool-error | cleaner,QA,hardender | pending | External GitHub tool installs blocked by auto-mode classifier across 3 roles; engineering.prompt needs explicit fallback rule: "if external install is blocked, use locally installed binary and continue"

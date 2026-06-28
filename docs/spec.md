@@ -23,7 +23,7 @@ which this mirrors module-for-module.
 | 2 | Manifest hash = `ast.dump()` (structural), **not** whitespace-collapse | [PY] |
 | 3 | Function unit = top-level `def` / method / `async def`; nested defs & lambdas fold into enclosing named unit | [PORT]+[PY] |
 | 4 | Operators = core set + `and`/`or` + `True`/`False` + comparison-negation flips (`==`/`!=`, `is`/`is not`, `in`/`not in`) | [PY] |
-| 5 | In-place serial mutation; **`--max-workers` removed**; no tree-copy, no worker isolation | [PY] |
+| 5 | In-place splice/restore mutation; `--max-workers` **restored** (REOPENED — see §9, ADR 0013/0015): serial by default, parallel via `uv`-provisioned clone-per-worker; mutate4go's tree-copy+`cwd` model replaced as editable-install-unsound | [PY] |
 | 6 | `--test-command` defaults to `pytest` | [PY] |
 
 ---
@@ -64,7 +64,7 @@ Mutate-test one file at a time: `mutate4py path/to/file.py [options]`
 | `--cov-cmd CMD` | — (Go appends `-coverprofile`) | command that emits LCOV | [PY] |
 | `--lcov PATH` | — (fixed path) | path to LCOV file | [PY] |
 | `--reuse-coverage` | reuse coverprofile on disk | reuse LCOV on disk | [PORT]/[PY] |
-| `--max-workers N` | N isolated parallel workers | **removed** — usage error if passed | [PY] |
+| `--max-workers N` | N isolated parallel workers | same — serial default, parallel via `uv` clone-per-worker (§9) | [PORT]/[PY] |
 
 **[PY] reasons:**
 
@@ -77,17 +77,21 @@ Mutate-test one file at a time: `mutate4py path/to/file.py [options]`
   LCOV from a fixed path and auto-regenerates; mutate4py follows the mutate4js
   split instead (explicit, no magic path guessing). Generate LCOV with
   `pytest --cov --cov-branch --cov-report=lcov:lcov.info` (coverage.py).
-- **`--max-workers` removed.** The flag exists in mutate4go/clj-mutate only
-  because Go/Clojure can copy-isolate workers. Python cannot (see §9). A flag
-  that silently no-ops would advertise a capability that does not exist, so it is
-  omitted; passing it is a usage error pointing at serial behavior.
+- **`--max-workers` kept (REOPENED — see §9).** Restored to match
+  mutate4go/clj-mutate: serial by default, parallel when `N >= 2`. The one
+  divergence is the worker-provisioning mechanism — Go/Clojure copy-isolate workers
+  via `cwd`, which is unsound under Python editable installs, so mutate4py provisions
+  isolated per-worker copies with `uv` instead (clone-per-worker). Parsed/validated in
+  F5; executed in F6.
 
 **[PORT] mutual-exclusion rules** (reproduce exactly):
 - `--scan` and `--update-manifest` are mutually exclusive and cannot combine with
   any execution option (`--lines`, `--since-last-run`, `--mutate-all`,
-  `--timeout-factor`, `--test-command`).
+  `--timeout-factor`, `--test-command`, `--max-workers`).
 - `--since-last-run`, `--mutate-all`, `--lines` are pairwise exclusive.
-- Numeric flags reject non-positive / non-integer values.
+- `--max-workers` joins only the scan/update-manifest exclusion; it may combine with
+  the selection flags.
+- Numeric flags reject non-positive / non-integer values (incl. `--max-workers`).
 - Missing source file → usage error.
 
 ---
@@ -268,36 +272,52 @@ Manifest exists: <true|false>
 
 ---
 
-## 9. Parallelism — **[PY] removed**
+## 9. Parallelism — **[PY] clone-per-worker** (REOPENED; see ADR 0013/0015)
 
-mutate4go and clj-mutate copy the project tree per worker and run each worker's
-test command with `cwd = workerRoot`. **This model is unsound in Python** and is
-not ported. Confirmed by research across the Python mutation ecosystem:
+`--max-workers` is a real flag, matching upstream mutate4go: **serial by default**
+(`--max-workers <= 1` or a single site), **parallel across the target file's sites**
+otherwise. The divergence is the *worker-provisioning mechanism*, because
+mutate4go's own model does not survive Python's import system.
 
-- The faithful mutate4go mechanism is "splice the mutant into the source file on
-  disk, run tests, restore" = **in-place mutation** = mutmut-v2's model. It is
-  **editable-install-proof by construction** (the mutated file *is* the file the
-  importer resolves to) but **inherently serial** (one file on disk → one mutant at
-  a time).
+**Why mutate4go's mechanism can't be ported verbatim.** mutate4go and clj-mutate
+copy the project tree per worker and run each worker's test command with
+`cwd = workerRoot`. **This `cwd`-redirect model is unsound in Python.** Confirmed by
+research across the Python mutation ecosystem:
+
+- mutate4go's primitive is "splice the mutant into the source file on disk, run
+  tests, restore" = **in-place mutation** (mutmut-v2's model). On a *single* copy it
+  is **editable-install-proof by construction** (the mutated file *is* the file the
+  importer resolves to).
 - Every Python tool that parallelized by **copying files** and trusting `cwd` /
-  `sys.path` to redirect imports **broke** under `pip install -e .`: PEP 660
-  editable finders write an **absolute** path to the original source, which no
-  cwd-change or temp-dir copy overrides (mutmut v3, issue #456 — "could not find
-  any test case for any mutant").
-- The only Python approaches that parallelize *and* survive editable installs
-  abandon source-splice entirely (cosmic-ray: git-clone + `pip install` per worker;
-  mutatest: spoof `__pycache__` bytecode + `PYTHONCACHEPREFIX`; pytest-gremlins:
-  instrument-once + env-var toggle) — all large divergences from mutate4go.
+  `sys.path` to redirect imports **broke** under `pip install -e .`: PEP 660 editable
+  finders write an **absolute** path to the original source, which no cwd-change or
+  temp-dir copy overrides (mutmut v3, issue #456 — "could not find any test case for
+  any mutant"). So mutate4go's `copyProject` + `cwd = workerRoot` cannot be ported as-is.
+- The Python approaches that parallelize *and* survive editable installs each give a
+  worker its **own fully-resolved environment**: cosmic-ray git-clones + installs per
+  worker; mutatest spoofs `__pycache__` bytecode; pytest-gremlins instruments once +
+  env-toggles.
 
-**Decision:** keep mutate4go's exact in-place splice/restore model → always
-correct, editable-proof, identical manifest/coverage/output semantics → therefore
-**serial only**. `--max-workers` is removed; passing it is a usage error. A later
-clone-per-worker mode can be added if field demand appears, but it is out of scope
-for v1.
+**Decision (reopened).** Keep mutate4go's in-place splice/restore *primitive*, but
+run it on a **per-worker isolated copy** whose editable install resolves to *that
+copy* — so each worker is editable-proof in its own right. Provision copies with
+**`uv`** (near-instant venvs + hardlinked installs from a shared cache), which
+removes the per-worker `git clone` + full `pip install` cost that made
+clone-per-worker look expensive. This is the cosmic-ray shape, made cheap by `uv`,
+and it preserves the byte-splice engine (so no `__pycache__`-spoof rework).
 
-Because nothing is copied, there is **no worker tree, no skip/ignore list, and no
-`node_modules`-equivalent dance** (the one place mutate4js needed real
-JS-specific engineering simply does not exist here).
+- **Serial path** (`--max-workers <= 1` OR one selected site): the exact in-place
+  splice/restore loop; no worker tree, no `Mutation workers:` line, no `worker-<k>`
+  token (this is what F4 shipped; ADR 0012).
+- **Parallel path** (`--max-workers >= 2` AND >= 2 sites): N `uv`-provisioned worker
+  copies, sites fanned across them, results aggregated into the one §8 report; the
+  `Mutation workers: <n>` header line and the `worker-<k>` progress token return.
+  `maxWorkers` is clamped to the site count.
+
+**Boundary:** F5 parses/validates `--max-workers` and dispatches the count; **F6**
+implements the parallel engine and the serial/parallel switch. The worker-copy
+granularity, exact `uv` commands, worker-dir convention, and `.mutate4py.bak`
+interaction are F6-grilling open questions (ADR 0015).
 
 ---
 
