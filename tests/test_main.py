@@ -782,12 +782,13 @@ def test_build_parser_max_workers_sets_value():
     assert args.max_workers == 4
 
 
-def test_build_parser_max_workers_default_is_none():
+def test_build_parser_flag_defaults():
     from mutate4py.__main__ import _build_parser
 
     parser = _build_parser()
     args = parser.parse_args(["f.py"])
     assert args.max_workers is None
+    assert args.verbose is False
 
 
 def test_max_workers_zero_is_usage_error(source="x = 1\n"):
@@ -1029,13 +1030,6 @@ def test_verbose_flag_parses():
     assert args.verbose is True
 
 
-def test_verbose_flag_default_false():
-    from mutate4py.__main__ import _build_parser
-
-    parser = _build_parser()
-    args = parser.parse_args(["f.py"])
-    assert args.verbose is False
-
 
 # ── _positive_int: error branches ────────────────────────────────────────────
 
@@ -1155,33 +1149,16 @@ def test_validate_update_manifest_with_lines_exits(capsys):
     assert "--update-manifest" in capsys.readouterr().err
 
 
-def test_validate_update_manifest_with_since_last_run_exits(capsys):
+@pytest.mark.parametrize("extra", [
+    {"since_last_run": True},
+    {"mutate_all": True},
+    {"max_workers": 4},
+])
+def test_validate_update_manifest_with_run_only_flag_exits(capsys, extra):
     from mutate4py.__main__ import _validate_mutual_exclusions
 
     try:
-        _validate_mutual_exclusions(_make_args(update_manifest=True, since_last_run=True))
-        assert False, "expected SystemExit"
-    except SystemExit as exc:
-        assert exc.code == 2
-    assert "--update-manifest" in capsys.readouterr().err
-
-
-def test_validate_update_manifest_with_mutate_all_exits(capsys):
-    from mutate4py.__main__ import _validate_mutual_exclusions
-
-    try:
-        _validate_mutual_exclusions(_make_args(update_manifest=True, mutate_all=True))
-        assert False, "expected SystemExit"
-    except SystemExit as exc:
-        assert exc.code == 2
-    assert "--update-manifest" in capsys.readouterr().err
-
-
-def test_validate_update_manifest_with_max_workers_exits(capsys):
-    from mutate4py.__main__ import _validate_mutual_exclusions
-
-    try:
-        _validate_mutual_exclusions(_make_args(update_manifest=True, max_workers=4))
+        _validate_mutual_exclusions(_make_args(update_manifest=True, **extra))
         assert False, "expected SystemExit"
     except SystemExit as exc:
         assert exc.code == 2

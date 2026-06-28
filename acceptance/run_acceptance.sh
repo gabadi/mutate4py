@@ -21,6 +21,7 @@ QA_STEPS_MAP[site-discovery_qa]="site_discovery_qa_steps"
 QA_STEPS_MAP[manifest_qa]="manifest_qa_steps"
 QA_STEPS_MAP[coverage_qa]="coverage_qa_steps"
 QA_STEPS_MAP[run-loop_qa]="run_loop_qa_steps"
+QA_STEPS_MAP[cli-surface_qa]="cli_surface_qa_steps"
 
 FAILED=0
 PASSED=0
