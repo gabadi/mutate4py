@@ -915,7 +915,7 @@ def test_mutate_all_and_lines_are_exclusive():
 
 
 def test_max_workers_accepted_with_lines():
-    result = run_cli("--scan", "--lines", "7", "--max-workers", "4", source="x = 1\n")
+    run_cli("--scan", "--lines", "7", "--max-workers", "4", source="x = 1\n")
     # --scan + --lines is already exclusive, so test acceptance without --scan
     # We can't actually run mutations without coverage, so just check parse acceptance
     # by using --scan without --lines
@@ -929,7 +929,6 @@ def test_max_workers_accepted_with_lines():
 
 def test_max_workers_with_lines_parse_accepted():
     from mutate4py.__main__ import _build_parser, _validate_mutual_exclusions
-    import argparse
 
     parser = _build_parser()
     args = parser.parse_args(["f.py", "--max-workers", "4", "--lines", "7"])
