@@ -5,6 +5,7 @@ import os
 
 from mutate4py._discovery import Site, apply_mutant, discover_sites
 from mutate4py._runner import (
+    _baseline_reason,
     _print_uncovered_block,
     _run_command,
     _select_sites,
@@ -277,6 +278,18 @@ def test_run_mutations_baseline_failure_exits_1(tmp_path):
     assert "Mutation Report" not in output
     # No backup left
     assert not os.path.exists(src_path + ".bak")
+
+
+def test_baseline_reason_uses_stderr_first():
+    import subprocess
+    result = subprocess.CompletedProcess(args=[], returncode=1, stderr=b"test suite crashed\nsecond line")
+    assert _baseline_reason(result) == "test suite crashed"
+
+
+def test_baseline_reason_falls_back_to_exit_code():
+    import subprocess
+    result = subprocess.CompletedProcess(args=[], returncode=42, stderr=b"")
+    assert _baseline_reason(result) == "exit code 42"
 
 
 def test_run_mutations_restores_source_after_run(tmp_path):
