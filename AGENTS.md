@@ -27,10 +27,12 @@ Navigation and universal invariants for all agents in this project.
 - `_coverage.py` must not import from `_discovery.py`; if coverage code needs Site objects, move that function to `_discovery.py` (IO-free domain boundary).
 - Acceptance step files are boundary files (15-site mutation threshold); extractable pure logic belongs in `*_helpers.py` modules with their own unit tests.
 - `coverage_helpers.py` is the testable module for acceptance step helper functions; unit tests live in `tests/test_coverage_helpers.py`.
+- `cli_surface_helpers.py` is the testable module for CLI surface acceptance step helpers; unit tests live in `tests/test_cli_surface_helpers.py`.
+- `__main__.py` is a pure CLI adapter; `scan_report`, `scan_report_with_coverage`, and `update_manifest` belong in `_runner.py` and are tested directly. Do not move domain functions back to `__main__.py`.
 
 ## References
 - See `.agents/roles/` for per-role operational rules.
 - See `.agents/references/` for deep-dive topics.
 - See `.agents/backlog.md` for pending enforcement-gate proposals.
-- Role files present: `hardender.md`, `coder.md`
+- Role files present: `hardender.md`, `coder.md`, `cleaner.md`, `QA.md`
 - `.agents/references/equivalent-mutants.md` — recognized equivalent mutant categories for this project (hardender: no tests needed for these)

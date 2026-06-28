@@ -34,3 +34,13 @@ Format: `<date> | <session-id> | <role> | <failure-class> | <verdict> | <one-lin
 2026-06-26 | da863ce7 | hardender | convention-gap | promoted→.agents/roles/hardender.md | mutmut run takes mutant-name patterns, not file paths; use bare mutmut run to run all
 2026-06-26 | da863ce7 | hardender | convention-gap | promoted→AGENTS.md | runner_adapter.py must be executable (chmod +x) before gherkin-mutator can use it
 2026-06-26 | da863ce7 | hardender | convention-gap | promoted→.agents/references/equivalent-mutants.md | five equivalent mutant categories for this project (falsy None, argparse dest, help-text, single-comma DA, single-op compare)
+2026-06-28 | 976a22ac | hardender | convention-gap | promoted→.agents/roles/hardender.md | mutmut v3 module-path filtering fails (AssertionError); always run `mutmut run --max-children 8` first to populate stats before filtering
+2026-06-28 | 976a22ac | hardender | convention-gap | promoted→.agents/roles/hardender.md | gherkin-mutator uses --feature <path> (named), not positional; check Clojure source at /tmp/aps-build/bb/... if CLI unclear
+2026-06-28 | dc019dd9 | cleaner | convention-gap | promoted→.agents/roles/cleaner.md | boundary file 15-site threshold is a trigger not hard gate; document irreducible minimum when all testable logic is extracted
+2026-06-28 | dc019dd9 | cleaner | convention-gap | promoted→.agents/roles/cleaner.md | when writing test for refactored function, verify error message strings match new implementation — do not copy from old code
+2026-06-28 | a80e933d | integrator | convention-gap | promoted→.agents/roles/QA.md | QA must run ruff check+format before handoff (recurrence of 9fd9fe97); QA.md created with pre-handoff verification rule
+2026-06-28 | 4f7feec9 | QA | convention-gap | promoted→.agents/roles/QA.md | before marking QA done, grep run_acceptance.sh for every *_qa.feature and confirm QA_STEPS_MAP entry exists; silent skip masks test failures
+2026-06-28 | 3d5cea42 | coder | convention-gap | promoted→.agents/roles/coder.md | check for run_acceptance.sh wrapper before invoking acceptance generation scripts directly; scripts require positional args and fail silently
+2026-06-28 | 3814e69e | cleaner | convention-gap | promoted→.agents/roles/cleaner.md | manifest "NEW" hashes after coder handoff are expected; do not hand-edit — mutation tool refreshes them on first scan
+2026-06-28 | 8c38deb4 | architect | convention-gap | promoted→AGENTS.md | __main__.py is CLI adapter only; scan_report/scan_report_with_coverage/update_manifest belong in _runner.py and are tested directly
+2026-06-28 | dc019dd9 | cleaner | convention-gap | promoted→AGENTS.md | cli_surface_helpers.py is testable module for CLI surface step helpers; tests in tests/test_cli_surface_helpers.py
