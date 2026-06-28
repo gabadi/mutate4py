@@ -61,9 +61,11 @@ If `entire` is not installed: print a warning ("entire not found — session tra
 
 ---
 
-## Step 4 — Permission allow-rules
+## Step 4 — Permission allow-rules (claude backend only)
 
-Write minimal allow-rules to `.claude/settings.json` so the integrator and specifier can run their necessary git/gh commands unattended. Read the current file first (create `{}` if absent), merge in these two rules, and write it back:
+> **pi backend:** skip this step entirely. pi has no permission-prompt system and no per-command allowlist; it runs autonomously by default. The `./swarm` launcher passes `--approve` to pi so project resources load unattended. There is nothing to configure for pi here.
+
+For the **claude** backend, write minimal allow-rules to `.claude/settings.json` so the integrator and specifier can run their necessary git/gh commands unattended. Read the current file first (create `{}` if absent), merge in these two rules, and write it back:
 
 ```json
 {
@@ -98,8 +100,10 @@ Ensure these entries exist in `.gitignore` (append if missing, do not duplicate)
 .swarmforge/
 .worktrees/
 tmp/
-.claude/skills/swarm-persona/
+.agents/skills/swarm-persona/
 ```
+
+Do **not** add any `.claude` entries. SwarmForge no longer manages Claude's gitignore surface — `.claude/skills` is a symlink to `.agents/skills/` and `.claude/settings*.json` are per-worktree generated files; whether to track them is the operator's repo decision, not the swarm's.
 
 Probe the repository's default remote branch:
 ```bash
@@ -115,7 +119,26 @@ This file lets the specifier reset to origin's default branch without hard-codin
 
 ---
 
-## Step 6 — Emit the swarm-ready marker
+## Step 6 — pi backend settings (skip if no pi role)
+
+If any window in `swarmforge/swarmforge.conf` uses the `pi` agent, write the SwarmForge auto-compaction config into `.pi/settings.json` so the bundled `swarmforge-pi` extension (loaded via `--extension` at launch) reads its threshold. Read the current file first (create `{}` if absent), merge, and write back:
+
+```python
+import json, pathlib
+p = pathlib.Path('.pi/settings.json')
+cfg = json.loads(p.read_text()) if p.exists() else {}
+cfg.setdefault('swarmforge', {})['autoCompactPct'] = 0.88
+cfg['swarmforge']['autoCompactWindow'] = 200000
+cfg.setdefault('compaction', {})['enabled'] = True
+p.parent.mkdir(exist_ok=True)
+p.write_text(json.dumps(cfg, indent=2))
+```
+
+The extension path itself is resolved by the launcher (`swarmforge/scripts/extensions/swarmforge-pi.ts` in each worktree), so no extension path needs to be recorded here.
+
+---
+
+## Step 7 — Emit the swarm-ready marker
 
 ```bash
 mkdir -p .swarmforge

@@ -166,6 +166,310 @@ def extract_metadata_lite(path):
     }
 
 
+def detect_format(path):
+    """Detect transcript format by peeking the first line.
+    Returns 'pi' for pi (header {"type":"session",...}) or 'claude' otherwise."""
+    try:
+        with open(path) as f:
+            first = f.readline().strip()
+        if first:
+            obj = json.loads(first)
+            if isinstance(obj, dict) and obj.get("type") == "session":
+                return "pi"
+    except (json.JSONDecodeError, OSError):
+        pass
+    return "claude"
+
+
+def _pi_text(content):
+    """Extract concatenated text from a pi message content (string or block array)."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text" and isinstance(block.get("text"), str):
+                parts.append(block["text"])
+        return "\n".join(parts)
+    return ""
+
+
+def extract_pi_metadata_lite(path):
+    """Lite metadata extraction for pi session JSONL (head/tail read only)."""
+    head, tail, size = read_head_tail(path)
+
+    session_id = None
+    cwd = None
+    version = None
+    start_time = None
+    try:
+        first_line = head.split("\n", 1)[0]
+        header = json.loads(first_line)
+        if header.get("type") == "session":
+            session_id = header.get("id")
+            cwd = header.get("cwd")
+            version = header.get("version")
+            start_time = header.get("timestamp")
+    except (json.JSONDecodeError, OSError):
+        pass
+
+    tail_lines = tail.split("\n")
+    if size > LITE_READ_BUF_SIZE and tail_lines:
+        tail_lines = tail_lines[1:]
+    end_time = None
+    for line in reversed(tail_lines):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+            if isinstance(obj, dict) and obj.get("timestamp"):
+                end_time = obj["timestamp"]
+                break
+        except json.JSONDecodeError:
+            continue
+
+    first_prompt = None
+    for line in head.split("\n"):
+        line = line.strip()
+        if not line or '"role":"user"' not in line and '"role": "user"' not in line:
+            continue
+        try:
+            obj = json.loads(line)
+            msg = obj.get("message", {}) if isinstance(obj, dict) else {}
+            if msg.get("role") == "user":
+                text = _pi_text(msg.get("content")).strip()
+                if text:
+                    first_prompt = text[:200]
+                    break
+        except json.JSONDecodeError:
+            continue
+
+    duration_seconds = None
+    if start_time and end_time:
+        start = parse_ts(start_time)
+        end = parse_ts(end_time)
+        if start and end:
+            duration_seconds = round((end - start).total_seconds())
+
+    return {
+        "session_id": session_id,
+        "cwd": cwd,
+        "git_branch": None,
+        "version": version,
+        "start_time": start_time,
+        "end_time": end_time,
+        "duration_seconds": duration_seconds,
+        "file_size_bytes": size,
+        "first_prompt": first_prompt,
+    }
+
+
+def extract_pi(jsonl_path, summary_mode=False):
+    r"""Extract structured data from a pi session transcript (JSONL v3).
+
+    pi session format: ~/.pi/agent/sessions/<encoded-cwd>/<ts>_<uuid>.jsonl
+    where the encoding wraps the cwd with `--` and replaces path separators
+    (`/`, `\`, `:`) with `-`.
+    Line 1 is a SessionHeader {"type":"session",...}; subsequent lines are
+    SessionEntry objects with a "message" field carrying an AgentMessage
+    (role in user | assistant | toolResult | bashExecution | custom | ...).
+    AssistantMessage carries usage {input, output, cacheRead, cacheWrite,
+    totalTokens, cost:{...}} — the full token/cost budget agent-retro needs.
+    """
+    session = {
+        "session_id": None,
+        "cwd": None,
+        "git_branch": None,
+        "version": None,
+        "start_time": None,
+        "end_time": None,
+        "duration_seconds": None,
+        "branches_seen": set(),
+        "model": None,
+    }
+
+    tokens_total = {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+    }
+    turn_count = 0
+    tool_calls = []
+    tool_counts = Counter()
+    total_tool_calls = 0
+    tool_result_sizes = {}
+    arc = []
+    cost = 0.0
+
+    # toolCallId -> index in tool_calls, to attach result sizes.
+    call_index_by_id = {}
+
+    for obj in stream_jsonl(jsonl_path):
+        if not isinstance(obj, dict):
+            continue
+        etype = obj.get("type")
+        ts = obj.get("timestamp")
+
+        if etype == "session":
+            session["session_id"] = obj.get("id")
+            session["cwd"] = obj.get("cwd")
+            session["version"] = obj.get("version")
+            session["start_time"] = ts
+            continue
+
+        if etype != "message":
+            # Record the latest timestamp as end_time for non-message entries too.
+            if ts:
+                session["end_time"] = ts
+            continue
+
+        msg = obj.get("message", {})
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role")
+        if ts:
+            session["end_time"] = ts
+
+        if role == "user":
+            text = _pi_text(msg.get("content")).strip()
+            if text:
+                turn_count += 1
+                arc.append({"role": "user", "text": text[:2000], "timestamp": ts})
+
+        elif role == "assistant":
+            content = msg.get("content", []) or []
+            text_parts = []
+            for block in content:
+                if not isinstance(block, dict):
+                    continue
+                btype = block.get("type")
+                if btype == "text" and isinstance(block.get("text"), str):
+                    text_parts.append(block["text"])
+                elif btype == "toolCall":
+                    call_id = block.get("id", "")
+                    tname = block.get("name", "")
+                    args = block.get("arguments", {})
+                    call = {
+                        "name": tname,
+                        "tool_use_id": call_id,
+                        "input": args,
+                        "timestamp": ts,
+                    }
+                    if tname == "bash" and isinstance(args, dict) and args.get("command"):
+                        call["command_preview"] = str(args["command"])[:300]
+                    tool_calls.append(call)
+                    call_index_by_id[call_id] = len(tool_calls) - 1
+                    tool_counts[tname] += 1
+                    total_tool_calls += 1
+            assistant_text = "\n".join(text_parts).strip()
+            if assistant_text:
+                arc.append({"role": "assistant", "text": assistant_text[:2000], "timestamp": ts})
+
+            # Accumulate usage. pi keys: input, output, cacheRead, cacheWrite.
+            usage = msg.get("usage") or {}
+            tokens_total["input_tokens"] += usage.get("input", 0) or 0
+            tokens_total["output_tokens"] += usage.get("output", 0) or 0
+            tokens_total["cache_creation_input_tokens"] += usage.get("cacheWrite", 0) or 0
+            tokens_total["cache_read_input_tokens"] += usage.get("cacheRead", 0) or 0
+            ucost = usage.get("cost") or {}
+            cost += ucost.get("total", 0) or 0
+            if msg.get("model") and not session["model"]:
+                session["model"] = msg.get("model")
+
+        elif role == "toolResult":
+            call_id = msg.get("toolCallId", "")
+            content = msg.get("content", []) or []
+            size_bytes = len(json.dumps(content).encode("utf-8"))
+            if call_id and call_id in call_index_by_id:
+                tool_result_sizes[call_id] = size_bytes
+            # Record bash tool results even without a matching toolCall id.
+            tname = msg.get("toolName", "")
+            if tname:
+                tool_counts[tname] = tool_counts.get(tname, 0)
+
+        elif role == "bashExecution":
+            # pi records bash invocations as standalone bashExecution messages.
+            cmd = msg.get("command", "")
+            output = msg.get("output", "") or ""
+            call_id = obj.get("id", "")
+            call = {
+                "name": "bash",
+                "tool_use_id": call_id,
+                "input": {"command": cmd},
+                "command_preview": str(cmd)[:300],
+                "timestamp": ts,
+                "result_size_bytes": len(output.encode("utf-8")),
+            }
+            tool_calls.append(call)
+            tool_counts["bash"] += 1
+            total_tool_calls += 1
+            tool_result_sizes[call_id] = len(output.encode("utf-8"))
+
+    # Post-processing
+    if session["start_time"] and session["end_time"]:
+        start = parse_ts(session["start_time"])
+        end = parse_ts(session["end_time"])
+        if start and end:
+            session["duration_seconds"] = round((end - start).total_seconds())
+    session["branches_seen"] = sorted(session["branches_seen"])
+
+    # If pi didn't report cost, derive it from tokens.
+    if cost <= 0:
+        cost = compute_cost(tokens_total, session["model"])
+
+    for call in tool_calls:
+        tid = call.get("tool_use_id", "")
+        if tid in tool_result_sizes and "result_size_bytes" not in call:
+            call["result_size_bytes"] = tool_result_sizes[tid]
+
+    result_size_stats = {}
+    if tool_result_sizes:
+        sizes_by_tool = defaultdict(list)
+        for call in tool_calls:
+            if "result_size_bytes" in call:
+                sizes_by_tool[call["name"]].append(call["result_size_bytes"])
+        for tool_name, sizes in sorted(sizes_by_tool.items(), key=lambda x: -sum(x[1])):
+            result_size_stats[tool_name] = {
+                "count": len(sizes),
+                "total_bytes": sum(sizes),
+                "avg_bytes": round(sum(sizes) / len(sizes)) if sizes else 0,
+                "max_bytes": max(sizes),
+            }
+
+    result = {
+        "schema_version": SCHEMA_VERSION,
+        "format": "pi",
+        "session": session,
+        "tokens": {
+            "total": tokens_total,
+            "turn_count": turn_count,
+            "estimated_cost_usd": round(cost, 4),
+        },
+        "agents": [],
+        "skills": [],
+        "git": {"branches": [], "commits": [], "pr_operations": []},
+        "files": {},
+        "conversation_arc": arc,
+        "tool_result_sizes": result_size_stats,
+    }
+
+    if summary_mode:
+        result["tools"] = {
+            "counts": dict(tool_counts.most_common()),
+            "total_calls": total_tool_calls,
+        }
+    else:
+        result["tools"] = {
+            "calls": tool_calls,
+            "counts": dict(tool_counts.most_common()),
+            "total_calls": total_tool_calls,
+        }
+
+    return result
+
+
 def parse_ts(ts_str):
     """Parse ISO 8601 timestamp string to datetime."""
     if not ts_str:
@@ -611,7 +915,10 @@ if __name__ == "__main__":
     metadata_only = "--metadata-only" in sys.argv
 
     if metadata_only:
-        result = extract_metadata_lite(jsonl_path)
+        if detect_format(jsonl_path) == "pi":
+            result = extract_pi_metadata_lite(jsonl_path)
+        else:
+            result = extract_metadata_lite(jsonl_path)
         print(json.dumps(result, indent=2, default=str))
         sys.exit(0)
 
@@ -626,5 +933,8 @@ if __name__ == "__main__":
         if candidate.is_dir():
             subagents_dir = str(candidate)
 
-    result = extract_all_streaming(jsonl_path, subagents_dir, summary_mode)
+    if detect_format(jsonl_path) == "pi":
+        result = extract_pi(jsonl_path, summary_mode)
+    else:
+        result = extract_all_streaming(jsonl_path, subagents_dir, summary_mode)
     print(json.dumps(result, indent=2, default=str))

@@ -112,13 +112,15 @@ if [[ -d "$SCRIPT_DIR/swarmforge/scripts/shared-articles" ]]; then
   done
 fi
 
-# Install local skills immediately so /setup-swarm is available in Claude Code
-# before swarmforge.sh runs and before setup-complete exists.
+# Install local skills immediately so /setup-swarm is available before
+# swarmforge.sh runs and before setup-complete exists. .agents/skills/ is the
+# single real skill dir (pi auto-discovers it; claude sees it via the
+# directory symlink created by link-skills! in fork.bb).
 if [[ -d "$SCRIPT_DIR/swarmforge/skills" ]]; then
-  mkdir -p "$SCRIPT_DIR/.claude/skills"
+  mkdir -p "$SCRIPT_DIR/.agents/skills"
   for _skill_dir in "$SCRIPT_DIR/swarmforge/skills"/*/; do
     _skill_name="$(basename "$_skill_dir")"
-    cp -R "$_skill_dir" "$SCRIPT_DIR/.claude/skills/$_skill_name"
+    cp -R "$_skill_dir" "$SCRIPT_DIR/.agents/skills/$_skill_name"
   done
 fi
 

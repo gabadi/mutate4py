@@ -1,12 +1,10 @@
 .DS_Store
 .env
-.claude/*
-!.claude/skills/
 .swarmforge/
 .worktrees/
 swarmforge/scripts/
 tmp/
-.claude/skills/swarm-persona/
+.agents/skills/swarm-persona/
 
 # Python build / test / coverage artifacts
 __pycache__/
