@@ -1,8 +1,8 @@
 # Parallel `--max-workers` uses `uv`-provisioned clone-per-worker (F6 direction)
 
-**Status:** proposed (F6) · recorded at F5 time because the mechanism choice was
-made when §9 was reopened
-**Feature:** F6 (parallel-workers) · **Spec:** §9 (to be rewritten in F6)
+**Status:** accepted (F6) · mechanism recorded at F5 time when §9 was reopened;
+grilling open questions resolved in F6 (see "F6 grilling resolutions" below)
+**Feature:** F6 (parallel-workers) · **Spec:** §9 (rewritten in F6)
 
 `--max-workers` is restored as a real flag (ADR 0013). The execution it enables is
 F6. This ADR records *which* parallel mechanism F6 will use, so the decision is not
@@ -54,16 +54,65 @@ F6 uses **clone-per-worker (mechanism 2), provisioned with `uv`.**
 - Editable-install-proof by construction (each worker's editable install points at
   its own copy), which is exactly what mechanism 1 fails.
 
-## Open for F6 grilling
+## F6 grilling resolutions
 
-- Worker-copy granularity (full git-clone vs minimal tree copy) and the exact `uv`
-  provisioning commands.
-- Worker output-directory convention (mirror mutate4js `.mutate4js/workers/` →
-  `.mutate4py/workers/`?).
-- How `.mutate4py.bak` crash-safety composes with per-worker copies.
-- Whether `--max-workers 1`/0 stays on the serial F4 path (no provisioning).
-- The §9 rewrite ("parallelism via clone-per-worker") and the ADR 0012 amendment
-  (restore `Mutation workers:` / `worker-<k>` output for `workers > 1`).
+The open questions above are resolved as follows (grounded in upstream
+`internal/runner/runner.go` and the `mutate4js` sibling unless noted):
+
+1. **Worker-copy granularity & `uv` command.** A **tree copy** (not `git clone`), so
+   it works whether or not the target is a git repo and captures uncommitted edits —
+   this mirrors upstream `copyProject` (a `filepath.WalkDir` copy, not a clone). Each
+   worker copy is then provisioned with **`uv venv` / `uv sync`** so the worker has
+   its own resolved environment. **No `uv pip install -e`** and **no wrapping of the
+   user's test command in `uv run`**: the worker runs the user's `--test-command`
+   *verbatim* with `cwd = worker-root` (upstream's `cwd = workerRoot` model), and the
+   worker's own provisioned venv + `uv`'s project discovery make imports resolve to
+   that worker's copy. This is what makes each worker editable-install-proof.
+2. **Worker output directory.** `.mutate4py/workers/run-<pid>-<nanos>/worker-<k>/`,
+   mirroring the sibling `.mutate4js/workers/` convention (upstream uses
+   `target/mutation-workers/run-<pid>-<nanos>/worker-<i>`; Python has no `target/`).
+   The whole `run-<pid>-<nanos>` root is removed when the run ends (upstream
+   `defer os.RemoveAll(runRoot)`).
+3. **Skip-list (Python port of `shouldSkipCopy`).** Don't copy VCS, caches, or the
+   worker dir itself: `.git`, `__pycache__`, `.venv`, `.pytest_cache`, `.mypy_cache`,
+   `.ruff_cache`, and `.mutate4py/` (prevents recursive self-copy). Ports upstream's
+   intent (`.git`, `.gocache`, `.gomodcache`, `.tools`, `target`) to Python tooling.
+4. **`.mutate4py.bak` composition.** **Unchanged from F4 — it stays at the
+   orchestration layer, not per worker.** Upstream's caller does
+   `SaveBackup → runMutations(serial|parallel) → restore → summarize → embed manifest
+   → CleanupBackup`; the parallel branch is interchangeable inside `runMutations`. In
+   parallel the **original file is never mutated** (only worker copies are, and each
+   worker restores its own copy after each mutant), so the `.bak` is pure crash-safety
+   for an interrupted run. **No per-worker `.bak`.**
+5. **Serial path for `--max-workers` 0/1.** Yes — `--max-workers <= 1` **or** ≤ 1
+   selected site stays on the **F4 serial loop with no worker provisioning at all**
+   (no tree copy, no venv). The only serial-output change is the `Mutation workers:`
+   header line (resolution 7).
+6. **Source-inside-cwd.** Port the upstream hard error (`runner.go:365`): on the
+   **parallel path only**, if the target file is not under the working directory, abort
+   with a usage/IO error before provisioning any worker. The serial path is unaffected.
+7. **`Mutation workers:` / `worker-<k>` output (the one deliberate divergence —
+   see ADR 0012 amendment).** Upstream prints `Mutation workers: <n>` whenever
+   `MaxWorkers > 0` (`runner.go:614`), *including a serial `--max-workers 1` run*.
+   F6 keeps this **upstream-verbatim**: the **`Mutation workers: <n>` header line
+   prints whenever `--max-workers > 0`** (serial or parallel; `<n>` is the clamped
+   count on the parallel path). The **`worker-<k>` per-mutant token, however, appears
+   only on the true parallel path** (workers ≥ 2 AND sites ≥ 2) — because upstream's
+   token lives only in `runMutationsParallel`; the serial loop has none. So a serial
+   `--max-workers 1` run prints `Mutation workers: 1` *and* untagged per-mutant lines.
+8. **Print order vs aggregation order.** Per-mutant lines print in **arrival order**
+   (each worker `fmt.Printf`s as it finishes — indices appear out of sequence), but
+   the collected results are **sorted by stable `Site.Index`** before the report
+   (`sortResults`, `runner.go:457`), so the `Mutation Report` tallies and the
+   `Survivors:` block are deterministic regardless of worker timing.
+9. **Worker failure is strict / all-or-nothing.** If a worker cannot write or restore
+   its copy, or the collected result count != selected-site count, the **whole run
+   aborts non-zero with an error and prints no `Mutation Report`** (upstream
+   `sendFirstError` + `"mutation workers stopped after k/n results"`). Consistent with
+   F4's "fail loudly, never print a misleading report" baseline philosophy.
 
 **Considered and rejected:** mechanism 1 (unsound in Python), mechanism 3 (different
-engine, would discard the faithful byte-splice port).
+engine, would discard the faithful byte-splice port); `git clone` granularity
+(requires a git repo, misses uncommitted edits); wrapping the user command in
+`uv run` (prescribes the runner, double-wraps `uv run pytest`); graceful-degrade on
+worker failure (non-deterministic, under-reports survivors).

@@ -161,11 +161,34 @@ term. This is the single canonical glossary for the project.
   `--max-workers ≥ 2 AND sites ≥ 2` → the parallel engine. Parallelism is across the
   **selected sites of the one target file**; `maxWorkers` is clamped to the site
   count (ADR 0015).
-- **Worker (clone-per-worker)** — an isolated project copy with its own
-  `uv`-provisioned venv; it mutates its **own** file copy (so editable installs
-  resolve to it — the reason mutate4go's tree-copy+`cwd` model is replaced). The
-  `Mutation workers: <n>` header line and `worker-<k>` progress token appear **only**
-  on this parallel path (ADR 0015).
+- **Worker (clone-per-worker)** — an isolated **tree copy** of the working directory
+  with its own `uv`-provisioned venv (`uv venv`/`uv sync`); it mutates its **own** file
+  copy, so editable installs resolve to it — the reason mutate4go's tree-copy+`cwd`
+  model is replaced. The worker runs the user's `--test-command` **verbatim** with
+  `cwd = worker-root` (no `uv pip install -e`, no `uv run` wrapping). Copies live under
+  `.mutate4py/workers/run-<pid>-<nanos>/worker-<k>/`, skipping `.git`, `__pycache__`,
+  `.venv`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, and the worker dir itself; the
+  whole run-root is removed when the run ends (ADR 0015).
+- **`Mutation workers: <n>` line** — header line printed whenever `--max-workers > 0`,
+  **serial or parallel** (upstream-verbatim, `runner.go:614`); `<n>` is the clamped
+  count on the parallel path. So a serial `--max-workers 1` run prints it too. This is
+  the one deliberate divergence the F6 grilling settled — ADR 0012 amended, ADR 0015
+  resolution 7.
+- **`worker-<k>` token** — the per-mutant attribution `[i/total] worker-<k> <status>
+  …`, present **only** on the true parallel path (workers ≥ 2 AND sites ≥ 2); upstream's
+  token lives only in `runMutationsParallel`, so any serial run (incl. `--max-workers 1`)
+  has none (ADR 0015).
+- **Arrival-order print / index-sorted aggregation** — per-mutant lines print as each
+  worker finishes (indices out of sequence), but results are sorted by stable site
+  `Index` before the `Mutation Report` / `Survivors:` block, so the report is
+  deterministic regardless of worker timing (upstream `sortResults`, `runner.go:457`).
+- **Strict worker failure** — any worker write/restore error, or a collected result
+  count != selected-site count, aborts the whole parallel run non-zero with no
+  `Mutation Report` (upstream `sendFirstError` / "mutation workers stopped after k/n
+  results"). On the parallel path a target file outside the working directory is a hard
+  error (`runner.go:365`). `.mutate4py.bak` and manifest re-embed stay at the
+  orchestration layer — the original is never mutated in parallel, so there is no
+  per-worker `.bak` (ADR 0015).
 
 ## Faithful-port tags
 

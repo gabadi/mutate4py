@@ -307,17 +307,45 @@ clone-per-worker look expensive. This is the cosmic-ray shape, made cheap by `uv
 and it preserves the byte-splice engine (so no `__pycache__`-spoof rework).
 
 - **Serial path** (`--max-workers <= 1` OR one selected site): the exact in-place
-  splice/restore loop; no worker tree, no `Mutation workers:` line, no `worker-<k>`
-  token (this is what F4 shipped; ADR 0012).
+  splice/restore loop, no worker tree, no `worker-<k>` token (this is what F4 shipped;
+  ADR 0012). It **does** print the `Mutation workers: <n>` header line whenever
+  `--max-workers > 0` — see the output-token rule below.
 - **Parallel path** (`--max-workers >= 2` AND >= 2 sites): N `uv`-provisioned worker
   copies, sites fanned across them, results aggregated into the one §8 report; the
-  `Mutation workers: <n>` header line and the `worker-<k>` progress token return.
-  `maxWorkers` is clamped to the site count.
+  `worker-<k>` progress token appears on every per-mutant line. `maxWorkers` is
+  clamped to the site count, and the `Mutation workers: <n>` line shows that clamped
+  count.
+
+**Worker provisioning (F6 grilling, ADR 0015).** Each worker is a **tree copy** of the
+working directory (skipping `.git`, `__pycache__`, `.venv`, `.pytest_cache`,
+`.mypy_cache`, `.ruff_cache`, and the worker dir itself) under
+`.mutate4py/workers/run-<pid>-<nanos>/worker-<k>/`, provisioned with `uv venv`/`uv
+sync` so the worker has its own resolved environment. The worker then runs the user's
+`--test-command` **verbatim** with `cwd = worker-root` (upstream's `cwd = workerRoot`
+model) — **no `uv pip install -e`, no `uv run` wrapping** — and the worker's own venv
+makes imports resolve to its copy, so each worker is editable-install-proof. The whole
+`run-<pid>-<nanos>` root is removed at the end of the run.
+
+**Output-token rule (the one deliberate divergence — upstream-verbatim header, parallel-only
+token).** `Mutation workers: <n>` prints whenever `--max-workers > 0` (serial *or*
+parallel), matching upstream `runner.go:614`; the `worker-<k>` per-mutant token appears
+**only** on the true parallel path (workers ≥ 2 AND sites ≥ 2), because upstream's token
+lives only in `runMutationsParallel`. So a serial `--max-workers 1` run prints
+`Mutation workers: 1` with untagged per-mutant lines. Per-mutant lines print in
+**arrival order** (workers finish out of sequence), but results are **sorted by stable
+site index** before the `Mutation Report` / `Survivors:` block, so the report is
+deterministic.
+
+**Crash-safety & failure (ADR 0015).** `.mutate4py.bak` and the manifest re-embed stay
+at the orchestration layer (unchanged from F4): in parallel the **original file is never
+mutated** — only worker copies are, each restored after each mutant — so the `.bak` is
+pure crash-safety, and there is **no per-worker `.bak`**. On the parallel path a target
+file outside the working directory is a hard error (upstream `runner.go:365`). Worker
+failure is **strict / all-or-nothing**: any worker write/restore error, or a collected
+result count != selected-site count, aborts the run non-zero with no `Mutation Report`.
 
 **Boundary:** F5 parses/validates `--max-workers` and dispatches the count; **F6**
-implements the parallel engine and the serial/parallel switch. The worker-copy
-granularity, exact `uv` commands, worker-dir convention, and `.mutate4py.bak`
-interaction are F6-grilling open questions (ADR 0015).
+implements the parallel engine and the serial/parallel switch.
 
 ---
 

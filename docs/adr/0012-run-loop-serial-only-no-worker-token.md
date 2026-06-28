@@ -28,20 +28,32 @@ time — apply → write → run test under timeout → classify → restore —
 (line, column) order. `runMutationsParallel`, `copyProject`, and the worker-root
 machinery are **not** in F4 (they are F6, re-grounded on `uv` clone-per-worker).
 
-## Two output tokens are absent on the serial path
+## Output tokens on the serial path
 
-1. **No `Mutation workers: <n>` header line.** Upstream prints it on the parallel
-   path; F4's serial header is exactly the seven count lines (`Mutation run` / Total /
-   Covered / Uncovered / Changed / `Manifest exists` / Selected) plus the conditional
-   warning line.
-2. **No `worker-<k>` token in the per-mutant line.** Upstream's parallel path prints
-   `[i/total] worker-<k> <status> …` (`runner.go:425`); the serial path omits it
-   (`runner.go:346`). F4's per-mutant line is `[i/total] <status> line <L> <desc>:
-   <functionID>`.
+> **F6 amendment (see ADR 0015 resolution 7).** Item 1 below was first written for the
+> F4 case where `--max-workers` is unset/0. F6 chose **upstream-verbatim** printing of
+> the header line, so the `Mutation workers:` line is **no longer unconditionally
+> absent on the serial path** — it prints whenever `--max-workers > 0`, *even when the
+> run executes serially* (`--max-workers 1`, or any `--max-workers` clamped to a single
+> selected site). Item 1 is rescoped accordingly. Item 2 (no `worker-<k>` token) stays
+> correct: the token is unique to the true parallel path.
 
-Both tokens **return on the parallel path** (F6); their absence is specific to the
-serial path, not a global removal. Every other §8 string is reproduced verbatim on
-both paths.
+1. **`Mutation workers: <n>` header line — conditional on `--max-workers > 0`, not on
+   the path.** When `--max-workers` is unset/0 (F4's default case) the serial header is
+   exactly the seven count lines (`Mutation run` / Total / Covered / Uncovered /
+   Changed / `Manifest exists` / Selected) plus the conditional warning line — **no
+   workers line**. But a serial run with `--max-workers > 0` (e.g. `--max-workers 1`)
+   **does** print `Mutation workers: <n>`, matching upstream `runner.go:614`
+   (`if options.MaxWorkers > 0`). The line tracks the flag, not the execution path.
+2. **No `worker-<k>` token in the per-mutant line — on any serial run.** Upstream's
+   parallel path prints `[i/total] worker-<k> <status> …` (`runner.go:425`); the serial
+   loop has no such token at all (`runner.go:346`). F4's per-mutant line stays
+   `[i/total] <status> line <L> <desc>: <functionID>` **even when a serial run prints
+   the `Mutation workers:` header** — there is no worker to attribute serially.
+
+The `worker-<k>` token **returns on the parallel path** (F6, workers ≥ 2 AND sites ≥ 2);
+the `Mutation workers:` line returns whenever `--max-workers > 0`. Every other §8 string
+is reproduced verbatim on both paths.
 
 ## Flag boundary
 
