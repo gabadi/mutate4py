@@ -24,7 +24,19 @@ from mutate4py._manifest import (
     manifests_structurally_equal,
     strip_manifest,
 )
-from mutate4py._workers import _run_command
+def _run_command(cmd: str, cwd: str, timeout: float) -> tuple[str, bool]:
+    """Run cmd via shell; return (status, timed_out) where status in {killed,timeout,survived}."""
+    try:
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            cwd=cwd,
+            capture_output=True,
+            timeout=timeout,
+        )
+        return ("survived" if result.returncode == 0 else "killed", False)
+    except subprocess.TimeoutExpired:
+        return ("timeout", True)
 
 
 def _baseline_reason(result: subprocess.CompletedProcess) -> str:

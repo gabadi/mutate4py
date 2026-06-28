@@ -1,9 +1,11 @@
-"""Property tests for manifest round-trips, ID-format invariants, and partition_sites."""
+"""Property tests for manifest round-trips, ID-format invariants, partition_sites, discovery, and worker assignment."""
 
-from hypothesis import given
+import ast
+
+from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from mutate4py._discovery import Site, partition_sites
+from mutate4py._discovery import Site, apply_mutant, discover_sites, partition_sites
 from mutate4py._manifest import (
     build_manifest,
     diff_manifests,
@@ -213,3 +215,146 @@ def test_partition_sites_full_covered_all_covered(lines):
     all_lines = {s.line for s in sites}
     c, u = partition_sites(sites, all_lines)
     assert c == len(sites) and u == 0
+
+
+# ── discover_sites + apply_mutant invariants ──────────────────────────────────
+
+def _is_valid_python(source: str) -> bool:
+    try:
+        ast.parse(source)
+        return True
+    except SyntaxError:
+        return False
+
+
+_PYTHON_SOURCES = st.sampled_from([
+    "def f(a, b):\n    return a > b\n",
+    "def f(a, b):\n    return a >= b\n",
+    "def f(a, b):\n    return a < b\n",
+    "def f(a, b):\n    return a <= b\n",
+    "def f(a, b):\n    return a == b\n",
+    "def f(a, b):\n    return a != b\n",
+    "def f(a, b):\n    return a + b\n",
+    "def f(a, b):\n    return a - b\n",
+    "def f(a, b):\n    return a * b\n",
+    "def f(a, b):\n    return a > b and True\n",
+    "def f(a, b):\n    return a > b or False\n",
+    "def f(a, b):\n    if a > b:\n        return 1\n    return 0\n",
+    "x = 0\n",
+    "x = 1\n",
+    "x = True\n",
+    "x = False\n",
+])
+
+
+@given(_PYTHON_SOURCES)
+@settings(max_examples=60)
+def test_apply_mutant_always_differs_from_clean(source: str) -> None:
+    """Every mutant produced by apply_mutant must differ from the clean source."""
+    sites = discover_sites(source)
+    for site in sites:
+        mutated = apply_mutant(source, site)
+        assert mutated != source, (
+            f"apply_mutant produced identical source for site index={site.index} "
+            f"line={site.line} desc={site.desc!r}"
+        )
+
+
+@given(_PYTHON_SOURCES)
+@settings(max_examples=60)
+def test_apply_mutant_contains_mutant_text(source: str) -> None:
+    """The mutated source must contain the site's mutant_text."""
+    sites = discover_sites(source)
+    for site in sites:
+        mutated = apply_mutant(source, site)
+        assert site.mutant_text in mutated, (
+            f"mutant_text {site.mutant_text!r} not found after applying site {site.index}"
+        )
+
+
+@given(_PYTHON_SOURCES)
+@settings(max_examples=60)
+def test_discover_sites_indices_are_unique_and_zero_based(source: str) -> None:
+    """Site indices must be unique and form a 0-based contiguous range."""
+    sites = discover_sites(source)
+    indices = [s.index for s in sites]
+    assert indices == list(range(len(sites))), f"Non-contiguous or duplicate indices: {indices}"
+
+
+@given(_PYTHON_SOURCES)
+@settings(max_examples=60)
+def test_discover_sites_sorted_by_line_col(source: str) -> None:
+    """Sites must be sorted by (line, col)."""
+    sites = discover_sites(source)
+    pairs = [(s.line, s.col) for s in sites]
+    assert pairs == sorted(pairs), f"Sites not sorted: {pairs}"
+
+
+# ── _assign_sites_to_workers invariants ───────────────────────────────────────
+
+def _make_indexed_site(index: int) -> Site:
+    return Site(
+        index=index,
+        line=index + 1,
+        col=0,
+        end_line=index + 1,
+        end_col=5,
+        function_id="func/f",
+        orig_text=">",
+        mutant_text=">=",
+        desc="> -> >=",
+    )
+
+
+@given(
+    n_sites=st.integers(min_value=1, max_value=50),
+    n_workers=st.integers(min_value=1, max_value=10),
+)
+@settings(max_examples=80)
+def test_assign_sites_every_site_appears_exactly_once(n_sites: int, n_workers: int) -> None:
+    """Every site must appear in exactly one worker's assignment list."""
+    from mutate4py._workers import _assign_sites_to_workers
+
+    sites = [_make_indexed_site(i) for i in range(n_sites)]
+    by_worker = _assign_sites_to_workers(sites, n_workers)
+
+    assigned_indices: list[int] = []
+    for assignments in by_worker.values():
+        for _worker_idx, site, _site_idx in assignments:
+            assigned_indices.append(site.index)
+
+    assert sorted(assigned_indices) == list(range(n_sites))
+
+
+@given(
+    n_sites=st.integers(min_value=1, max_value=50),
+    n_workers=st.integers(min_value=1, max_value=10),
+)
+@settings(max_examples=80)
+def test_assign_sites_worker_keys_in_bounds(n_sites: int, n_workers: int) -> None:
+    """All worker keys must be in range [1, n_workers]."""
+    from mutate4py._workers import _assign_sites_to_workers
+
+    sites = [_make_indexed_site(i) for i in range(n_sites)]
+    by_worker = _assign_sites_to_workers(sites, n_workers)
+    for worker_key in by_worker.keys():
+        assert 1 <= worker_key <= n_workers
+
+
+@given(
+    n_sites=st.integers(min_value=1, max_value=50),
+    n_workers=st.integers(min_value=1, max_value=10),
+)
+@settings(max_examples=80)
+def test_assign_sites_site_idx_is_1_based_global_position(n_sites: int, n_workers: int) -> None:
+    """site_idx in each assignment must equal site.index + 1 (1-based global position)."""
+    from mutate4py._workers import _assign_sites_to_workers
+
+    sites = [_make_indexed_site(i) for i in range(n_sites)]
+    by_worker = _assign_sites_to_workers(sites, n_workers)
+
+    for assignments in by_worker.values():
+        for _worker_idx, site, site_idx in assignments:
+            assert site_idx == site.index + 1, (
+                f"site.index={site.index} but site_idx={site_idx} (expected {site.index + 1})"
+            )
