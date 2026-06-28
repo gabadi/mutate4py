@@ -8,7 +8,7 @@ import textwrap
 
 import pytest
 
-from mutate4py.__main__ import scan_report
+from mutate4py._runner import scan_report
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -248,25 +248,25 @@ def test_mse_a_missing_functions_differs_from_b_with_functions():
 
 
 def test_do_update_manifest_writes_footer(tmp_path, capsys):
-    from mutate4py.__main__ import _do_update_manifest
+    from mutate4py._runner import update_manifest
 
     p = tmp_path / "s.py"
     p.write_text("def foo():\n    return 1\n")
-    _do_update_manifest(str(p), p.read_text())
+    update_manifest(path=str(p), source=p.read_text())
     content = p.read_text()
     assert "# mutate4py-manifest-begin" in content
     assert "Updated manifest:" in capsys.readouterr().out
 
 
 def test_do_update_manifest_idempotent(tmp_path, capsys):
-    from mutate4py.__main__ import _do_update_manifest
+    from mutate4py._runner import update_manifest
 
     p = tmp_path / "s.py"
     p.write_text("def foo():\n    return 1\n")
-    _do_update_manifest(str(p), p.read_text())
+    update_manifest(path=str(p), source=p.read_text())
     first_content = p.read_text()
     capsys.readouterr()  # clear
-    _do_update_manifest(str(p), first_content)
+    update_manifest(path=str(p), source=first_content)
     assert "Manifest unchanged:" in capsys.readouterr().out
     assert p.read_text() == first_content
 
@@ -287,7 +287,7 @@ def test_main_update_manifest_mode(tmp_path, capsys):
 
 
 def test_scan_report_with_coverage_basic(tmp_path):
-    from mutate4py.__main__ import scan_report_with_coverage
+    from mutate4py._runner import scan_report_with_coverage
 
     src_file = tmp_path / "foo.py"
     src_file.write_text("x = a + b\n")
@@ -309,7 +309,7 @@ def test_scan_report_with_coverage_basic(tmp_path):
 
 
 def test_scan_report_with_coverage_warning(tmp_path):
-    from mutate4py.__main__ import scan_report_with_coverage
+    from mutate4py._runner import scan_report_with_coverage
 
     src_file = tmp_path / "foo.py"
     src_file.write_text("x = a + b\ny = c - d\n")
@@ -498,7 +498,7 @@ def test_run_scan_output_newline_separated(tmp_path, capsys):
 
 def test_scan_report_with_coverage_manifest_exists_false(tmp_path):
     # mutmut_22,23,24: "Manifest exists: false" must appear in output
-    from mutate4py.__main__ import scan_report_with_coverage
+    from mutate4py._runner import scan_report_with_coverage
 
     src_file = tmp_path / "foo.py"
     src_file.write_text("x = a + b\n")
@@ -519,7 +519,7 @@ def test_scan_report_with_coverage_manifest_exists_false(tmp_path):
 
 def test_scan_report_with_coverage_no_warning_at_threshold(tmp_path):
     # mutmut_26: exceeded = total > warning_threshold (not >=), so at threshold no warning
-    from mutate4py.__main__ import scan_report_with_coverage
+    from mutate4py._runner import scan_report_with_coverage
 
     src_file = tmp_path / "foo.py"
     src_file.write_text("x = a + b\n")  # 1 site
@@ -542,11 +542,11 @@ def test_scan_report_with_coverage_no_warning_at_threshold(tmp_path):
 def test_do_update_manifest_tested_at_iso8601_utc_format(tmp_path):
     # mutmut_5,7,8,9,10,13: tested_at = datetime.datetime.now(utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     import re
-    from mutate4py.__main__ import _do_update_manifest
+    from mutate4py._runner import update_manifest
 
     p = tmp_path / "s.py"
     p.write_text("def foo():\n    return 1\n")
-    _do_update_manifest(str(p), p.read_text())
+    update_manifest(path=str(p), source=p.read_text())
     import json
 
     content = p.read_text()
@@ -672,11 +672,11 @@ def test_do_update_manifest_uses_utc_not_local_tz(tmp_path):
     # The strftime format %Y-%m-%dT%H:%M:%SZ works for both but the timestamp
     # will differ. We verify by checking the format is valid ISO-8601 UTC.
     import re
-    from mutate4py.__main__ import _do_update_manifest
+    from mutate4py._runner import update_manifest
 
     p = tmp_path / "s.py"
     p.write_text("def foo():\n    return 1\n")
-    _do_update_manifest(str(p), p.read_text())
+    update_manifest(path=str(p), source=p.read_text())
     content = p.read_text()
     import json
 

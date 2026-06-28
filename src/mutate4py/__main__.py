@@ -1,80 +1,12 @@
 """CLI entry point for mutate4py."""
 
 import argparse
-import datetime
 import os
 import sys
 
-from mutate4py._coverage import CoverageError, acquire_coverage
-from mutate4py._discovery import discover_sites, partition_sites
-from mutate4py._manifest import (
-    build_manifest,
-    embed_manifest,
-    extract_manifest,
-    manifests_structurally_equal,
-    strip_manifest,
-)
-from mutate4py._runner import run_mutations
+from mutate4py._runner import CoverageError, run_mutations, run_scan, update_manifest
 
 DEFAULT_WARNING_THRESHOLD = 50
-
-
-def scan_report(
-    path: str, source: str, warning_threshold: int
-) -> tuple[list[str], bool]:
-    """Return (output_lines, exceeded_threshold) for a --scan run."""
-    sites = discover_sites(source)
-    total = len(sites)
-    lines = [
-        f"Mutation scan: {path}",
-        f"Total mutation sites: {total}",
-        f"Changed mutation sites: {total}",  # F1: no manifest, Changed == Total
-        "Manifest exists: false",
-    ]
-    exceeded = total > warning_threshold
-    if exceeded:
-        lines.append(
-            f"Warning: {total} mutation sites exceeds threshold {warning_threshold}."
-        )
-    return lines, exceeded
-
-
-def scan_report_with_coverage(
-    path: str,
-    source: str,
-    warning_threshold: int,
-    *,
-    cov_cmd: str | None,
-    lcov_path: str | None,
-    reuse_coverage: bool,
-    cwd: str,
-) -> tuple[list[str], bool]:
-    """Return (output_lines, exceeded_threshold) for a --scan run with coverage."""
-    sites = discover_sites(source)
-    total = len(sites)
-
-    covered_lines = acquire_coverage(
-        cov_cmd=cov_cmd,
-        lcov_path=lcov_path,
-        reuse=reuse_coverage,
-        cwd=cwd,
-        source_path=os.path.abspath(path),
-    )
-    covered, uncovered = partition_sites(sites, covered_lines)
-
-    lines = [
-        f"Mutation scan: {path}",
-        f"Total mutation sites: {total}",
-        f"Covered mutation sites: {covered}",
-        f"Uncovered mutation sites: {uncovered}",
-        "Manifest exists: false",
-    ]
-    exceeded = total > warning_threshold
-    if exceeded:
-        lines.append(
-            f"Warning: {total} mutation sites exceeds threshold {warning_threshold}."
-        )
-    return lines, exceeded
 
 
 def _positive_int(value: str) -> int:
@@ -276,27 +208,20 @@ def _parse_lines(lines_str: str | None) -> set[int] | None:
 
 
 def _run_scan(args: argparse.Namespace, source: str, cwd: str) -> None:
-    """Execute --scan logic and print output."""
-    has_coverage = (
-        args.cov_cmd is not None or args.lcov is not None or args.reuse_coverage
-    )
-    if has_coverage:
-        try:
-            lines, _ = scan_report_with_coverage(
-                args.file,
-                source,
-                args.warning_threshold,
-                cov_cmd=args.cov_cmd,
-                lcov_path=args.lcov,
-                reuse_coverage=args.reuse_coverage,
-                cwd=cwd,
-            )
-        except CoverageError as exc:
-            print(f"error: {exc}", file=sys.stderr)
-            sys.exit(2)
-    else:
-        lines, _ = scan_report(args.file, source, args.warning_threshold)
-    print("\n".join(lines))
+    """Execute --scan logic; exits with code 2 on CoverageError."""
+    try:
+        run_scan(
+            path=args.file,
+            source=source,
+            warning_threshold=args.warning_threshold,
+            cov_cmd=args.cov_cmd,
+            lcov_path=args.lcov,
+            reuse_coverage=args.reuse_coverage,
+            cwd=cwd,
+        )
+    except CoverageError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(2)
 
 
 def main() -> None:
@@ -309,7 +234,7 @@ def main() -> None:
     if args.scan:
         _run_scan(args, source, os.getcwd())
     elif args.update_manifest:
-        _do_update_manifest(args.file, source)
+        update_manifest(path=args.file, source=source)
     else:
         lines_filter = _parse_lines(args.lines)
         max_workers = args.max_workers if args.max_workers is not None else 0
@@ -329,24 +254,6 @@ def main() -> None:
             cwd=os.getcwd(),
         )
         sys.exit(exit_code)
-
-
-def _do_update_manifest(path: str, source: str) -> None:
-    existing, _ = extract_manifest(source)
-    clean = strip_manifest(source)
-    tested_at = datetime.datetime.now(datetime.timezone.utc).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
-    candidate = build_manifest(clean, tested_at=tested_at)
-
-    if existing is not None and manifests_structurally_equal(existing, candidate):
-        print(f"Manifest unchanged: {path}")
-        return
-
-    embedded = embed_manifest(source, candidate)
-    with open(path, "w") as f:
-        f.write(embedded)
-    print(f"Updated manifest: {path}")
 
 
 if __name__ == "__main__":

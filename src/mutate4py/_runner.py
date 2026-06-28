@@ -6,12 +6,22 @@ import subprocess
 import time
 
 from mutate4py._coverage import CoverageError, acquire_coverage
+
+__all__ = [
+    "CoverageError",
+    "run_mutations",
+    "run_scan",
+    "scan_report",
+    "scan_report_with_coverage",
+    "update_manifest",
+]
 from mutate4py._discovery import Site, apply_mutant, discover_sites, partition_sites
 from mutate4py._manifest import (
     build_manifest,
     diff_manifests,
     embed_manifest,
     extract_manifest,
+    manifests_structurally_equal,
     strip_manifest,
 )
 
@@ -234,6 +244,103 @@ def _finalize_source(
         f.write(embed_manifest(clean_source, fresh_manifest))
     if os.path.isfile(bak_path):
         os.remove(bak_path)
+
+
+def scan_report(
+    path: str, source: str, warning_threshold: int
+) -> tuple[list[str], bool]:
+    """Return (output_lines, exceeded_threshold) for a --scan run without coverage."""
+    sites = discover_sites(source)
+    total = len(sites)
+    lines = [
+        f"Mutation scan: {path}",
+        f"Total mutation sites: {total}",
+        f"Changed mutation sites: {total}",
+        "Manifest exists: false",
+    ]
+    exceeded = total > warning_threshold
+    if exceeded:
+        lines.append(
+            f"Warning: {total} mutation sites exceeds threshold {warning_threshold}."
+        )
+    return lines, exceeded
+
+
+def scan_report_with_coverage(
+    path: str,
+    source: str,
+    warning_threshold: int,
+    *,
+    cov_cmd: str | None,
+    lcov_path: str | None,
+    reuse_coverage: bool,
+    cwd: str,
+) -> tuple[list[str], bool]:
+    """Return (output_lines, exceeded_threshold) for a --scan run with coverage."""
+    sites = discover_sites(source)
+    total = len(sites)
+    covered_lines = acquire_coverage(
+        cov_cmd=cov_cmd,
+        lcov_path=lcov_path,
+        reuse=reuse_coverage,
+        cwd=cwd,
+        source_path=os.path.abspath(path),
+    )
+    covered, uncovered = partition_sites(sites, covered_lines)
+    lines = [
+        f"Mutation scan: {path}",
+        f"Total mutation sites: {total}",
+        f"Covered mutation sites: {covered}",
+        f"Uncovered mutation sites: {uncovered}",
+        "Manifest exists: false",
+    ]
+    exceeded = total > warning_threshold
+    if exceeded:
+        lines.append(
+            f"Warning: {total} mutation sites exceeds threshold {warning_threshold}."
+        )
+    return lines, exceeded
+
+
+def run_scan(
+    *,
+    path: str,
+    source: str,
+    warning_threshold: int,
+    cov_cmd: str | None,
+    lcov_path: str | None,
+    reuse_coverage: bool,
+    cwd: str,
+) -> None:
+    """Execute --scan: print site counts. Raises CoverageError on acquisition failure."""
+    has_coverage = cov_cmd is not None or lcov_path is not None or reuse_coverage
+    if has_coverage:
+        lines, _ = scan_report_with_coverage(
+            path, source, warning_threshold,
+            cov_cmd=cov_cmd, lcov_path=lcov_path,
+            reuse_coverage=reuse_coverage, cwd=cwd,
+        )
+    else:
+        lines, _ = scan_report(path, source, warning_threshold)
+    print("\n".join(lines))
+
+
+def update_manifest(*, path: str, source: str) -> int:
+    """Execute --update-manifest: embed or refresh manifest footer. Returns exit code."""
+    existing, _ = extract_manifest(source)
+    clean = strip_manifest(source)
+    tested_at = datetime.datetime.now(datetime.timezone.utc).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+    candidate = build_manifest(clean, tested_at=tested_at)
+    if existing is not None and manifests_structurally_equal(existing, candidate):
+        print(f"Manifest unchanged: {path}")
+        return 0
+    embedded = embed_manifest(source, candidate)
+    with open(path, "w") as f:
+        f.write(embedded)
+    print(f"Updated manifest: {path}")
+    return 0
 
 
 def run_mutations(
