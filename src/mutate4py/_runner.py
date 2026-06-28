@@ -1,4 +1,4 @@
-"""Mutation run loop — F4 core implementation."""
+"""Mutation run loop — F4 core implementation + F6 parallel engine dispatch."""
 
 import datetime
 import os
@@ -168,6 +168,49 @@ def _run_mutation_loop(
             f"[{i}/{total_selected}] {status} line {site.line} {site.desc}{fid_suffix}"
         )
     return counts, survivors
+
+
+def _on_parallel_result(result: dict) -> None:
+    """Print a per-mutant progress line in arrival order (called from worker thread)."""
+    site = result["site"]
+    site_idx = result["site_idx"]
+    total = result["total"]
+    worker_idx = result["worker_idx"]
+    status = result["status"]
+    fid_suffix = f": {site.function_id}" if site.function_id else ""
+    print(
+        f"[{site_idx}/{total}] worker-{worker_idx} {status} line {site.line} {site.desc}{fid_suffix}"
+    )
+
+
+def _run_parallel_workers(
+    selected_sites: list[Site],
+    clean_source: str,
+    path: str,
+    cwd: str,
+    test_command: str,
+    mutant_timeout: float,
+    max_workers: int,
+) -> tuple[dict | None, list[Site] | None, str | None]:
+    """Dispatch the parallel engine; return (counts, survivors, error_msg)."""
+    from mutate4py._workers import ParallelRunError, WorkerFailureError, run_parallel
+
+    try:
+        counts, survivors = run_parallel(
+            selected_sites=selected_sites,
+            clean_source=clean_source,
+            source_path=path,
+            cwd=cwd,
+            test_command=test_command,
+            mutant_timeout=mutant_timeout,
+            max_workers=max_workers,
+            on_result=_on_parallel_result,
+        )
+        return counts, survivors, None
+    except WorkerFailureError as e:
+        return None, None, f"mutation worker failed: {e}"
+    except ParallelRunError as e:
+        return None, None, str(e)
 
 
 def _print_mutation_report(
@@ -407,6 +450,13 @@ def run_mutations(
         all_sites, covered_lines, effective_since_last_run, lines_filter
     )
 
+    n_selected = len(selected_sites)
+    use_parallel = max_workers >= 2 and n_selected >= 2
+
+    if max_workers > 0:
+        displayed_workers = min(max_workers, n_selected) if use_parallel else max_workers
+        print(f"Mutation workers: {displayed_workers}")
+
     baseline_duration, baseline_error = _run_baseline(test_command, source_dir)
     if baseline_error is not None:
         print(f"baseline failed: {baseline_error}")
@@ -416,10 +466,21 @@ def run_mutations(
         f.write(clean_source)
 
     mutant_timeout = max(1.0, timeout_factor * baseline_duration)
-    counts, survivors = _run_mutation_loop(
-        selected_sites, clean_source, path, source_dir, test_command, mutant_timeout
-    )
 
-    _finalize_source(path, clean_source, tested_at, bak_path)
-    _print_mutation_report(counts, survivors, uncovered_count)
+    if use_parallel:
+        counts, survivors, error_msg = _run_parallel_workers(
+            selected_sites, clean_source, path, cwd, test_command, mutant_timeout, max_workers
+        )
+        _finalize_source(path, clean_source, tested_at, bak_path)
+        if error_msg is not None:
+            print(error_msg)
+            return 1
+        _print_mutation_report(counts, survivors, uncovered_count)
+    else:
+        counts, survivors = _run_mutation_loop(
+            selected_sites, clean_source, path, source_dir, test_command, mutant_timeout
+        )
+        _finalize_source(path, clean_source, tested_at, bak_path)
+        _print_mutation_report(counts, survivors, uncovered_count)
+
     return 0

@@ -625,3 +625,200 @@ def test_run_mutations_coverage_error_returns_1(tmp_path, monkeypatch):
     output = buf.getvalue()
     assert rc == 1
     assert "error:" in output
+
+
+# ── F6 parallel workers — serial/parallel switch ──────────────────────────────
+
+
+def _make_multi_site_source(n_funcs: int) -> str:
+    lines = []
+    for i in range(1, n_funcs + 1):
+        lines.append(f"def f{i}(a, b):")
+        lines.append(f"    return a > b")
+        lines.append("")
+    return "\n".join(lines) + "\n"
+
+
+def _write_lcov_for_source(lcov_path: str, src_path: str, source: str) -> None:
+    from mutate4py._discovery import discover_sites
+    sites = discover_sites(source)
+    _write_lcov(lcov_path, src_path, [s.line for s in sites])
+
+
+def _run_with_capture(tmp_path, src_path, src, *, max_workers, test_cmd="exit 0"):
+    lcov_path = str(tmp_path / "cov.lcov")
+    _write_lcov_for_source(lcov_path, src_path, src)
+    import io
+    from contextlib import redirect_stdout
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        rc = run_mutations(
+            path=src_path,
+            source=src,
+            cov_cmd=None,
+            lcov_path=lcov_path,
+            reuse_coverage=False,
+            test_command=test_cmd,
+            timeout_factor=10,
+            lines_filter=None,
+            since_last_run=False,
+            mutate_all=False,
+            warning_threshold=1000,
+            max_workers=max_workers,
+            cwd=str(tmp_path),
+        )
+    return rc, buf.getvalue()
+
+
+def test_serial_path_no_workers_header(tmp_path):
+    """max_workers=0 -> no 'Mutation workers:' line."""
+    src = _make_multi_site_source(3)
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+    _, output = _run_with_capture(tmp_path, src_path, src, max_workers=0)
+    assert "Mutation workers:" not in output
+
+
+def test_serial_path_workers_header_max_workers_1(tmp_path):
+    """max_workers=1 (serial path, 3 sites) -> prints 'Mutation workers: 1', no worker-k in progress."""
+    src = _make_multi_site_source(3)
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+    _, output = _run_with_capture(tmp_path, src_path, src, max_workers=1)
+    assert "Mutation workers: 1" in output
+    for line in output.splitlines():
+        if line.startswith("["):
+            assert "worker-" not in line, f"Serial path has worker token: {line}"
+
+
+def test_serial_switch_one_site(tmp_path):
+    """max_workers=4, only 1 site -> serial path (no worker-k token)."""
+    src = "def f(a, b):\n    return a > b\n"
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+    _, output = _run_with_capture(tmp_path, src_path, src, max_workers=4)
+    for line in output.splitlines():
+        if line.startswith("["):
+            assert "worker-" not in line, f"Expected serial progress: {line}"
+
+
+def test_parallel_path_workers_header_clamped(tmp_path, monkeypatch):
+    """max_workers=8, 3 sites -> 'Mutation workers: 3' (clamped); provisioning skipped."""
+    import mutate4py._workers as workers_mod
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+
+    src = _make_multi_site_source(3)
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+    _, output = _run_with_capture(tmp_path, src_path, src, max_workers=8)
+    assert "Mutation workers: 3" in output
+
+
+def test_parallel_path_worker_token_in_progress(tmp_path, monkeypatch):
+    """Parallel path (max_workers=4, 4 sites) -> worker-k appears in progress lines."""
+    import mutate4py._workers as workers_mod
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+
+    src = _make_multi_site_source(4)
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+    _, output = _run_with_capture(tmp_path, src_path, src, max_workers=4)
+    progress_lines = [ln for ln in output.splitlines() if ln.startswith("[")]
+    assert progress_lines, "No progress lines in output"
+    for line in progress_lines:
+        assert "worker-" in line, f"Parallel progress line missing worker token: {line}"
+
+
+def test_parallel_path_report_present(tmp_path, monkeypatch):
+    """Parallel run produces a Mutation Report."""
+    import mutate4py._workers as workers_mod
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+
+    src = _make_multi_site_source(3)
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+    rc, output = _run_with_capture(tmp_path, src_path, src, max_workers=3)
+    assert rc == 0
+    assert "Mutation Report" in output
+
+
+def test_parallel_path_target_outside_cwd_error(tmp_path, monkeypatch):
+    """Target file outside cwd -> error, no worker root created."""
+    import tempfile
+    import mutate4py._workers as workers_mod
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+
+    with tempfile.TemporaryDirectory() as other_dir:
+        src = _make_multi_site_source(3)
+        src_path = os.path.join(other_dir, "calc.py")
+        with open(src_path, "w") as f:
+            f.write(src)
+
+        lcov_path = str(tmp_path / "cov.lcov")
+        _write_lcov_for_source(lcov_path, src_path, src)
+
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = run_mutations(
+                path=src_path,
+                source=src,
+                cov_cmd=None,
+                lcov_path=lcov_path,
+                reuse_coverage=False,
+                test_command="exit 0",
+                timeout_factor=10,
+                lines_filter=None,
+                since_last_run=False,
+                mutate_all=False,
+                warning_threshold=1000,
+                max_workers=4,
+                cwd=str(tmp_path),
+            )
+        output = buf.getvalue()
+        assert rc == 1
+        assert "must be inside working directory" in output
+        workers_dir = os.path.join(str(tmp_path), ".mutate4py", "workers")
+        assert not os.path.exists(workers_dir)
+
+
+def test_parallel_path_worker_root_cleaned_up(tmp_path, monkeypatch):
+    """After parallel run, worker root is removed."""
+    import mutate4py._workers as workers_mod
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+
+    src = _make_multi_site_source(3)
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+    rc, _ = _run_with_capture(tmp_path, src_path, src, max_workers=3)
+    assert rc == 0
+    workers_dir = os.path.join(str(tmp_path), ".mutate4py", "workers")
+    if os.path.exists(workers_dir):
+        assert os.listdir(workers_dir) == []
+
+
+def test_parallel_path_original_file_restored(tmp_path, monkeypatch):
+    """After parallel run, original source has no mutant; manifest footer present."""
+    from mutate4py._manifest import strip_manifest
+    import mutate4py._workers as workers_mod
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+
+    src = _make_multi_site_source(3)
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+    rc, _ = _run_with_capture(tmp_path, src_path, src, max_workers=3)
+    assert rc == 0
+    with open(src_path) as f:
+        final = f.read()
+    body = strip_manifest(final)
+    assert ">=" not in body
+    assert "mutate4py-manifest-begin" in final
