@@ -185,65 +185,40 @@ def _check_coverage_flags(args: argparse.Namespace) -> None:
         sys.exit(2)
 
 
-def _validate_mutual_exclusions(args: argparse.Namespace) -> None:
-    """Exit with error on illegal flag combinations (ADR 0008, 0014)."""
-    no_run_mode = args.scan or args.update_manifest
+def _no_run_flag(args: argparse.Namespace) -> str:
+    """Return the active no-run flag name for error messages."""
+    return "--scan" if args.scan else "--update-manifest"
 
-    if args.scan and args.update_manifest:
-        print(
-            "error: --scan and --update-manifest are mutually exclusive.",
-            file=sys.stderr,
-        )
-        sys.exit(2)
 
-    if no_run_mode:
-        if args.lines is not None:
-            flag = "--scan" if args.scan else "--update-manifest"
-            print(
-                f"error: {flag} cannot be combined with --lines.",
-                file=sys.stderr,
-            )
-            sys.exit(2)
-        if args.since_last_run:
-            flag = "--scan" if args.scan else "--update-manifest"
-            print(
-                f"error: {flag} cannot be combined with --since-last-run.",
-                file=sys.stderr,
-            )
-            sys.exit(2)
-        if args.mutate_all:
-            flag = "--scan" if args.scan else "--update-manifest"
-            print(
-                f"error: {flag} cannot be combined with --mutate-all.",
-                file=sys.stderr,
-            )
-            sys.exit(2)
-        if args.max_workers is not None:
-            flag = "--scan" if args.scan else "--update-manifest"
-            print(
-                f"error: {flag} cannot be combined with --max-workers.",
-                file=sys.stderr,
-            )
-            sys.exit(2)
-        if args.scan and args.timeout_factor != 10:
-            print(
-                "error: --scan cannot be combined with --timeout-factor.",
-                file=sys.stderr,
-            )
-            sys.exit(2)
-        if args.scan and args.test_command != "pytest":
-            print(
-                "error: --scan cannot be combined with --test-command.",
-                file=sys.stderr,
-            )
-            sys.exit(2)
+def _exit_incompatible(flag_a: str, flag_b: str) -> None:
+    print(f"error: {flag_a} cannot be combined with {flag_b}.", file=sys.stderr)
+    sys.exit(2)
 
-    # Pairwise exclusion for selection flags
-    selection_count = sum([
-        args.since_last_run,
-        args.mutate_all,
-        args.lines is not None,
-    ])
+
+def _check_no_run_incompatibilities(args: argparse.Namespace) -> None:
+    """Exit if run-mode flags are paired with no-run-mode flags."""
+    flag = _no_run_flag(args)
+    if args.lines is not None:
+        _exit_incompatible(flag, "--lines")
+    if args.since_last_run:
+        _exit_incompatible(flag, "--since-last-run")
+    if args.mutate_all:
+        _exit_incompatible(flag, "--mutate-all")
+    if args.max_workers is not None:
+        _exit_incompatible(flag, "--max-workers")
+
+
+def _check_scan_only_incompatibilities(args: argparse.Namespace) -> None:
+    """Exit if scan-only flags are paired with non-scan flags."""
+    if args.timeout_factor != 10:
+        _exit_incompatible("--scan", "--timeout-factor")
+    if args.test_command != "pytest":
+        _exit_incompatible("--scan", "--test-command")
+
+
+def _check_selection_exclusivity(args: argparse.Namespace) -> None:
+    """Exit if more than one selection flag is set."""
+    selection_count = sum([args.since_last_run, args.mutate_all, args.lines is not None])
     if selection_count > 1:
         print(
             "error: --since-last-run, --mutate-all, and --lines are pairwise exclusive; "
@@ -251,6 +226,19 @@ def _validate_mutual_exclusions(args: argparse.Namespace) -> None:
             file=sys.stderr,
         )
         sys.exit(2)
+
+
+def _validate_mutual_exclusions(args: argparse.Namespace) -> None:
+    """Exit with error on illegal flag combinations (ADR 0008, 0014)."""
+    if args.scan and args.update_manifest:
+        _exit_incompatible("--scan", "--update-manifest")
+
+    if args.scan or args.update_manifest:
+        _check_no_run_incompatibilities(args)
+        if args.scan:
+            _check_scan_only_incompatibilities(args)
+
+    _check_selection_exclusivity(args)
 
 
 def _load_source(path: str) -> str:
@@ -263,29 +251,28 @@ def _load_source(path: str) -> str:
         sys.exit(2)
 
 
+def _parse_line_token(token: str) -> int:
+    """Parse a single --lines token into a positive int; exit on error."""
+    try:
+        n = int(token)
+    except ValueError:
+        print(f"error: --lines value {token!r} is not a valid integer.", file=sys.stderr)
+        sys.exit(2)
+    if n < 1:
+        print(
+            f"error: --lines value {token!r} must be a positive integer (>= 1).",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    return n
+
+
 def _parse_lines(lines_str: str | None) -> set[int] | None:
     """Parse --lines argument into a set of positive ints, or None if not given."""
     if lines_str is None:
         return None
     parts = [p.strip() for p in lines_str.split(",") if p.strip()]
-    result = set()
-    for p in parts:
-        try:
-            n = int(p)
-        except ValueError:
-            print(
-                f"error: --lines value {p!r} is not a valid integer.",
-                file=sys.stderr,
-            )
-            sys.exit(2)
-        if n < 1:
-            print(
-                f"error: --lines value {p!r} must be a positive integer (>= 1).",
-                file=sys.stderr,
-            )
-            sys.exit(2)
-        result.add(n)
-    return result
+    return {_parse_line_token(p) for p in parts}
 
 
 def _run_scan(args: argparse.Namespace, source: str, cwd: str) -> None:

@@ -1035,3 +1035,193 @@ def test_verbose_flag_default_false():
     parser = _build_parser()
     args = parser.parse_args(["f.py"])
     assert args.verbose is False
+
+
+# ── _positive_int: error branches ────────────────────────────────────────────
+
+
+def test_positive_int_non_integer_raises():
+    import argparse
+    from mutate4py.__main__ import _positive_int
+
+    try:
+        _positive_int("abc")
+        assert False, "expected ArgumentTypeError"
+    except argparse.ArgumentTypeError as exc:
+        assert "not a valid integer" in str(exc)
+
+
+def test_positive_int_zero_raises():
+    import argparse
+    from mutate4py.__main__ import _positive_int
+
+    try:
+        _positive_int("0")
+        assert False, "expected ArgumentTypeError"
+    except argparse.ArgumentTypeError as exc:
+        assert "positive integer" in str(exc)
+
+
+def test_positive_int_negative_raises():
+    import argparse
+    from mutate4py.__main__ import _positive_int
+
+    try:
+        _positive_int("-5")
+        assert False, "expected ArgumentTypeError"
+    except argparse.ArgumentTypeError as exc:
+        assert "positive integer" in str(exc)
+
+
+# ── _parse_lines: error branches ──────────────────────────────────────────────
+
+
+def test_parse_lines_non_integer_exits(capsys):
+    from mutate4py.__main__ import _parse_lines
+
+    try:
+        _parse_lines("3,abc")
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    err = capsys.readouterr().err
+    assert "not a valid integer" in err
+
+
+def test_parse_lines_zero_exits(capsys):
+    from mutate4py.__main__ import _parse_lines
+
+    try:
+        _parse_lines("0")
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    err = capsys.readouterr().err
+    assert "positive integer" in err
+
+
+def test_parse_lines_negative_exits(capsys):
+    from mutate4py.__main__ import _parse_lines
+
+    try:
+        _parse_lines("-3")
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    err = capsys.readouterr().err
+    assert "positive integer" in err
+
+
+# ── _validate_mutual_exclusions: direct unit coverage ─────────────────────────
+
+
+def _make_args(**kwargs):
+    """Build a minimal argparse.Namespace for validation tests."""
+    import argparse
+
+    defaults = dict(
+        scan=False,
+        update_manifest=False,
+        lines=None,
+        since_last_run=False,
+        mutate_all=False,
+        max_workers=None,
+        timeout_factor=10,
+        test_command="pytest",
+    )
+    defaults.update(kwargs)
+    return argparse.Namespace(**defaults)
+
+
+def test_validate_scan_and_update_manifest_exits(capsys):
+    from mutate4py.__main__ import _validate_mutual_exclusions
+
+    try:
+        _validate_mutual_exclusions(_make_args(scan=True, update_manifest=True))
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    assert "--scan" in capsys.readouterr().err
+
+
+def test_validate_update_manifest_with_lines_exits(capsys):
+    from mutate4py.__main__ import _validate_mutual_exclusions
+
+    try:
+        _validate_mutual_exclusions(_make_args(update_manifest=True, lines="5"))
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    assert "--update-manifest" in capsys.readouterr().err
+
+
+def test_validate_update_manifest_with_since_last_run_exits(capsys):
+    from mutate4py.__main__ import _validate_mutual_exclusions
+
+    try:
+        _validate_mutual_exclusions(_make_args(update_manifest=True, since_last_run=True))
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    assert "--update-manifest" in capsys.readouterr().err
+
+
+def test_validate_update_manifest_with_mutate_all_exits(capsys):
+    from mutate4py.__main__ import _validate_mutual_exclusions
+
+    try:
+        _validate_mutual_exclusions(_make_args(update_manifest=True, mutate_all=True))
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    assert "--update-manifest" in capsys.readouterr().err
+
+
+def test_validate_update_manifest_with_max_workers_exits(capsys):
+    from mutate4py.__main__ import _validate_mutual_exclusions
+
+    try:
+        _validate_mutual_exclusions(_make_args(update_manifest=True, max_workers=4))
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    assert "--update-manifest" in capsys.readouterr().err
+
+
+def test_validate_scan_with_timeout_factor_exits(capsys):
+    from mutate4py.__main__ import _validate_mutual_exclusions
+
+    try:
+        _validate_mutual_exclusions(_make_args(scan=True, timeout_factor=5))
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    assert "--timeout-factor" in capsys.readouterr().err
+
+
+def test_validate_scan_with_test_command_exits(capsys):
+    from mutate4py.__main__ import _validate_mutual_exclusions
+
+    try:
+        _validate_mutual_exclusions(_make_args(scan=True, test_command="tox"))
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    assert "--test-command" in capsys.readouterr().err
+
+
+def test_validate_pairwise_selection_exits(capsys):
+    from mutate4py.__main__ import _validate_mutual_exclusions
+
+    try:
+        _validate_mutual_exclusions(_make_args(since_last_run=True, mutate_all=True))
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    assert "pairwise exclusive" in capsys.readouterr().err
+
+
+def test_validate_no_flags_passes():
+    from mutate4py.__main__ import _validate_mutual_exclusions
+
+    _validate_mutual_exclusions(_make_args())  # must not raise
