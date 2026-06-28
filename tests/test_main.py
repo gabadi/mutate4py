@@ -924,7 +924,10 @@ def test_max_workers_accepted_with_lines():
     # The key is it should NOT fail with argparse/mutual-exclusion error (returncode 2)
     # but may fail with coverage error (returncode 1 or non-zero)
     # Check it doesn't print usage error about --max-workers and --lines
-    assert "--max-workers" not in result2.stderr or "cannot be combined" not in result2.stderr
+    assert (
+        "--max-workers" not in result2.stderr
+        or "cannot be combined" not in result2.stderr
+    )
 
 
 def test_max_workers_with_lines_parse_accepted():
@@ -1027,7 +1030,6 @@ def test_verbose_flag_parses():
     parser = _build_parser()
     args = parser.parse_args(["f.py", "--verbose"])
     assert args.verbose is True
-
 
 
 # ── _positive_int: error branches ────────────────────────────────────────────
@@ -1148,11 +1150,14 @@ def test_validate_update_manifest_with_lines_exits(capsys):
     assert "--update-manifest" in capsys.readouterr().err
 
 
-@pytest.mark.parametrize("extra", [
-    {"since_last_run": True},
-    {"mutate_all": True},
-    {"max_workers": 4},
-])
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"since_last_run": True},
+        {"mutate_all": True},
+        {"max_workers": 4},
+    ],
+)
 def test_validate_update_manifest_with_run_only_flag_exits(capsys, extra):
     from mutate4py.__main__ import _validate_mutual_exclusions
 

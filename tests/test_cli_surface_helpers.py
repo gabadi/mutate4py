@@ -149,7 +149,9 @@ def test_accepted_flags_coverage():
 
 
 def test_accepted_flags_max_workers():
-    args, target, workers = accepted_flags_args("--max-workers 4 (a coverage flag)", "s.py", "cov.lcov")
+    args, target, workers = accepted_flags_args(
+        "--max-workers 4 (a coverage flag)", "s.py", "cov.lcov"
+    )
     assert "--max-workers" in args
     assert target == "run loop"
     assert workers == 4

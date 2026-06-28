@@ -16,9 +16,7 @@ def _positive_int(value: str) -> int:
     except ValueError:
         raise argparse.ArgumentTypeError(f"{value!r} is not a valid integer")
     if n < 1:
-        raise argparse.ArgumentTypeError(
-            f"{value!r} must be a positive integer (>= 1)"
-        )
+        raise argparse.ArgumentTypeError(f"{value!r} must be a positive integer (>= 1)")
     return n
 
 
@@ -150,7 +148,9 @@ def _check_scan_only_incompatibilities(args: argparse.Namespace) -> None:
 
 def _check_selection_exclusivity(args: argparse.Namespace) -> None:
     """Exit if more than one selection flag is set."""
-    selection_count = sum([args.since_last_run, args.mutate_all, args.lines is not None])
+    selection_count = sum(
+        [args.since_last_run, args.mutate_all, args.lines is not None]
+    )
     if selection_count > 1:
         print(
             "error: --since-last-run, --mutate-all, and --lines are pairwise exclusive; "
@@ -188,7 +188,9 @@ def _parse_line_token(token: str) -> int:
     try:
         n = int(token)
     except ValueError:
-        print(f"error: --lines value {token!r} is not a valid integer.", file=sys.stderr)
+        print(
+            f"error: --lines value {token!r} is not a valid integer.", file=sys.stderr
+        )
         sys.exit(2)
     if n < 1:
         print(

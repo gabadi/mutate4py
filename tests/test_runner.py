@@ -282,12 +282,16 @@ def test_run_mutations_baseline_failure_exits_1(tmp_path):
 
 def test_baseline_reason_uses_stderr_first():
     import subprocess
-    result = subprocess.CompletedProcess(args=[], returncode=1, stderr=b"test suite crashed\nsecond line")
+
+    result = subprocess.CompletedProcess(
+        args=[], returncode=1, stderr=b"test suite crashed\nsecond line"
+    )
     assert _baseline_reason(result) == "test suite crashed"
 
 
 def test_baseline_reason_falls_back_to_exit_code():
     import subprocess
+
     result = subprocess.CompletedProcess(args=[], returncode=42, stderr=b"")
     assert _baseline_reason(result) == "exit code 42"
 

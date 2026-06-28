@@ -316,9 +316,13 @@ def run_scan(
     has_coverage = cov_cmd is not None or lcov_path is not None or reuse_coverage
     if has_coverage:
         lines, _ = scan_report_with_coverage(
-            path, source, warning_threshold,
-            cov_cmd=cov_cmd, lcov_path=lcov_path,
-            reuse_coverage=reuse_coverage, cwd=cwd,
+            path,
+            source,
+            warning_threshold,
+            cov_cmd=cov_cmd,
+            lcov_path=lcov_path,
+            reuse_coverage=reuse_coverage,
+            cwd=cwd,
         )
     else:
         lines, _ = scan_report(path, source, warning_threshold)
