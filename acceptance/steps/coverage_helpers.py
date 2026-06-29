@@ -52,6 +52,7 @@ def make_lcov_single_da(sf: str, line: int) -> str:
 def make_noop_script(script_path: str) -> str:
     """Write a no-op shell script to script_path and return the path."""
     import stat as _stat
+
     with open(script_path, "w") as f:
         f.write("#!/bin/sh\nexit 0\n")
     os.chmod(script_path, os.stat(script_path).st_mode | _stat.S_IEXEC)
@@ -110,7 +111,9 @@ def resolve_sf_path(sf_key: str, source_path: str) -> str:
     return sf_key
 
 
-def write_counter_script(script_path: str, counter_path: str, lcov_path: str, lcov_content: str) -> None:
+def write_counter_script(
+    script_path: str, counter_path: str, lcov_path: str, lcov_content: str
+) -> None:
     """Write a shell script that appends one byte to counter_path and writes lcov_content to lcov_path."""
     with open(script_path, "w") as f:
         f.write("#!/bin/sh\n")
@@ -167,7 +170,9 @@ def _replace_path_tokens(cmd_str: str, tmpdir: str, calc_path: str | None) -> st
     elif calc_path and "calc.py" in cmd_str:
         cmd_str = cmd_str.replace("calc.py", calc_path)
     if "--lcov cov.info" in cmd_str:
-        cmd_str = cmd_str.replace("--lcov cov.info", f"--lcov {os.path.join(tmpdir, 'cov.info')}")
+        cmd_str = cmd_str.replace(
+            "--lcov cov.info", f"--lcov {os.path.join(tmpdir, 'cov.info')}"
+        )
     return cmd_str
 
 

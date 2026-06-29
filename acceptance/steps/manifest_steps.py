@@ -249,10 +249,14 @@ def then_json_line_begins_hash(m, params):
     lines = ctx.embedded.splitlines()
     begin_idx = lines.index("# mutate4py-manifest-begin")
     json_line = lines[begin_idx + 1]
-    assert json_line.startswith("# "), f"JSON line does not start with '# ': {json_line!r}"
+    assert json_line.startswith("# "), (
+        f"JSON line does not start with '# ': {json_line!r}"
+    )
 
 
-@step(r"the manifest body above the footer is the original source with trailing newlines trimmed")
+@step(
+    r"the manifest body above the footer is the original source with trailing newlines trimmed"
+)
 def then_body_is_trimmed_original(m, params):
     begin_idx = ctx.embedded.index("# mutate4py-manifest-begin")
     body = ctx.embedded[:begin_idx]
@@ -297,7 +301,9 @@ def then_first_fn_line_is(m, params):
 @step(r'the manifest "functions" list is empty')
 def then_functions_empty(m, params):
     assert ctx.extracted is not None
-    assert ctx.extracted["functions"] == [], f"expected empty functions, got {ctx.extracted['functions']}"
+    assert ctx.extracted["functions"] == [], (
+        f"expected empty functions, got {ctx.extracted['functions']}"
+    )
 
 
 @step(r'the manifest "module_hash" is a non-empty hash')
@@ -422,7 +428,15 @@ def _parse_fn_spec(spec: str) -> dict | None:
             fid, fhash = part.split(":", 1)
         else:
             fid, fhash = part, "h0"
-        functions.append({"id": fid.strip(), "name": fid.strip().split("/")[-1], "line": 1, "end_line": 2, "hash": fhash.strip()})
+        functions.append(
+            {
+                "id": fid.strip(),
+                "name": fid.strip().split("/")[-1],
+                "line": 1,
+                "end_line": 2,
+                "hash": fhash.strip(),
+            }
+        )
     return {
         "version": 1,
         "tested_at": _TESTED_AT,

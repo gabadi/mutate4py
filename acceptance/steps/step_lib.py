@@ -1,4 +1,5 @@
 """Shared step-handler registry utilities for acceptance step modules."""
+
 import os
 import re
 import subprocess
@@ -18,6 +19,7 @@ def run_mutate4py(*args: str) -> subprocess.CompletedProcess:
 
 class QAState:
     """Mutable state bag for QA step modules (report output + fixture paths)."""
+
     def __init__(self, source_path: str, lcov_path: str):
         self.report_output: str = ""
         self.source_path: str = source_path
@@ -47,7 +49,9 @@ def run_cli(lcov_path: str, source_path: str, cli_available: bool) -> str:
     return result.stdout
 
 
-def assert_nonzero_exit(result: subprocess.CompletedProcess, label: str = "exit") -> None:
+def assert_nonzero_exit(
+    result: subprocess.CompletedProcess, label: str = "exit"
+) -> None:
     assert result.returncode != 0, f"expected non-zero {label}, got {result.returncode}"
 
 
@@ -65,6 +69,7 @@ def make_registry():
         def decorator(fn):
             handlers[pattern] = fn
             return fn
+
         return decorator
 
     def run_step(keyword: str, text: str, params: dict) -> None:

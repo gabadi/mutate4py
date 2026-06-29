@@ -3,11 +3,14 @@
 import ast
 import hashlib
 import json
+import re
 
 from mutate4py._ids import function_unit_id
 
 _BEGIN = "# mutate4py-manifest-begin"
 _END = "# mutate4py-manifest-end"
+_BEGIN_RE = re.compile(r"^" + re.escape(_BEGIN) + r"$", re.MULTILINE)
+_END_RE = re.compile(r"^" + re.escape(_END) + r"$", re.MULTILINE)
 
 
 def strip_manifest(source: str) -> str:
@@ -16,10 +19,10 @@ def strip_manifest(source: str) -> str:
     If no begin marker is found, returns source unchanged.
     Result always ends with exactly one newline (trailing-newline trim, then add one).
     """
-    idx = source.find(_BEGIN)
-    if idx == -1:
+    m = _BEGIN_RE.search(source)
+    if m is None:
         return source
-    body = source[:idx].rstrip("\n") + "\n"
+    body = source[: m.start()].rstrip("\n") + "\n"
     return body
 
 
@@ -48,11 +51,11 @@ def _uncomment_line(line: str) -> str:
 
 def _find_manifest_block(source: str) -> str | None:
     """Return the text between the begin and end markers, or None if not found."""
-    begin_idx = source.find(_BEGIN)
-    end_idx = source.find(_END)
-    if begin_idx == -1 or end_idx == -1 or end_idx <= begin_idx:
+    begin_m = _BEGIN_RE.search(source)
+    end_m = _END_RE.search(source)
+    if begin_m is None or end_m is None or end_m.start() <= begin_m.start():
         return None
-    return source[begin_idx + len(_BEGIN) : end_idx]
+    return source[begin_m.end() : end_m.start()]
 
 
 def _parse_json_safe(text: str) -> tuple[dict | None, bool]:
@@ -76,7 +79,7 @@ def extract_manifest(source: str) -> tuple[dict | None, bool]:
 
 
 def _sha256_ast(node: ast.AST) -> str:
-    return hashlib.sha256(ast.dump(node).encode()).hexdigest()
+    return hashlib.sha256(ast.unparse(node).encode()).hexdigest()
 
 
 def manifests_structurally_equal(a: dict, b: dict) -> bool:
@@ -95,8 +98,8 @@ def build_manifest(source: str, *, tested_at: str) -> dict:
     """Build a manifest for source.
 
     source should be manifest-stripped before calling this.
-    Hash = sha256(ast.dump(node)) with default args (position-independent).
-    module_hash = sha256(ast.dump(module_tree)).
+    Hash = sha256(ast.unparse(node)) — canonical source, version-stable.
+    module_hash = sha256(ast.unparse(module_tree)).
     """
     tree = ast.parse(source)
     module_hash = _sha256_ast(tree)
@@ -160,3 +163,8 @@ def diff_manifests(previous: dict | None, current: dict) -> set[str]:
         if prev_hash != fn["hash"]:
             changed.add(fn["id"])
     return changed
+
+
+# mutate4py-manifest-begin
+# {"version":1,"tested_at":"2026-06-29T05:03:30Z","module_hash":"b17fb2c8afae7ba54e31335f1cb235094d6c6a5bc903ea31ac4926857b9f6598","functions":[{"id":"func/strip_manifest","name":"strip_manifest","line":16,"end_line":26,"hash":"0c3dad79fa2576414fcfa48ad47748f2e0d76663a010c4b1ff0d931c04228808"},{"id":"func/embed_manifest","name":"embed_manifest","line":29,"end_line":39,"hash":"7241b85741ff0cf666f9cce3caa8baddfaba2655745ac07a8a01a4dc697b507d"},{"id":"func/_uncomment_line","name":"_uncomment_line","line":42,"end_line":49,"hash":"78c51423cd2362a1afa89007a26546d6c00ecfd5fd9f38f85502e50b7e29881f"},{"id":"func/_find_manifest_block","name":"_find_manifest_block","line":52,"end_line":58,"hash":"df04720e974840c1630bbe4444419dbcbb431505d103384f205eeb8d06cc2b4d"},{"id":"func/_parse_json_safe","name":"_parse_json_safe","line":61,"end_line":65,"hash":"16004732bb738b9003e78bfe43a7ee8238b61439e7a89532eb24befdb8979744"},{"id":"func/extract_manifest","name":"extract_manifest","line":68,"end_line":78,"hash":"2b17c77f37ccaac7b6af38c7670e112d598bc49a1fae4dc773b1e83a3c3cb833"},{"id":"func/_sha256_ast","name":"_sha256_ast","line":81,"end_line":82,"hash":"45da0f51e024b5fe64b95084f3074f927412338fc1d1e1d2f1690b0c4a66b3c5"},{"id":"func/manifests_structurally_equal","name":"manifests_structurally_equal","line":85,"end_line":94,"hash":"9ef437e0385515525621e5149161a4068f1a736be66a44063aab492aa79c35f3"},{"id":"func/build_manifest","name":"build_manifest","line":97,"end_line":113,"hash":"a735b486e2c5d362e01a5565c3f03b93132012a8fda9355eb6ef4670081c4781"},{"id":"func/_extract_functions","name":"_extract_functions","line":116,"end_line":145,"hash":"3de7d42663139b5f954dc01f0fd172f4d3429d72803a46ddc9ef6939e265d9eb"},{"id":"func/diff_manifests","name":"diff_manifests","line":148,"end_line":165,"hash":"7dace38d003dfc04471fbace27a7ab228e09f8aeb32129ae570598ba2b40eeb5"}]}
+# mutate4py-manifest-end

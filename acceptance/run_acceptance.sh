@@ -25,37 +25,52 @@ QA_STEPS_MAP[run-loop_qa]="run_loop_qa_steps"
 QA_STEPS_MAP[cli-surface_qa]="cli_surface_qa_steps"
 QA_STEPS_MAP[parallel-workers_qa]="parallel_workers_qa_steps"
 
-FAILED=0
-PASSED=0
+# ── Non-QA suite ──────────────────────────────────────────────────────────────
+
+# Generation pass (sequential — shared GENERATED_DIR)
+for feature_file in "$REPO_ROOT"/features/*.feature; do
+    stem="$(basename "$feature_file" .feature)"
+    [[ "$stem" == *_qa ]] && continue
+    [[ -z "${STEPS_MAP[$stem]:-}" ]] && continue
+    steps_mod="${STEPS_MAP[$stem]}"
+    parsed="$PARSED_DIR/${stem}_parsed.json"
+    rel_feature="features/${stem}.feature"
+    if command -v gherkin-parser &>/dev/null; then
+        gherkin-parser "$feature_file" "$parsed"
+        uv run python "$REPO_ROOT/acceptance/generate_acceptance.py" \
+            "$parsed" "$steps_mod" "$GENERATED_DIR" "$rel_feature"
+    fi
+done
+
+# Execution pass (parallel)
+declare -a pids=()
+declare -a names=()
+declare -a tmpouts=()
 
 for feature_file in "$REPO_ROOT"/features/*.feature; do
     stem="$(basename "$feature_file" .feature)"
-
-    if [[ "$stem" == *_qa ]]; then
-        continue
-    fi
-
-    steps_mod="${STEPS_MAP[$stem]:-}"
-    if [[ -z "$steps_mod" ]]; then
-        echo "SKIP: no steps module for $stem"
-        continue
-    fi
-
-    echo "=== $stem ==="
-
-    parsed="$PARSED_DIR/${stem}_parsed.json"
-    gherkin-parser "$feature_file" "$parsed"
-
-    rel_feature="features/${stem}.feature"
-    uv run python "$REPO_ROOT/acceptance/generate_acceptance.py" \
-        "$parsed" "$steps_mod" "$GENERATED_DIR" "$rel_feature"
-
+    [[ "$stem" == *_qa ]] && continue
+    [[ -z "${STEPS_MAP[$stem]:-}" ]] && { echo "SKIP: no steps module for $stem"; continue; }
     generated="$GENERATED_DIR/${stem}_acceptance.py"
-    if uv run python "$generated"; then
+    tmpout="$(mktemp)"
+    uv run python "$generated" >"$tmpout" 2>&1 &
+    pids+=($!)
+    names+=("$stem")
+    tmpouts+=("$tmpout")
+done
+
+FAILED=0
+PASSED=0
+for i in "${!pids[@]}"; do
+    if wait "${pids[$i]}"; then
+        echo "PASS ${names[$i]}"
         PASSED=$((PASSED + 1))
     else
+        echo "FAIL ${names[$i]}"
+        cat "${tmpouts[$i]}"
         FAILED=$((FAILED + 1))
     fi
+    rm -f "${tmpouts[$i]}"
 done
 
 echo ""
@@ -66,36 +81,55 @@ if [[ $FAILED -gt 0 ]]; then
     exit 1
 fi
 
+# ── QA end-to-end suite ───────────────────────────────────────────────────────
+
 echo ""
 echo "=== QA end-to-end suite ==="
 
-QA_FAILED=0
-QA_PASSED=0
+# Generation pass (sequential)
+for feature_file in "$REPO_ROOT"/features/*_qa.feature; do
+    [[ -f "$feature_file" ]] || continue
+    stem="$(basename "$feature_file" .feature)"
+    [[ -z "${QA_STEPS_MAP[$stem]:-}" ]] && continue
+    steps_mod="${QA_STEPS_MAP[$stem]}"
+    parsed="$PARSED_DIR/${stem}_parsed.json"
+    rel_feature="features/${stem}.feature"
+    if command -v gherkin-parser &>/dev/null; then
+        gherkin-parser "$feature_file" "$parsed"
+        uv run python "$REPO_ROOT/acceptance/generate_acceptance.py" \
+            "$parsed" "$steps_mod" "$GENERATED_DIR" "$rel_feature"
+    fi
+done
+
+# Execution pass (parallel)
+declare -a qa_pids=()
+declare -a qa_names=()
+declare -a qa_tmpouts=()
 
 for feature_file in "$REPO_ROOT"/features/*_qa.feature; do
     [[ -f "$feature_file" ]] || continue
     stem="$(basename "$feature_file" .feature)"
-    steps_mod="${QA_STEPS_MAP[$stem]:-}"
-    if [[ -z "$steps_mod" ]]; then
-        echo "SKIP QA: no steps module for $stem"
-        continue
-    fi
-
-    echo "=== QA: $stem ==="
-
-    parsed="$PARSED_DIR/${stem}_parsed.json"
-    gherkin-parser "$feature_file" "$parsed"
-
-    rel_feature="features/${stem}.feature"
-    uv run python "$REPO_ROOT/acceptance/generate_acceptance.py" \
-        "$parsed" "$steps_mod" "$GENERATED_DIR" "$rel_feature"
-
+    [[ -z "${QA_STEPS_MAP[$stem]:-}" ]] && { echo "SKIP QA: no steps module for $stem"; continue; }
     generated="$GENERATED_DIR/${stem}_acceptance.py"
-    if uv run python "$generated"; then
+    tmpout="$(mktemp)"
+    uv run python "$generated" >"$tmpout" 2>&1 &
+    qa_pids+=($!)
+    qa_names+=("$stem")
+    qa_tmpouts+=("$tmpout")
+done
+
+QA_FAILED=0
+QA_PASSED=0
+for i in "${!qa_pids[@]}"; do
+    if wait "${qa_pids[$i]}"; then
+        echo "PASS ${qa_names[$i]}"
         QA_PASSED=$((QA_PASSED + 1))
     else
+        echo "FAIL ${qa_names[$i]}"
+        cat "${qa_tmpouts[$i]}"
         QA_FAILED=$((QA_FAILED + 1))
     fi
+    rm -f "${qa_tmpouts[$i]}"
 done
 
 echo ""

@@ -11,12 +11,15 @@ Protocol (from APS mutator-spec.md):
   output: {"id": "m1", "outcome": "test_failure|test_success|infrastructure_error",
             "output": "<text>", "error": "", "duration": <nanoseconds>}
 """
+
 import json
 import os
 import re
 import subprocess
 import sys
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 
 def _parse_timeout_ns(s: str) -> float:
@@ -148,19 +151,33 @@ def _stem_from_feature_json(feature_json: str, generated_dir: str = "") -> str:
 
 
 def main():
-    for line in sys.stdin:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            job = json.loads(line)
-        except json.JSONDecodeError as e:
-            print(json.dumps({"id": "?", "outcome": "infrastructure_error",
-                               "output": "", "error": f"bad JSON: {e}", "duration": 0}),
-                  flush=True)
-            continue
-        response = _run_job(job)
-        print(json.dumps(response), flush=True)
+    workers = int(os.environ.get("RUNNER_WORKERS", "4"))
+    lock = threading.Lock()
+
+    def _write(result: dict) -> None:
+        with lock:
+            sys.stdout.write(json.dumps(result) + "\n")
+            sys.stdout.flush()
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for line in sys.stdin:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                job = json.loads(line)
+            except json.JSONDecodeError as e:
+                _write(
+                    {
+                        "id": "?",
+                        "outcome": "infrastructure_error",
+                        "output": "",
+                        "error": f"bad JSON: {e}",
+                        "duration": 0,
+                    }
+                )
+                continue
+            pool.submit(lambda j=job: _write(_run_job(j)))
 
 
 if __name__ == "__main__":

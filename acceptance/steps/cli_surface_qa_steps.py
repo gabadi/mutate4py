@@ -83,7 +83,9 @@ def _lcov(src: str) -> str:
     return ctx.lcov_path
 
 
-def _resolve_invocation(description: str, src: str, lcov: str | None = None) -> list[str]:
+def _resolve_invocation(
+    description: str, src: str, lcov: str | None = None
+) -> list[str]:
     """Map a feature invocation description to actual CLI args (without 'mutate4py')."""
     d = description.strip()
 
@@ -112,7 +114,15 @@ def _resolve_invocation(description: str, src: str, lcov: str | None = None) -> 
 
     if d == "--since-last-run --mutate-all":
         lc = lcov or _lcov(src)
-        return [src, "--lcov", lc, "--test-command", "true", "--since-last-run", "--mutate-all"]
+        return [
+            src,
+            "--lcov",
+            lc,
+            "--test-command",
+            "true",
+            "--since-last-run",
+            "--mutate-all",
+        ]
 
     if d == "--lcov cov.info --reuse-coverage":
         lc = lcov or _lcov(src)
@@ -135,13 +145,17 @@ def _resolve_invocation(description: str, src: str, lcov: str | None = None) -> 
 
 # ── Background ────────────────────────────────────────────────────────────────
 
-@step(r"a temp project directory with a real Python source file holding a mutation site")
+
+@step(
+    r"a temp project directory with a real Python source file holding a mutation site"
+)
 def given_temp_project(m, params):
     _reset()
     _src()  # creates tmpdir + sample.py, records bytes before
 
 
 # ── Given: LCOV + fake command ────────────────────────────────────────────────
+
 
 @step(r"a minimal LCOV fixture covering the site and a fast fake test command")
 def given_lcov_and_fake_cmd(m, params):
@@ -155,6 +169,7 @@ def given_lcov_and_fake_cmd(m, params):
 
 
 # ── When steps ────────────────────────────────────────────────────────────────
+
 
 @step(r'I invoke the mutate4py command described by "(.*)"')
 def when_invoke_described(m, params):
@@ -204,6 +219,7 @@ def when_invoke_accepted_mode(m, params):
 
 # ── Then steps ────────────────────────────────────────────────────────────────
 
+
 @step(r"the command exits non-zero")
 def then_exits_nonzero(m, params):
     r = ctx.cli_result
@@ -227,9 +243,11 @@ def then_output_names_flag(m, params):
     r = ctx.cli_result
     assert r is not None, "No CLI result captured"
     output = r.stdout + r.stderr
-    assert "error" in output.lower() or "invalid" in output.lower() or "cannot" in output.lower(), (
-        f"Expected error message naming offending flag/combination:\n{output}"
-    )
+    assert (
+        "error" in output.lower()
+        or "invalid" in output.lower()
+        or "cannot" in output.lower()
+    ), f"Expected error message naming offending flag/combination:\n{output}"
 
 
 @step(r"the source file is byte-identical to before the run")

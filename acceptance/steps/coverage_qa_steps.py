@@ -59,6 +59,7 @@ ctx = QAContext()
 
 # ── Background ────────────────────────────────────────────────────────────────
 
+
 @step(r"a temp working directory the QA agent owns and tears down")
 def given_qa_tmpdir(m, params):
     # Reset context for each scenario
@@ -71,7 +72,9 @@ def given_qa_tmpdir(m, params):
     ctx.cov_cmd = None
 
 
-@step(r'a Python source fixture "calc\.py" with exactly one mutation site per line on "([^"]+)"')
+@step(
+    r'a Python source fixture "calc\.py" with exactly one mutation site per line on "([^"]+)"'
+)
 def given_calc_fixture(m, params):
     d = ctx.td()
     src = make_calc_source(step_param(m, params, "lines"))
@@ -84,27 +87,39 @@ def given_calc_fixture(m, params):
 
 @step(r'the baseline "mutate4py calc\.py --scan" reports "Total mutation sites: (\d+)"')
 def given_baseline_scan_step(m, params):
-    assert_baseline_scan(_run_mutate4py(ctx.td(), ctx.calc_path, "--scan"), int(step_param(m, params, "count")))
+    assert_baseline_scan(
+        _run_mutate4py(ctx.td(), ctx.calc_path, "--scan"),
+        int(step_param(m, params, "count")),
+    )
 
 
 # ── Given steps ───────────────────────────────────────────────────────────────
 
-@step(r'a hand-written LCOV "cov\.info" with SF matching "calc\.py" and DA hits on lines "([^"]*)"')
+
+@step(
+    r'a hand-written LCOV "cov\.info" with SF matching "calc\.py" and DA hits on lines "([^"]*)"'
+)
 def given_lcov_da_lines(m, params):
     d = ctx.td()
-    covered = {int(n.strip()) for n in step_param(m, params, "covered").split(",") if n.strip()}
+    covered = {
+        int(n.strip()) for n in step_param(m, params, "covered").split(",") if n.strip()
+    }
     with open(os.path.join(d, "cov.info"), "w") as f:
         f.write(make_lcov(ctx.calc_path, covered))
 
 
-@step(r'a hand-written LCOV "cov\.info" with SF matching "calc\.py" and the record "DA:5,0"')
+@step(
+    r'a hand-written LCOV "cov\.info" with SF matching "calc\.py" and the record "DA:5,0"'
+)
 def given_lcov_da_zero(m, params):
     d = ctx.td()
     with open(os.path.join(d, "cov.info"), "w") as f:
         f.write(make_lcov_da_zero(ctx.calc_path, 5))
 
 
-@step(r'a hand-written LCOV "cov\.info" with SF matching "calc\.py" containing only "BRDA:5,0,0,1" for line 5')
+@step(
+    r'a hand-written LCOV "cov\.info" with SF matching "calc\.py" containing only "BRDA:5,0,0,1" for line 5'
+)
 def given_lcov_only_brda(m, params):
     d = ctx.td()
     with open(os.path.join(d, "cov.info"), "w") as f:
@@ -120,15 +135,24 @@ def given_lcov_sf(m, params):
         f.write(make_lcov_single_da(sf, 5))
 
 
-@step(r'a coverage command that appends one byte to "cov-runs\.log" and writes "cov\.info" with DA hits on line 5')
+@step(
+    r'a coverage command that appends one byte to "cov-runs\.log" and writes "cov\.info" with DA hits on line 5'
+)
 def given_cov_cmd_sentinel(m, params):
     d = ctx.td()
     script = os.path.join(d, "run_cov.sh")
-    write_counter_script(script, os.path.join(d, "cov-runs.log"), os.path.join(d, "coverage.lcov"), make_lcov_single_da(ctx.calc_path, 5))
+    write_counter_script(
+        script,
+        os.path.join(d, "cov-runs.log"),
+        os.path.join(d, "coverage.lcov"),
+        make_lcov_single_da(ctx.calc_path, 5),
+    )
     ctx.cov_cmd = script
 
 
-@step(r'a hand-written LCOV at the default path "coverage\.lcov" with SF matching "calc\.py" and DA hits on line 5')
+@step(
+    r'a hand-written LCOV at the default path "coverage\.lcov" with SF matching "calc\.py" and DA hits on line 5'
+)
 def given_default_lcov(m, params):
     d = ctx.td()
     lcov_text = make_lcov(ctx.calc_path, {5})
@@ -144,7 +168,9 @@ def given_no_lcov(m, params):
         os.remove(p)
 
 
-@step(r'each referenced file in "([^"]+)" exists so the failure is the exclusivity check')
+@step(
+    r'each referenced file in "([^"]+)" exists so the failure is the exclusivity check'
+)
 def given_files_exist_for_exclusivity(m, params):
     flags_str = step_param(m, params, "flags")
     d = ctx.td()
@@ -166,10 +192,13 @@ def given_record_bytes(m, params):
 
 # ── When steps ────────────────────────────────────────────────────────────────
 
+
 @step(r'the QA agent runs "mutate4py ([^"]+)"')
 def when_qa_runs(m, params):
     d = ctx.td()
-    cmd_str = substitute_qa_cmd_placeholders(step_param(m, params, "cmd"), d, ctx.cov_cmd, ctx.calc_path)
+    cmd_str = substitute_qa_cmd_placeholders(
+        step_param(m, params, "cmd"), d, ctx.cov_cmd, ctx.calc_path
+    )
     args = shlex.split(cmd_str)
     if args[0] == "mutate4py":
         args = args[1:]
@@ -177,6 +206,7 @@ def when_qa_runs(m, params):
 
 
 # ── Then steps ────────────────────────────────────────────────────────────────
+
 
 @step(r'stdout contains "([^"]+)"')
 def then_stdout_contains(m, params):

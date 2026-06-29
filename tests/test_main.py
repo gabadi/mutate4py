@@ -374,7 +374,7 @@ def test_run_scan_with_lcov(tmp_path, capsys):
 
 
 def test_check_coverage_flags_single_flag_allowed():
-    # mutmut_5: sum(cov_flags) > 1 — with only one flag, sum=1, must NOT exit
+    # mutant_5: sum(cov_flags) > 1 — with only one flag, sum=1, must NOT exit
     import argparse
     from mutate4py.__main__ import _check_coverage_flags
 
@@ -383,7 +383,7 @@ def test_check_coverage_flags_single_flag_allowed():
 
 
 def test_check_coverage_flags_two_flags_exits_2(capsys):
-    # mutmut_2,3,6: sum > 1 → exit(2)
+    # mutant_2,3,6: sum > 1 → exit(2)
     import argparse
     from mutate4py.__main__ import _check_coverage_flags
 
@@ -417,7 +417,7 @@ def test_check_coverage_flags_stderr_has_error_text(capsys):
 
 
 def test_load_source_missing_file_exits_2(tmp_path):
-    # mutmut_6,_7: sys.exit(2) on missing file
+    # mutant_6,_7: sys.exit(2) on missing file
     from mutate4py.__main__ import _load_source
 
     with pytest.raises(SystemExit) as exc:
@@ -426,7 +426,7 @@ def test_load_source_missing_file_exits_2(tmp_path):
 
 
 def test_load_source_error_on_stderr(tmp_path, capsys):
-    # mutmut_2,3,4,5: print(f"error: {exc}", file=sys.stderr)
+    # mutant_2,3,4,5: print(f"error: {exc}", file=sys.stderr)
     from mutate4py.__main__ import _load_source
 
     with pytest.raises(SystemExit):
@@ -436,7 +436,7 @@ def test_load_source_error_on_stderr(tmp_path, capsys):
 
 
 def test_run_scan_coverage_error_exits_2(tmp_path):
-    # mutmut_21-26: CoverageError → sys.exit(2) exactly
+    # mutant_21-26: CoverageError → sys.exit(2) exactly
     import argparse
     from mutate4py.__main__ import _run_scan
 
@@ -455,7 +455,7 @@ def test_run_scan_coverage_error_exits_2(tmp_path):
 
 
 def test_run_scan_coverage_error_goes_to_stderr(tmp_path, capsys):
-    # mutmut_21-26: error message goes to stderr
+    # mutant_21-26: error message goes to stderr
     import argparse
     from mutate4py.__main__ import _run_scan
 
@@ -475,7 +475,7 @@ def test_run_scan_coverage_error_goes_to_stderr(tmp_path, capsys):
 
 
 def test_run_scan_output_newline_separated(tmp_path, capsys):
-    # mutmut_28,_36: print("\n".join(lines)) — output lines are newline-separated
+    # mutant_28,_36: print("\n".join(lines)) — output lines are newline-separated
     import argparse
     from mutate4py.__main__ import _run_scan
 
@@ -497,7 +497,7 @@ def test_run_scan_output_newline_separated(tmp_path, capsys):
 
 
 def test_scan_report_with_coverage_manifest_exists_false(tmp_path):
-    # mutmut_22,23,24: "Manifest exists: false" must appear in output
+    # mutant_22,23,24: "Manifest exists: false" must appear in output
     from mutate4py._runner import scan_report_with_coverage
 
     src_file = tmp_path / "foo.py"
@@ -518,7 +518,7 @@ def test_scan_report_with_coverage_manifest_exists_false(tmp_path):
 
 
 def test_scan_report_with_coverage_no_warning_at_threshold(tmp_path):
-    # mutmut_26: exceeded = total > warning_threshold (not >=), so at threshold no warning
+    # mutant_26: exceeded = total > warning_threshold (not >=), so at threshold no warning
     from mutate4py._runner import scan_report_with_coverage
 
     src_file = tmp_path / "foo.py"
@@ -540,7 +540,7 @@ def test_scan_report_with_coverage_no_warning_at_threshold(tmp_path):
 
 
 def test_do_update_manifest_tested_at_iso8601_utc_format(tmp_path):
-    # mutmut_5,7,8,9,10,13: tested_at = datetime.datetime.now(utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # mutant_5,7,8,9,10,13: tested_at = datetime.datetime.now(utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     import re
     from mutate4py._runner import update_manifest
 
@@ -581,7 +581,7 @@ def test_main_no_coverage_flag_errors_about_coverage(tmp_path):
 
 
 def test_run_scan_passes_cov_cmd_to_coverage(tmp_path, capsys):
-    # mutmut_10: cov_cmd=None vs args.cov_cmd — cov_cmd must be passed through
+    # mutant_10: cov_cmd=None vs args.cov_cmd — cov_cmd must be passed through
     import argparse
     from mutate4py.__main__ import _run_scan
 
@@ -603,7 +603,7 @@ def test_run_scan_passes_cov_cmd_to_coverage(tmp_path, capsys):
 
 
 def test_run_scan_reuse_coverage_with_cwd(tmp_path, capsys):
-    # mutmut_12/13: reuse_coverage and cwd are passed through to acquire_coverage;
+    # mutant_12/13: reuse_coverage and cwd are passed through to acquire_coverage;
     # coverage.lcov in cwd is found only when cwd is correct
     import argparse
     from mutate4py.__main__ import _run_scan
@@ -625,7 +625,7 @@ def test_run_scan_reuse_coverage_with_cwd(tmp_path, capsys):
 
 
 def test_run_scan_passes_args_file_path(tmp_path, capsys):
-    # mutmut_28: scan_report(None, ...) vs scan_report(args.file, ...)
+    # mutant_28: scan_report(None, ...) vs scan_report(args.file, ...)
     # Path in header must match args.file
     import argparse
     from mutate4py.__main__ import _run_scan
@@ -645,7 +645,7 @@ def test_run_scan_passes_args_file_path(tmp_path, capsys):
 
 
 def test_run_scan_separator_is_newline_not_other_string(tmp_path, capsys):
-    # mutmut_36: "XX\nXX".join(lines) vs "\n".join(lines)
+    # mutant_36: "XX\nXX".join(lines) vs "\n".join(lines)
     import argparse
     from mutate4py.__main__ import _run_scan
 
@@ -667,7 +667,7 @@ def test_run_scan_separator_is_newline_not_other_string(tmp_path, capsys):
 
 
 def test_do_update_manifest_uses_utc_not_local_tz(tmp_path):
-    # mutmut_7: datetime.now(None) vs datetime.now(utc)
+    # mutant_7: datetime.now(None) vs datetime.now(utc)
     # None gives local time without tzinfo; utc gives UTC with tzinfo
     # The strftime format %Y-%m-%dT%H:%M:%SZ works for both but the timestamp
     # will differ. We verify by checking the format is valid ISO-8601 UTC.
@@ -691,7 +691,7 @@ def test_do_update_manifest_uses_utc_not_local_tz(tmp_path):
 
 
 def test_mutation_warning_type_int_parses_string_arg():
-    # mutmut_34,38: type=int removed → --mutation-warning receives str, comparison int>str fails
+    # mutant_34,38: type=int removed → --mutation-warning receives str, comparison int>str fails
     src = "x = a + b\n"
     result = run_cli("--scan", "--mutation-warning", "5", source=src)
     assert result.returncode == 0
@@ -699,7 +699,7 @@ def test_mutation_warning_type_int_parses_string_arg():
 
 
 def test_mutation_warning_threshold_comparison_is_numeric(tmp_path, capsys):
-    # mutmut_34,38: type=int removed → --mutation-warning="5" → str "5" → int > str → TypeError
+    # mutant_34,38: type=int removed → --mutation-warning="5" → str "5" → int > str → TypeError
     # In-process test: if type=int, works cleanly; if type=None, crashes with TypeError
     import mutate4py.__main__ as m
 
@@ -742,8 +742,8 @@ def test_parse_lines_with_spaces():
 
 
 def test_build_parser_lcov_dest_is_lcov():
-    # mutmut_8: dest=None → --lcov value stored as None key (unreachable as args.lcov)
-    # mutmut_11: dest omitted → argparse derives "lcov" from "--lcov" (equivalent)
+    # mutant_8: dest=None → --lcov value stored as None key (unreachable as args.lcov)
+    # mutant_11: dest omitted → argparse derives "lcov" from "--lcov" (equivalent)
     from mutate4py.__main__ import _build_parser
 
     parser = _build_parser()
@@ -752,7 +752,7 @@ def test_build_parser_lcov_dest_is_lcov():
 
 
 def test_build_parser_defaults_no_flags():
-    # mutmut_12: default=None omitted; mutmut_18: --mutate-all default is False
+    # mutant_12: default=None omitted; mutmut_18: --mutate-all default is False
     from mutate4py.__main__ import _build_parser
 
     parser = _build_parser()
@@ -762,7 +762,7 @@ def test_build_parser_defaults_no_flags():
 
 
 def test_build_parser_mutate_all_flag_exists():
-    # mutmut_18: "--mutate-all" → "--MUTATE-ALL" (different flag name)
+    # mutant_18: "--mutate-all" → "--MUTATE-ALL" (different flag name)
     # Correct: --mutate-all must be parseable and set mutate_all=True
     from mutate4py.__main__ import _build_parser
 
@@ -1117,11 +1117,13 @@ def _make_args(**kwargs):
     defaults = dict(
         scan=False,
         update_manifest=False,
+        check_manifest=False,
         lines=None,
         since_last_run=False,
         mutate_all=False,
         max_workers=None,
         timeout_factor=10,
+        min_timeout=1.0,
         test_command="pytest",
     )
     defaults.update(kwargs)
@@ -1206,3 +1208,270 @@ def test_validate_no_flags_passes():
     from mutate4py.__main__ import _validate_mutual_exclusions
 
     _validate_mutual_exclusions(_make_args())  # must not raise
+
+
+# ── --check-manifest: single file ────────────────────────────────────────────
+
+
+def _run_cli_path(path: str, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, "-m", "mutate4py", path] + list(args),
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        env={**os.environ, "PYTHONPATH": os.path.join(REPO_ROOT, "src")},
+    )
+
+
+def test_check_manifest_missing_exits_1(tmp_path):
+    p = tmp_path / "mod.py"
+    p.write_text("def f(a, b):\n    return a > b\n")
+    result = _run_cli_path(str(p), "--check-manifest")
+    assert result.returncode == 1
+    assert "Manifest missing:" in result.stdout
+
+
+def test_check_manifest_current_exits_0(tmp_path):
+    import mutate4py.__main__ as m
+
+    p = tmp_path / "mod.py"
+    p.write_text("def f(a, b):\n    return a > b\n")
+    sys.argv = ["mutate4py", str(p), "--update-manifest"]
+    m.main()
+    result = _run_cli_path(str(p), "--check-manifest")
+    assert result.returncode == 0
+    assert "Manifest current:" in result.stdout
+
+
+def test_check_manifest_in_help():
+    result = run_cli("--help", source="x = 1\n")
+    assert "--check-manifest" in result.stdout
+
+
+def test_check_manifest_and_scan_are_exclusive():
+    result = run_cli("--check-manifest", "--scan", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_check_manifest_and_update_manifest_are_exclusive():
+    result = run_cli("--check-manifest", "--update-manifest", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_check_manifest_and_lines_are_exclusive():
+    result = run_cli("--check-manifest", "--lines", "7", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_check_manifest_and_since_last_run_are_exclusive():
+    result = run_cli("--check-manifest", "--since-last-run", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_check_manifest_and_mutate_all_are_exclusive():
+    result = run_cli("--check-manifest", "--mutate-all", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_check_manifest_and_max_workers_are_exclusive():
+    result = run_cli("--check-manifest", "--max-workers", "4", source="x = 1\n")
+    assert result.returncode != 0
+
+
+def test_validate_check_manifest_with_scan_exits(capsys):
+    from mutate4py.__main__ import _validate_mutual_exclusions
+
+    try:
+        _validate_mutual_exclusions(_make_args(check_manifest=True, scan=True))
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    assert "--check-manifest" in capsys.readouterr().err
+
+
+def test_validate_check_manifest_with_update_manifest_exits(capsys):
+    from mutate4py.__main__ import _validate_mutual_exclusions
+
+    try:
+        _validate_mutual_exclusions(
+            _make_args(check_manifest=True, update_manifest=True)
+        )
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    assert "--check-manifest" in capsys.readouterr().err
+
+
+# ── directory support ─────────────────────────────────────────────────────────
+
+
+def _make_src_dir(tmp_path, files: dict[str, str]) -> str:
+    """Create a directory with given {filename: content} mapping; return dir path."""
+    d = tmp_path / "src"
+    d.mkdir()
+    for name, content in files.items():
+        (d / name).write_text(content)
+    return str(d)
+
+
+def test_directory_run_mode_rejects_directory(tmp_path):
+    d = _make_src_dir(tmp_path, {"a.py": "x = 1\n"})
+    result = _run_cli_path(d)
+    assert result.returncode != 0
+    assert "directory" in result.stderr.lower() or result.returncode == 2
+
+
+def test_directory_check_manifest_all_missing_exits_1(tmp_path):
+    d = _make_src_dir(tmp_path, {"a.py": "def f(): pass\n", "b.py": "def g(): pass\n"})
+    result = _run_cli_path(d, "--check-manifest")
+    assert result.returncode == 1
+    assert "Manifest missing:" in result.stdout
+
+
+def test_directory_check_manifest_all_current_exits_0(tmp_path):
+    import mutate4py.__main__ as m
+
+    d = tmp_path / "src"
+    d.mkdir()
+    for name in ("a.py", "b.py"):
+        p = d / name
+        p.write_text("def f(): pass\n")
+        sys.argv = ["mutate4py", str(p), "--update-manifest"]
+        m.main()
+
+    result = _run_cli_path(str(d), "--check-manifest")
+    assert result.returncode == 0
+    assert "Manifest current:" in result.stdout
+
+
+def test_directory_check_manifest_one_stale_exits_1(tmp_path):
+    import mutate4py.__main__ as m
+
+    d = tmp_path / "src"
+    d.mkdir()
+    p_a = d / "a.py"
+    p_a.write_text("def f(): pass\n")
+    sys.argv = ["mutate4py", str(p_a), "--update-manifest"]
+    m.main()
+
+    p_b = d / "b.py"
+    p_b.write_text("def g(): pass\n")
+
+    result = _run_cli_path(str(d), "--check-manifest")
+    assert result.returncode == 1
+    assert "Manifest missing:" in result.stdout
+    assert "Manifest current:" in result.stdout
+
+
+def test_directory_update_manifest_processes_all_files(tmp_path):
+    d = _make_src_dir(tmp_path, {"a.py": "def f(): pass\n", "b.py": "def g(): pass\n"})
+    result = _run_cli_path(d, "--update-manifest")
+    assert result.returncode == 0
+    for name in ("a.py", "b.py"):
+        content = (tmp_path / "src" / name).read_text()
+        assert "mutate4py-manifest-begin" in content
+
+
+def test_directory_scan_processes_all_files(tmp_path):
+    d = _make_src_dir(tmp_path, {"a.py": "x = a > b\n", "b.py": "y = c + d\n"})
+    result = _run_cli_path(d, "--scan")
+    assert result.returncode == 0
+    assert result.stdout.count("Mutation scan:") == 2
+
+
+def test_collect_py_files_skips_pycache(tmp_path):
+    from mutate4py.__main__ import _collect_py_files
+
+    d = tmp_path / "pkg"
+    d.mkdir()
+    (d / "mod.py").write_text("x = 1\n")
+    cache = d / "__pycache__"
+    cache.mkdir()
+    (cache / "mod.cpython-312.pyc").write_text("")
+    files = _collect_py_files(str(d))
+    assert all("__pycache__" not in f for f in files)
+    assert any("mod.py" in f for f in files)
+
+
+def test_collect_py_files_ignores_non_py_files(tmp_path):
+    from mutate4py.__main__ import _collect_py_files
+
+    d = tmp_path / "pkg"
+    d.mkdir()
+    (d / "mod.py").write_text("x = 1\n")
+    (d / "README.md").write_text("docs")
+    (d / "data.txt").write_text("data")
+    files = _collect_py_files(str(d))
+    assert files == [str(d / "mod.py")]
+
+
+# ── directory dispatch: in-process coverage ───────────────────────────────────
+
+
+def test_main_directory_run_mode_exits_2(tmp_path):
+    import mutate4py.__main__ as m
+
+    d = tmp_path / "src"
+    d.mkdir()
+    (d / "a.py").write_text("x = a > b\n")
+    sys.argv = ["mutate4py", str(d)]
+    with pytest.raises(SystemExit) as exc:
+        m.main()
+    assert exc.value.code == 2
+
+
+def test_main_directory_check_manifest_missing_exits_1(tmp_path, capsys):
+    import mutate4py.__main__ as m
+
+    d = tmp_path / "src"
+    d.mkdir()
+    (d / "a.py").write_text("def f(): pass\n")
+    sys.argv = ["mutate4py", str(d), "--check-manifest"]
+    with pytest.raises(SystemExit) as exc:
+        m.main()
+    assert exc.value.code == 1
+    assert "Manifest missing:" in capsys.readouterr().out
+
+
+def test_main_directory_check_manifest_current_exits_0(tmp_path, capsys):
+    import mutate4py.__main__ as m
+
+    d = tmp_path / "src"
+    d.mkdir()
+    p = d / "a.py"
+    p.write_text("def f(): pass\n")
+    sys.argv = ["mutate4py", str(p), "--update-manifest"]
+    m.main()
+    capsys.readouterr()
+
+    sys.argv = ["mutate4py", str(d), "--check-manifest"]
+    with pytest.raises(SystemExit) as exc:
+        m.main()
+    assert exc.value.code == 0
+    assert "Manifest current:" in capsys.readouterr().out
+
+
+def test_main_directory_update_manifest_exits_0(tmp_path, capsys):
+    import mutate4py.__main__ as m
+
+    d = tmp_path / "src"
+    d.mkdir()
+    (d / "a.py").write_text("def f(): pass\n")
+    sys.argv = ["mutate4py", str(d), "--update-manifest"]
+    with pytest.raises(SystemExit) as exc:
+        m.main()
+    assert exc.value.code == 0
+    assert "mutate4py-manifest-begin" in (d / "a.py").read_text()
+
+
+def test_main_directory_scan_exits_0(tmp_path, capsys):
+    import mutate4py.__main__ as m
+
+    d = tmp_path / "src"
+    d.mkdir()
+    (d / "a.py").write_text("x = a > b\n")
+    sys.argv = ["mutate4py", str(d), "--scan"]
+    with pytest.raises(SystemExit) as exc:
+        m.main()
+    assert exc.value.code == 0
+    assert "Mutation scan:" in capsys.readouterr().out

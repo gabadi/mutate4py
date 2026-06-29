@@ -1,4 +1,5 @@
 """Step handlers for features/site-discovery.feature."""
+
 import os
 import sys
 import tempfile
@@ -19,31 +20,31 @@ _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")
 
 
 _CONSTRUCT_SOURCES = {
-    "a + b":      "x = a + b",
-    "a - b":      "x = a - b",
-    "a * b":      "x = a * b",
-    "a > b":      "x = a > b",
-    "a >= b":     "x = a >= b",
-    "a < b":      "x = a < b",
-    "a <= b":     "x = a <= b",
-    "a == b":     "x = a == b",
-    "a != b":     "x = a != b",
-    "a is b":     "x = a is b",
+    "a + b": "x = a + b",
+    "a - b": "x = a - b",
+    "a * b": "x = a * b",
+    "a > b": "x = a > b",
+    "a >= b": "x = a >= b",
+    "a < b": "x = a < b",
+    "a <= b": "x = a <= b",
+    "a == b": "x = a == b",
+    "a != b": "x = a != b",
+    "a is b": "x = a is b",
     "a is not b": "x = a is not b",
-    "a in b":     "x = a in b",
+    "a in b": "x = a in b",
     "a not in b": "x = a not in b",
-    "a and b":    "x = a and b",
-    "a or b":     "x = a or b",
-    "True":       "x = True",
-    "False":      "x = False",
-    "0":          "x = 0",
-    "1":          "x = 1",
+    "a and b": "x = a and b",
+    "a or b": "x = a or b",
+    "True": "x = True",
+    "False": "x = False",
+    "0": "x = 0",
+    "1": "x = 1",
     # excluded
-    "a += b":     "a += b",
-    "a -= b":     "a -= b",
-    "a / b":      "x = a / b",
-    "-a":         "x = -a",
-    "2":          "x = 2",
+    "a += b": "a += b",
+    "a -= b": "a -= b",
+    "a / b": "x = a / b",
+    "-a": "x = -a",
+    "2": "x = 2",
 }
 
 _DEFINITION_SOURCES = {
@@ -167,7 +168,9 @@ def then_warning_line_is(m, params):
         assert ctx.total > ctx.threshold, (
             f"expected warning but {ctx.total} <= {ctx.threshold}"
         )
-        expected_warning = f"Warning: {ctx.total} mutation sites exceeds threshold {ctx.threshold}."
+        expected_warning = (
+            f"Warning: {ctx.total} mutation sites exceeds threshold {ctx.threshold}."
+        )
         assert expected_warning == expected, (
             f"warning text mismatch: {expected_warning!r} != {expected!r}"
         )
@@ -178,6 +181,7 @@ def then_warning_line_is(m, params):
 
 
 # CLI-based step handlers (scenarios 4 and 6)
+
 
 @step(r'the command "mutate4py <file> --scan" is run')
 def when_cli_scan(m, params):

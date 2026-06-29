@@ -7,6 +7,7 @@ _SCAN_INCOMPATIBLE_FLAGS = {"--timeout-factor", "--test-command", "--max-workers
 
 def default_source() -> str:
     import textwrap
+
     return textwrap.dedent("""\
         def calc(a, b):
             return a > b
@@ -48,7 +49,9 @@ def two_flag_args(flag1: str, flag2: str, src: str, lcov: str) -> list[str]:
     return [src] + all_flags
 
 
-def accepted_flags_args(flags_str: str, src: str, lcov: str) -> tuple[list[str], str, int | None]:
+def accepted_flags_args(
+    flags_str: str, src: str, lcov: str
+) -> tuple[list[str], str, int | None]:
     """Return (cli_args, dispatch_target, dispatch_max_workers) for an accepted-flags invocation."""
     if flags_str == "--scan":
         return [src, "--scan"], "scan surface", None
@@ -65,10 +68,16 @@ def accepted_flags_args(flags_str: str, src: str, lcov: str) -> tuple[list[str],
     raise NotImplementedError(f"Unknown flags: {flags_str!r}")
 
 
-def assert_option_accepted(option: str, value: str, returncode: int, stderr: str) -> None:
+def assert_option_accepted(
+    option: str, value: str, returncode: int, stderr: str
+) -> None:
     """Assert that a CLI option was accepted (zero exit or no error in stderr)."""
     if option in ("mutation-warning", "timeout-factor", "test-command"):
-        default_values = {"mutation-warning": "50", "timeout-factor": "10", "test-command": "pytest"}
+        default_values = {
+            "mutation-warning": "50",
+            "timeout-factor": "10",
+            "test-command": "pytest",
+        }
         if value == default_values.get(option):
             assert returncode == 0 or "error" not in stderr.lower(), (
                 f"Unexpected error with default {option}:\n{stderr}"
@@ -135,17 +144,25 @@ def assert_usage_printed(stdout: str) -> None:
 
 
 def assert_usage_lists_max_workers(stdout: str) -> None:
-    assert "--max-workers" in stdout, f"Expected '--max-workers' in usage output:\n{stdout}"
+    assert "--max-workers" in stdout, (
+        f"Expected '--max-workers' in usage output:\n{stdout}"
+    )
 
 
-def assert_worker_count(dispatch_max_workers: int | None, count: str, returncode: int, stderr: str) -> None:
-    assert returncode == 0, f"Expected accepted run with --max-workers {count}:\n{stderr}"
+def assert_worker_count(
+    dispatch_max_workers: int | None, count: str, returncode: int, stderr: str
+) -> None:
+    assert returncode == 0, (
+        f"Expected accepted run with --max-workers {count}:\n{stderr}"
+    )
     assert dispatch_max_workers == int(count), (
         f"Expected dispatch_max_workers={count}, got {dispatch_max_workers}"
     )
 
 
-def assert_dispatched_to(target: str, returncode: int, stdout: str, stderr: str) -> None:
+def assert_dispatched_to(
+    target: str, returncode: int, stdout: str, stderr: str
+) -> None:
     """Assert that the CLI dispatched to the expected behaviour."""
     if target == "scan surface":
         assert "Mutation scan:" in stdout, f"Expected scan output:\n{stdout}"

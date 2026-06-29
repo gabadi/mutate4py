@@ -259,8 +259,8 @@ def test_read_lcov_file_error_message_contains_path():
 
 def test_resolve_lcov_path_cov_cmd_uses_cwd_for_default():
     # default lcov path is os.path.join(cwd, DEFAULT_LCOV_PATH)
-    # mutmut_5: cwd=None → subprocess.run with cwd=None uses process cwd, not our d
-    # mutmut_8: cwd omitted → same effect (subprocess uses process cwd)
+    # mutant_5: cwd=None → subprocess.run with cwd=None uses process cwd, not our d
+    # mutant_8: cwd omitted → same effect (subprocess uses process cwd)
     # Test: the returned path must be in our specified cwd, not process cwd
     # Use a cwd-relative command: "touch coverage.lcov" — writes in cwd
     with tempfile.TemporaryDirectory() as d:
@@ -280,7 +280,7 @@ def test_resolve_lcov_path_reuse_uses_cwd():
 
 
 def test_parse_lcov_initial_in_matching_file_is_false_not_none():
-    # mutmut_2: in_matching_file = None vs False
+    # mutant_2: in_matching_file = None vs False
     # None is falsy so first DA lines before any SF would be skipped (same behavior).
     # The difference shows when the DA precedes SF: both False and None skip it.
     # To kill this mutant we need to verify the type propagation matters somewhere.
@@ -296,7 +296,7 @@ from mutate4py._coverage import _paths_match_by_suffix, _parse_da_line  # noqa: 
 
 
 def test_paths_match_by_suffix_backslash_normalized():
-    # mutmut_6/7/13/14: replace("\\", "/") changes backslashes to forward slashes
+    # mutant_6/7/13/14: replace("\\", "/") changes backslashes to forward slashes
     # Windows-style paths use backslash; normalization ensures suffix match works
     # When backslash is NOT replaced (mutant: "XX\\XX" or target "XX/XX"),
     # a Windows SF path won't match a Unix-style source_path.
@@ -310,7 +310,7 @@ def test_paths_match_by_suffix_backslash_in_sf_no_match_without_normalization():
 
 
 def test_paths_match_by_suffix_backslash_in_source_path():
-    # mutmut_13/14: b = source_path.replace("XX\\XX", "/") or replace("\\", "XX/XX")
+    # mutant_13/14: b = source_path.replace("XX\\XX", "/") or replace("\\", "XX/XX")
     # When source_path has backslash but sf_path uses forward slash, normalization is required
     # for suffix match to work. If source_path's backslash is NOT replaced, the suffix
     # "path/to/foo.py" won't match "path\\to\\foo.py" as a string suffix.
@@ -321,8 +321,8 @@ def test_paths_match_by_suffix_backslash_in_source_path():
 
 
 def test_parse_da_line_extra_comma_in_count_field():
-    # mutmut_5: split(",",) vs split(",", 1) — without maxsplit, extra comma splits further
-    # mutmut_9: split(",", 2) — allows extra split, giving 3 parts; len != 2 check fails
+    # mutant_5: split(",",) vs split(",", 1) — without maxsplit, extra comma splits further
+    # mutant_9: split(",", 2) — allows extra split, giving 3 parts; len != 2 check fails
     # A DA line with count containing a comma: "DA:5,1,extra"
     # With split(",", 1): parts = ["5", "1,extra"] → lineno=5, count=int("1,extra") → ValueError → None
     # With split(",")   : parts = ["5", "1", "extra"] → len != 2 → None (same result here)
@@ -335,7 +335,7 @@ def test_parse_da_line_extra_comma_in_count_field():
     # split(",")    → ["5", "3", "extra"] → len != 2 → None (same)
     # The real difference: "DA:5,3" (clean) with rsplit(",", 1) vs split(",", 1):
     # rsplit(",", 1) on "5,3" → ["5", "3"] (same) but on "a,5,3": split→["a","5,3"], rsplit→["a,5","3"]
-    # mutmut_6 is rsplit: "DA:3,5,1" → split(",",1)=["3","5,1"]→int("5,1") fails→None
+    # mutant_6 is rsplit: "DA:3,5,1" → split(",",1)=["3","5,1"]→int("5,1") fails→None
     #                                   rsplit(",",1)=["3,5","1"]→int("3,5") fails→None
     # Need a line where line_number and count swap with rsplit:
     # "DA:5,3" — split: ["5","3"]→5 covered; rsplit: ["5","3"] same
@@ -346,7 +346,7 @@ def test_parse_da_line_extra_comma_in_count_field():
 
 
 def test_parse_da_line_rsplit_vs_split_distinguishing():
-    # mutmut_6: rsplit(",", 1) vs split(",", 1) — differs for "DA:5,3,0"
+    # mutant_6: rsplit(",", 1) vs split(",", 1) — differs for "DA:5,3,0"
     # split(",", 1) on "5,3,0" → ["5", "3,0"] → int("3,0") → ValueError → None
     # rsplit(",", 1) on "5,3,0" → ["5,3", "0"] → int("5,3") → ValueError → None
     # Both give None here but for different reasons.
@@ -366,8 +366,8 @@ def test_parse_da_line_rsplit_vs_split_distinguishing():
 
 
 def test_parse_da_line_split_maxsplit_1_limits_to_two_parts():
-    # mutmut_5: split(",",) has no maxsplit limit — extra commas produce >2 parts → None
-    # mutmut_9: split(",", 2) allows 3 parts → len != 2 → None for "DA:5,3,x"
+    # mutant_5: split(",",) has no maxsplit limit — extra commas produce >2 parts → None
+    # mutant_9: split(",", 2) allows 3 parts → len != 2 → None for "DA:5,3,x"
     # With split(",", 1): "DA:5,3,x" → parts=["5","3,x"] len=2, int("3,x") fails → None
     # Correct for a clean "DA:5,1": split(",",1) → ["5","1"] → 5 covered
     assert _parse_da_line("DA:5,1") == 5

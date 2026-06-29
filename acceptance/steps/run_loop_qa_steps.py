@@ -27,6 +27,7 @@ CALC_PY = textwrap.dedent("""\
         return c > d
 """)
 
+
 # LCOV fixture covering lines 3 and 7 of calc.py
 def _make_lcov(source_abs: str, covered_lines: list[int]) -> str:
     da = "\n".join(f"DA:{ln},1" for ln in sorted(covered_lines))
@@ -73,13 +74,16 @@ def _tmpdir() -> str:
 
 # ── Background ────────────────────────────────────────────────────────────────
 
+
 @step(r"a temp working directory the QA agent owns and tears down")
 def given_tmpdir(m, params):
     _reset()
     _tmpdir()
 
 
-@step(r'a Python source fixture "calc\.py" with covered mutation sites on lines "([^"]*)"')
+@step(
+    r'a Python source fixture "calc\.py" with covered mutation sites on lines "([^"]*)"'
+)
 def given_calc_fixture(m, params):
     lines_str = params.get("3,7") or m.group(1)
     d = _tmpdir()
@@ -88,7 +92,9 @@ def given_calc_fixture(m, params):
         f.write(CALC_PY)
 
 
-@step(r'a hand-written LCOV "([^"]*)" with SF matching "calc\.py" and DA hits on lines "([^"]*)"')
+@step(
+    r'a hand-written LCOV "([^"]*)" with SF matching "calc\.py" and DA hits on lines "([^"]*)"'
+)
 def given_lcov_fixture(m, params):
     lcov_name = params.get("cov.info") or m.group(1)
     lines_str = params.get("3,7") or m.group(2)
@@ -109,6 +115,7 @@ def given_test_script(m, params):
 
 # ── Scenario-specific Given steps ────────────────────────────────────────────
 
+
 @step(r'"runtests\.sh" makes the mutated run "([^"]*)" while the baseline passes')
 def given_mutated_outcome(m, params):
     outcome = params.get("outcome") or m.group(1)
@@ -116,9 +123,7 @@ def given_mutated_outcome(m, params):
     if outcome == "exit nonzero":
         # Passes on unmutated source; fails when any mutant is present
         script = (
-            "#!/bin/sh\n"
-            f"if grep -qE '>=|<=' '{calc_path}'; then exit 1; fi\n"
-            "exit 0\n"
+            f"#!/bin/sh\nif grep -qE '>=|<=' '{calc_path}'; then exit 1; fi\nexit 0\n"
         )
     elif outcome == "exit zero":
         # Always passes
@@ -126,16 +131,16 @@ def given_mutated_outcome(m, params):
     elif outcome == "sleep past timeout":
         # Baseline passes quickly; mutant causes sleep past timeout
         script = (
-            "#!/bin/sh\n"
-            f"if grep -qE '>=|<=' '{calc_path}'; then sleep 30; fi\n"
-            "exit 0\n"
+            f"#!/bin/sh\nif grep -qE '>=|<=' '{calc_path}'; then sleep 30; fi\nexit 0\n"
         )
     else:
         raise ValueError(f"Unknown outcome: {outcome}")
     _write_script(ctx.test_script, script)
 
 
-@step(r'"runtests\.sh" makes one mutant sleep past the timeout and the rest exit nonzero')
+@step(
+    r'"runtests\.sh" makes one mutant sleep past the timeout and the rest exit nonzero'
+)
 def given_one_timeout_rest_killed(m, params):
     d = _tmpdir()
     calc_path = ctx.calc_path
@@ -157,7 +162,9 @@ def given_one_timeout_rest_killed(m, params):
     _write_script(ctx.test_script, script)
 
 
-@step(r'"runtests\.sh" makes "(\d+)" of the 2 mutants exit zero and the rest exit nonzero')
+@step(
+    r'"runtests\.sh" makes "(\d+)" of the 2 mutants exit zero and the rest exit nonzero'
+)
 def given_n_survivors(m, params):
     survived_count = params.get("survivedCount") or m.group(1)
     n = int(survived_count)
@@ -206,12 +213,15 @@ def given_all_killed(m, params):
 @step(r'the bytes of "calc\.py" before any manifest footer are recorded')
 def given_record_prior_body(m, params):
     from mutate4py._manifest import strip_manifest
+
     with open(ctx.calc_path) as f:
         src = f.read()
     ctx.prior_body = strip_manifest(src)
 
 
-@step(r'a "\.mutate4py\.bak" file holding a known prior source body exists in the working directory')
+@step(
+    r'a "\.mutate4py\.bak" file holding a known prior source body exists in the working directory'
+)
 def given_bak_exists(m, params):
     bak_path = ctx.calc_path + ".bak"
     with open(bak_path, "w") as f:
@@ -227,7 +237,9 @@ def given_mutant_spliced(m, params):
         f.write(mutated)
 
 
-@step(r'a hand-written LCOV at the default path "coverage\.lcov" with DA hits on lines "([^"]*)"')
+@step(
+    r'a hand-written LCOV at the default path "coverage\.lcov" with DA hits on lines "([^"]*)"'
+)
 def given_reuse_lcov(m, params):
     lines_str = params.get("3,7") or m.group(1)
     d = _tmpdir()
@@ -238,6 +250,7 @@ def given_reuse_lcov(m, params):
 
 
 # ── When steps ────────────────────────────────────────────────────────────────
+
 
 @step(r'the QA agent runs "([^"]*)"')
 def when_qa_runs(m, params):
@@ -267,13 +280,21 @@ def when_qa_runs(m, params):
 
 # ── Then steps ────────────────────────────────────────────────────────────────
 
+
 @step(r'stdout contains a line matching "\[<n>/<total>\] (\w+) line " for that mutant')
 def then_progress_line_present(m, params):
     status = m.group(1)
     stdout = ctx.cli_result.stdout
     import re as _re
-    progress_lines = [l for l in stdout.splitlines() if _re.match(rf"\[\d+/\d+\] {_re.escape(status)} line ", l)]
-    assert progress_lines, f"No progress lines with status '{status}' found in stdout:\n{stdout}"
+
+    progress_lines = [
+        l
+        for l in stdout.splitlines()
+        if _re.match(rf"\[\d+/\d+\] {_re.escape(status)} line ", l)
+    ]
+    assert progress_lines, (
+        f"No progress lines with status '{status}' found in stdout:\n{stdout}"
+    )
 
 
 @step(r"the exit status is zero")
@@ -330,6 +351,7 @@ def then_stdout_conditional_contains(m, params):
 @step(r'the body of "calc\.py" above the manifest footer is unchanged')
 def then_body_unchanged(m, params):
     from mutate4py._manifest import strip_manifest
+
     with open(ctx.calc_path) as f:
         content = f.read()
     body = strip_manifest(content)
@@ -341,6 +363,7 @@ def then_body_unchanged(m, params):
 @step(r'the body of "calc\.py" above the manifest footer matches the prior source body')
 def then_body_matches_prior(m, params):
     from mutate4py._manifest import strip_manifest
+
     with open(ctx.calc_path) as f:
         content = f.read()
     body = strip_manifest(content)
@@ -349,7 +372,9 @@ def then_body_matches_prior(m, params):
     )
 
 
-@step(r'"calc\.py" ends with a "mutate4py-manifest-begin" / "mutate4py-manifest-end" footer')
+@step(
+    r'"calc\.py" ends with a "mutate4py-manifest-begin" / "mutate4py-manifest-end" footer'
+)
 def then_manifest_footer(m, params):
     with open(ctx.calc_path) as f:
         content = f.read()
@@ -360,8 +385,12 @@ def then_manifest_footer(m, params):
 @step(r'that line appears before "Mutation run: calc\.py" in stdout')
 def then_stale_warning_before_header(m, params):
     stdout = ctx.cli_result.stdout
-    assert "Reusing existing coverage" in stdout, f"Expected stale warning in:\n{stdout}"
+    assert "Reusing existing coverage" in stdout, (
+        f"Expected stale warning in:\n{stdout}"
+    )
     assert "Mutation run: " in stdout, f"Expected 'Mutation run:' in:\n{stdout}"
     warn_pos = stdout.index("Reusing existing coverage")
     header_pos = stdout.index("Mutation run: ")
-    assert warn_pos < header_pos, "Stale warning must appear before 'Mutation run:' header"
+    assert warn_pos < header_pos, (
+        "Stale warning must appear before 'Mutation run:' header"
+    )
