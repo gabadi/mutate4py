@@ -9,8 +9,8 @@ Navigation and universal invariants for all agents in this project.
 ## Tool Paths (Local Machine)
 - `crap4py`: installed from local sibling `~/workspace/addi/crap4py` via `uv tool install ~/workspace/addi/crap4py` (not PyPI, not GitHub URL)
 - `drywall`: available at `/Users/gabadi/.local/bin/drywall` (not in PyPI under that name)
-- `mutmut`: standard Python mutation tool; use on this project's own test suite
-- `uv run mutate4py` is the correct invocation for mutation scan (not `uvx mutate4py`); uvx isolates the env and breaks self-referential scanning
+- `uv run mutate4py` is the correct invocation for mutation scan and manifest checks (not `uvx mutate4py`); uvx isolates the env and breaks self-referential scanning
+- `uv run mutate4py src/ --check-manifest` — CI gate; exits 0 if all manifests current, 1 if any are missing/stale
 
 ## Tool CLI Signatures
 - `gherkin-parser`: requires two args: `gherkin-parser <feature-file> <json-output>`; bare `gherkin-parser <file>` fails with usage error; call WITHOUT `rtk` prefix — rtk breaks it

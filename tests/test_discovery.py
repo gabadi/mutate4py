@@ -250,7 +250,7 @@ from mutate4py._discovery import _format_function_id, _is_mutable  # noqa: E402
 
 
 def test_format_function_id_top_level_function_parent_is_none():
-    # mutmut_14: outermost_idx=0 → parent = None (not ancestors[-1])
+    # mutant_14: outermost_idx=0 → parent = None (not ancestors[-1])
     # Top-level def: ancestors = [Module]; outermost_idx=0; parent = None → func/foo
     tree = ast.parse("def foo():\n    x = a + b\n")
     module = tree
@@ -273,7 +273,7 @@ def test_format_function_id_outermost_idx_zero_means_no_parent():
 
 
 def test_format_function_id_method_in_class_outermost_idx_1():
-    # mutmut_15: ancestors = [Module, ClassDef, FunctionDef] for site inside method
+    # mutant_15: ancestors = [Module, ClassDef, FunctionDef] for site inside method
     # outermost_fn=FunctionDef, outermost_idx=2, parent=ancestors[1]=ClassDef → func/C.m
     tree = ast.parse("class C:\n    def m(self):\n        x = a + b\n")
     module = tree
@@ -284,19 +284,19 @@ def test_format_function_id_method_in_class_outermost_idx_1():
 
 
 def test_is_mutable_compare_in_operator():
-    # mutmut_3,4: Compare with In op → _is_mutable = True
+    # mutant_3,4: Compare with In op → _is_mutable = True
     node = ast.parse("a in b").body[0].value
     assert _is_mutable(node) is True
 
 
 def test_is_mutable_compare_not_in_operator():
-    # mutmut_5,6: Compare with NotIn op → _is_mutable = True
+    # mutant_5,6: Compare with NotIn op → _is_mutable = True
     node = ast.parse("a not in b").body[0].value
     assert _is_mutable(node) is True
 
 
 def test_is_mutable_boolop_or():
-    # mutmut_7: BoolOp with Or → _is_mutable = True (isinstance check)
+    # mutant_7: BoolOp with Or → _is_mutable = True (isinstance check)
     node = ast.parse("a or b").body[0].value
     assert _is_mutable(node) is True
 
@@ -313,7 +313,7 @@ def test_is_mutable_non_arith_binop_returns_false():
 
 
 def test_format_function_id_outermost_idx_sentinel_not_used_when_no_fn():
-    # mutmut_2,3,4: outermost_idx=-1/None/+1/-2 initial value
+    # mutant_2,3,4: outermost_idx=-1/None/+1/-2 initial value
     # If no FunctionDef in ancestors, outermost_fn stays None → return ""
     # The initial outermost_idx value must not matter in this path
     tree = ast.parse("x = 1\n")
@@ -323,7 +323,7 @@ def test_format_function_id_outermost_idx_sentinel_not_used_when_no_fn():
 
 
 def test_format_function_id_outermost_idx_zero_parent_is_none_not_ancestors_minus_one():
-    # mutmut_14: >= 0 vs > 0
+    # mutant_14: >= 0 vs > 0
     # outermost_idx=0 means ancestors[0] is the function (no parent before it)
     # parent should be None, not ancestors[-1] which would be the function itself
     # Test: single-element ancestor list with a function def → no class parent
@@ -335,7 +335,7 @@ def test_format_function_id_outermost_idx_zero_parent_is_none_not_ancestors_minu
 
 
 def test_format_function_id_outermost_idx_1_parent_is_module_not_class():
-    # mutmut_15: > 1 vs > 0
+    # mutant_15: > 1 vs > 0
     # outermost_idx=1 → parent = ancestors[0]
     # If ancestors[0] is Module (not ClassDef), must still return "func/foo"
     # With > 1: idx=1 would NOT enter the if, so parent=None → same result (equivalent for Module)
@@ -350,7 +350,7 @@ def test_format_function_id_outermost_idx_1_parent_is_module_not_class():
 
 
 def test_discover_sites_sort_key_uses_line_and_col():
-    # mutmut_8: sort(key=None) vs sort(key=lambda x: (x[0], x[1]))
+    # mutant_8: sort(key=None) vs sort(key=lambda x: (x[0], x[1]))
     # Default tuple sort IS (x[0], x[1], x[2]) which includes function_id string.
     # If two sites have same (line,col) but different function_id, default sort might reorder.
     # More robustly: test that sites with same line are ordered by col, not by function_id.
@@ -372,7 +372,7 @@ from mutate4py._discovery import apply_mutant  # noqa: E402
 
 
 def test_apply_mutant_compare_only_first_operator_mutated():
-    # mutmut_7/8: replace(orig_op, mutant_op,) vs replace(orig_op, mutant_op, 1)
+    # mutant_7/8: replace(orig_op, mutant_op,) vs replace(orig_op, mutant_op, 1)
     # With multiple identical operators in the between region, maxsplit=1 mutates only the first.
     # Without maxsplit (or maxsplit=2), all occurrences could be replaced.
     # Use a chained comparison: "a > b > c" — first op is ">", "between" for first pair
@@ -388,7 +388,7 @@ def test_apply_mutant_compare_only_first_operator_mutated():
 
 
 def test_apply_mutant_compare_double_operator_in_source_mutates_only_first():
-    # mutmut_7/8: replace maxsplit=1 vs unlimited
+    # mutant_7/8: replace maxsplit=1 vs unlimited
     # Source where the text between left and right contains the operator token twice.
     # "a >> b" isn't a catalogued Compare, but we can use a string that has "> >" in between.
     # Use: between = " > > " — has two ">" tokens; replace(">", ">=", 1) changes only first.
@@ -417,7 +417,7 @@ from mutate4py._discovery import _mutate_constant  # noqa: E402  # type: ignore[
 
 
 def test_mutate_constant_false_returns_false_to_true():
-    # mutmut_2: if node.value is False → if node.value is True
+    # mutant_2: if node.value is False → if node.value is True
     # Mutant: the False check becomes a True check, so x=False falls through to int check
     # and returns None (since bool is excluded from int mutation).
     # Correct: x=False must return ("False", "True")

@@ -416,7 +416,7 @@ def test_diff_module_hash_not_in_changed_set():
 
 
 def test_strip_source_with_double_trailing_newline_before_marker():
-    # mutmut_5,_6: strip_manifest body = source[:idx].rstrip("\n") + "\n"
+    # mutant_5,_6: strip_manifest body = source[:idx].rstrip("\n") + "\n"
     # With double newline before begin marker, result is still exactly one newline
     src = "x = 1\n\n"
     marker = "# mutate4py-manifest-begin\n# {}\n# mutate4py-manifest-end\n"
@@ -428,7 +428,7 @@ def test_strip_source_with_double_trailing_newline_before_marker():
 
 
 def test_embed_compact_json_no_space_after_colon():
-    # mutmut_8,_10: json.dumps with separators=(",",":") means no space after colon or comma
+    # mutant_8,_10: json.dumps with separators=(",",":") means no space after colon or comma
     src = "x = 1\n"
     m = _make_manifest(
         functions=[
@@ -444,12 +444,12 @@ def test_embed_compact_json_no_space_after_colon():
 
 
 def test_uncomment_line_hash_no_space_returns_payload():
-    # mutmut_7: _uncomment_line("#hello") → stripped[1:].strip() = "hello"
+    # mutant_7: _uncomment_line("#hello") → stripped[1:].strip() = "hello"
     assert _uncomment_line("#hello") == "hello"
 
 
 def test_find_manifest_block_end_only_is_none():
-    # mutmut_8: only end_of_record marker → begin_idx == -1 → None
+    # mutant_8: only end_of_record marker → begin_idx == -1 → None
     src = "x = 1\n# mutate4py-manifest-end\n"
     assert _find_manifest_block(src) is None
 
@@ -466,7 +466,7 @@ def test_extract_functions_two_functions_ordered_by_line():
 
 
 def test_strip_manifest_rstrip_only_newlines_not_spaces():
-    # mutmut_9: rstrip(None) vs rstrip("\n")
+    # mutant_9: rstrip(None) vs rstrip("\n")
     # rstrip(None) strips ALL whitespace including spaces; rstrip("\n") only strips newlines
     src = "x = 1   \n"  # trailing spaces before newline
     marker = "# mutate4py-manifest-begin\n# {}\n# mutate4py-manifest-end\n"
@@ -478,7 +478,7 @@ def test_strip_manifest_rstrip_only_newlines_not_spaces():
 
 
 def test_strip_manifest_rstrip_only_newlines_not_x_chars():
-    # mutmut_11: rstrip("XX\nXX") strips X and \n chars; rstrip("\n") only strips \n
+    # mutant_11: rstrip("XX\nXX") strips X and \n chars; rstrip("\n") only strips \n
     # If content ends with X before the marker, mutant would strip trailing X too
     src = "varX\n"  # content ending with X
     marker = "# mutate4py-manifest-begin\n# {}\n# mutate4py-manifest-end\n"
@@ -490,7 +490,7 @@ def test_strip_manifest_rstrip_only_newlines_not_x_chars():
 
 
 def test_embed_manifest_rstrip_only_newlines_not_spaces():
-    # mutmut_2: embed calls strip_manifest(source).rstrip("\n")
+    # mutant_2: embed calls strip_manifest(source).rstrip("\n")
     # rstrip(None) would strip spaces too, giving different body
     src = "x = 1   \n"  # trailing spaces
     m = _make_manifest()
@@ -503,7 +503,7 @@ def test_embed_manifest_rstrip_only_newlines_not_spaces():
 
 
 def test_embed_manifest_rstrip_only_newlines_not_x_chars():
-    # mutmut_5: rstrip("XX\nXX") strips X and \n chars; rstrip("\n") only strips \n
+    # mutant_5: rstrip("XX\nXX") strips X and \n chars; rstrip("\n") only strips \n
     src = "varX\n"  # content ending with X
     m = _make_manifest()
     result = embed_manifest(src, m)
@@ -514,7 +514,7 @@ def test_embed_manifest_rstrip_only_newlines_not_x_chars():
 
 
 def test_find_manifest_block_rfind_vs_find_single_marker():
-    # mutmut_3,6: find vs rfind — same result when only one begin/end marker
+    # mutant_3,6: find vs rfind — same result when only one begin/end marker
     src = "x = 1\n# mutate4py-manifest-begin\n# {}\n# mutate4py-manifest-end\n"
     block = _find_manifest_block(src)
     assert block is not None
@@ -522,7 +522,7 @@ def test_find_manifest_block_rfind_vs_find_single_marker():
 
 
 def test_find_manifest_block_end_idx_sentinel():
-    # mutmut_13,14: end_idx == +1 or -2 vs == -1
+    # mutant_13,14: end_idx == +1 or -2 vs == -1
     # When end marker is absent, source.find() returns -1, not +1 or -2
     # So the condition `end_idx == -1` must trigger, returning None
     src = "x = 1\n# mutate4py-manifest-begin\n"  # no end marker
@@ -530,7 +530,7 @@ def test_find_manifest_block_end_idx_sentinel():
 
 
 def test_find_manifest_block_begin_equals_end_returns_none():
-    # mutmut_15: end_idx < begin_idx vs end_idx <= begin_idx
+    # mutant_15: end_idx < begin_idx vs end_idx <= begin_idx
     # This would only differ if begin and end marker are at the SAME position,
     # which is impossible since they're different strings.
     # But we can test the case where end is exactly at begin+0 by using a source
@@ -541,7 +541,7 @@ def test_find_manifest_block_begin_equals_end_returns_none():
 
 
 def test_extract_manifest_space_join_matters():
-    # mutmut_9: " ".join(parts) vs "XX XX".join(parts)
+    # mutant_9: " ".join(parts) vs "XX XX".join(parts)
     # With a single-part manifest, join separator doesn't matter.
     # With multiple uncommented lines (multi-part manifest), separator matters for JSON parsing.
     # Build a manifest that has content spread across multiple comment lines:
@@ -552,7 +552,7 @@ def test_extract_manifest_space_join_matters():
 
 
 def test_extract_manifest_multiline_json_space_join():
-    # mutmut_9: join separator matters when JSON is split across multiple comment lines.
+    # mutant_9: join separator matters when JSON is split across multiple comment lines.
     # Build a manifest where the JSON object spans two comment lines:
     # "# {\"version\":" on one line and "# 1}" on the next.
     # " ".join gives '{"version": 1}' (valid); "XX XX".join gives '{"version":XX XX1}' (invalid).
@@ -569,7 +569,7 @@ def test_extract_manifest_multiline_json_space_join():
 
 
 def test_strip_manifest_find_vs_rfind_double_begin():
-    # mutmut_3: find vs rfind for strip_manifest
+    # mutant_3: find vs rfind for strip_manifest
     # With two begin markers, find returns the first (correct: strip from earliest marker).
     # rfind returns the second, leaving the first marker in the body.
     src = (
@@ -586,8 +586,8 @@ def test_strip_manifest_find_vs_rfind_double_begin():
 
 
 def test_find_manifest_block_find_vs_rfind_double_markers():
-    # mutmut_3 (_find_manifest_block): find vs rfind for begin marker
-    # mutmut_6 (_find_manifest_block): find vs rfind for end marker
+    # mutant_3 (_find_manifest_block): find vs rfind for begin marker
+    # mutant_6 (_find_manifest_block): find vs rfind for end marker
     # With two begin markers, find returns the first begin; rfind returns the second.
     # With two end markers, find returns the first end; rfind returns the last.
     # We want the canonical block (first begin to first end after it).
@@ -607,7 +607,7 @@ def test_find_manifest_block_find_vs_rfind_double_markers():
 
 
 def test_find_manifest_block_rfind_end_includes_too_much():
-    # mutmut_6: rfind for end marker returns the LAST end marker position.
+    # mutant_6: rfind for end marker returns the LAST end marker position.
     # With two end markers, rfind would extend the block past the first end,
     # including content between the two end markers.
     # Verify: the block must NOT include content after the first end marker.

@@ -374,7 +374,7 @@ def test_run_scan_with_lcov(tmp_path, capsys):
 
 
 def test_check_coverage_flags_single_flag_allowed():
-    # mutmut_5: sum(cov_flags) > 1 — with only one flag, sum=1, must NOT exit
+    # mutant_5: sum(cov_flags) > 1 — with only one flag, sum=1, must NOT exit
     import argparse
     from mutate4py.__main__ import _check_coverage_flags
 
@@ -383,7 +383,7 @@ def test_check_coverage_flags_single_flag_allowed():
 
 
 def test_check_coverage_flags_two_flags_exits_2(capsys):
-    # mutmut_2,3,6: sum > 1 → exit(2)
+    # mutant_2,3,6: sum > 1 → exit(2)
     import argparse
     from mutate4py.__main__ import _check_coverage_flags
 
@@ -417,7 +417,7 @@ def test_check_coverage_flags_stderr_has_error_text(capsys):
 
 
 def test_load_source_missing_file_exits_2(tmp_path):
-    # mutmut_6,_7: sys.exit(2) on missing file
+    # mutant_6,_7: sys.exit(2) on missing file
     from mutate4py.__main__ import _load_source
 
     with pytest.raises(SystemExit) as exc:
@@ -426,7 +426,7 @@ def test_load_source_missing_file_exits_2(tmp_path):
 
 
 def test_load_source_error_on_stderr(tmp_path, capsys):
-    # mutmut_2,3,4,5: print(f"error: {exc}", file=sys.stderr)
+    # mutant_2,3,4,5: print(f"error: {exc}", file=sys.stderr)
     from mutate4py.__main__ import _load_source
 
     with pytest.raises(SystemExit):
@@ -436,7 +436,7 @@ def test_load_source_error_on_stderr(tmp_path, capsys):
 
 
 def test_run_scan_coverage_error_exits_2(tmp_path):
-    # mutmut_21-26: CoverageError → sys.exit(2) exactly
+    # mutant_21-26: CoverageError → sys.exit(2) exactly
     import argparse
     from mutate4py.__main__ import _run_scan
 
@@ -455,7 +455,7 @@ def test_run_scan_coverage_error_exits_2(tmp_path):
 
 
 def test_run_scan_coverage_error_goes_to_stderr(tmp_path, capsys):
-    # mutmut_21-26: error message goes to stderr
+    # mutant_21-26: error message goes to stderr
     import argparse
     from mutate4py.__main__ import _run_scan
 
@@ -475,7 +475,7 @@ def test_run_scan_coverage_error_goes_to_stderr(tmp_path, capsys):
 
 
 def test_run_scan_output_newline_separated(tmp_path, capsys):
-    # mutmut_28,_36: print("\n".join(lines)) — output lines are newline-separated
+    # mutant_28,_36: print("\n".join(lines)) — output lines are newline-separated
     import argparse
     from mutate4py.__main__ import _run_scan
 
@@ -497,7 +497,7 @@ def test_run_scan_output_newline_separated(tmp_path, capsys):
 
 
 def test_scan_report_with_coverage_manifest_exists_false(tmp_path):
-    # mutmut_22,23,24: "Manifest exists: false" must appear in output
+    # mutant_22,23,24: "Manifest exists: false" must appear in output
     from mutate4py._runner import scan_report_with_coverage
 
     src_file = tmp_path / "foo.py"
@@ -518,7 +518,7 @@ def test_scan_report_with_coverage_manifest_exists_false(tmp_path):
 
 
 def test_scan_report_with_coverage_no_warning_at_threshold(tmp_path):
-    # mutmut_26: exceeded = total > warning_threshold (not >=), so at threshold no warning
+    # mutant_26: exceeded = total > warning_threshold (not >=), so at threshold no warning
     from mutate4py._runner import scan_report_with_coverage
 
     src_file = tmp_path / "foo.py"
@@ -540,7 +540,7 @@ def test_scan_report_with_coverage_no_warning_at_threshold(tmp_path):
 
 
 def test_do_update_manifest_tested_at_iso8601_utc_format(tmp_path):
-    # mutmut_5,7,8,9,10,13: tested_at = datetime.datetime.now(utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # mutant_5,7,8,9,10,13: tested_at = datetime.datetime.now(utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     import re
     from mutate4py._runner import update_manifest
 
@@ -581,7 +581,7 @@ def test_main_no_coverage_flag_errors_about_coverage(tmp_path):
 
 
 def test_run_scan_passes_cov_cmd_to_coverage(tmp_path, capsys):
-    # mutmut_10: cov_cmd=None vs args.cov_cmd — cov_cmd must be passed through
+    # mutant_10: cov_cmd=None vs args.cov_cmd — cov_cmd must be passed through
     import argparse
     from mutate4py.__main__ import _run_scan
 
@@ -603,7 +603,7 @@ def test_run_scan_passes_cov_cmd_to_coverage(tmp_path, capsys):
 
 
 def test_run_scan_reuse_coverage_with_cwd(tmp_path, capsys):
-    # mutmut_12/13: reuse_coverage and cwd are passed through to acquire_coverage;
+    # mutant_12/13: reuse_coverage and cwd are passed through to acquire_coverage;
     # coverage.lcov in cwd is found only when cwd is correct
     import argparse
     from mutate4py.__main__ import _run_scan
@@ -625,7 +625,7 @@ def test_run_scan_reuse_coverage_with_cwd(tmp_path, capsys):
 
 
 def test_run_scan_passes_args_file_path(tmp_path, capsys):
-    # mutmut_28: scan_report(None, ...) vs scan_report(args.file, ...)
+    # mutant_28: scan_report(None, ...) vs scan_report(args.file, ...)
     # Path in header must match args.file
     import argparse
     from mutate4py.__main__ import _run_scan
@@ -645,7 +645,7 @@ def test_run_scan_passes_args_file_path(tmp_path, capsys):
 
 
 def test_run_scan_separator_is_newline_not_other_string(tmp_path, capsys):
-    # mutmut_36: "XX\nXX".join(lines) vs "\n".join(lines)
+    # mutant_36: "XX\nXX".join(lines) vs "\n".join(lines)
     import argparse
     from mutate4py.__main__ import _run_scan
 
@@ -667,7 +667,7 @@ def test_run_scan_separator_is_newline_not_other_string(tmp_path, capsys):
 
 
 def test_do_update_manifest_uses_utc_not_local_tz(tmp_path):
-    # mutmut_7: datetime.now(None) vs datetime.now(utc)
+    # mutant_7: datetime.now(None) vs datetime.now(utc)
     # None gives local time without tzinfo; utc gives UTC with tzinfo
     # The strftime format %Y-%m-%dT%H:%M:%SZ works for both but the timestamp
     # will differ. We verify by checking the format is valid ISO-8601 UTC.
@@ -691,7 +691,7 @@ def test_do_update_manifest_uses_utc_not_local_tz(tmp_path):
 
 
 def test_mutation_warning_type_int_parses_string_arg():
-    # mutmut_34,38: type=int removed → --mutation-warning receives str, comparison int>str fails
+    # mutant_34,38: type=int removed → --mutation-warning receives str, comparison int>str fails
     src = "x = a + b\n"
     result = run_cli("--scan", "--mutation-warning", "5", source=src)
     assert result.returncode == 0
@@ -699,7 +699,7 @@ def test_mutation_warning_type_int_parses_string_arg():
 
 
 def test_mutation_warning_threshold_comparison_is_numeric(tmp_path, capsys):
-    # mutmut_34,38: type=int removed → --mutation-warning="5" → str "5" → int > str → TypeError
+    # mutant_34,38: type=int removed → --mutation-warning="5" → str "5" → int > str → TypeError
     # In-process test: if type=int, works cleanly; if type=None, crashes with TypeError
     import mutate4py.__main__ as m
 
@@ -742,8 +742,8 @@ def test_parse_lines_with_spaces():
 
 
 def test_build_parser_lcov_dest_is_lcov():
-    # mutmut_8: dest=None → --lcov value stored as None key (unreachable as args.lcov)
-    # mutmut_11: dest omitted → argparse derives "lcov" from "--lcov" (equivalent)
+    # mutant_8: dest=None → --lcov value stored as None key (unreachable as args.lcov)
+    # mutant_11: dest omitted → argparse derives "lcov" from "--lcov" (equivalent)
     from mutate4py.__main__ import _build_parser
 
     parser = _build_parser()
@@ -752,7 +752,7 @@ def test_build_parser_lcov_dest_is_lcov():
 
 
 def test_build_parser_defaults_no_flags():
-    # mutmut_12: default=None omitted; mutmut_18: --mutate-all default is False
+    # mutant_12: default=None omitted; mutmut_18: --mutate-all default is False
     from mutate4py.__main__ import _build_parser
 
     parser = _build_parser()
@@ -762,7 +762,7 @@ def test_build_parser_defaults_no_flags():
 
 
 def test_build_parser_mutate_all_flag_exists():
-    # mutmut_18: "--mutate-all" → "--MUTATE-ALL" (different flag name)
+    # mutant_18: "--mutate-all" → "--MUTATE-ALL" (different flag name)
     # Correct: --mutate-all must be parseable and set mutate_all=True
     from mutate4py.__main__ import _build_parser
 
