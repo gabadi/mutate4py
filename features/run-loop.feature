@@ -49,8 +49,12 @@ Feature: The mutation run loop and report
   #     [Survivors: / "  line <L> <desc> <functionID>" ...]             (only when survived > 0)
   #   response (baseline failure, non-zero exit): "baseline failed: <reason>";
   #     no mutant applied, no .mutate4py.bak left, no report printed.
-  #   NOT in the response: no "Mutation workers: <n>" line; no "worker-<k>" token;
-  #     no "Timeout: <n>" report line (timeout folds into Killed).
+  #   NOT in the response (F4 default, --max-workers unset/0): no "Mutation workers: <n>"
+  #     line; no "worker-<k>" token; no "Timeout: <n>" report line (timeout folds into
+  #     Killed). NOTE (F6, ADR 0012 amendment/0015): a serial run with --max-workers > 0
+  #     DOES print "Mutation workers: <n>" (upstream-verbatim, runner.go:614); the
+  #     "worker-<k>" token is still absent on any serial run. F4 scenarios cover the
+  #     --max-workers-unset case; the workers line is exercised in F6 (parallel-workers).
   #
   # CONSTRAINTS:
   #   - <status> per mutant is exactly one of: killed (non-zero exit), timeout (exceeded
@@ -66,7 +70,8 @@ Feature: The mutation run loop and report
   #   - Survivors block prints only when survived > 0.
   #   - Killed report total = killed-count + timeout-count.
   #   - The run is serial: sites are mutated one at a time in stable (line, column) order;
-  #     no parallel workers exist (§9, ADR 0012).
+  #     no parallel workers run on this path (§9, ADR 0012). The parallel engine selected
+  #     by --max-workers >= 2 AND >= 2 sites is F6 (parallel-workers, ADR 0015).
   #
   # SEQUENCING:
   #   - Coverage is acquired and sites partitioned BEFORE the baseline runs.
@@ -95,9 +100,11 @@ Feature: The mutation run loop and report
   #     it consumes already-parsed options.
   #   - Does NOT: own --scan or --update-manifest output (F1/F2); does NOT re-implement
   #     site discovery (F1), manifest embed/diff (F2), or the LCOV line gate (F3).
-  #   - Does NOT: print a "Mutation workers" line, a "worker-<k>" token, or a "Timeout:"
-  #     report line; does NOT parallelize — the serial path only (§9, ADR 0012).
-  #     Parsing --max-workers is F5; the parallel worker engine is F6 (§9 reopened, ADR 0013/0015).
+  #   - Does NOT: print a "worker-<k>" token or a "Timeout:" report line; does NOT
+  #     parallelize — the serial path only (§9, ADR 0012). Does NOT print a "Mutation
+  #     workers" line in the F4 default case (--max-workers unset/0); the workers line
+  #     for --max-workers > 0 and the parallel engine are F6 (§9 reopened, ADR 0013/0015).
+  #     Parsing --max-workers is F5.
   #   - ASSUMED: the injected exec seam runs --test-command via the shell and reports exit
   #     status and timeout; the exact subprocess mechanism is the coder's to pin.
   #   - ASSUMED: a coverage source is supplied (F3); a run with no coverage flag is an F5

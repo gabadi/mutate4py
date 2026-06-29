@@ -15,6 +15,7 @@ STEPS_MAP[manifest]="manifest_steps"
 STEPS_MAP[coverage]="coverage_steps"
 STEPS_MAP[run-loop]="run_loop_steps"
 STEPS_MAP[cli-surface]="cli_surface_steps"
+STEPS_MAP[parallel-workers]="parallel_workers_steps"
 
 declare -A QA_STEPS_MAP
 QA_STEPS_MAP[site-discovery_qa]="site_discovery_qa_steps"
@@ -22,6 +23,7 @@ QA_STEPS_MAP[manifest_qa]="manifest_qa_steps"
 QA_STEPS_MAP[coverage_qa]="coverage_qa_steps"
 QA_STEPS_MAP[run-loop_qa]="run_loop_qa_steps"
 QA_STEPS_MAP[cli-surface_qa]="cli_surface_qa_steps"
+QA_STEPS_MAP[parallel-workers_qa]="parallel_workers_qa_steps"
 
 FAILED=0
 PASSED=0

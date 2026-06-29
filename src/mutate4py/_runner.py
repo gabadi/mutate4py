@@ -1,10 +1,11 @@
-"""Mutation run loop — F4 core implementation."""
+"""Mutation run loop — F4 core implementation + F6 parallel engine dispatch."""
 
 import datetime
 import os
 import subprocess
 import time
 
+from mutate4py._cmd import run_command as _run_command
 from mutate4py._coverage import CoverageError, acquire_coverage
 
 __all__ = [
@@ -24,21 +25,6 @@ from mutate4py._manifest import (
     manifests_structurally_equal,
     strip_manifest,
 )
-
-
-def _run_command(cmd: str, cwd: str, timeout: float) -> tuple[str, bool]:
-    """Run cmd via shell; return (status, timed_out) where status in {killed,timeout,survived}."""
-    try:
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            cwd=cwd,
-            capture_output=True,
-            timeout=timeout,
-        )
-        return ("survived" if result.returncode == 0 else "killed", False)
-    except subprocess.TimeoutExpired:
-        return ("timeout", True)
 
 
 def _baseline_reason(result: subprocess.CompletedProcess) -> str:
@@ -170,6 +156,49 @@ def _run_mutation_loop(
     return counts, survivors
 
 
+def _on_parallel_result(result: dict) -> None:
+    """Print a per-mutant progress line in arrival order (called from worker thread)."""
+    site = result["site"]
+    site_idx = result["site_idx"]
+    total = result["total"]
+    worker_idx = result["worker_idx"]
+    status = result["status"]
+    fid_suffix = f": {site.function_id}" if site.function_id else ""
+    print(
+        f"[{site_idx}/{total}] worker-{worker_idx} {status} line {site.line} {site.desc}{fid_suffix}"
+    )
+
+
+def _run_parallel_workers(
+    selected_sites: list[Site],
+    clean_source: str,
+    path: str,
+    cwd: str,
+    test_command: str,
+    mutant_timeout: float,
+    max_workers: int,
+) -> tuple[dict | None, list[Site] | None, str | None]:
+    """Dispatch the parallel engine; return (counts, survivors, error_msg)."""
+    from mutate4py._workers import ParallelRunError, WorkerFailureError, run_parallel
+
+    try:
+        counts, survivors = run_parallel(
+            selected_sites=selected_sites,
+            clean_source=clean_source,
+            source_path=path,
+            cwd=cwd,
+            test_command=test_command,
+            mutant_timeout=mutant_timeout,
+            max_workers=max_workers,
+            on_result=_on_parallel_result,
+        )
+        return counts, survivors, None
+    except WorkerFailureError as e:
+        return None, None, f"mutation worker failed: {e}"
+    except ParallelRunError as e:
+        return None, None, str(e)
+
+
 def _print_mutation_report(
     counts: dict[str, int],
     survivors: list[Site],
@@ -188,6 +217,53 @@ def _print_mutation_report(
         for s in survivors:
             fid = f" {s.function_id}" if s.function_id else ""
             print(f"  line {s.line} {s.desc}{fid}")
+
+
+def _print_workers_header(
+    max_workers: int, use_parallel: bool, n_selected: int
+) -> None:
+    if max_workers > 0:
+        displayed = min(max_workers, n_selected) if use_parallel else max_workers
+        print(f"Mutation workers: {displayed}")
+
+
+def _execute_mutations(
+    *,
+    selected_sites: list[Site],
+    clean_source: str,
+    path: str,
+    source_dir: str,
+    cwd: str,
+    test_command: str,
+    mutant_timeout: float,
+    max_workers: int,
+    use_parallel: bool,
+    tested_at: str,
+    bak_path: str,
+    uncovered_count: int,
+) -> int:
+    """Run serial or parallel mutations, finalize source, print report. Returns exit code."""
+    if use_parallel:
+        counts, survivors, error_msg = _run_parallel_workers(
+            selected_sites,
+            clean_source,
+            path,
+            cwd,
+            test_command,
+            mutant_timeout,
+            max_workers,
+        )
+        _finalize_source(path, clean_source, tested_at, bak_path)
+        if error_msg is not None:
+            print(error_msg)
+            return 1
+    else:
+        counts, survivors = _run_mutation_loop(
+            selected_sites, clean_source, path, source_dir, test_command, mutant_timeout
+        )
+        _finalize_source(path, clean_source, tested_at, bak_path)
+    _print_mutation_report(counts, survivors, uncovered_count)
+    return 0
 
 
 def _acquire_covered_lines(
@@ -224,6 +300,10 @@ def _is_effective_since_last_run(
     return since_last_run or (
         manifest_exists and not mutate_all and lines_filter is None
     )
+
+
+def _should_run_parallel(max_workers: int, n_selected: int) -> bool:
+    return max_workers >= 2 and n_selected >= 2
 
 
 def _print_uncovered_if_needed(
@@ -407,6 +487,11 @@ def run_mutations(
         all_sites, covered_lines, effective_since_last_run, lines_filter
     )
 
+    n_selected = len(selected_sites)
+    use_parallel = _should_run_parallel(max_workers, n_selected)
+
+    _print_workers_header(max_workers, use_parallel, n_selected)
+
     baseline_duration, baseline_error = _run_baseline(test_command, source_dir)
     if baseline_error is not None:
         print(f"baseline failed: {baseline_error}")
@@ -416,10 +501,18 @@ def run_mutations(
         f.write(clean_source)
 
     mutant_timeout = max(1.0, timeout_factor * baseline_duration)
-    counts, survivors = _run_mutation_loop(
-        selected_sites, clean_source, path, source_dir, test_command, mutant_timeout
-    )
 
-    _finalize_source(path, clean_source, tested_at, bak_path)
-    _print_mutation_report(counts, survivors, uncovered_count)
-    return 0
+    return _execute_mutations(
+        selected_sites=selected_sites,
+        clean_source=clean_source,
+        path=path,
+        source_dir=source_dir,
+        cwd=cwd,
+        test_command=test_command,
+        mutant_timeout=mutant_timeout,
+        max_workers=max_workers,
+        use_parallel=use_parallel,
+        tested_at=tested_at,
+        bak_path=bak_path,
+        uncovered_count=uncovered_count,
+    )
