@@ -178,7 +178,11 @@ def _check_selection_exclusivity(args: argparse.Namespace) -> None:
 
 def _validate_mutual_exclusions(args: argparse.Namespace) -> None:
     """Exit with error on illegal flag combinations (ADR 0008, 0014)."""
-    no_run = [("--scan", args.scan), ("--update-manifest", args.update_manifest), ("--check-manifest", args.check_manifest)]
+    no_run = [
+        ("--scan", args.scan),
+        ("--update-manifest", args.update_manifest),
+        ("--check-manifest", args.check_manifest),
+    ]
     active = [name for name, v in no_run if v]
     if len(active) > 1:
         _exit_incompatible(active[0], active[1])
