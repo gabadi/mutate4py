@@ -10,6 +10,7 @@ from mutate4py._coverage import CoverageError, acquire_coverage
 
 __all__ = [
     "CoverageError",
+    "check_manifest",
     "run_mutations",
     "run_scan",
     "scan_report",
@@ -425,6 +426,24 @@ def update_manifest(*, path: str, source: str) -> int:
         f.write(embedded)
     print(f"Updated manifest: {path}")
     return 0
+
+
+def check_manifest(*, path: str, source: str) -> int:
+    """Check if the manifest embedded in source is up to date. Returns 0 if current, 1 if stale or missing."""
+    clean = strip_manifest(source)
+    existing, manifest_exists = extract_manifest(source)
+    if not manifest_exists:
+        print(f"Manifest missing: {path}")
+        return 1
+    tested_at = datetime.datetime.now(datetime.timezone.utc).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+    candidate = build_manifest(clean, tested_at=tested_at)
+    if manifests_structurally_equal(existing, candidate):
+        print(f"Manifest current: {path}")
+        return 0
+    print(f"Manifest stale: {path}")
+    return 1
 
 
 def run_mutations(

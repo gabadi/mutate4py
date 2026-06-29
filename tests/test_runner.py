@@ -14,7 +14,9 @@ from mutate4py._runner import (
     _run_parallel_workers,
     _select_sites,
     _should_run_parallel,
+    check_manifest,
     run_mutations,
+    update_manifest,
 )
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -1067,3 +1069,73 @@ def test_finalize_source_manifest_is_valid_dict(tmp_path):
     manifest = json.loads(manifest_line[2:])
     assert isinstance(manifest, dict)
     assert "sites" in manifest or "ast_hash" in manifest or "tested_at" in manifest
+
+
+# ── check_manifest ────────────────────────────────────────────────────────────
+
+
+def _source_with_current_manifest(tmp_path, src: str) -> tuple[str, str]:
+    """Write src to a temp file, embed a manifest, return (path, source_with_manifest)."""
+    p = tmp_path / "mod.py"
+    p.write_text(src)
+    update_manifest(path=str(p), source=src)
+    return str(p), p.read_text()
+
+
+def test_check_manifest_missing_returns_1(tmp_path, capsys):
+    src = "def f(a, b):\n    return a > b\n"
+    p = tmp_path / "mod.py"
+    p.write_text(src)
+    rc = check_manifest(path=str(p), source=src)
+    assert rc == 1
+
+
+def test_check_manifest_missing_prints_message(tmp_path, capsys):
+    src = "def f(a, b):\n    return a > b\n"
+    p = tmp_path / "mod.py"
+    p.write_text(src)
+    check_manifest(path=str(p), source=src)
+    assert "Manifest missing:" in capsys.readouterr().out
+
+
+def test_check_manifest_current_returns_0(tmp_path, capsys):
+    src = "def f(a, b):\n    return a > b\n"
+    path, source_with_manifest = _source_with_current_manifest(tmp_path, src)
+    capsys.readouterr()
+    rc = check_manifest(path=path, source=source_with_manifest)
+    assert rc == 0
+
+
+def test_check_manifest_current_prints_message(tmp_path, capsys):
+    src = "def f(a, b):\n    return a > b\n"
+    path, source_with_manifest = _source_with_current_manifest(tmp_path, src)
+    capsys.readouterr()
+    check_manifest(path=path, source=source_with_manifest)
+    assert "Manifest current:" in capsys.readouterr().out
+
+
+def test_check_manifest_stale_returns_1(tmp_path, capsys):
+    src = "def f(a, b):\n    return a > b\n"
+    path, source_with_manifest = _source_with_current_manifest(tmp_path, src)
+    capsys.readouterr()
+    stale_source = source_with_manifest.replace("a > b", "a + b")
+    rc = check_manifest(path=path, source=stale_source)
+    assert rc == 1
+
+
+def test_check_manifest_stale_prints_message(tmp_path, capsys):
+    src = "def f(a, b):\n    return a > b\n"
+    path, source_with_manifest = _source_with_current_manifest(tmp_path, src)
+    capsys.readouterr()
+    stale_source = source_with_manifest.replace("a > b", "a + b")
+    check_manifest(path=path, source=stale_source)
+    assert "Manifest stale:" in capsys.readouterr().out
+
+
+def test_check_manifest_does_not_modify_file(tmp_path):
+    src = "def f(a, b):\n    return a > b\n"
+    p = tmp_path / "mod.py"
+    p.write_text(src)
+    before = p.read_text()
+    check_manifest(path=str(p), source=src)
+    assert p.read_text() == before

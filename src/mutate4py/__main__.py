@@ -4,7 +4,13 @@ import argparse
 import os
 import sys
 
-from mutate4py._runner import CoverageError, run_mutations, run_scan, update_manifest
+from mutate4py._runner import (
+    CoverageError,
+    check_manifest,
+    run_mutations,
+    run_scan,
+    update_manifest,
+)
 
 DEFAULT_WARNING_THRESHOLD = 50
 
@@ -25,7 +31,7 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="mutate4py",
         description="Mutation testing for Python with an embedded-in-source manifest",
     )
-    parser.add_argument("file", help="Python source file to analyse")
+    parser.add_argument("file", help="Python source file or directory to analyse")
     parser.add_argument(
         "--scan", action="store_true", help="Count mutation sites; no test run"
     )
@@ -40,6 +46,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "--update-manifest",
         action="store_true",
         help="Embed or refresh the manifest footer in the source file; no test run",
+    )
+    parser.add_argument(
+        "--check-manifest",
+        action="store_true",
+        dest="check_manifest",
+        help="Verify the manifest footer is up to date; exit 1 if missing or stale; no test run",
     )
     parser.add_argument(
         "--cov-cmd",
@@ -117,7 +129,11 @@ def _check_coverage_flags(args: argparse.Namespace) -> None:
 
 def _no_run_flag(args: argparse.Namespace) -> str:
     """Return the active no-run flag name for error messages."""
-    return "--scan" if args.scan else "--update-manifest"
+    if args.scan:
+        return "--scan"
+    if args.update_manifest:
+        return "--update-manifest"
+    return "--check-manifest"
 
 
 def _exit_incompatible(flag_a: str, flag_b: str) -> None:
@@ -164,8 +180,12 @@ def _validate_mutual_exclusions(args: argparse.Namespace) -> None:
     """Exit with error on illegal flag combinations (ADR 0008, 0014)."""
     if args.scan and args.update_manifest:
         _exit_incompatible("--scan", "--update-manifest")
+    if args.scan and args.check_manifest:
+        _exit_incompatible("--scan", "--check-manifest")
+    if args.update_manifest and args.check_manifest:
+        _exit_incompatible("--update-manifest", "--check-manifest")
 
-    if args.scan or args.update_manifest:
+    if args.scan or args.update_manifest or args.check_manifest:
         _check_no_run_incompatibilities(args)
         if args.scan:
             _check_scan_only_incompatibilities(args)
@@ -226,14 +246,68 @@ def _run_scan(args: argparse.Namespace, source: str, cwd: str) -> None:
         sys.exit(2)
 
 
+def _collect_py_files(directory: str) -> list[str]:
+    result = []
+    for root, dirs, files in os.walk(directory):
+        dirs[:] = sorted(d for d in dirs if d != "__pycache__")
+        for f in sorted(files):
+            if f.endswith(".py"):
+                result.append(os.path.join(root, f))
+    return result
+
+
+def _run_on_file(args: argparse.Namespace, py_file: str, source: str, cwd: str) -> int:
+    if args.check_manifest:
+        return check_manifest(path=py_file, source=source)
+    if args.update_manifest:
+        update_manifest(path=py_file, source=source)
+        return 0
+    try:
+        run_scan(
+            path=py_file,
+            source=source,
+            warning_threshold=args.warning_threshold,
+            cov_cmd=args.cov_cmd,
+            lcov_path=args.lcov,
+            reuse_coverage=args.reuse_coverage,
+            cwd=cwd,
+        )
+    except CoverageError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(2)
+    return 0
+
+
+def _dispatch_directory(args: argparse.Namespace) -> None:
+    if not (args.scan or args.update_manifest or args.check_manifest):
+        print(
+            "error: run mode requires a single file, not a directory.", file=sys.stderr
+        )
+        sys.exit(2)
+    files = _collect_py_files(args.file)
+    cwd = os.getcwd()
+    exit_code = 0
+    for py_file in files:
+        if _run_on_file(args, py_file, _load_source(py_file), cwd) != 0:
+            exit_code = 1
+    sys.exit(exit_code)
+
+
 def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
     _check_coverage_flags(args)
     _validate_mutual_exclusions(args)
+
+    if os.path.isdir(args.file):
+        _dispatch_directory(args)
+        return
+
     source = _load_source(args.file)
 
-    if args.scan:
+    if args.check_manifest:
+        sys.exit(check_manifest(path=args.file, source=source))
+    elif args.scan:
         _run_scan(args, source, os.getcwd())
     elif args.update_manifest:
         update_manifest(path=args.file, source=source)
