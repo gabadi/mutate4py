@@ -19,6 +19,7 @@ dist/
 build/
 .pytest_cache/
 acceptance/parsed/
+acceptance/generated/
 
 # mutate4py crash-safety backup
 .mutate4py.bak
