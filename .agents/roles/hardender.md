@@ -21,5 +21,14 @@ mutmut v3 does not support module-path filtering (e.g., `mutmut run "mutate4py._
 ## gherkin-mutator Named Arguments
 gherkin-mutator uses `--feature <path>` (named option), not a positional argument. Check `/tmp/aps-build/bb/src/aps/cli/gherkin_mutator.clj` source if CLI is unclear.
 
+## Restoring Files After Manual Mutant Application
+After `mutmut apply <mutant>` for debugging, restore with `git checkout <file>` ONLY if no other local changes exist in that file. If you have local edits (e.g. a DRY fix, refactor), first save them: `git stash` (or `git diff > patch.diff && git checkout <file> && git apply patch.diff`). `git checkout <file>` discards ALL unstaged and staged changes, not just the mutant.
+
+## Regenerate Acceptance Entrypoints After Step Handler Changes
+After modifying any acceptance step handler file (`*_steps.py`), regenerate the acceptance entrypoints via `gherkin-parser` + `generate_acceptance.py` BEFORE running `gherkin-mutator`. Stale generated entrypoints cause all 19+ mutations to error.
+
+## gherkin-mutator --workers Concurrency Constraint
+`gherkin-mutator --workers N` requires a runner-worker safe for concurrent stdin/stdout access. The current `runner_adapter.py` is a single-process server — concurrent requests corrupt its JSON protocol. Always use `--workers 1` (the default). Do not increase workers unless the runner_adapter is redesigned for concurrency.
+
 ## Equivalent Mutant Categories (Python)
 See `.agents/references/equivalent-mutants.md` for recognized equivalent mutant patterns that do not need test coverage.

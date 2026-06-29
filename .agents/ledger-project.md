@@ -44,3 +44,11 @@ Format: `<date> | <session-id> | <role> | <failure-class> | <verdict> | <one-lin
 2026-06-28 | 3814e69e | cleaner | convention-gap | promoted→.agents/roles/cleaner.md | manifest "NEW" hashes after coder handoff are expected; do not hand-edit — mutation tool refreshes them on first scan
 2026-06-28 | 8c38deb4 | architect | convention-gap | promoted→AGENTS.md | __main__.py is CLI adapter only; scan_report/scan_report_with_coverage/update_manifest belong in _runner.py and are tested directly
 2026-06-28 | dc019dd9 | cleaner | convention-gap | promoted→AGENTS.md | cli_surface_helpers.py is testable module for CLI surface step helpers; tests in tests/test_cli_surface_helpers.py
+2026-06-28 | 7b3678f5 | architect | tool-error | rejected→first-occurrence | agent-retro: $CLAUDE_SKILL_DIR not set in harness; extract.py path resolution requires find fallback
+2026-06-28 | 3b4f8734 | hardender | convention-gap | promoted→.agents/roles/hardender.md | git checkout <file> after mutmut apply discards all local changes; save with git stash or patch before restoring
+2026-06-28 | 3b4f8734 | hardender | convention-gap | promoted→.agents/roles/hardender.md | always regenerate acceptance entrypoints after modifying step handlers before running gherkin-mutator
+2026-06-28 | 3b4f8734 | hardender | convention-gap | promoted→.agents/roles/hardender.md | gherkin-mutator --workers N requires concurrent runner; runner_adapter.py is single-process; always use --workers 1
+2026-06-28 | 3b4f8734 | hardender | convention-gap | promoted→.agents/references/equivalent-mutants.md | _cmd.run_command capture_output variants and _copy_tree follow_symlinks=None/True are equivalent mutants
+2026-06-28 | 5707a6e5 | coder | convention-gap | promoted→.agents/roles/coder.md | merge from hardener/cleaner can silently revert API contracts; diff public signatures before running tests
+2026-06-28 | 19ff3fa9 | QA | convention-gap | promoted→.agents/roles/QA.md | QA harness must handle CLI-rejected values (e.g. --max-workers 0) without changing CLI validator
+2026-06-28 | 19ff3fa9 | QA | convention-gap | promoted→.agents/roles/QA.md | shell counter files in acceptance steps must use PID not $COUNT; run_parallel cleans run-PID/ not workers/ parent
