@@ -33,16 +33,13 @@ addopts = "--tb=short"
 source = ["mutate4py"]
 branch = true
 
-[tool.mutmut]
-source_paths = ["src/"]
-mutate_only_covered_lines = true
-also_copy = ["acceptance/"]
-debug = false
+[tool.uv.sources]
+crap4py = { git = "https://github.com/gabadi/crap4py", rev = "v0.1.1" }
 
 [dependency-groups]
 dev = [
+    "crap4py",
     "hypothesis>=6.135.0",
-    "mutmut>=3.6.0",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "ruff>=0.15.18",

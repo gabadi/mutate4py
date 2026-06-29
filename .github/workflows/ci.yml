@@ -33,9 +33,8 @@ jobs:
         with:
           coverage-files: lcov.info
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      # CRAP gate deferred — uncomment when F4 (run loop) lands
-      # - name: CRAP
-      #   run: uv run crap4py src/ --lcov lcov.info --max-crap 6
+      - name: CRAP
+        run: uv run crap4py src/ --lcov lcov.info --max-crap 6
       - name: Install drywall
         run: |
           gh release download --repo gabadi/drywall --pattern 'drywall-linux-x86_64' --output drywall
@@ -44,6 +43,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: DRY
         run: ./drywall src/
-      # Mutation gate deferred — uncomment when F4 (run loop) lands
-      # - name: Mutation
-      #   run: uv run mutate4py src/ --lcov lcov.info
+      - name: Mutation manifest
+        run: uv run mutate4py src/ --check-manifest

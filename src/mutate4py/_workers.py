@@ -234,3 +234,8 @@ def run_parallel(
 
     finally:
         shutil.rmtree(run_root, ignore_errors=True)
+
+
+# mutate4py-manifest-begin
+# {"version":1,"tested_at":"2026-06-29T00:38:23Z","module_hash":"4a45d8cc7f4a554ec0e23a98a9d7eaa8a8243acc161202fd049eadaa1e16af18","functions":[{"id":"func/_copy_tree","name":"_copy_tree","line":39,"end_line":49,"hash":"c58bb609c2788486f71a5287477fd9e6aa6100b60b256fe79a523b2f289d7a92"},{"id":"func/_provision_worker","name":"_provision_worker","line":52,"end_line":65,"hash":"cfb0b406de1e5ce6f02c057269610a19087703563ea62bb84dc09930cf05fd5b"},{"id":"func/_run_one_site","name":"_run_one_site","line":68,"end_line":116,"hash":"157b36ca55d127ce387cfbe581dfa09dae9fd7cc6ce5bedebfbfb2de32594634"},{"id":"func/_provision_workers","name":"_provision_workers","line":119,"end_line":127,"hash":"09af39ee078b9e32cf2b76f652e56ac4b1331413c051ac2234cf2d58bbc825a4"},{"id":"func/_assign_sites_to_workers","name":"_assign_sites_to_workers","line":130,"end_line":138,"hash":"5dbcd1617f148dd205dbfbfc44aaca0826b48c33f9d2de5a9d84e338b152f251"},{"id":"func/_summarize_results","name":"_summarize_results","line":141,"end_line":150,"hash":"1b677b32d8a08f9ab26553d77cdc8a86ebaef971b0f827bfcc1cf81a3b10339c"},{"id":"func/run_parallel","name":"run_parallel","line":153,"end_line":236,"hash":"daf2e447b67ed4d54616aaa6e98362ad32ec32202216b918af821211dab1b8fa"}]}
+# mutate4py-manifest-end
