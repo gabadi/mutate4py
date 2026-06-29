@@ -620,7 +620,7 @@ def _make_multi_site_source(n_funcs: int) -> str:
     lines = []
     for i in range(1, n_funcs + 1):
         lines.append(f"def f{i}(a, b):")
-        lines.append(f"    return a > b")
+        lines.append("    return a > b")
         lines.append("")
     return "\n".join(lines) + "\n"
 

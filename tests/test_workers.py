@@ -1,6 +1,5 @@
 """Unit tests for _workers.py internals."""
 
-import os
 
 import pytest
 
@@ -163,7 +162,6 @@ def test_copy_tree_skips_all_skip_entries_copies_all_regular(tmp_path):
 
 def test_copy_tree_symlink_to_file_is_copied(tmp_path):
     """follow_symlinks=False: a symlink to a regular file is treated as a file and copied."""
-    import os
     src = tmp_path / "src"
     target = tmp_path / "real.txt"
     target.write_text("contents")
