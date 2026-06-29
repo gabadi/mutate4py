@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "feature_path": "features/cli-surface_qa.feature",
+  "ir_path": "/Users/gabadi/workspace/addi/mutate4py/acceptance/parsed/cli-surface_qa_parsed.json",
+  "implementation_hash": "sha256:e220314a0b938766b8142e07eedd766d92861df83603b090b377ba477c06686d",
+  "hash_scope": "generated_files",
+  "generated_files": [
+    "/Users/gabadi/workspace/addi/mutate4py/acceptance/generated/cli-surface_qa_acceptance.py"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "feature_path": "features/parallel-workers.feature",
+  "ir_path": "/Users/gabadi/workspace/addi/mutate4py/acceptance/parsed/parallel-workers_parsed.json",
+  "implementation_hash": "sha256:6a216290001ce74bc00e2946fc777a1e8cd5a115a2f7720b917506ac42b3ca54",
+  "hash_scope": "generated_files",
+  "generated_files": [
+    "/Users/gabadi/workspace/addi/mutate4py/acceptance/generated/parallel-workers_acceptance.py"
+  ]
+}

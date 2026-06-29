@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "feature_path": "features/site-discovery_qa.feature",
+  "ir_path": "/Users/gabadi/workspace/addi/mutate4py/acceptance/parsed/site-discovery_qa_parsed.json",
+  "implementation_hash": "sha256:78d3560c90ad2c4838e128410fbc14fdf0e3907302342d98abb99041d4e3a800",
+  "hash_scope": "generated_files",
+  "generated_files": [
+    "/Users/gabadi/workspace/addi/mutate4py/acceptance/generated/site-discovery_qa_acceptance.py"
+  ]
+}
