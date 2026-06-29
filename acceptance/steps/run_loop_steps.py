@@ -87,6 +87,7 @@ def _write_default_lcov(lcov_path: str, src_path: str, lines: list[int]) -> None
 
 # ── Background ────────────────────────────────────────────────────────────────
 
+
 @step(r"a Python source file with covered mutation sites")
 def given_source_with_covered_sites(m, params):
     _reset_ctx()
@@ -108,6 +109,7 @@ def given_baseline_passes(m, params):
 
 # ── Given steps ───────────────────────────────────────────────────────────────
 
+
 @step(r'the mutated test run will "([^"]*)"')
 def given_mutated_outcome(m, params):
     outcome = params.get("outcome") or m.group(1)
@@ -115,20 +117,14 @@ def given_mutated_outcome(m, params):
     src_path = ctx.src_path
     if outcome == "exit nonzero":
         # The test passes on baseline (original) but fails when mutant is present
-        script = (
-            "#!/bin/sh\n"
-            f"if grep -qF '>=' '{src_path}'; then exit 1; fi\n"
-            "exit 0\n"
-        )
+        script = f"#!/bin/sh\nif grep -qF '>=' '{src_path}'; then exit 1; fi\nexit 0\n"
     elif outcome == "exit zero":
         # Always passes (mutant survives)
         script = "#!/bin/sh\nexit 0\n"
     elif outcome == "exceed timeout":
         # Baseline is fast; mutant causes timeout via sleep
         script = (
-            "#!/bin/sh\n"
-            f"if grep -qF '>=' '{src_path}'; then sleep 30; fi\n"
-            "exit 0\n"
+            f"#!/bin/sh\nif grep -qF '>=' '{src_path}'; then sleep 30; fi\nexit 0\n"
         )
     else:
         raise ValueError(f"Unknown outcome: {outcome}")
@@ -189,7 +185,7 @@ def given_multi_outcome(m, params):
         "exit 0",
     ]
     _write_script(ctx.test_script, "\n".join(script_lines) + "\n")
-    ctx.extra_cli_args = ["--timeout-factor", "1"]
+    ctx.extra_cli_args = ["--timeout-factor", "1", "--min-timeout", "0.1"]
 
 
 @step(r"there are (\d+) uncovered sites")
@@ -213,7 +209,9 @@ def given_uncovered_sites(m, params):
     # LCOV remains unchanged — the extra lines are uncovered
 
 
-@step(r'a single selected site on line 7 in function "([^"]*)" mutating "([^"]*)" to "([^"]*)"')
+@step(
+    r'a single selected site on line 7 in function "([^"]*)" mutating "([^"]*)" to "([^"]*)"'
+)
 def given_single_site_line7(m, params):
     fid = params.get("func/calc") or m.group(1)
     orig = params.get("a > b") or m.group(2)
@@ -237,11 +235,7 @@ def given_single_site_line7(m, params):
 @step(r"that mutant exits nonzero")
 def given_that_mutant_exits_nonzero(m, params):
     src_path = ctx.src_path
-    script = (
-        "#!/bin/sh\n"
-        f"if grep -qF '>=' '{src_path}'; then exit 1; fi\n"
-        "exit 0\n"
-    )
+    script = f"#!/bin/sh\nif grep -qF '>=' '{src_path}'; then exit 1; fi\nexit 0\n"
     _write_script(ctx.test_script, script)
 
 
@@ -271,8 +265,10 @@ def given_manifest_state(m, params):
     if has == "has":
         # Embed a manifest into the source
         import sys as _sys
+
         _sys.path.insert(0, os.path.join(REPO_ROOT, "src"))
         from mutate4py._manifest import build_manifest, embed_manifest
+
         with open(ctx.src_path) as f:
             src = f.read()
         manifest = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
@@ -290,7 +286,13 @@ def given_flags(m, params):
 @step(r"there is at least one uncovered site")
 def given_at_least_one_uncovered(m, params):
     d = _ensure_tmpdir()
-    from mutate4py._manifest import strip_manifest, embed_manifest, extract_manifest, build_manifest
+    from mutate4py._manifest import (
+        strip_manifest,
+        embed_manifest,
+        extract_manifest,
+        build_manifest,
+    )
+
     with open(ctx.src_path) as f:
         src = f.read()
     # Extract any existing manifest before modifying
@@ -358,6 +360,7 @@ def given_reuse_lcov(m, params):
 
 # ── When steps ────────────────────────────────────────────────────────────────
 
+
 @step(r"I run mutate4py mutating that file")
 def when_run(m, params):
     d = _ensure_tmpdir()
@@ -375,6 +378,7 @@ def when_run_with_flags(m, params):
 
 
 # ── Then steps ────────────────────────────────────────────────────────────────
+
 
 @step(r'the progress line for that mutant shows status "([^"]*)"')
 def then_progress_status(m, params):
@@ -407,9 +411,10 @@ def then_output_line(m, params):
     assert expected in stdout, f"Expected '{expected}' in stdout:\n{stdout}"
 
 
-@step(r'the output lines (.*) are printed')
+@step(r"the output lines (.*) are printed")
 def then_output_lines(m, params):
     import re as _re
+
     raw = m.group(1)
     expected_lines = _re.findall(r'"([^"]+)"', raw)
     stdout = ctx.cli_result.stdout
@@ -424,7 +429,9 @@ def then_survivors_block_conditional(m, params):
     if has == "yes":
         assert "Survivors:" in stdout, f"Expected 'Survivors:' block in:\n{stdout}"
     else:
-        assert "Survivors:" not in stdout, f"Did not expect 'Survivors:' block in:\n{stdout}"
+        assert "Survivors:" not in stdout, (
+            f"Did not expect 'Survivors:' block in:\n{stdout}"
+        )
 
 
 @step(r'the mutant timeout is "([^"]*)"')
@@ -465,7 +472,11 @@ def then_no_mutant_applied(m, params):
 def then_no_file(m, params):
     filename = params.get("file") or m.group(1)
     d = os.path.dirname(ctx.src_path)
-    path = os.path.join(d, os.path.basename(ctx.src_path) + filename.replace(os.path.basename(ctx.src_path), ""))
+    path = os.path.join(
+        d,
+        os.path.basename(ctx.src_path)
+        + filename.replace(os.path.basename(ctx.src_path), ""),
+    )
     if filename == ".mutate4py.bak":
         bak = ctx.src_path + ".bak"
         assert not os.path.exists(bak), f"Unexpected file exists: {bak}"
@@ -497,7 +508,9 @@ def then_only_selected(m, params):
     stdout = ctx.cli_result.stdout
     if selected == "changed-function":
         # In differential mode, if nothing changed, selected = 0
-        lines = [l for l in stdout.splitlines() if l.startswith("Selected mutation sites:")]
+        lines = [
+            l for l in stdout.splitlines() if l.startswith("Selected mutation sites:")
+        ]
         assert lines, f"No 'Selected mutation sites:' line in:\n{stdout}"
     elif selected == "all-covered":
         # Non-differential: selected >= 0
@@ -509,9 +522,13 @@ def then_uncovered_block(m, params):
     vis = params.get("visibility") or m.group(1)
     stdout = ctx.cli_result.stdout
     if vis == "is":
-        assert "Uncovered mutations:" in stdout, f"Expected 'Uncovered mutations:' in:\n{stdout}"
+        assert "Uncovered mutations:" in stdout, (
+            f"Expected 'Uncovered mutations:' in:\n{stdout}"
+        )
     else:
-        assert "Uncovered mutations:" not in stdout, f"Did not expect 'Uncovered mutations:' in:\n{stdout}"
+        assert "Uncovered mutations:" not in stdout, (
+            f"Did not expect 'Uncovered mutations:' in:\n{stdout}"
+        )
 
 
 @step(r'no "Mutation workers:" line is printed')
@@ -526,7 +543,9 @@ def then_no_worker_token(m, params):
             assert "worker-" not in line, f"Found 'worker-' token in: {line}"
 
 
-@step(r'a "Warning: ([^"]*) mutation sites exceeds threshold ([^"]*)." line "([^"]*)" printed')
+@step(
+    r'a "Warning: ([^"]*) mutation sites exceeds threshold ([^"]*)." line "([^"]*)" printed'
+)
 def then_warning_conditional(m, params):
     total = params.get("total") or m.group(1)
     threshold = params.get("threshold") or m.group(2)
@@ -550,6 +569,7 @@ def then_source_restored(m, params):
     )
     # More specifically: the actual code body should not have the mutant
     from mutate4py._manifest import strip_manifest
+
     body = strip_manifest(content)
     assert ">=" not in body, f"Mutant still in source body:\n{body}"
 
@@ -566,11 +586,14 @@ def then_manifest_footer(m, params):
     )
 
 
-@step(r'the output line "Restored source from backup \(previous run was interrupted\)." is printed')
+@step(
+    r'the output line "Restored source from backup \(previous run was interrupted\)." is printed'
+)
 def then_restored_from_backup(m, params):
-    assert "Restored source from backup (previous run was interrupted)." in ctx.cli_result.stdout, (
-        f"Expected restore message in:\n{ctx.cli_result.stdout}"
-    )
+    assert (
+        "Restored source from backup (previous run was interrupted)."
+        in ctx.cli_result.stdout
+    ), f"Expected restore message in:\n{ctx.cli_result.stdout}"
 
 
 @step(r"the source matches the backup before discovery proceeds")
@@ -579,6 +602,7 @@ def then_source_matches_backup(m, params):
     with open(ctx.src_path) as f:
         content = f.read()
     from mutate4py._manifest import strip_manifest
+
     body = strip_manifest(content)
     assert "a > b" in body or ">=" not in body, (
         f"Source does not match original:\n{body}"

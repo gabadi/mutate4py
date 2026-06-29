@@ -79,7 +79,14 @@ def _build_parser() -> argparse.ArgumentParser:
         type=_positive_int,
         default=10,
         dest="timeout_factor",
-        help="Mutant timeout = max(1s, factor × baseline duration) (default: 10)",
+        help="Mutant timeout = max(--min-timeout, factor × baseline duration) (default: 10)",
+    )
+    parser.add_argument(
+        "--min-timeout",
+        type=float,
+        default=1.0,
+        dest="min_timeout",
+        help="Floor for mutant timeout in seconds (default: 1.0)",
     )
     parser.add_argument(
         "--lines",
@@ -158,6 +165,8 @@ def _check_scan_only_incompatibilities(args: argparse.Namespace) -> None:
     """Exit if scan-only flags are paired with non-scan flags."""
     if args.timeout_factor != 10:
         _exit_incompatible("--scan", "--timeout-factor")
+    if args.min_timeout != 1.0:
+        _exit_incompatible("--scan", "--min-timeout")
     if args.test_command != "pytest":
         _exit_incompatible("--scan", "--test-command")
 
@@ -313,6 +322,7 @@ def _dispatch_single_file(args: argparse.Namespace, source: str, cwd: str) -> No
             reuse_coverage=args.reuse_coverage,
             test_command=args.test_command,
             timeout_factor=args.timeout_factor,
+            min_timeout=args.min_timeout,
             lines_filter=lines_filter,
             since_last_run=args.since_last_run,
             mutate_all=args.mutate_all,
@@ -338,5 +348,5 @@ if __name__ == "__main__":
     main()
 
 # mutate4py-manifest-begin
-# {"version":1,"tested_at":"2026-06-29T05:03:13Z","module_hash":"222f2e41a7cb402e34d3fc5b25a39e1a6ae8fe102cea8f47dd3fef74582b61cf","functions":[{"id":"func/_positive_int","name":"_positive_int","line":18,"end_line":26,"hash":"06de4d3f74cf39cb40383657b49523cefc38cdf8566d5f8125553f3fd3c195d3"},{"id":"func/_build_parser","name":"_build_parser","line":29,"end_line":115,"hash":"bb0eedec6a6ae84b8fe129f6e486e873ae460887ee21522d6e9f0078c1513fc9"},{"id":"func/_check_coverage_flags","name":"_check_coverage_flags","line":118,"end_line":127,"hash":"42edc6617a1e291bd93d3578d7e32e708f713f9084ccba6be2331ad9b0ec9f87"},{"id":"func/_no_run_flag","name":"_no_run_flag","line":130,"end_line":136,"hash":"59aa486011c3e3158e11848b3f49b3182be927b8b3fc1c89b7b93890a7470ba9"},{"id":"func/_exit_incompatible","name":"_exit_incompatible","line":139,"end_line":141,"hash":"db2fe36913cbe87d3616570466315a8988310564ec93851dc7290d8065b8cee0"},{"id":"func/_check_no_run_incompatibilities","name":"_check_no_run_incompatibilities","line":144,"end_line":154,"hash":"ba8d38ea845759d634015672a4988cd37faf0155e1cb2b5f3c6cfc8c3ce1530d"},{"id":"func/_check_scan_only_incompatibilities","name":"_check_scan_only_incompatibilities","line":157,"end_line":162,"hash":"e445fd7847ac5b9e8f7704d74187dd94e203b868df197104bc973c38290be849"},{"id":"func/_check_selection_exclusivity","name":"_check_selection_exclusivity","line":165,"end_line":176,"hash":"6ff1d994acd05c8dac1f9d7c4467a6fc74aa37899720361f85876e0f79a40e26"},{"id":"func/_validate_mutual_exclusions","name":"_validate_mutual_exclusions","line":179,"end_line":193,"hash":"6155e6243361768bcdfd18a457def365adbf180f8e41ac3f9e6497e59fe6790b"},{"id":"func/_load_source","name":"_load_source","line":196,"end_line":203,"hash":"b5c0322beb2e960c86d48fc3d00b8e1a910b64d4cfcadc414911fbcac6c7cc04"},{"id":"func/_parse_line_token","name":"_parse_line_token","line":206,"end_line":221,"hash":"3ede4fa8f423d5d27e97f3e7c6aec920c3e2e308159c05b42643d0c474b7fb86"},{"id":"func/_parse_lines","name":"_parse_lines","line":224,"end_line":229,"hash":"4febad296c3c5be36594a0188127548ab4edcba48a3bd946848e9c583b398ac4"},{"id":"func/_run_scan","name":"_run_scan","line":232,"end_line":246,"hash":"8075b51b362f0442df434fb5830df8d0de03eeb295e4bd0b1354700c6c9e29df"},{"id":"func/_collect_py_files","name":"_collect_py_files","line":249,"end_line":256,"hash":"3dd82fa868ce457a6024239044e42205bc3d9218355f35401fb058145e9f8150"},{"id":"func/_run_on_file","name":"_run_on_file","line":259,"end_line":278,"hash":"b6675a3c2c136c43464915ee1ab90544a32f4fb31dbc9736e825b577ecdca92f"},{"id":"func/_dispatch_directory","name":"_dispatch_directory","line":281,"end_line":293,"hash":"30e059616f039845c16f4680491f57462b5b68a7d0f94f020d41867d1b4226e3"},{"id":"func/_dispatch_single_file","name":"_dispatch_single_file","line":296,"end_line":323,"hash":"bef63fc43e1b8b192d10b96a6e505d74c6166e313105c78e039c59280ec6718e"},{"id":"func/main","name":"main","line":326,"end_line":334,"hash":"08ebcb6785fa70da3626a69d967a4fede03b792ca712c2bcc9143343a055ece1"}]}
+# {"version":1,"tested_at":"2026-06-29T06:28:33Z","module_hash":"6e91584f089d87b5fb4177105ba658030a97b9ffdfce5562d45f314ef76c2f8a","functions":[{"id":"func/_positive_int","name":"_positive_int","line":18,"end_line":26,"hash":"06de4d3f74cf39cb40383657b49523cefc38cdf8566d5f8125553f3fd3c195d3"},{"id":"func/_build_parser","name":"_build_parser","line":29,"end_line":122,"hash":"83b93ccab3f524d49e4a63d83957ceb9ee74b628461f8cebffbf613dc8f3c1f9"},{"id":"func/_check_coverage_flags","name":"_check_coverage_flags","line":125,"end_line":134,"hash":"42edc6617a1e291bd93d3578d7e32e708f713f9084ccba6be2331ad9b0ec9f87"},{"id":"func/_no_run_flag","name":"_no_run_flag","line":137,"end_line":143,"hash":"59aa486011c3e3158e11848b3f49b3182be927b8b3fc1c89b7b93890a7470ba9"},{"id":"func/_exit_incompatible","name":"_exit_incompatible","line":146,"end_line":148,"hash":"db2fe36913cbe87d3616570466315a8988310564ec93851dc7290d8065b8cee0"},{"id":"func/_check_no_run_incompatibilities","name":"_check_no_run_incompatibilities","line":151,"end_line":161,"hash":"ba8d38ea845759d634015672a4988cd37faf0155e1cb2b5f3c6cfc8c3ce1530d"},{"id":"func/_check_scan_only_incompatibilities","name":"_check_scan_only_incompatibilities","line":164,"end_line":171,"hash":"77d8a7f28df92300239bc3881b089c51438d9dafd77dd134a1e01964e4d24ada"},{"id":"func/_check_selection_exclusivity","name":"_check_selection_exclusivity","line":174,"end_line":185,"hash":"6ff1d994acd05c8dac1f9d7c4467a6fc74aa37899720361f85876e0f79a40e26"},{"id":"func/_validate_mutual_exclusions","name":"_validate_mutual_exclusions","line":188,"end_line":202,"hash":"6155e6243361768bcdfd18a457def365adbf180f8e41ac3f9e6497e59fe6790b"},{"id":"func/_load_source","name":"_load_source","line":205,"end_line":212,"hash":"b5c0322beb2e960c86d48fc3d00b8e1a910b64d4cfcadc414911fbcac6c7cc04"},{"id":"func/_parse_line_token","name":"_parse_line_token","line":215,"end_line":230,"hash":"3ede4fa8f423d5d27e97f3e7c6aec920c3e2e308159c05b42643d0c474b7fb86"},{"id":"func/_parse_lines","name":"_parse_lines","line":233,"end_line":238,"hash":"4febad296c3c5be36594a0188127548ab4edcba48a3bd946848e9c583b398ac4"},{"id":"func/_run_scan","name":"_run_scan","line":241,"end_line":255,"hash":"8075b51b362f0442df434fb5830df8d0de03eeb295e4bd0b1354700c6c9e29df"},{"id":"func/_collect_py_files","name":"_collect_py_files","line":258,"end_line":265,"hash":"3dd82fa868ce457a6024239044e42205bc3d9218355f35401fb058145e9f8150"},{"id":"func/_run_on_file","name":"_run_on_file","line":268,"end_line":287,"hash":"b6675a3c2c136c43464915ee1ab90544a32f4fb31dbc9736e825b577ecdca92f"},{"id":"func/_dispatch_directory","name":"_dispatch_directory","line":290,"end_line":302,"hash":"30e059616f039845c16f4680491f57462b5b68a7d0f94f020d41867d1b4226e3"},{"id":"func/_dispatch_single_file","name":"_dispatch_single_file","line":305,"end_line":333,"hash":"bbd1bbf4833e14230bf45a12ec592344333ffc2850506d9d2a45c38874f7b914"},{"id":"func/main","name":"main","line":336,"end_line":344,"hash":"08ebcb6785fa70da3626a69d967a4fede03b792ca712c2bcc9143343a055ece1"}]}
 # mutate4py-manifest-end

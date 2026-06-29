@@ -482,6 +482,7 @@ def test_run_mutations_timeout_counts_as_killed(tmp_path):
             reuse_coverage=False,
             test_command=f"sh {baseline_script}",
             timeout_factor=1,
+            min_timeout=0.1,
             lines_filter=None,
             since_last_run=False,
             mutate_all=False,
@@ -832,7 +833,7 @@ def test_run_mutation_loop_empty_sites_returns_zero_counts(tmp_path):
         selected_sites=[],
         clean_source="x = 1\n",
         path=str(src_file),
-        source_dir=str(tmp_path),
+        cwd=str(tmp_path),
         test_command="exit 0",
         mutant_timeout=5.0,
     )

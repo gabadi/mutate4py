@@ -45,3 +45,5 @@ jobs:
         run: ./drywall src/
       - name: Mutation manifest
         run: uv run mutate4py src/ --check-manifest
+      - name: Acceptance tests
+        run: bash acceptance/run_acceptance.sh

@@ -92,10 +92,26 @@ def _make_n_site_source(n: int) -> tuple[str, list[int]]:
     return "\n".join(lines) + "\n", site_lines
 
 
-def _run_mutate4py(project_dir: str, src_path: str, lcov_path: str, test_script: str, extra_args: list[str]) -> subprocess.CompletedProcess:
+def _run_mutate4py(
+    project_dir: str,
+    src_path: str,
+    lcov_path: str,
+    test_script: str,
+    extra_args: list[str],
+) -> subprocess.CompletedProcess:
     cmd = [
-        "uv", "run", "--project", REPO_ROOT, "python", "-m", "mutate4py",
-        src_path, "--lcov", lcov_path, "--test-command", f"sh {test_script}",
+        "uv",
+        "run",
+        "--project",
+        REPO_ROOT,
+        "python",
+        "-m",
+        "mutate4py",
+        src_path,
+        "--lcov",
+        lcov_path,
+        "--test-command",
+        f"sh {test_script}",
     ] + extra_args
     return subprocess.run(
         cmd,
@@ -106,6 +122,7 @@ def _run_mutate4py(project_dir: str, src_path: str, lcov_path: str, test_script:
 
 
 # ── Background ────────────────────────────────────────────────────────────────
+
 
 @step(r"a Python source file with covered mutation sites")
 def given_source_with_covered_sites(m, params):
@@ -130,6 +147,7 @@ def given_baseline_passes(m, params):
 
 
 # ── Given steps ───────────────────────────────────────────────────────────────
+
 
 @step(r'the file has "(\d+)" selected mutation sites')
 def given_n_sites(m, params):
@@ -161,28 +179,31 @@ def given_max_workers_flag(m, params):
     ctx.extra_cli_args = parts
 
 
-@step(r'a selected site with index "(\d+)" on line (\d+) in function "([^"]*)" mutating "([^"]*)" to "([^"]*)"')
+@step(
+    r'a selected site with index "(\d+)" on line (\d+) in function "([^"]*)" mutating "([^"]*)" to "([^"]*)"'
+)
 def given_specific_site(m, params):
     # Build source so site.index=2 is in func/calc at line 7, and is the 2nd selected site.
     # Worker assignment uses site.index % n_workers + 1; with n_workers=4: (2%4)+1=3 → worker-3.
     # 5 total sites, site.index=0 uncovered → 4 selected; calc is 2nd in selection order.
     src = (
-        "def uncov(a, b):\n"    # line 1
-        "    return a > b\n"    # line 2  — site index 0, uncovered
-        "\n"                    # line 3
-        "def dummy1(a, b):\n"   # line 4
-        "    return a > b\n"    # line 5  — site index 1
-        "def calc(a, b):\n"     # line 6
-        "    return a > b\n"    # line 7  — site index 2 (target)
-        "\n"                    # line 8
-        "def dummy3(a, b):\n"   # line 9
-        "    return a > b\n"    # line 10 — site index 3
-        "\n"                    # line 11
-        "def dummy4(a, b):\n"   # line 12
-        "    return a > b\n"    # line 13 — site index 4
+        "def uncov(a, b):\n"  # line 1
+        "    return a > b\n"  # line 2  — site index 0, uncovered
+        "\n"  # line 3
+        "def dummy1(a, b):\n"  # line 4
+        "    return a > b\n"  # line 5  — site index 1
+        "def calc(a, b):\n"  # line 6
+        "    return a > b\n"  # line 7  — site index 2 (target)
+        "\n"  # line 8
+        "def dummy3(a, b):\n"  # line 9
+        "    return a > b\n"  # line 10 — site index 3
+        "\n"  # line 11
+        "def dummy4(a, b):\n"  # line 12
+        "    return a > b\n"  # line 13 — site index 4
         "\n"
     )
     from mutate4py._discovery import discover_sites
+
     all_sites = discover_sites(src)
     covered_lines = [s.line for s in all_sites if s.index != 0]
 
@@ -213,19 +234,20 @@ def given_site_outcome(m, params):
     d = ctx.project_dir
     src = (
         "def f1():\n"
-        "    return True\n"   # site index 0: True -> False
+        "    return True\n"  # site index 0: True -> False
         "\n"
         "def f2():\n"
-        "    return 0\n"      # site index 1: 0 -> 1
+        "    return 0\n"  # site index 1: 0 -> 1
         "\n"
         "def f3():\n"
-        "    return True\n"   # site index 2: True -> False
+        "    return True\n"  # site index 2: True -> False
         "\n"
         "def f4(a, b):\n"
         "    return a > b\n"  # site index 3: a > b -> a >= b (the target)
         "\n"
     )
     from mutate4py._discovery import discover_sites
+
     all_sites = discover_sites(src)
     covered_lines = [s.line for s in all_sites]
 
@@ -255,12 +277,15 @@ def given_site_outcome(m, params):
             f"if grep -qF '>=' './{src_rel}' 2>/dev/null; then sleep 60; fi\n"
             "exit 0\n"
         )
+        ctx.extra_cli_args = list(ctx.extra_cli_args) + ["--min-timeout", "0.1"]
     else:
         raise ValueError(f"Unknown outcome: {outcome}")
     _write_script(ctx.test_script, script)
 
 
-@step(r'the file has "(\d+)" selected mutation sites at indexes "(\d+)", "(\d+)", "(\d+)"')
+@step(
+    r'the file has "(\d+)" selected mutation sites at indexes "(\d+)", "(\d+)", "(\d+)"'
+)
 def given_sites_at_indexes(m, params):
     n = int(m.group(1))
     ctx.sites_count = n
@@ -308,7 +333,7 @@ def given_dir_has_entry(m, params):
         os.makedirs(entry_path, exist_ok=True)
 
 
-@step(r'the target file is outside the working directory')
+@step(r"the target file is outside the working directory")
 def given_target_outside_cwd(m, params):
     outside_dir = tempfile.mkdtemp()
     src, site_lines = _make_n_site_source(4)
@@ -339,6 +364,7 @@ def given_failure_scenario(m, params):
 
 # ── When ──────────────────────────────────────────────────────────────────────
 
+
 @step(r"I run mutate4py mutating that file")
 def when_run_mutate4py(m, params):
     extra = list(ctx.extra_cli_args)
@@ -350,12 +376,20 @@ def when_run_mutate4py(m, params):
         env["_MUTATE4PY_TEST_WORKER_SHORT_RESULT"] = "1"
     result = subprocess.run(
         [
-            "uv", "run", "--project", REPO_ROOT,
-            "python", "-m", "mutate4py",
+            "uv",
+            "run",
+            "--project",
+            REPO_ROOT,
+            "python",
+            "-m",
+            "mutate4py",
             ctx.src_path,
-            "--lcov", ctx.lcov_path,
-            "--test-command", f"sh {ctx.test_script}",
-        ] + extra,
+            "--lcov",
+            ctx.lcov_path,
+            "--test-command",
+            f"sh {ctx.test_script}",
+        ]
+        + extra,
         capture_output=True,
         text=True,
         cwd=ctx.project_dir,
@@ -366,6 +400,7 @@ def when_run_mutate4py(m, params):
 
 # ── Then steps ────────────────────────────────────────────────────────────────
 
+
 @step(r'the run takes the "([^"]*)" path')
 def then_takes_path(m, params):
     path = params.get("path") or m.group(1)
@@ -373,7 +408,9 @@ def then_takes_path(m, params):
     if path == "serial":
         for line in stdout.splitlines():
             if line.startswith("["):
-                assert "worker-" not in line, f"Expected serial path but got worker token: {line}"
+                assert "worker-" not in line, (
+                    f"Expected serial path but got worker token: {line}"
+                )
     elif path == "parallel":
         progress = [ln for ln in stdout.splitlines() if ln.startswith("[")]
         assert progress, f"No progress lines; parallel path expected. stdout:\n{stdout}"
@@ -381,7 +418,9 @@ def then_takes_path(m, params):
             f"Expected worker-k token in progress lines. stdout:\n{stdout}"
         )
     else:
-        raise AssertionError(f"Unknown path value: {path!r}; expected 'serial' or 'parallel'")
+        raise AssertionError(
+            f"Unknown path value: {path!r}; expected 'serial' or 'parallel'"
+        )
 
 
 @step(r'the output line "Mutation workers: (\d+)" is printed')
@@ -397,9 +436,13 @@ def then_workers_header_visibility(m, params):
     vis = params.get("visibility") or m.group(1)
     stdout = ctx.cli_result.stdout
     if vis == "is":
-        assert "Mutation workers:" in stdout, f"Expected 'Mutation workers:' in:\n{stdout}"
+        assert "Mutation workers:" in stdout, (
+            f"Expected 'Mutation workers:' in:\n{stdout}"
+        )
     else:
-        assert "Mutation workers:" not in stdout, f"Did not expect 'Mutation workers:' in:\n{stdout}"
+        assert "Mutation workers:" not in stdout, (
+            f"Did not expect 'Mutation workers:' in:\n{stdout}"
+        )
 
 
 @step(r'a "worker-" token "([^"]*)" present in every per-mutant progress line')
@@ -416,7 +459,9 @@ def then_worker_token_visibility(m, params):
             assert "worker-" not in line, f"Did not expect worker-k token in: {line}"
 
 
-@step(r'the output line "\[2/4\] worker-3 killed line 7 a > b -> a >= b: func/calc" is printed')
+@step(
+    r'the output line "\[2/4\] worker-3 killed line 7 a > b -> a >= b: func/calc" is printed'
+)
 def then_specific_parallel_line(m, params):
     expected = "[2/4] worker-3 killed line 7 a > b -> a >= b: func/calc"
     stdout = ctx.cli_result.stdout
@@ -437,6 +482,7 @@ def then_mutant_status(m, params):
 @step(r'the report counts that mutant as "([^"]*)"')
 def then_report_counts(m, params):
     import re as _re
+
     tally = params.get("tally") or m.group(1)
     stdout = ctx.cli_result.stdout
     if tally == "Killed":
@@ -451,14 +497,18 @@ def then_report_counts(m, params):
 def then_lines_in_arrival_order(m, params):
     stdout = ctx.cli_result.stdout
     progress = [ln for ln in stdout.splitlines() if ln.startswith("[")]
-    assert len(progress) >= 3, f"Expected at least 3 progress lines, got:\n" + "\n".join(progress)
+    assert len(progress) >= 3, (
+        f"Expected at least 3 progress lines, got:\n" + "\n".join(progress)
+    )
     # All 3 sites must appear in some order
     indexes = []
     for ln in progress:
         bracket_end = ln.index("/")
         idx = int(ln[1:bracket_end])
         indexes.append(idx)
-    assert sorted(indexes) == [1, 2, 3], f"Expected sites 1,2,3 in output, got: {indexes}"
+    assert sorted(indexes) == [1, 2, 3], (
+        f"Expected sites 1,2,3 in output, got: {indexes}"
+    )
 
 
 @step(r'the "Survivors:" block lists sites sorted by stable index')
@@ -484,20 +534,22 @@ def then_worker_copies_exist_during(m, params):
     assert "worker-" in stdout, f"Expected worker tokens in:\n{stdout}"
 
 
-@step(r'each worker copy is restored to the original after its mutant')
+@step(r"each worker copy is restored to the original after its mutant")
 def then_worker_copy_restored(m, params):
     # Verified by checking the original file is clean after the run
     from mutate4py._manifest import strip_manifest
+
     with open(ctx.src_path) as f:
         content = f.read()
     body = strip_manifest(content)
     assert ">=" not in body, f"Original file has mutant:\n{body}"
 
 
-@step(r'the original source file is never spliced with a mutant during the run')
+@step(r"the original source file is never spliced with a mutant during the run")
 def then_original_never_spliced(m, params):
     # Post-run: original should be clean
     from mutate4py._manifest import strip_manifest
+
     with open(ctx.src_path) as f:
         content = f.read()
     body = strip_manifest(content)
@@ -507,18 +559,24 @@ def then_original_never_spliced(m, params):
 @step(r'no per-worker "\.mutate4py\.bak" file is created')
 def then_no_per_worker_bak(m, params):
     # The .mutate4py.bak lives next to the original, not in worker dirs.
-    workers_dir = os.path.join(os.path.realpath(ctx.project_dir), ".mutate4py", "workers")
+    workers_dir = os.path.join(
+        os.path.realpath(ctx.project_dir), ".mutate4py", "workers"
+    )
     if os.path.exists(workers_dir):
         for root, dirs, files in os.walk(workers_dir):
             for f in files:
-                assert not f.endswith(".bak"), f"Found .bak in worker dir: {os.path.join(root, f)}"
+                assert not f.endswith(".bak"), (
+                    f"Found .bak in worker dir: {os.path.join(root, f)}"
+                )
 
 
-@step(r'the run completes successfully')
+@step(r"the run completes successfully")
 def then_run_completes_successfully(m, params):
     stdout = ctx.cli_result.stdout
     stderr = ctx.cli_result.stderr
-    assert ctx.cli_result.returncode == 0, f"Run failed unexpectedly: {stdout}\n{stderr}"
+    assert ctx.cli_result.returncode == 0, (
+        f"Run failed unexpectedly: {stdout}\n{stderr}"
+    )
 
 
 @step(r'a worker run root existed under "\.mutate4py/workers/" during the run')
@@ -531,13 +589,19 @@ def then_worker_root_existed(m, params):
 
 @step(r'no worker run root remains under "\.mutate4py/workers/" after the run')
 def then_worker_root_cleaned_up(m, params):
-    workers_dir = os.path.join(os.path.realpath(ctx.project_dir), ".mutate4py", "workers")
+    workers_dir = os.path.join(
+        os.path.realpath(ctx.project_dir), ".mutate4py", "workers"
+    )
     if os.path.exists(workers_dir):
-        remaining = [e for e in os.listdir(workers_dir) if os.path.isdir(os.path.join(workers_dir, e))]
+        remaining = [
+            e
+            for e in os.listdir(workers_dir)
+            if os.path.isdir(os.path.join(workers_dir, e))
+        ]
         assert remaining == [], f"Worker run root dirs still exist: {remaining}"
 
 
-@step(r'the command exits with a non-zero status')
+@step(r"the command exits with a non-zero status")
 def then_nonzero_exit(m, params):
     assert ctx.cli_result.returncode != 0, (
         f"Expected non-zero exit, got {ctx.cli_result.returncode}. stdout:\n{ctx.cli_result.stdout}"
@@ -560,13 +624,16 @@ def then_no_mutation_report(m, params):
 
 @step(r'no worker root is created under "\.mutate4py/workers/"')
 def then_no_worker_root(m, params):
-    workers_dir = os.path.join(os.path.realpath(ctx.project_dir), ".mutate4py", "workers")
+    workers_dir = os.path.join(
+        os.path.realpath(ctx.project_dir), ".mutate4py", "workers"
+    )
     assert not os.path.exists(workers_dir), f"Worker dir was created: {workers_dir}"
 
 
-@step(r'after the run the original source has no mutant spliced in')
+@step(r"after the run the original source has no mutant spliced in")
 def then_original_no_mutant(m, params):
     from mutate4py._manifest import strip_manifest
+
     with open(ctx.src_path) as f:
         content = f.read()
     body = strip_manifest(content)

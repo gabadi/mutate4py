@@ -55,6 +55,7 @@ ctx = Context()
 
 # ── Background ────────────────────────────────────────────────────────────────
 
+
 @step(r'a Python source file with mutation sites on lines "([^"]*)"')
 def given_source_with_sites(m, params):
     lines_str = step_param(m, params, "lines")
@@ -74,10 +75,13 @@ def given_source_with_sites(m, params):
 
 # ── Given steps ───────────────────────────────────────────────────────────────
 
+
 @step(r'an LCOV file covering lines "([^"]*)" for that source')
 def given_lcov_covering_lines(m, params):
     d = ctx.ensure_tmpdir()
-    covered = {int(n.strip()) for n in step_param(m, params, "covered").split(",") if n.strip()}
+    covered = {
+        int(n.strip()) for n in step_param(m, params, "covered").split(",") if n.strip()
+    }
     with open(os.path.join(d, "cov.info"), "w") as f:
         f.write(make_lcov(ctx.source_path, covered))
 
@@ -100,7 +104,11 @@ def given_lcov_only_brda(m, params):
 def given_lcov_sf_path(m, params):
     sf_key = step_param(m, params, "sfPath")
     d = ctx.ensure_tmpdir()
-    sf = resolve_sf_path(sf_key, ctx.source_path) if sf_key != "unrelated-file" else "/some/unrelated/other.py"
+    sf = (
+        resolve_sf_path(sf_key, ctx.source_path)
+        if sf_key != "unrelated-file"
+        else "/some/unrelated/other.py"
+    )
     with open(os.path.join(d, "cov.info"), "w") as f:
         f.write(make_lcov_single_da(sf, 5))
 
@@ -109,15 +117,24 @@ def given_lcov_sf_path(m, params):
 def given_cov_cmd_covering_line5(m, params):
     d = ctx.ensure_tmpdir()
     script_path = os.path.join(d, "run_cov.sh")
-    write_counter_script(script_path, os.path.join(d, "cov_runs.log"), os.path.join(d, "coverage.lcov"), make_lcov_single_da(ctx.source_path, 5))
+    write_counter_script(
+        script_path,
+        os.path.join(d, "cov_runs.log"),
+        os.path.join(d, "coverage.lcov"),
+        make_lcov_single_da(ctx.source_path, 5),
+    )
     ctx.cov_script_path = script_path
     ctx.cov_cmd_str = script_path
 
 
-@step(r'an LCOV file at the default path "coverage.lcov" covering lines "([^"]*)" for that source')
+@step(
+    r'an LCOV file at the default path "coverage.lcov" covering lines "([^"]*)" for that source'
+)
 def given_default_lcov(m, params):
     d = ctx.ensure_tmpdir()
-    covered = {int(n.strip()) for n in step_param(m, params, "lines").split(",") if n.strip()}
+    covered = {
+        int(n.strip()) for n in step_param(m, params, "lines").split(",") if n.strip()
+    }
     with open(os.path.join(d, "coverage.lcov"), "w") as f:
         f.write(make_lcov(ctx.source_path, covered))
 
@@ -132,9 +149,11 @@ def given_no_lcov_at(m, params):
 
 # ── When steps ────────────────────────────────────────────────────────────────
 
+
 @step(r'I run mutate4py scanning with coverage "([^"]+)"')
 def when_scan_with_coverage(m, params):
     import shlex
+
     d = ctx.ensure_tmpdir()
     flags_str = step_param(m, params, "flags")
     flags_str = substitute_cmd_placeholders(flags_str, d, ctx.cov_cmd_str)
@@ -143,6 +162,7 @@ def when_scan_with_coverage(m, params):
 
 
 # ── Then steps ────────────────────────────────────────────────────────────────
+
 
 @step(r'the output line "([^"]+)" is printed')
 def then_output_line(m, params):

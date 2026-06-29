@@ -25,8 +25,8 @@ After manually editing a source file to simulate a mutant for debugging, restore
 ## Regenerate Acceptance Entrypoints After Step Handler Changes
 After modifying any acceptance step handler file (`*_steps.py`), regenerate the acceptance entrypoints via `gherkin-parser` + `generate_acceptance.py` BEFORE running `gherkin-mutator`. Stale generated entrypoints cause all 19+ mutations to error.
 
-## gherkin-mutator --workers Concurrency Constraint
-`gherkin-mutator --workers N` requires a runner-worker safe for concurrent stdin/stdout access. The current `runner_adapter.py` is a single-process server — concurrent requests corrupt its JSON protocol. Always use `--workers 1` (the default). Do not increase workers unless the runner_adapter is redesigned for concurrency.
+## gherkin-mutator --workers
+`runner_adapter.py` is concurrent (ThreadPoolExecutor, default 4 workers via `RUNNER_WORKERS` env var). Use `--workers 4` with gherkin-mutator. For all features in parallel, use `acceptance/run_gherkin_mutation.sh`.
 
 ## Equivalent Mutant Categories (Python)
 See `.agents/references/equivalent-mutants.md` for recognized equivalent mutant patterns that do not need test coverage.

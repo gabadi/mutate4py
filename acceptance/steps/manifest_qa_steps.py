@@ -1,4 +1,5 @@
 """Step handlers for features/manifest_qa.feature (end-to-end CLI tests)."""
+
 import os
 import shutil
 import sys
@@ -17,7 +18,7 @@ class Ctx:
     def __init__(self):
         self.result = None
         self.tmpdir = None
-        self.work_path = None   # path to the writable copy
+        self.work_path = None  # path to the writable copy
         self.recorded_bytes = None
         self.fixture_name = None
 
@@ -37,6 +38,7 @@ ctx = Ctx()
 
 # ── Background ────────────────────────────────────────────────────────────────
 
+
 @step(r"the mutate4py command-line tool is installed")
 def given_cli_installed(m, params):
     run_mutate4py("--help")
@@ -48,6 +50,7 @@ def given_writable_copy(m, params):
 
 
 # ── Given steps ───────────────────────────────────────────────────────────────
+
 
 @step(r'a fixture copy "([^"]+)" with no embedded manifest')
 def given_no_manifest(m, params):
@@ -95,7 +98,8 @@ def given_edit_operator(m, params):
     else:
         # Generic: find first arithmetic operator on a return line and flip it
         import re
-        text = re.sub(r'(return\s+\w+\s*)\+(\s*\w+)', r'\1-\2', text, count=1)
+
+        text = re.sub(r"(return\s+\w+\s*)\+(\s*\w+)", r"\1-\2", text, count=1)
     open(ctx.work_path, "w").write(text)
 
 
@@ -128,6 +132,7 @@ def given_no_file(m, params):
 
 # ── When steps ────────────────────────────────────────────────────────────────
 
+
 @step(r'the command "mutate4py ([^ ]+) --update-manifest" is run')
 def when_update_manifest(m, params):
     raw_path = params.get("path") or m.group(1)
@@ -142,6 +147,7 @@ def when_update_manifest(m, params):
 
 
 # ── Then steps ────────────────────────────────────────────────────────────────
+
 
 @step(r"the command exits successfully")
 def then_exits_ok(m, params):
@@ -176,7 +182,11 @@ def then_output_line(m, params):
 def then_file_contains_line(m, params):
     filename = params.get("filename") or m.group(1)
     marker = params.get("marker") or m.group(2)
-    path = ctx.work_path if ctx.work_path and os.path.basename(ctx.work_path) == filename else filename
+    path = (
+        ctx.work_path
+        if ctx.work_path and os.path.basename(ctx.work_path) == filename
+        else filename
+    )
     text = open(path).read()
     assert marker in text, f"expected {marker!r} in file {path!r}"
 
@@ -184,7 +194,11 @@ def then_file_contains_line(m, params):
 @step(r'the file "([^"]+)" on disk matches the recorded bytes exactly')
 def then_bytes_match(m, params):
     filename = params.get("filename") or m.group(1)
-    path = ctx.work_path if ctx.work_path and os.path.basename(ctx.work_path) == filename else filename
+    path = (
+        ctx.work_path
+        if ctx.work_path and os.path.basename(ctx.work_path) == filename
+        else filename
+    )
     current = open(path, "rb").read()
     assert current == ctx.recorded_bytes, (
         f"file changed: recorded {len(ctx.recorded_bytes)} bytes, "
@@ -196,7 +210,11 @@ def then_bytes_match(m, params):
 def then_file_one_occurrence(m, params):
     filename = params.get("filename") or m.group(1)
     marker = params.get("marker") or m.group(2)
-    path = ctx.work_path if ctx.work_path and os.path.basename(ctx.work_path) == filename else filename
+    path = (
+        ctx.work_path
+        if ctx.work_path and os.path.basename(ctx.work_path) == filename
+        else filename
+    )
     text = open(path).read()
     count = text.count(marker)
     assert count == 1, f"expected exactly one {marker!r} in {path!r}, found {count}"
@@ -219,7 +237,11 @@ def then_no_file_created(m, params):
 def then_file_exactly_one(m, params):
     filename = params.get("filename") or m.group(1)
     marker = params.get("marker") or m.group(2)
-    path = ctx.work_path if ctx.work_path and os.path.basename(ctx.work_path) == filename else filename
+    path = (
+        ctx.work_path
+        if ctx.work_path and os.path.basename(ctx.work_path) == filename
+        else filename
+    )
     text = open(path).read()
     count = text.count(marker)
     assert count == 1, f"expected exactly one {marker!r} in {path!r}, found {count}"

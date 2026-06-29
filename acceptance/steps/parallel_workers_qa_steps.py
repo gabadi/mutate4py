@@ -54,6 +54,7 @@ def _write_script(path: str, content: str) -> None:
 
 # ── Context ───────────────────────────────────────────────────────────────────
 
+
 class QACtx:
     def __init__(self):
         self.tmpdir: str | None = None
@@ -73,6 +74,7 @@ def _reset():
     os.environ.pop("_MUTATE4PY_TEST_WORKER_WRITE_FAIL", None)
     import tempfile
     import textwrap as _tw
+
     d = tempfile.mkdtemp()
     # Write minimal pyproject.toml so `uv sync` works in worker copies
     pyproject = _tw.dedent("""\
@@ -109,7 +111,9 @@ def _run_qa_cmd(cmd_str: str) -> subprocess.CompletedProcess:
     spec §5 rejects 0 as non-positive; the QA feature uses 0 to mean serial.
     """
     parts = cmd_str.split()
-    assert parts[0] == "mutate4py", f"Expected command to start with 'mutate4py', got: {parts[0]}"
+    assert parts[0] == "mutate4py", (
+        f"Expected command to start with 'mutate4py', got: {parts[0]}"
+    )
     args = []
     d = _tmpdir()
     skip_next = False
@@ -146,12 +150,15 @@ def _run_qa_cmd(cmd_str: str) -> subprocess.CompletedProcess:
 
 # ── Background steps ──────────────────────────────────────────────────────────
 
+
 @step(r"a temp working directory the QA agent owns and tears down")
 def given_tmpdir(m, params):
     _reset()
 
 
-@step(r'a Python source fixture "calc\.py" with covered mutation sites on lines "([^"]*)"')
+@step(
+    r'a Python source fixture "calc\.py" with covered mutation sites on lines "([^"]*)"'
+)
 def given_calc_fixture(m, params):
     lines_str = m.group(1)
     d = _tmpdir()
@@ -160,7 +167,9 @@ def given_calc_fixture(m, params):
         f.write(CALC_PY)
 
 
-@step(r'a hand-written LCOV "([^"]*)" with SF matching "calc\.py" and DA hits on lines "([^"]*)"')
+@step(
+    r'a hand-written LCOV "([^"]*)" with SF matching "calc\.py" and DA hits on lines "([^"]*)"'
+)
 def given_lcov_fixture(m, params):
     d = _tmpdir()
     covered = COVERED_LINES
@@ -179,6 +188,7 @@ def given_fake_test_cmd_placeholder(m, params):
 
 # ── Given steps ───────────────────────────────────────────────────────────────
 
+
 @step(r'"runtests\.sh" exits nonzero for every mutant while the baseline passes')
 def given_all_killed_baseline_passes(m, params):
     d = _tmpdir()
@@ -190,7 +200,7 @@ def given_all_killed_baseline_passes(m, params):
         "#!/bin/sh\n"
         f"COUNT=$(cat '{counter}' 2>/dev/null || echo 0)\n"
         f"echo $((COUNT + 1)) > '{counter}'\n"
-        "if [ \"$COUNT\" -eq 0 ]; then exit 0; fi\n"
+        'if [ "$COUNT" -eq 0 ]; then exit 0; fi\n'
         "exit 1\n"
     )
     _write_script(ctx.test_script, script)
@@ -208,7 +218,7 @@ def given_single_outcome_baseline_passes(m, params):
             "#!/bin/sh\n"
             f"COUNT=$(cat '{counter}' 2>/dev/null || echo 0)\n"
             f"echo $((COUNT + 1)) > '{counter}'\n"
-            "if [ \"$COUNT\" -eq 0 ]; then exit 0; fi\n"
+            'if [ "$COUNT" -eq 0 ]; then exit 0; fi\n'
             "exit 1\n"
         )
     elif outcome == "exit zero":
@@ -218,7 +228,7 @@ def given_single_outcome_baseline_passes(m, params):
             "#!/bin/sh\n"
             f"COUNT=$(cat '{counter}' 2>/dev/null || echo 0)\n"
             f"echo $((COUNT + 1)) > '{counter}'\n"
-            "if [ \"$COUNT\" -eq 0 ]; then exit 0; fi\n"
+            'if [ "$COUNT" -eq 0 ]; then exit 0; fi\n'
             "sleep 30\n"
         )
     else:
@@ -226,7 +236,9 @@ def given_single_outcome_baseline_passes(m, params):
     _write_script(ctx.test_script, script)
 
 
-@step(r'"runtests\.sh" makes "(\d+)" of the 4 mutants exit zero and the rest exit nonzero')
+@step(
+    r'"runtests\.sh" makes "(\d+)" of the 4 mutants exit zero and the rest exit nonzero'
+)
 def given_n_survivors_4_sites(m, params):
     n = int(m.group(1))
     d = _tmpdir()
@@ -275,7 +287,9 @@ def given_records_cwd_and_kills(m, params):
     _write_script(ctx.test_script, script)
 
 
-@step(r'"runtests\.sh" checks for a "\.mutate4py/workers/" tree on its first call and exits nonzero')
+@step(
+    r'"runtests\.sh" checks for a "\.mutate4py/workers/" tree on its first call and exits nonzero'
+)
 def given_checks_worker_tree_on_first_mutant(m, params):
     d = _tmpdir()
     sentinel = os.path.join(d, "_worker_tree_observed.txt")
@@ -291,7 +305,7 @@ def given_checks_worker_tree_on_first_mutant(m, params):
         # First mutant call: check if PWD itself is under .mutate4py/workers
         f"if [ ! -f '{first_mutant_done}' ]; then\n"
         f"  touch '{first_mutant_done}'\n"
-        f"  case \"$PWD\" in\n"
+        f'  case "$PWD" in\n'
         f"    */.mutate4py/workers/*)\n"
         f"      echo observed > '{sentinel}'\n"
         f"      ;;\n"
@@ -323,18 +337,19 @@ def given_all_killed_no_qualifier(m, params):
         "#!/bin/sh\n"
         f"COUNT=$(cat '{counter}' 2>/dev/null || echo 0)\n"
         f"echo $((COUNT + 1)) > '{counter}'\n"
-        "if [ \"$COUNT\" -eq 0 ]; then exit 0; fi\n"
+        'if [ "$COUNT" -eq 0 ]; then exit 0; fi\n'
         "exit 1\n"
     )
     _write_script(ctx.test_script, script)
 
 
-@step(r'one worker copy is made unwritable so its restore fails')
+@step(r"one worker copy is made unwritable so its restore fails")
 def given_one_worker_unwritable(m, params):
     ctx.inject_write_fail = True
 
 
 # ── When steps ────────────────────────────────────────────────────────────────
+
 
 @step(r'the QA agent runs "([^"]*)"')
 def when_qa_runs(m, params):
@@ -346,6 +361,7 @@ def when_qa_runs(m, params):
 @step(r'the QA agent runs "([^"]*)" twice')
 def when_qa_runs_twice(m, params):
     import shutil
+
     cmd_str = m.group(1)
     r1 = _run_qa_cmd(cmd_str)
     d = _tmpdir()
@@ -371,6 +387,7 @@ def when_qa_runs_twice(m, params):
 
 
 # ── Then steps ────────────────────────────────────────────────────────────────
+
 
 @step(r'stdout "([^"]*)" contain "([^"]*)"')
 def then_stdout_conditional_contains(m, params):
@@ -400,8 +417,11 @@ def then_exit_zero(m, params):
 def then_per_mutant_worker_token(m, params):
     containsToken = m.group(1)
     import re as _re
+
     for result in ctx.cli_results:
-        progress = [ln for ln in result.stdout.splitlines() if _re.match(r"\[\d+/\d+\]", ln)]
+        progress = [
+            ln for ln in result.stdout.splitlines() if _re.match(r"\[\d+/\d+\]", ln)
+        ]
         assert progress, f"No progress lines in stdout:\n{result.stdout}"
         if containsToken == "does":
             for line in progress:
@@ -424,13 +444,18 @@ def then_stdout_contains(m, params):
         )
 
 
-@step(r'stdout contains a per-mutant line matching "worker-<k> ([^"]*)" for that mutant')
+@step(
+    r'stdout contains a per-mutant line matching "worker-<k> ([^"]*)" for that mutant'
+)
 def then_per_mutant_line_status(m, params):
     # m.group(1) captures e.g. "killed line " — use it directly as the token after worker-k
     token = m.group(1)
     import re as _re
+
     for result in ctx.cli_results:
-        progress = [ln for ln in result.stdout.splitlines() if _re.match(r"\[\d+/\d+\]", ln)]
+        progress = [
+            ln for ln in result.stdout.splitlines() if _re.match(r"\[\d+/\d+\]", ln)
+        ]
         assert progress, f"No progress lines in stdout:\n{result.stdout}"
         pattern = rf"\[\d+/\d+\] worker-\d+ {_re.escape(token)}"
         assert any(_re.search(pattern, ln) for ln in progress), (
@@ -444,13 +469,14 @@ def then_both_runs_print(m, params):
     text = m.group(1)
     for i, result in enumerate(ctx.cli_results):
         assert text in result.stdout, (
-            f"Run {i+1}: Expected '{text}' in stdout:\n{result.stdout}"
+            f"Run {i + 1}: Expected '{text}' in stdout:\n{result.stdout}"
         )
 
 
 @step(r'both runs list the same site under "Survivors:"')
 def then_both_runs_same_survivors(m, params):
     import re as _re
+
     def _extract_survivors_block(stdout: str) -> str:
         lines = stdout.splitlines()
         in_block = False
@@ -468,9 +494,7 @@ def then_both_runs_same_survivors(m, params):
     assert len(ctx.cli_results) == 2
     s1 = _extract_survivors_block(ctx.cli_results[0].stdout)
     s2 = _extract_survivors_block(ctx.cli_results[1].stdout)
-    assert s1 == s2, (
-        f"Survivors differed between runs:\nRun1: {s1}\nRun2: {s2}"
-    )
+    assert s1 == s2, f"Survivors differed between runs:\nRun1: {s1}\nRun2: {s2}"
     assert s1, f"No survivors block found in run 1:\n{ctx.cli_results[0].stdout}"
 
 
@@ -491,7 +515,7 @@ def then_wd_under_workers(m, params):
         )
 
 
-@step(r'none of the recorded working directories is the original working directory')
+@step(r"none of the recorded working directories is the original working directory")
 def then_no_wd_is_original(m, params):
     d = _tmpdir()
     sentinels_dir = ctx.sentinel_dir
@@ -503,9 +527,7 @@ def then_no_wd_is_original(m, params):
             wd = f.read().strip()
         real_wd = os.path.realpath(wd)
         real_d = os.path.realpath(d)
-        assert real_wd != real_d, (
-            f"Sentinel {fname}: worker ran in original dir {wd!r}"
-        )
+        assert real_wd != real_d, f"Sentinel {fname}: worker ran in original dir {wd!r}"
 
 
 @step(r'"runtests\.sh" observed a "\.mutate4py/workers/" tree during the run')
@@ -517,9 +539,7 @@ def then_worker_tree_observed(m, params):
     )
     with open(sentinel) as f:
         content = f.read().strip()
-    assert content == "observed", (
-        f"Sentinel content unexpected: {content!r}"
-    )
+    assert content == "observed", f"Sentinel content unexpected: {content!r}"
 
 
 @step(r'no "\.mutate4py/workers/" tree exists in the working directory after the run')
@@ -529,7 +549,11 @@ def then_no_worker_tree_after(m, params):
     if not os.path.exists(workers_dir):
         return
     # The workers/ dir may exist but must have no run-* subdirs remaining
-    run_dirs = [e for e in os.listdir(workers_dir) if os.path.isdir(os.path.join(workers_dir, e))]
+    run_dirs = [
+        e
+        for e in os.listdir(workers_dir)
+        if os.path.isdir(os.path.join(workers_dir, e))
+    ]
     assert run_dirs == [], (
         f"Worker run directories still exist under {workers_dir}: {run_dirs}"
     )
@@ -547,7 +571,9 @@ def then_body_unchanged(m, params):
     )
 
 
-@step(r'"calc\.py" ends with a "mutate4py-manifest-begin" / "mutate4py-manifest-end" footer')
+@step(
+    r'"calc\.py" ends with a "mutate4py-manifest-begin" / "mutate4py-manifest-end" footer'
+)
 def then_manifest_footer(m, params):
     with open(ctx.calc_path) as f:
         content = f.read()
@@ -563,10 +589,14 @@ def then_manifest_footer(m, params):
 def then_no_bak(m, params):
     bak_path = ctx.calc_path + ".bak" if ctx.calc_path else None
     if bak_path:
-        assert not os.path.exists(bak_path), f".bak file unexpectedly present: {bak_path}"
+        assert not os.path.exists(bak_path), (
+            f".bak file unexpectedly present: {bak_path}"
+        )
     d = _tmpdir()
     for fname in os.listdir(d):
-        assert not fname.endswith(".bak"), f"Unexpected .bak file: {os.path.join(d, fname)}"
+        assert not fname.endswith(".bak"), (
+            f"Unexpected .bak file: {os.path.join(d, fname)}"
+        )
 
 
 @step(r"the exit status is non-zero")

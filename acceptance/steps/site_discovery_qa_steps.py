@@ -1,4 +1,5 @@
 """Step handlers for features/site-discovery_qa.feature (end-to-end CLI tests)."""
+
 import os
 import sys
 
@@ -30,6 +31,7 @@ ctx = QACtx()
 
 # Background steps
 
+
 @step(r"the mutate4py command-line tool is installed")
 def given_cli_installed(m, params):
     run_mutate4py("--help")
@@ -42,6 +44,7 @@ def given_fixture_header_info(m, params):
 
 
 # Scenario steps
+
 
 @step(r'a fixture "([^"]+)" with expected total (\d+)')
 def given_fixture_with_total(m, params):
@@ -71,7 +74,9 @@ def then_exits_ok(m, params):
 @step(r'the output line "(.+)" is printed')
 def then_output_line_printed(m, params):
     raw = params.get("output_line") if "output_line" in params else m.group(1)
-    line = raw.replace("<fixture>", os.path.basename(ctx.fixture_path) if ctx.fixture_path else "")
+    line = raw.replace(
+        "<fixture>", os.path.basename(ctx.fixture_path) if ctx.fixture_path else ""
+    )
     line = line.replace("<total>", str(ctx.total))
     # The fixture path in the header line is the full path passed to CLI
     if "Mutation scan:" in line:

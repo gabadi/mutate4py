@@ -84,6 +84,7 @@ ctx = Context()
 
 # ── Background ────────────────────────────────────────────────────────────────
 
+
 @step(r"an existing Python source file with discovered mutation sites")
 def given_source_with_sites(m, params):
     ctx.reset()
@@ -93,6 +94,7 @@ def given_source_with_sites(m, params):
 
 # ── When steps ────────────────────────────────────────────────────────────────
 
+
 @step(r'I run mutate4py with the flag "(.*)"')
 def when_run_with_flag(m, params):
     args = single_flag_args(m.group(1), ctx.ensure_src(), ctx.ensure_lcov())
@@ -101,12 +103,16 @@ def when_run_with_flag(m, params):
 
 @step(r'I run mutate4py with a trailing "(.*)" and no value')
 def when_run_with_trailing_flag(m, params):
-    ctx.cli_result = _run_mutate4py(ctx.ensure_src(), m.group(1).strip(), cwd=ctx.ensure_tmpdir())
+    ctx.cli_result = _run_mutate4py(
+        ctx.ensure_src(), m.group(1).strip(), cwd=ctx.ensure_tmpdir()
+    )
 
 
 @step(r'I run mutate4py with "(.*)" and "(.*)"')
 def when_run_with_two_flags(m, params):
-    args = two_flag_args(m.group(1).strip(), m.group(2).strip(), ctx.ensure_src(), ctx.ensure_lcov())
+    args = two_flag_args(
+        m.group(1).strip(), m.group(2).strip(), ctx.ensure_src(), ctx.ensure_lcov()
+    )
     ctx.cli_result = _run_mutate4py(*args, cwd=ctx.ensure_tmpdir())
 
 
@@ -118,17 +124,22 @@ def when_run_described(m, params):
 
 @step(r'I run mutate4py with the accepted flags "(.*)"')
 def when_run_with_accepted_flags(m, params):
-    args, _target, workers = accepted_flags_args(m.group(1).strip(), ctx.ensure_src(), ctx.ensure_lcov())
+    args, _target, workers = accepted_flags_args(
+        m.group(1).strip(), ctx.ensure_src(), ctx.ensure_lcov()
+    )
     ctx.dispatch_max_workers = workers
     ctx.cli_result = _run_mutate4py(*args, cwd=ctx.ensure_tmpdir())
 
 
 # ── Then steps ────────────────────────────────────────────────────────────────
 
+
 @step(r'the option "(.*)" is set to "(.*)"')
 def then_option_set(m, params):
     r = require_result(ctx.cli_result)
-    assert_option_accepted(m.group(1).strip(), m.group(2).strip(), r.returncode, r.stderr)
+    assert_option_accepted(
+        m.group(1).strip(), m.group(2).strip(), r.returncode, r.stderr
+    )
 
 
 @step(r"the invocation is accepted")
@@ -178,4 +189,6 @@ def then_dispatched_to(m, params):
 @step(r'the dispatcher receives a worker count of "(.*)"')
 def then_dispatcher_receives_workers(m, params):
     r = require_result(ctx.cli_result)
-    assert_worker_count(ctx.dispatch_max_workers, m.group(1).strip(), r.returncode, r.stderr)
+    assert_worker_count(
+        ctx.dispatch_max_workers, m.group(1).strip(), r.returncode, r.stderr
+    )

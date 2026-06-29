@@ -1123,6 +1123,7 @@ def _make_args(**kwargs):
         mutate_all=False,
         max_workers=None,
         timeout_factor=10,
+        min_timeout=1.0,
         test_command="pytest",
     )
     defaults.update(kwargs)

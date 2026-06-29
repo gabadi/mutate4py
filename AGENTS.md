@@ -14,13 +14,13 @@ Navigation and universal invariants for all agents in this project.
 
 ## Tool CLI Signatures
 - `gherkin-parser`: requires two args: `gherkin-parser <feature-file> <json-output>`; bare `gherkin-parser <file>` fails with usage error; call WITHOUT `rtk` prefix — rtk breaks it
-- `gherkin-mutator`: requires `--feature <feature-file>` and `--generated-dir <dir>`; no `--help` flag; defaults to `features/a-feature.feature`
+- `gherkin-mutator`: requires `--feature <feature-file>`, `--generated-dir <dir>`, and `--runner-worker <path>`; no `--help` flag; use `--workers 4` (runner_adapter.py is now concurrent)
 - `generate_acceptance.py`: pass just `module_name` (e.g. `run_loop_steps`), NOT `acceptance.steps.module_name` — the generator adds the prefix automatically
 - `mutate4py --scan`: accepts exactly ONE file argument; loop over files separately for multi-file scans
 
 ## Acceptance Test Safety
 - Manifest QA fixtures (`acceptance/fixtures/plain.py`, `acceptance/fixtures/stale.py`) are committed inputs and MUST NOT be overwritten; all manifest QA steps must use a writable-copy pattern (see `acceptance/steps/manifest_qa_steps.py:setup_copy()`)
-- `runner_adapter.py` must be executable (`chmod +x`) before gherkin-mutator can use it; tool does not emit a clear permission error
+- `runner_adapter.py` must be executable (`chmod +x`) before gherkin-mutator can use it; tool does not emit a clear permission error; supports `RUNNER_WORKERS` env var (default 4) for concurrent job execution
 - When modifying source with an embedded manifest, always strip manifest first, modify body, then re-embed; never append after the manifest footer — `strip_manifest` removes everything from begin-marker to EOF
 
 ## Module Dependency Invariants

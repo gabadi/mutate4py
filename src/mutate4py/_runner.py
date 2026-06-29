@@ -135,7 +135,7 @@ def _run_mutation_loop(
     selected_sites: list[Site],
     clean_source: str,
     path: str,
-    source_dir: str,
+    cwd: str,
     test_command: str,
     mutant_timeout: float,
 ) -> tuple[dict, list[Site]]:
@@ -146,7 +146,7 @@ def _run_mutation_loop(
         mutated = apply_mutant(clean_source, site)
         with open(path, "w") as f:
             f.write(mutated)
-        status, _ = _run_command(test_command, source_dir, mutant_timeout)
+        status, _ = _run_command(test_command, cwd, mutant_timeout)
         counts[status] += 1
         if status == "survived":
             survivors.append(site)
@@ -233,7 +233,6 @@ def _execute_mutations(
     selected_sites: list[Site],
     clean_source: str,
     path: str,
-    source_dir: str,
     cwd: str,
     test_command: str,
     mutant_timeout: float,
@@ -260,7 +259,7 @@ def _execute_mutations(
             return 1
     else:
         counts, survivors = _run_mutation_loop(
-            selected_sites, clean_source, path, source_dir, test_command, mutant_timeout
+            selected_sites, clean_source, path, cwd, test_command, mutant_timeout
         )
         _finalize_source(path, clean_source, tested_at, bak_path)
     _print_mutation_report(counts, survivors, uncovered_count)
@@ -460,6 +459,7 @@ def run_mutations(
     mutate_all: bool,
     warning_threshold: int,
     max_workers: int = 0,
+    min_timeout: float = 1.0,
     cwd: str,
 ) -> int:
     """Execute the mutation run loop. Returns exit code (0 or 1)."""
@@ -511,7 +511,7 @@ def run_mutations(
 
     _print_workers_header(max_workers, use_parallel, n_selected)
 
-    baseline_duration, baseline_error = _run_baseline(test_command, source_dir)
+    baseline_duration, baseline_error = _run_baseline(test_command, cwd)
     if baseline_error is not None:
         print(f"baseline failed: {baseline_error}")
         return 1
@@ -519,13 +519,12 @@ def run_mutations(
     with open(bak_path, "w") as f:
         f.write(clean_source)
 
-    mutant_timeout = max(1.0, timeout_factor * baseline_duration)
+    mutant_timeout = max(min_timeout, timeout_factor * baseline_duration)
 
     return _execute_mutations(
         selected_sites=selected_sites,
         clean_source=clean_source,
         path=path,
-        source_dir=source_dir,
         cwd=cwd,
         test_command=test_command,
         mutant_timeout=mutant_timeout,
@@ -537,5 +536,5 @@ def run_mutations(
     )
 
 # mutate4py-manifest-begin
-# {"version":1,"tested_at":"2026-06-29T05:03:13Z","module_hash":"16f55e5c505832e494221ecf9b81cffe053f1e6ccbc289b87693ea7e5cb95d91","functions":[{"id":"func/_baseline_reason","name":"_baseline_reason","line":31,"end_line":35,"hash":"6037bd527abaf8a495048a7a504e32c167fda984b2204f6f777d58bb0bc94c61"},{"id":"func/_run_baseline","name":"_run_baseline","line":38,"end_line":45,"hash":"3df5ccb0f2bb2730f5c5c473dee47710112d9670db7df8685a33ec1bc87c3d6e"},{"id":"func/_filter_by_lines","name":"_filter_by_lines","line":48,"end_line":49,"hash":"1e7c8b1b8930f0fc810c32e6cf5844f1d0f054da3a90b748c972c9db0f5cad1e"},{"id":"func/_filter_by_fn","name":"_filter_by_fn","line":52,"end_line":53,"hash":"7bde9d2b50f085b8aec9909193a5391e7967834e9797b3cf6069210bee7df73c"},{"id":"func/_select_sites","name":"_select_sites","line":56,"end_line":69,"hash":"a4cfca336899bc823f71712ead79d24bbfd99f5e8a487d88aa1865b6b51bd3fa"},{"id":"func/_print_uncovered_block","name":"_print_uncovered_block","line":72,"end_line":82,"hash":"64af8f5bf37b3fd3381b6d81e93670387bd64de4c897712faeb864afd9321127"},{"id":"func/_restore_from_backup","name":"_restore_from_backup","line":85,"end_line":95,"hash":"eac2a96184bf954d27a9b87a70232574967423aa03fd629a886f30ca9ffa916b"},{"id":"func/_compute_manifest_diff","name":"_compute_manifest_diff","line":98,"end_line":109,"hash":"85d7a8153b82877267da65bc0ab725fb87385e45407d06309fc83bbbf1f7034f"},{"id":"func/_print_run_header","name":"_print_run_header","line":112,"end_line":131,"hash":"3ee0e5c23c4147496ab8628aaa1b000b53672e6ba77d49c36437086cf6e51e35"},{"id":"func/_run_mutation_loop","name":"_run_mutation_loop","line":134,"end_line":157,"hash":"62ecc231df504d04aa91002e7ebfe5ba6be4b65cc7401d3253138dff9ce06127"},{"id":"func/_on_parallel_result","name":"_on_parallel_result","line":160,"end_line":170,"hash":"4f1c7c1086c1cdebaf9fb79f281ac1fdf96dbd37b1ad5fd4a0eb98fa470ebc86"},{"id":"func/_run_parallel_workers","name":"_run_parallel_workers","line":173,"end_line":200,"hash":"9ab09719131630f5b62f83b4c5356373433737eec8f4420cd78df51491c02fca"},{"id":"func/_print_mutation_report","name":"_print_mutation_report","line":203,"end_line":220,"hash":"e276b7d9ac64ac7b88a5951026631f3cb9a986395dea5a722bc0f295f9c4f3fa"},{"id":"func/_print_workers_header","name":"_print_workers_header","line":223,"end_line":228,"hash":"9fb25897b2527f7eb8cd253159ee387c6943b7af27873c5cb5273b78355cd27e"},{"id":"func/_execute_mutations","name":"_execute_mutations","line":231,"end_line":267,"hash":"cc4c92dcd1be4fc3893401e1f9fdd7bae690208a1f081bb820be596c29948bd2"},{"id":"func/_acquire_covered_lines","name":"_acquire_covered_lines","line":270,"end_line":292,"hash":"3f39ffb7e5332f5ef3fdc2b652c7c1c2cd9aebbcee201a3fc9702b46e2e294d7"},{"id":"func/_is_effective_since_last_run","name":"_is_effective_since_last_run","line":295,"end_line":303,"hash":"789b9710423097f9bf44371ea3d22d3300a1c723c306f059244c06899436696f"},{"id":"func/_should_run_parallel","name":"_should_run_parallel","line":306,"end_line":307,"hash":"15249ea2817e81a958e42069ced55937242a9097ca031e88d4843613b8cf330d"},{"id":"func/_print_uncovered_if_needed","name":"_print_uncovered_if_needed","line":310,"end_line":317,"hash":"e7d50ad1b3b6feaa64ff9ca52d187451d70910e4bc8191261d27ba2c149cd1f6"},{"id":"func/_finalize_source","name":"_finalize_source","line":320,"end_line":327,"hash":"8b6724a1dbc4f3b9c217d2f49e562e8da4156c1f63c15095cf81f6ea10d9248a"},{"id":"func/scan_report","name":"scan_report","line":330,"end_line":347,"hash":"a93f4b1530dfba54505143b85e4c075297dd27837402a4767874bf43ddd9f1fe"},{"id":"func/scan_report_with_coverage","name":"scan_report_with_coverage","line":350,"end_line":383,"hash":"8faf41b91bf5c704478273f814bc91a8dcff880deb1fefd000b7a13f752eb2b4"},{"id":"func/run_scan","name":"run_scan","line":386,"end_line":410,"hash":"0656659f7878296231be9b065258fee175bc982a7c368c61c9b1d0162c910254"},{"id":"func/update_manifest","name":"update_manifest","line":413,"end_line":428,"hash":"468c784118b34a7ec9f90bc3fe9f32f1e750845dc830d5df137f4f1bfc4cb9b9"},{"id":"func/check_manifest","name":"check_manifest","line":431,"end_line":446,"hash":"cb8a9eb29e549309b9f041bedbe0df5f3150058256a736c91d66c6f4e41f4843"},{"id":"func/run_mutations","name":"run_mutations","line":449,"end_line":537,"hash":"d2ae2deb8e1c656c374d2e59a60a3c73a689d466ce0a446f41fc85cd26c3beaf"}]}
+# {"version":1,"tested_at":"2026-06-29T06:28:32Z","module_hash":"e73347072ee04eb2821c8d64fd7faeec2c2a6c0fc184e1974363ba2ca5527e05","functions":[{"id":"func/_baseline_reason","name":"_baseline_reason","line":31,"end_line":35,"hash":"6037bd527abaf8a495048a7a504e32c167fda984b2204f6f777d58bb0bc94c61"},{"id":"func/_run_baseline","name":"_run_baseline","line":38,"end_line":45,"hash":"3df5ccb0f2bb2730f5c5c473dee47710112d9670db7df8685a33ec1bc87c3d6e"},{"id":"func/_filter_by_lines","name":"_filter_by_lines","line":48,"end_line":49,"hash":"1e7c8b1b8930f0fc810c32e6cf5844f1d0f054da3a90b748c972c9db0f5cad1e"},{"id":"func/_filter_by_fn","name":"_filter_by_fn","line":52,"end_line":53,"hash":"7bde9d2b50f085b8aec9909193a5391e7967834e9797b3cf6069210bee7df73c"},{"id":"func/_select_sites","name":"_select_sites","line":56,"end_line":69,"hash":"a4cfca336899bc823f71712ead79d24bbfd99f5e8a487d88aa1865b6b51bd3fa"},{"id":"func/_print_uncovered_block","name":"_print_uncovered_block","line":72,"end_line":82,"hash":"64af8f5bf37b3fd3381b6d81e93670387bd64de4c897712faeb864afd9321127"},{"id":"func/_restore_from_backup","name":"_restore_from_backup","line":85,"end_line":95,"hash":"eac2a96184bf954d27a9b87a70232574967423aa03fd629a886f30ca9ffa916b"},{"id":"func/_compute_manifest_diff","name":"_compute_manifest_diff","line":98,"end_line":109,"hash":"85d7a8153b82877267da65bc0ab725fb87385e45407d06309fc83bbbf1f7034f"},{"id":"func/_print_run_header","name":"_print_run_header","line":112,"end_line":131,"hash":"3ee0e5c23c4147496ab8628aaa1b000b53672e6ba77d49c36437086cf6e51e35"},{"id":"func/_run_mutation_loop","name":"_run_mutation_loop","line":134,"end_line":157,"hash":"ea846bdd5508e300827b4f2de543f3ce6349cc74abc6f5db326cd3fd8f4cd66d"},{"id":"func/_on_parallel_result","name":"_on_parallel_result","line":160,"end_line":170,"hash":"4f1c7c1086c1cdebaf9fb79f281ac1fdf96dbd37b1ad5fd4a0eb98fa470ebc86"},{"id":"func/_run_parallel_workers","name":"_run_parallel_workers","line":173,"end_line":200,"hash":"9ab09719131630f5b62f83b4c5356373433737eec8f4420cd78df51491c02fca"},{"id":"func/_print_mutation_report","name":"_print_mutation_report","line":203,"end_line":220,"hash":"e276b7d9ac64ac7b88a5951026631f3cb9a986395dea5a722bc0f295f9c4f3fa"},{"id":"func/_print_workers_header","name":"_print_workers_header","line":223,"end_line":228,"hash":"9fb25897b2527f7eb8cd253159ee387c6943b7af27873c5cb5273b78355cd27e"},{"id":"func/_execute_mutations","name":"_execute_mutations","line":231,"end_line":266,"hash":"41ddb6b00f232c2df2a94537de41fa4d32b163789a96e699d68ed9a1eab7e37c"},{"id":"func/_acquire_covered_lines","name":"_acquire_covered_lines","line":269,"end_line":291,"hash":"3f39ffb7e5332f5ef3fdc2b652c7c1c2cd9aebbcee201a3fc9702b46e2e294d7"},{"id":"func/_is_effective_since_last_run","name":"_is_effective_since_last_run","line":294,"end_line":302,"hash":"789b9710423097f9bf44371ea3d22d3300a1c723c306f059244c06899436696f"},{"id":"func/_should_run_parallel","name":"_should_run_parallel","line":305,"end_line":306,"hash":"15249ea2817e81a958e42069ced55937242a9097ca031e88d4843613b8cf330d"},{"id":"func/_print_uncovered_if_needed","name":"_print_uncovered_if_needed","line":309,"end_line":316,"hash":"e7d50ad1b3b6feaa64ff9ca52d187451d70910e4bc8191261d27ba2c149cd1f6"},{"id":"func/_finalize_source","name":"_finalize_source","line":319,"end_line":326,"hash":"8b6724a1dbc4f3b9c217d2f49e562e8da4156c1f63c15095cf81f6ea10d9248a"},{"id":"func/scan_report","name":"scan_report","line":329,"end_line":346,"hash":"a93f4b1530dfba54505143b85e4c075297dd27837402a4767874bf43ddd9f1fe"},{"id":"func/scan_report_with_coverage","name":"scan_report_with_coverage","line":349,"end_line":382,"hash":"8faf41b91bf5c704478273f814bc91a8dcff880deb1fefd000b7a13f752eb2b4"},{"id":"func/run_scan","name":"run_scan","line":385,"end_line":409,"hash":"0656659f7878296231be9b065258fee175bc982a7c368c61c9b1d0162c910254"},{"id":"func/update_manifest","name":"update_manifest","line":412,"end_line":427,"hash":"468c784118b34a7ec9f90bc3fe9f32f1e750845dc830d5df137f4f1bfc4cb9b9"},{"id":"func/check_manifest","name":"check_manifest","line":430,"end_line":445,"hash":"cb8a9eb29e549309b9f041bedbe0df5f3150058256a736c91d66c6f4e41f4843"},{"id":"func/run_mutations","name":"run_mutations","line":448,"end_line":536,"hash":"cdb04980984ae6084b2d3a597eeb204ce47bd1ee0f4da65e01fc6a457a2c7502"}]}
 # mutate4py-manifest-end

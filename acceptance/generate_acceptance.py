@@ -6,6 +6,7 @@ regenerating tests).
 
 Usage: python acceptance/generate_acceptance.py <parsed.json> <steps_module> <out_dir>
 """
+
 import hashlib
 import json
 import os
@@ -33,7 +34,9 @@ def generate(parsed: dict, steps_module: str, feature_stem: str, ir_path: str) -
         f"from acceptance.steps.{steps_module} import run_step",
         "",
         "# Load IR at runtime so mutated JSON can be supplied via APS_FEATURE_JSON",
-        "_ir_path = os.environ.get('APS_FEATURE_JSON') or " + repr(ir_path),
+        "_ir_path = os.environ.get('APS_FEATURE_JSON') or os.path.join(os.path.dirname(os.path.abspath(__file__)), "
+        + repr(ir_path)
+        + ")",
         "with open(_ir_path) as _f:",
         "    _ir = json.load(_f)",
         "_background = _ir.get('background', [])",
@@ -50,7 +53,9 @@ def generate(parsed: dict, steps_module: str, feature_stem: str, ir_path: str) -
             lines.append(f"def {fn_name}():")
             lines.append(f'    """Scenario: {name} — example {e_idx}"""')
             lines.append(f"    _s = _scenarios[{s_idx}]")
-            lines.append(f"    _ex = _s['examples'][{e_idx}] if _s.get('examples') else {{}}")
+            lines.append(
+                f"    _ex = _s['examples'][{e_idx}] if _s.get('examples') else {{}}"
+            )
             lines.append(f"    for _st in _background:")
             lines.append(f"        run_step(_st['keyword'], _st['text'], _ex)")
             lines.append(f"    for _st in _s['steps']:")
@@ -90,7 +95,9 @@ def _impl_hash(paths: list[str]) -> str:
 
 def main():
     if len(sys.argv) < 4:
-        print(f"usage: {sys.argv[0]} <parsed.json> <steps_module> <out_dir> [feature_path]")
+        print(
+            f"usage: {sys.argv[0]} <parsed.json> <steps_module> <out_dir> [feature_path]"
+        )
         sys.exit(1)
 
     parsed_path = sys.argv[1]
@@ -103,10 +110,17 @@ def main():
         parsed = json.load(f)
 
     feature_path = explicit_feature_path or parsed.get("feature_path", parsed_path)
-    feature_stem = os.path.basename(feature_path).replace(".feature", "") if explicit_feature_path else os.path.basename(parsed_path).replace("_parsed.json", "").replace(".json", "")
+    feature_stem = (
+        os.path.basename(feature_path).replace(".feature", "")
+        if explicit_feature_path
+        else os.path.basename(parsed_path)
+        .replace("_parsed.json", "")
+        .replace(".json", "")
+    )
     ir_path = os.path.abspath(parsed_path)
+    rel_ir_path = os.path.relpath(ir_path, os.path.abspath(out_dir))
 
-    code = generate(parsed, steps_module, feature_stem, ir_path)
+    code = generate(parsed, steps_module, feature_stem, rel_ir_path)
 
     os.makedirs(out_dir, exist_ok=True)
     out_path = os.path.join(out_dir, f"{feature_stem}_acceptance.py")
