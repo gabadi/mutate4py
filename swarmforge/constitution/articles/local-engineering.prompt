@@ -6,3 +6,6 @@
 
 ## Project Language
 - Project language: Python.
+- Mutation tool: `uv run mutate4py` (this repo is the tool — never install via uvx).
+- CRAP tool: `uv run crap4py` (git dev dep — never install via uvx).
+- DRY tool: download binary via `gh release download --repo gabadi/drywall`.
