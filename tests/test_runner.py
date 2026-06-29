@@ -627,6 +627,7 @@ def _make_multi_site_source(n_funcs: int) -> str:
 
 def _write_lcov_for_source(lcov_path: str, src_path: str, source: str) -> None:
     from mutate4py._discovery import discover_sites
+
     sites = discover_sites(source)
     _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
@@ -636,6 +637,7 @@ def _run_with_capture(tmp_path, src_path, src, *, max_workers, test_cmd="exit 0"
     _write_lcov_for_source(lcov_path, src_path, src)
     import io
     from contextlib import redirect_stdout
+
     buf = io.StringIO()
     with redirect_stdout(buf):
         rc = run_mutations(
@@ -694,6 +696,7 @@ def test_serial_switch_one_site(tmp_path):
 def test_parallel_path_workers_header_clamped(tmp_path, monkeypatch):
     """max_workers=8, 3 sites -> 'Mutation workers: 3' (clamped); provisioning skipped."""
     import mutate4py._workers as workers_mod
+
     monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
 
     src = _make_multi_site_source(3)
@@ -707,6 +710,7 @@ def test_parallel_path_workers_header_clamped(tmp_path, monkeypatch):
 def test_parallel_path_worker_token_in_progress(tmp_path, monkeypatch):
     """Parallel path (max_workers=4, 4 sites) -> worker-k appears in progress lines."""
     import mutate4py._workers as workers_mod
+
     monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
 
     src = _make_multi_site_source(4)
@@ -723,6 +727,7 @@ def test_parallel_path_worker_token_in_progress(tmp_path, monkeypatch):
 def test_parallel_path_report_present(tmp_path, monkeypatch):
     """Parallel run produces a Mutation Report."""
     import mutate4py._workers as workers_mod
+
     monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
 
     src = _make_multi_site_source(3)
@@ -738,6 +743,7 @@ def test_parallel_path_target_outside_cwd_error(tmp_path, monkeypatch):
     """Target file outside cwd -> error, no worker root created."""
     import tempfile
     import mutate4py._workers as workers_mod
+
     monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
 
     with tempfile.TemporaryDirectory() as other_dir:
@@ -751,6 +757,7 @@ def test_parallel_path_target_outside_cwd_error(tmp_path, monkeypatch):
 
         import io
         from contextlib import redirect_stdout
+
         buf = io.StringIO()
         with redirect_stdout(buf):
             rc = run_mutations(
@@ -778,6 +785,7 @@ def test_parallel_path_target_outside_cwd_error(tmp_path, monkeypatch):
 def test_parallel_path_worker_root_cleaned_up(tmp_path, monkeypatch):
     """After parallel run, worker root is removed."""
     import mutate4py._workers as workers_mod
+
     monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
 
     src = _make_multi_site_source(3)
@@ -795,6 +803,7 @@ def test_parallel_path_original_file_restored(tmp_path, monkeypatch):
     """After parallel run, original source has no mutant; manifest footer present."""
     from mutate4py._manifest import strip_manifest
     import mutate4py._workers as workers_mod
+
     monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
 
     src = _make_multi_site_source(3)
@@ -919,7 +928,13 @@ def test_on_parallel_result_includes_worker_idx(capsys):
 
 def test_on_parallel_result_different_worker_idx(capsys):
     """A different worker_idx produces a different label — ensures idx is not hardcoded."""
-    result = {"site": _make_simple_site(1), "site_idx": 1, "total": 5, "worker_idx": 2, "status": "killed"}
+    result = {
+        "site": _make_simple_site(1),
+        "site_idx": 1,
+        "total": 5,
+        "worker_idx": 2,
+        "status": "killed",
+    }
     _on_parallel_result(result)
     out = capsys.readouterr().out
     assert "worker-2" in out
@@ -937,7 +952,9 @@ def test_on_parallel_result_fid_suffix_when_empty(capsys):
     }
     _on_parallel_result(result)
     out = capsys.readouterr().out
-    assert out.rstrip("\n").endswith("> -> >="), f"No extra suffix expected, got: {out!r}"
+    assert out.rstrip("\n").endswith("> -> >="), (
+        f"No extra suffix expected, got: {out!r}"
+    )
 
 
 def test_on_parallel_result_fid_suffix_when_present(capsys):
@@ -976,6 +993,7 @@ def test_run_parallel_workers_passes_timeout(tmp_path, monkeypatch):
         f.write(src)
 
     from mutate4py._discovery import discover_sites
+
     sites = discover_sites(src)
 
     _run_parallel_workers(
@@ -996,6 +1014,7 @@ def test_run_parallel_workers_passes_timeout(tmp_path, monkeypatch):
 def test_finalize_source_embeds_manifest_with_tested_at(tmp_path):
     """_finalize_source writes the file with a manifest containing the tested_at timestamp."""
     import json
+
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "f.py")
     bak_path = src_path + ".bak"
@@ -1032,6 +1051,7 @@ def test_finalize_source_removes_bak_when_present(tmp_path):
 def test_finalize_source_manifest_is_valid_dict(tmp_path):
     """The embedded manifest is valid JSON dict (not null, not a string)."""
     import json
+
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "f.py")
     bak_path = src_path + ".bak"

@@ -1,6 +1,5 @@
 """Unit tests for _cmd.run_command (shared subprocess helper)."""
 
-
 from mutate4py._cmd import run_command
 
 
@@ -30,9 +29,7 @@ def test_run_command_uses_cwd(tmp_path):
         "test -f sentinel_file.txt", str(tmp_path), timeout=5.0
     )
     assert status == "survived", "Command should find the sentinel in cwd"
-    status2, _ = run_command(
-        "test -f sentinel_file.txt", "/tmp", timeout=5.0
-    )
+    status2, _ = run_command("test -f sentinel_file.txt", "/tmp", timeout=5.0)
     assert status2 == "killed", "Command should NOT find the sentinel outside cwd"
 
 

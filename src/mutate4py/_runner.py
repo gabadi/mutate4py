@@ -219,7 +219,9 @@ def _print_mutation_report(
             print(f"  line {s.line} {s.desc}{fid}")
 
 
-def _print_workers_header(max_workers: int, use_parallel: bool, n_selected: int) -> None:
+def _print_workers_header(
+    max_workers: int, use_parallel: bool, n_selected: int
+) -> None:
     if max_workers > 0:
         displayed = min(max_workers, n_selected) if use_parallel else max_workers
         print(f"Mutation workers: {displayed}")
@@ -243,7 +245,13 @@ def _execute_mutations(
     """Run serial or parallel mutations, finalize source, print report. Returns exit code."""
     if use_parallel:
         counts, survivors, error_msg = _run_parallel_workers(
-            selected_sites, clean_source, path, cwd, test_command, mutant_timeout, max_workers
+            selected_sites,
+            clean_source,
+            path,
+            cwd,
+            test_command,
+            mutant_timeout,
+            max_workers,
         )
         _finalize_source(path, clean_source, tested_at, bak_path)
         if error_msg is not None:

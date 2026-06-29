@@ -65,7 +65,6 @@ def _provision_worker(worker_root: str) -> None:
     )
 
 
-
 def _run_one_site(
     worker_idx: int,
     site: Site,
@@ -84,12 +83,16 @@ def _run_one_site(
 
     mutated = apply_mutant(clean_source, site)
     if os.environ.get("_MUTATE4PY_TEST_WORKER_WRITE_FAIL") == "1":
-        raise WorkerFailureError(f"worker-{worker_idx} could not write file copy: injected test failure")
+        raise WorkerFailureError(
+            f"worker-{worker_idx} could not write file copy: injected test failure"
+        )
     try:
         with open(worker_file_path, "w") as f:
             f.write(mutated)
     except OSError as e:
-        raise WorkerFailureError(f"worker-{worker_idx} could not write file copy: {e}") from e
+        raise WorkerFailureError(
+            f"worker-{worker_idx} could not write file copy: {e}"
+        ) from e
 
     try:
         status, _ = _run_command(test_command, worker_root, mutant_timeout)
@@ -98,7 +101,9 @@ def _run_one_site(
             with open(worker_file_path, "w") as f:
                 f.write(original_source)
         except OSError as e:
-            raise WorkerFailureError(f"worker-{worker_idx} could not restore file copy: {e}") from e
+            raise WorkerFailureError(
+                f"worker-{worker_idx} could not restore file copy: {e}"
+            ) from e
 
     result = {
         "worker_idx": worker_idx,
@@ -202,7 +207,9 @@ def run_parallel(
 
         # Sites for the same worker must run sequentially (same file path).
         # Group by worker, then run groups in parallel across workers.
-        def _run_worker_group(worker_assignments: list[tuple[int, Site, int]]) -> list[dict]:
+        def _run_worker_group(
+            worker_assignments: list[tuple[int, Site, int]],
+        ) -> list[dict]:
             worker_results = [_run_one_assignment(a) for a in worker_assignments]
             if short_fail and worker_results:
                 worker_results.pop()

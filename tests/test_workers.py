@@ -1,6 +1,5 @@
 """Unit tests for _workers.py internals."""
 
-
 import pytest
 
 from mutate4py._discovery import Site, discover_sites
@@ -303,6 +302,7 @@ def test_run_one_site_write_oserror(tmp_path, monkeypatch):
         return orig_open(path, mode, **kw)
 
     import builtins
+
     monkeypatch.setattr(builtins, "open", patched_open)
 
     with pytest.raises(WorkerFailureError, match="could not write file copy"):
@@ -326,6 +326,7 @@ def test_run_one_site_write_oserror(tmp_path, monkeypatch):
 def test_run_parallel_short_result_raises(tmp_path, monkeypatch):
     """_MUTATE4PY_TEST_WORKER_SHORT_RESULT=1 drops one result → ParallelRunError."""
     import mutate4py._workers as workers_mod
+
     monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
     monkeypatch.setenv("_MUTATE4PY_TEST_WORKER_SHORT_RESULT", "1")
 

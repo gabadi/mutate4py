@@ -219,6 +219,7 @@ def test_partition_sites_full_covered_all_covered(lines):
 
 # ── discover_sites + apply_mutant invariants ──────────────────────────────────
 
+
 def _is_valid_python(source: str) -> bool:
     try:
         ast.parse(source)
@@ -227,24 +228,26 @@ def _is_valid_python(source: str) -> bool:
         return False
 
 
-_PYTHON_SOURCES = st.sampled_from([
-    "def f(a, b):\n    return a > b\n",
-    "def f(a, b):\n    return a >= b\n",
-    "def f(a, b):\n    return a < b\n",
-    "def f(a, b):\n    return a <= b\n",
-    "def f(a, b):\n    return a == b\n",
-    "def f(a, b):\n    return a != b\n",
-    "def f(a, b):\n    return a + b\n",
-    "def f(a, b):\n    return a - b\n",
-    "def f(a, b):\n    return a * b\n",
-    "def f(a, b):\n    return a > b and True\n",
-    "def f(a, b):\n    return a > b or False\n",
-    "def f(a, b):\n    if a > b:\n        return 1\n    return 0\n",
-    "x = 0\n",
-    "x = 1\n",
-    "x = True\n",
-    "x = False\n",
-])
+_PYTHON_SOURCES = st.sampled_from(
+    [
+        "def f(a, b):\n    return a > b\n",
+        "def f(a, b):\n    return a >= b\n",
+        "def f(a, b):\n    return a < b\n",
+        "def f(a, b):\n    return a <= b\n",
+        "def f(a, b):\n    return a == b\n",
+        "def f(a, b):\n    return a != b\n",
+        "def f(a, b):\n    return a + b\n",
+        "def f(a, b):\n    return a - b\n",
+        "def f(a, b):\n    return a * b\n",
+        "def f(a, b):\n    return a > b and True\n",
+        "def f(a, b):\n    return a > b or False\n",
+        "def f(a, b):\n    if a > b:\n        return 1\n    return 0\n",
+        "x = 0\n",
+        "x = 1\n",
+        "x = True\n",
+        "x = False\n",
+    ]
+)
 
 
 @given(_PYTHON_SOURCES)
@@ -278,7 +281,9 @@ def test_discover_sites_indices_are_unique_and_zero_based(source: str) -> None:
     """Site indices must be unique and form a 0-based contiguous range."""
     sites = discover_sites(source)
     indices = [s.index for s in sites]
-    assert indices == list(range(len(sites))), f"Non-contiguous or duplicate indices: {indices}"
+    assert indices == list(range(len(sites))), (
+        f"Non-contiguous or duplicate indices: {indices}"
+    )
 
 
 @given(_PYTHON_SOURCES)
@@ -291,6 +296,7 @@ def test_discover_sites_sorted_by_line_col(source: str) -> None:
 
 
 # ── _assign_sites_to_workers invariants ───────────────────────────────────────
+
 
 def _make_indexed_site(index: int) -> Site:
     return Site(
@@ -311,7 +317,9 @@ def _make_indexed_site(index: int) -> Site:
     n_workers=st.integers(min_value=1, max_value=10),
 )
 @settings(max_examples=80)
-def test_assign_sites_every_site_appears_exactly_once(n_sites: int, n_workers: int) -> None:
+def test_assign_sites_every_site_appears_exactly_once(
+    n_sites: int, n_workers: int
+) -> None:
     """Every site must appear in exactly one worker's assignment list."""
     from mutate4py._workers import _assign_sites_to_workers
 
@@ -346,7 +354,9 @@ def test_assign_sites_worker_keys_in_bounds(n_sites: int, n_workers: int) -> Non
     n_workers=st.integers(min_value=1, max_value=10),
 )
 @settings(max_examples=80)
-def test_assign_sites_site_idx_is_1_based_global_position(n_sites: int, n_workers: int) -> None:
+def test_assign_sites_site_idx_is_1_based_global_position(
+    n_sites: int, n_workers: int
+) -> None:
     """site_idx in each assignment must equal site.index + 1 (1-based global position)."""
     from mutate4py._workers import _assign_sites_to_workers
 
