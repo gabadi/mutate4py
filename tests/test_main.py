@@ -1125,6 +1125,7 @@ def _make_args(**kwargs):
         timeout_factor=10,
         min_timeout=1.0,
         test_command="pytest",
+        test_contexts=None,
     )
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -1314,11 +1315,10 @@ def _make_src_dir(tmp_path, files: dict[str, str]) -> str:
     return str(d)
 
 
-def test_directory_run_mode_rejects_directory(tmp_path):
+def test_directory_run_mode_attempts_run_on_files(tmp_path):
     d = _make_src_dir(tmp_path, {"a.py": "x = 1\n"})
     result = _run_cli_path(d)
-    assert result.returncode != 0
-    assert "directory" in result.stderr.lower() or result.returncode == 2
+    assert "run mode requires a single file, not a directory" not in result.stderr
 
 
 def test_directory_check_manifest_all_missing_exits_1(tmp_path):
@@ -1408,7 +1408,7 @@ def test_collect_py_files_ignores_non_py_files(tmp_path):
 # ── directory dispatch: in-process coverage ───────────────────────────────────
 
 
-def test_main_directory_run_mode_exits_2(tmp_path):
+def test_main_directory_run_mode_exits_1_without_coverage(tmp_path):
     import mutate4py.__main__ as m
 
     d = tmp_path / "src"
@@ -1417,7 +1417,7 @@ def test_main_directory_run_mode_exits_2(tmp_path):
     sys.argv = ["mutate4py", str(d)]
     with pytest.raises(SystemExit) as exc:
         m.main()
-    assert exc.value.code == 2
+    assert exc.value.code == 1
 
 
 def test_main_directory_check_manifest_missing_exits_1(tmp_path, capsys):
@@ -1475,3 +1475,52 @@ def test_main_directory_scan_exits_0(tmp_path, capsys):
         m.main()
     assert exc.value.code == 0
     assert "Mutation scan:" in capsys.readouterr().out
+
+
+# ── --test-contexts ───────────────────────────────────────────────────────────
+
+
+def test_test_contexts_incompatible_with_scan_exits_2(tmp_path):
+    import sqlite3
+
+    db = tmp_path / ".coverage"
+    conn = sqlite3.connect(str(db))
+    conn.execute("CREATE TABLE file (id INTEGER PRIMARY KEY, path TEXT)")
+    conn.execute("CREATE TABLE context (id INTEGER PRIMARY KEY, context TEXT)")
+    conn.execute(
+        "CREATE TABLE line_bits (file_id INTEGER, context_id INTEGER, numbits BLOB)"
+    )
+    conn.commit()
+    conn.close()
+    p = tmp_path / "mod.py"
+    p.write_text("x = a > b\n")
+    result = _run_cli_path(str(p), "--scan", "--test-contexts", str(db))
+    assert result.returncode == 2
+    assert "--test-contexts" in result.stderr
+
+
+def test_test_contexts_missing_file_exits_2(tmp_path):
+    p = tmp_path / "mod.py"
+    p.write_text("x = a > b\n")
+    result = _run_cli_path(str(p), "--test-contexts", str(tmp_path / "no.coverage"))
+    assert result.returncode == 2
+    assert "--test-contexts" in result.stderr
+
+
+def test_test_contexts_flag_accepted_with_valid_file(tmp_path):
+    import sqlite3
+
+    db = tmp_path / ".coverage"
+    conn = sqlite3.connect(str(db))
+    conn.execute("CREATE TABLE file (id INTEGER PRIMARY KEY, path TEXT)")
+    conn.execute("CREATE TABLE context (id INTEGER PRIMARY KEY, context TEXT)")
+    conn.execute(
+        "CREATE TABLE line_bits (file_id INTEGER, context_id INTEGER, numbits BLOB)"
+    )
+    conn.commit()
+    conn.close()
+    p = tmp_path / "mod.py"
+    p.write_text("x = a > b\n")
+    result = _run_cli_path(str(p), "--test-contexts", str(db))
+    assert "cannot be combined" not in result.stderr
+    assert "--test-contexts file not found" not in result.stderr

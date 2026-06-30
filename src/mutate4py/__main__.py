@@ -7,6 +7,7 @@ import sys
 from mutate4py._runner import (
     CoverageError,
     check_manifest,
+    run_baseline,
     run_mutations,
     run_scan,
     update_manifest,
@@ -119,6 +120,12 @@ def _build_parser() -> argparse.ArgumentParser:
         dest="verbose",
         help="Log actions to stderr",
     )
+    parser.add_argument(
+        "--test-contexts",
+        dest="test_contexts",
+        default=None,
+        help="Path to a .coverage SQLite db (pytest --cov-context=test); enables per-mutant test selection",
+    )
     return parser
 
 
@@ -159,6 +166,8 @@ def _check_no_run_incompatibilities(args: argparse.Namespace) -> None:
         _exit_incompatible(flag, "--mutate-all")
     if args.max_workers is not None:
         _exit_incompatible(flag, "--max-workers")
+    if args.test_contexts is not None:
+        _exit_incompatible(flag, "--test-contexts")
 
 
 def _check_scan_only_incompatibilities(args: argparse.Namespace) -> None:
@@ -265,39 +274,67 @@ def _collect_py_files(directory: str) -> list[str]:
     return result
 
 
-def _run_on_file(args: argparse.Namespace, py_file: str, source: str, cwd: str) -> int:
+def _run_on_file(
+    args: argparse.Namespace,
+    py_file: str,
+    source: str,
+    cwd: str,
+    baseline_duration: float | None = None,
+) -> int:
     if args.check_manifest:
         return check_manifest(path=py_file, source=source)
     if args.update_manifest:
         update_manifest(path=py_file, source=source)
         return 0
-    try:
-        run_scan(
-            path=py_file,
-            source=source,
-            warning_threshold=args.warning_threshold,
-            cov_cmd=args.cov_cmd,
-            lcov_path=args.lcov,
-            reuse_coverage=args.reuse_coverage,
-            cwd=cwd,
-        )
-    except CoverageError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        sys.exit(2)
-    return 0
+    if args.scan:
+        try:
+            run_scan(
+                path=py_file,
+                source=source,
+                warning_threshold=args.warning_threshold,
+                cov_cmd=args.cov_cmd,
+                lcov_path=args.lcov,
+                reuse_coverage=args.reuse_coverage,
+                cwd=cwd,
+            )
+        except CoverageError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            sys.exit(2)
+        return 0
+    lines_filter = _parse_lines(args.lines)
+    max_workers = args.max_workers if args.max_workers is not None else 0
+    return run_mutations(
+        path=py_file,
+        source=source,
+        cov_cmd=args.cov_cmd,
+        lcov_path=args.lcov,
+        reuse_coverage=args.reuse_coverage,
+        test_command=args.test_command,
+        timeout_factor=args.timeout_factor,
+        min_timeout=args.min_timeout,
+        lines_filter=lines_filter,
+        since_last_run=args.since_last_run,
+        mutate_all=args.mutate_all,
+        warning_threshold=args.warning_threshold,
+        max_workers=max_workers,
+        cwd=cwd,
+        baseline_duration=baseline_duration,
+        test_contexts_path=args.test_contexts,
+    )
 
 
 def _dispatch_directory(args: argparse.Namespace) -> None:
-    if not (args.scan or args.update_manifest or args.check_manifest):
-        print(
-            "error: run mode requires a single file, not a directory.", file=sys.stderr
-        )
-        sys.exit(2)
     files = _collect_py_files(args.file)
     cwd = os.getcwd()
+    baseline_duration = None
+    if not (args.scan or args.update_manifest or args.check_manifest):
+        baseline_duration, baseline_error = run_baseline(args.test_command, cwd)
+        if baseline_error is not None:
+            print(f"baseline failed: {baseline_error}", file=sys.stderr)
+            sys.exit(1)
     exit_code = 0
     for py_file in files:
-        if _run_on_file(args, py_file, _load_source(py_file), cwd) != 0:
+        if _run_on_file(args, py_file, _load_source(py_file), cwd, baseline_duration) != 0:
             exit_code = 1
     sys.exit(exit_code)
 
@@ -329,6 +366,7 @@ def _dispatch_single_file(args: argparse.Namespace, source: str, cwd: str) -> No
             warning_threshold=args.warning_threshold,
             max_workers=max_workers,
             cwd=cwd,
+            test_contexts_path=args.test_contexts,
         )
     )
 
@@ -338,6 +376,12 @@ def main() -> None:
     args = parser.parse_args()
     _check_coverage_flags(args)
     _validate_mutual_exclusions(args)
+    if args.test_contexts is not None and not os.path.isfile(args.test_contexts):
+        print(
+            f"error: --test-contexts file not found: {args.test_contexts}",
+            file=sys.stderr,
+        )
+        sys.exit(2)
     if os.path.isdir(args.file):
         _dispatch_directory(args)
         return

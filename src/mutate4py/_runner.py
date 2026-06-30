@@ -2,6 +2,7 @@
 
 import datetime
 import os
+import shlex
 import subprocess
 import time
 
@@ -11,6 +12,7 @@ from mutate4py._coverage import CoverageError, acquire_coverage
 __all__ = [
     "CoverageError",
     "check_manifest",
+    "run_baseline",
     "run_mutations",
     "run_scan",
     "scan_report",
@@ -35,7 +37,7 @@ def _baseline_reason(result: subprocess.CompletedProcess) -> str:
     return f"exit code {result.returncode}"
 
 
-def _run_baseline(cmd: str, cwd: str) -> tuple[float, str | None]:
+def run_baseline(cmd: str, cwd: str) -> tuple[float, str | None]:
     """Run baseline; return (duration_seconds, error_reason_or_None)."""
     start = time.monotonic()
     result = subprocess.run(cmd, shell=True, cwd=cwd, capture_output=True)
@@ -138,6 +140,8 @@ def _run_mutation_loop(
     cwd: str,
     test_command: str,
     mutant_timeout: float,
+    test_ctx_db=None,
+    abs_source_path: str = "",
 ) -> tuple[dict, list[Site]]:
     total_selected = len(selected_sites)
     counts: dict[str, int] = {"killed": 0, "timeout": 0, "survived": 0}
@@ -146,7 +150,12 @@ def _run_mutation_loop(
         mutated = apply_mutant(clean_source, site)
         with open(path, "w") as f:
             f.write(mutated)
-        status, _ = _run_command(test_command, cwd, mutant_timeout)
+        cmd = test_command
+        if test_ctx_db is not None:
+            node_ids = test_ctx_db.tests_for_line(abs_source_path, site.line)
+            if node_ids:
+                cmd = f"{test_command} {' '.join(shlex.quote(n) for n in node_ids)}"
+        status, _ = _run_command(cmd, cwd, mutant_timeout)
         counts[status] += 1
         if status == "survived":
             survivors.append(site)
@@ -241,6 +250,8 @@ def _execute_mutations(
     tested_at: str,
     bak_path: str,
     uncovered_count: int,
+    test_ctx_db=None,
+    abs_source_path: str = "",
 ) -> int:
     """Run serial or parallel mutations, finalize source, print report. Returns exit code."""
     if use_parallel:
@@ -259,7 +270,14 @@ def _execute_mutations(
             return 1
     else:
         counts, survivors = _run_mutation_loop(
-            selected_sites, clean_source, path, cwd, test_command, mutant_timeout
+            selected_sites,
+            clean_source,
+            path,
+            cwd,
+            test_command,
+            mutant_timeout,
+            test_ctx_db=test_ctx_db,
+            abs_source_path=abs_source_path,
         )
         _finalize_source(path, clean_source, tested_at, bak_path)
     _print_mutation_report(counts, survivors, uncovered_count)
@@ -461,79 +479,96 @@ def run_mutations(
     max_workers: int = 0,
     min_timeout: float = 1.0,
     cwd: str,
+    baseline_duration: float | None = None,
+    test_contexts_path: str | None = None,
 ) -> int:
     """Execute the mutation run loop. Returns exit code (0 or 1)."""
     source_dir = os.path.dirname(os.path.abspath(path))
     bak_path = os.path.join(source_dir, os.path.basename(path) + ".bak")
 
-    rescued = _restore_from_backup(path, bak_path)
-    if rescued is not None:
-        source = rescued
+    test_ctx_db = None
+    try:
+        if test_contexts_path is not None:
+            from mutate4py._test_selection import TestContextDB
 
-    clean_source, manifest_exists, changed_fn_ids, tested_at = _compute_manifest_diff(
-        source
-    )
-    all_sites = discover_sites(clean_source)
-    changed_count = len([s for s in all_sites if s.function_id in changed_fn_ids])
+            test_ctx_db = TestContextDB(test_contexts_path)
+            if max_workers >= 2:
+                max_workers = 0
 
-    covered_lines, cov_error = _acquire_covered_lines(
-        cov_cmd, lcov_path, reuse_coverage, cwd, os.path.abspath(path)
-    )
-    if cov_error is not None:
-        print(f"error: {cov_error}")
-        return 1
+        rescued = _restore_from_backup(path, bak_path)
+        if rescued is not None:
+            source = rescued
 
-    total = len(all_sites)
-    covered_count, uncovered_count = partition_sites(all_sites, covered_lines)
-    effective_since_last_run = _is_effective_since_last_run(
-        since_last_run, manifest_exists, mutate_all, lines_filter
-    )
-    covered_sites, selected_sites = _select_sites(
-        all_sites, covered_lines, changed_fn_ids, effective_since_last_run, lines_filter
-    )
+        clean_source, manifest_exists, changed_fn_ids, tested_at = _compute_manifest_diff(
+            source
+        )
+        all_sites = discover_sites(clean_source)
+        changed_count = len([s for s in all_sites if s.function_id in changed_fn_ids])
 
-    _print_run_header(
-        path,
-        total,
-        covered_count,
-        uncovered_count,
-        changed_count,
-        manifest_exists,
-        len(selected_sites),
-        warning_threshold,
-    )
-    _print_uncovered_if_needed(
-        all_sites, covered_lines, effective_since_last_run, lines_filter
-    )
+        covered_lines, cov_error = _acquire_covered_lines(
+            cov_cmd, lcov_path, reuse_coverage, cwd, os.path.abspath(path)
+        )
+        if cov_error is not None:
+            print(f"error: {cov_error}")
+            return 1
 
-    n_selected = len(selected_sites)
-    use_parallel = _should_run_parallel(max_workers, n_selected)
+        total = len(all_sites)
+        covered_count, uncovered_count = partition_sites(all_sites, covered_lines)
+        effective_since_last_run = _is_effective_since_last_run(
+            since_last_run, manifest_exists, mutate_all, lines_filter
+        )
+        covered_sites, selected_sites = _select_sites(
+            all_sites, covered_lines, changed_fn_ids, effective_since_last_run, lines_filter
+        )
 
-    _print_workers_header(max_workers, use_parallel, n_selected)
+        _print_run_header(
+            path,
+            total,
+            covered_count,
+            uncovered_count,
+            changed_count,
+            manifest_exists,
+            len(selected_sites),
+            warning_threshold,
+        )
+        _print_uncovered_if_needed(
+            all_sites, covered_lines, effective_since_last_run, lines_filter
+        )
 
-    baseline_duration, baseline_error = _run_baseline(test_command, cwd)
-    if baseline_error is not None:
-        print(f"baseline failed: {baseline_error}")
-        return 1
+        n_selected = len(selected_sites)
+        use_parallel = _should_run_parallel(max_workers, n_selected)
 
-    with open(bak_path, "w") as f:
-        f.write(clean_source)
+        _print_workers_header(max_workers, use_parallel, n_selected)
 
-    mutant_timeout = max(min_timeout, timeout_factor * baseline_duration)
+        if baseline_duration is None:
+            baseline_duration, baseline_error = run_baseline(test_command, cwd)
+            if baseline_error is not None:
+                print(f"baseline failed: {baseline_error}")
+                return 1
 
-    return _execute_mutations(
-        selected_sites=selected_sites,
-        clean_source=clean_source,
-        path=path,
-        cwd=cwd,
-        test_command=test_command,
-        mutant_timeout=mutant_timeout,
-        max_workers=max_workers,
-        use_parallel=use_parallel,
-        tested_at=tested_at,
-        bak_path=bak_path,
-        uncovered_count=uncovered_count,
-    )
+        with open(bak_path, "w") as f:
+            f.write(clean_source)
+
+        mutant_timeout = max(min_timeout, timeout_factor * baseline_duration)
+
+        return _execute_mutations(
+            selected_sites=selected_sites,
+            clean_source=clean_source,
+            path=path,
+            cwd=cwd,
+            test_command=test_command,
+            mutant_timeout=mutant_timeout,
+            max_workers=max_workers,
+            use_parallel=use_parallel,
+            tested_at=tested_at,
+            bak_path=bak_path,
+            uncovered_count=uncovered_count,
+            test_ctx_db=test_ctx_db,
+            abs_source_path=os.path.abspath(path),
+        )
+    finally:
+        if test_ctx_db is not None:
+            test_ctx_db.close()
 
 
 # mutate4py-manifest-begin
