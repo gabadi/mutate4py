@@ -106,3 +106,8 @@ class TestContextDB:
 
     def close(self) -> None:
         self._conn.close()
+
+
+# mutate4py-manifest-begin
+# {"version":1,"tested_at":"2026-07-01T03:44:14Z","module_hash":"ac70480b3109a4512d2784d8520d312f403a3680dcd1fd2d22f3a5aa2c9eccf2","functions":[{"id":"func/_numbits_to_lines","name":"_numbits_to_lines","line":17,"end_line":27,"hash":"912b98473a0e7a1305cf5a792a31275f64f058a25dbbc624651b15fa239a855b"},{"id":"func/_strip_context_suffix","name":"_strip_context_suffix","line":30,"end_line":34,"hash":"9cc4dfeab6b850139b00a28136df950b84c2f12383783d28478f69209deb5b0a"},{"id":"func/TestContextDB.__init__","name":"__init__","line":40,"end_line":48,"hash":"20d140b117522f76cf74f0388ac728a01a1f6dbbc1c073980c1817185950e66f"},{"id":"func/TestContextDB.tests_for_line","name":"tests_for_line","line":50,"end_line":63,"hash":"4874c0e20866e9a8f6496d7d2bc7f3e3c44dd62ab4bef8d781d5860b85ac5cbb"},{"id":"func/TestContextDB._tests_for_line_bits","name":"_tests_for_line_bits","line":65,"end_line":80,"hash":"691e7e59fdc9fb2ee063d2e9a85e883ce44a0b33c51d214cf858383cb20c3cca"},{"id":"func/TestContextDB._tests_for_line_arcs","name":"_tests_for_line_arcs","line":82,"end_line":105,"hash":"502784ca566d14670f3345a795285cb418c32e0b65d9f1b8a2f7fb60a9a01329"},{"id":"func/TestContextDB.close","name":"close","line":107,"end_line":108,"hash":"88de2b640cd4c3ceccd104505ba73e6f16f5991e9952fe69a08328537aa1b200"}]}
+# mutate4py-manifest-end

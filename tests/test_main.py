@@ -466,6 +466,89 @@ def test_run_on_file_scan_coverage_error_exits_2(monkeypatch, capsys):
     assert "no coverage source" in capsys.readouterr().err
 
 
+def test_check_no_run_incompatibilities_test_contexts_exits_2(capsys):
+    """--test-contexts paired with --scan (a no-run flag) must exit(2)."""
+    from mutate4py.__main__ import _check_no_run_incompatibilities
+
+    args = _make_args(scan=True, test_contexts=".coverage")
+    with pytest.raises(SystemExit) as exc:
+        _check_no_run_incompatibilities(args)
+    assert exc.value.code == 2
+    assert "--test-contexts" in capsys.readouterr().err
+
+
+# ── _needs_directory_baseline / _prepare_directory_baseline ───────────────────
+
+
+def test_needs_directory_baseline_true_for_normal_run():
+    from mutate4py.__main__ import _needs_directory_baseline
+
+    args = _make_args()
+    assert _needs_directory_baseline(["a.py"], args) is True
+
+
+def test_needs_directory_baseline_false_when_no_files():
+    from mutate4py.__main__ import _needs_directory_baseline
+
+    args = _make_args()
+    assert _needs_directory_baseline([], args) is False
+
+
+@pytest.mark.parametrize(
+    "extra", [{"scan": True}, {"update_manifest": True}, {"check_manifest": True}]
+)
+def test_needs_directory_baseline_false_for_no_run_modes(extra):
+    from mutate4py.__main__ import _needs_directory_baseline
+
+    args = _make_args(**extra)
+    assert _needs_directory_baseline(["a.py"], args) is False
+
+
+def test_prepare_directory_baseline_returns_duration(monkeypatch):
+    from mutate4py.__main__ import _prepare_directory_baseline
+
+    monkeypatch.setattr("mutate4py._coverage.acquire_coverage", lambda **kwargs: {1, 2})
+    monkeypatch.setattr(
+        "mutate4py.__main__.run_baseline", lambda cmd, cwd: (1.23, None)
+    )
+
+    args = _make_args(test_command="pytest")
+    duration = _prepare_directory_baseline(args, ["a.py"], "/cwd")
+
+    assert duration == 1.23
+
+
+def test_prepare_directory_baseline_coverage_error_exits_1(monkeypatch, capsys):
+    from mutate4py._coverage import CoverageError
+    from mutate4py.__main__ import _prepare_directory_baseline
+
+    def raise_coverage_error(**kwargs):
+        raise CoverageError("no coverage source")
+
+    monkeypatch.setattr("mutate4py._coverage.acquire_coverage", raise_coverage_error)
+
+    args = _make_args()
+    with pytest.raises(SystemExit) as exc:
+        _prepare_directory_baseline(args, ["a.py"], "/cwd")
+    assert exc.value.code == 1
+    assert "no coverage source" in capsys.readouterr().err
+
+
+def test_prepare_directory_baseline_baseline_failure_exits_1(monkeypatch, capsys):
+    from mutate4py.__main__ import _prepare_directory_baseline
+
+    monkeypatch.setattr("mutate4py._coverage.acquire_coverage", lambda **kwargs: {1, 2})
+    monkeypatch.setattr(
+        "mutate4py.__main__.run_baseline", lambda cmd, cwd: (0.0, "boom")
+    )
+
+    args = _make_args()
+    with pytest.raises(SystemExit) as exc:
+        _prepare_directory_baseline(args, ["a.py"], "/cwd")
+    assert exc.value.code == 1
+    assert "boom" in capsys.readouterr().err
+
+
 # ── Mutant-killing gap tests ──────────────────────────────────────────────────
 
 
