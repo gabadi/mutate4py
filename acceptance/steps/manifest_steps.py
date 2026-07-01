@@ -157,7 +157,7 @@ def given_fn_changed_by(m, params):
 @step(r'a previous manifest with functions "(.*)"')
 def given_prev_manifest_with_fns(m, params):
     spec = params.get("previous") or m.group(1)
-    ctx.prev_manifest = _parse_fn_spec(spec)
+    ctx.prev_manifest = _parse_fn_spec(spec, allow_bare_ids=False)
 
 
 @step(r'a current manifest with functions "(.*)"')
@@ -415,8 +415,14 @@ def then_no_manifest_written(m, params):
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 
-def _parse_fn_spec(spec: str) -> dict | None:
-    """Parse 'none' or 'func/a:h1, func/b:h2' into a manifest dict."""
+def _parse_fn_spec(spec: str, *, allow_bare_ids: bool = True) -> dict | None:
+    """Parse 'none' or 'func/a:h1, func/b:h2' into a manifest dict.
+
+    allow_bare_ids=False rejects entries missing ':hash' instead of defaulting
+    to hash 'h0' — used for "previous" specs, where every real example always
+    carries an explicit hash, so a colon-less entry only ever means corrupted
+    input, not an intentional shorthand.
+    """
     if spec.strip() == "none":
         return None
     functions = []
@@ -426,8 +432,10 @@ def _parse_fn_spec(spec: str) -> dict | None:
             continue
         if ":" in part:
             fid, fhash = part.split(":", 1)
-        else:
+        elif allow_bare_ids:
             fid, fhash = part, "h0"
+        else:
+            raise ValueError(f"malformed function spec (missing ':hash'): {part!r}")
         functions.append(
             {
                 "id": fid.strip(),

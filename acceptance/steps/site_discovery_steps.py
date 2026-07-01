@@ -3,7 +3,6 @@
 import os
 import sys
 import tempfile
-import textwrap
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 from mutate4py._discovery import discover_sites
@@ -81,7 +80,9 @@ ctx = Context()
 
 
 def _scan_construct(construct: str) -> None:
-    src = _CONSTRUCT_SOURCES.get(construct, f"x = {construct}")
+    if construct not in _CONSTRUCT_SOURCES:
+        raise ValueError(f"unknown construct fixture: {construct!r}")
+    src = _CONSTRUCT_SOURCES[construct]
     ctx.sites = discover_sites(src)
     ctx.total = len(ctx.sites)
 
