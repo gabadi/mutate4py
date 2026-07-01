@@ -147,11 +147,16 @@ def test_strip_context_no_pipe():
 
 
 def test_strip_context_run_suffix():
-    assert _strip_context_suffix("tests/foo.py::test_bar|run") == "tests/foo.py::test_bar"
+    assert (
+        _strip_context_suffix("tests/foo.py::test_bar|run") == "tests/foo.py::test_bar"
+    )
 
 
 def test_strip_context_other_suffix():
-    assert _strip_context_suffix("tests/foo.py::test_bar|something") == "tests/foo.py::test_bar"
+    assert (
+        _strip_context_suffix("tests/foo.py::test_bar|something")
+        == "tests/foo.py::test_bar"
+    )
 
 
 # ── TestContextDB queries ──────────────────────────────────────────────────────

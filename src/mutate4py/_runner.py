@@ -499,8 +499,8 @@ def run_mutations(
         if rescued is not None:
             source = rescued
 
-        clean_source, manifest_exists, changed_fn_ids, tested_at = _compute_manifest_diff(
-            source
+        clean_source, manifest_exists, changed_fn_ids, tested_at = (
+            _compute_manifest_diff(source)
         )
         all_sites = discover_sites(clean_source)
         changed_count = len([s for s in all_sites if s.function_id in changed_fn_ids])
@@ -518,7 +518,11 @@ def run_mutations(
             since_last_run, manifest_exists, mutate_all, lines_filter
         )
         covered_sites, selected_sites = _select_sites(
-            all_sites, covered_lines, changed_fn_ids, effective_since_last_run, lines_filter
+            all_sites,
+            covered_lines,
+            changed_fn_ids,
+            effective_since_last_run,
+            lines_filter,
         )
 
         _print_run_header(

@@ -2,7 +2,12 @@
 
 import sqlite3
 
-__all__ = ["TestContextDB", "TestContextError", "_numbits_to_lines", "_strip_context_suffix"]
+__all__ = [
+    "TestContextDB",
+    "TestContextError",
+    "_numbits_to_lines",
+    "_strip_context_suffix",
+]
 
 
 class TestContextError(Exception):
@@ -57,7 +62,9 @@ class TestContextDB:
             return self._tests_for_line_arcs(cur, file_id, line)
         return self._tests_for_line_bits(cur, file_id, line)
 
-    def _tests_for_line_bits(self, cur: sqlite3.Cursor, file_id: int, line: int) -> list[str] | None:
+    def _tests_for_line_bits(
+        self, cur: sqlite3.Cursor, file_id: int, line: int
+    ) -> list[str] | None:
         cur.execute(
             "SELECT c.context, lb.numbits FROM line_bits lb "
             "JOIN context c ON c.id = lb.context_id "
@@ -72,7 +79,9 @@ class TestContextDB:
                 tests.append(_strip_context_suffix(ctx_str))
         return tests if tests else None
 
-    def _tests_for_line_arcs(self, cur: sqlite3.Cursor, file_id: int, line: int) -> list[str] | None:
+    def _tests_for_line_arcs(
+        self, cur: sqlite3.Cursor, file_id: int, line: int
+    ) -> list[str] | None:
         """Branch-coverage mode: derive covering tests from the `arc` table.
 
         Mirrors coverage.py's own `SqliteDb.contexts_by_lineno`: a context
@@ -90,7 +99,9 @@ class TestContextDB:
             "WHERE a.file_id = ? AND (a.fromno = ? OR a.tono = ?)",
             (file_id, line, line),
         )
-        tests = [_strip_context_suffix(ctx_str) for (ctx_str,) in cur.fetchall() if ctx_str]
+        tests = [
+            _strip_context_suffix(ctx_str) for (ctx_str,) in cur.fetchall() if ctx_str
+        ]
         return tests if tests else None
 
     def close(self) -> None:
