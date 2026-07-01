@@ -37,6 +37,10 @@ class TestContextDB:
             self._conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
         except sqlite3.OperationalError as e:
             raise TestContextError(f"cannot open coverage db: {e}") from e
+        cur = self._conn.cursor()
+        cur.execute("SELECT value FROM meta WHERE key = 'has_arcs'")
+        row = cur.fetchone()
+        self._has_arcs = bool(row and int(row[0]))
 
     def tests_for_line(self, source_path: str, line: int) -> list[str] | None:
         """Return pytest node IDs covering (source_path, line), or None if none do.
@@ -49,6 +53,11 @@ class TestContextDB:
         if row is None:
             return None
         file_id = row[0]
+        if self._has_arcs:
+            return self._tests_for_line_arcs(cur, file_id, line)
+        return self._tests_for_line_bits(cur, file_id, line)
+
+    def _tests_for_line_bits(self, cur: sqlite3.Cursor, file_id: int, line: int) -> list[str] | None:
         cur.execute(
             "SELECT c.context, lb.numbits FROM line_bits lb "
             "JOIN context c ON c.id = lb.context_id "
@@ -61,6 +70,27 @@ class TestContextDB:
                 continue
             if line in _numbits_to_lines(numbits):
                 tests.append(_strip_context_suffix(ctx_str))
+        return tests if tests else None
+
+    def _tests_for_line_arcs(self, cur: sqlite3.Cursor, file_id: int, line: int) -> list[str] | None:
+        """Branch-coverage mode: derive covering tests from the `arc` table.
+
+        Mirrors coverage.py's own `SqliteDb.contexts_by_lineno`: a context
+        "touches" a line if that line appears as either endpoint of an arc it
+        recorded, provided the endpoint is positive. Negative fromno/tono
+        values are coverage.py's synthetic code-object entry/exit markers
+        (see coverage/sqldata.py `arcs()` docstring), not real source lines,
+        and must be excluded rather than matched against `line`.
+        """
+        if line <= 0:
+            return None
+        cur.execute(
+            "SELECT DISTINCT c.context FROM arc a "
+            "JOIN context c ON c.id = a.context_id "
+            "WHERE a.file_id = ? AND (a.fromno = ? OR a.tono = ?)",
+            (file_id, line, line),
+        )
+        tests = [_strip_context_suffix(ctx_str) for (ctx_str,) in cur.fetchall() if ctx_str]
         return tests if tests else None
 
     def close(self) -> None:
