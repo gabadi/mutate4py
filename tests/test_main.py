@@ -370,6 +370,185 @@ def test_run_scan_with_lcov(tmp_path, capsys):
     assert "Covered mutation sites:" in out
 
 
+# ── _run_on_file: CLI-args → run_mutations wiring ─────────────────────────────
+#
+# Gap found via coverage.py arc data: nothing in the suite exercises the
+# non-scan/non-manifest branch of _run_on_file (the code that maps a parsed
+# argparse.Namespace onto run_mutations' kwargs for the directory-mode
+# per-file dispatch path). A mutant swapping since_last_run/mutate_all, or
+# dropping test_contexts_path=args.test_contexts, would go undetected.
+# run_mutations' own behavior is already covered directly in test_runner.py;
+# this section is only about proving the wiring is correct.
+
+
+def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
+    from mutate4py.__main__ import _run_on_file
+
+    captured = {}
+
+    def fake_run_mutations(**kwargs):
+        captured.update(kwargs)
+        return 0
+
+    monkeypatch.setattr("mutate4py.__main__.run_mutations", fake_run_mutations)
+
+    args = _make_args(
+        cov_cmd="echo hi",
+        test_command="tox",
+        timeout_factor=7,
+        min_timeout=2.5,
+        lines="3,4",
+        since_last_run=True,
+        mutate_all=False,
+        warning_threshold=42,
+        max_workers=3,
+        test_contexts=".coverage",
+    )
+    result = _run_on_file(args, "f.py", "x = 1\n", "/cwd", baseline_duration=1.5)
+
+    assert result == 0
+    assert captured == {
+        "path": "f.py",
+        "source": "x = 1\n",
+        "cov_cmd": "echo hi",
+        "lcov_path": None,
+        "reuse_coverage": False,
+        "test_command": "tox",
+        "timeout_factor": 7,
+        "min_timeout": 2.5,
+        "lines_filter": {3, 4},
+        "since_last_run": True,
+        "mutate_all": False,
+        "warning_threshold": 42,
+        "max_workers": 3,
+        "cwd": "/cwd",
+        "baseline_duration": 1.5,
+        "test_contexts_path": ".coverage",
+    }
+
+
+def test_run_on_file_mutate_all_wired_when_lines_and_since_last_run_absent(
+    monkeypatch,
+):
+    """Distinguishes mutate_all from since_last_run in the wiring (mutant: swapped kwargs)."""
+    from mutate4py.__main__ import _run_on_file
+
+    captured = {}
+    monkeypatch.setattr(
+        "mutate4py.__main__.run_mutations",
+        lambda **kwargs: captured.update(kwargs) or 0,
+    )
+
+    args = _make_args(since_last_run=False, mutate_all=True, max_workers=None)
+    _run_on_file(args, "f.py", "x = 1\n", "/cwd")
+
+    assert captured["since_last_run"] is False
+    assert captured["mutate_all"] is True
+    assert captured["max_workers"] == 0  # None -> 0 default, per _run_on_file
+    assert captured["lines_filter"] is None
+    assert captured["baseline_duration"] is None
+
+
+def test_run_on_file_scan_coverage_error_exits_2(monkeypatch, capsys):
+    """The --scan branch's own try/except (distinct from _run_scan's) must exit(2)."""
+    from mutate4py._coverage import CoverageError
+    from mutate4py.__main__ import _run_on_file
+
+    def raise_coverage_error(**kwargs):
+        raise CoverageError("no coverage source")
+
+    monkeypatch.setattr("mutate4py.__main__.run_scan", raise_coverage_error)
+
+    args = _make_args(scan=True)
+    with pytest.raises(SystemExit) as exc:
+        _run_on_file(args, "f.py", "x = 1\n", "/cwd")
+    assert exc.value.code == 2
+    assert "no coverage source" in capsys.readouterr().err
+
+
+def test_check_no_run_incompatibilities_test_contexts_exits_2(capsys):
+    """--test-contexts paired with --scan (a no-run flag) must exit(2)."""
+    from mutate4py.__main__ import _check_no_run_incompatibilities
+
+    args = _make_args(scan=True, test_contexts=".coverage")
+    with pytest.raises(SystemExit) as exc:
+        _check_no_run_incompatibilities(args)
+    assert exc.value.code == 2
+    assert "--test-contexts" in capsys.readouterr().err
+
+
+# ── _needs_directory_baseline / _prepare_directory_baseline ───────────────────
+
+
+def test_needs_directory_baseline_true_for_normal_run():
+    from mutate4py.__main__ import _needs_directory_baseline
+
+    args = _make_args()
+    assert _needs_directory_baseline(["a.py"], args) is True
+
+
+def test_needs_directory_baseline_false_when_no_files():
+    from mutate4py.__main__ import _needs_directory_baseline
+
+    args = _make_args()
+    assert _needs_directory_baseline([], args) is False
+
+
+@pytest.mark.parametrize(
+    "extra", [{"scan": True}, {"update_manifest": True}, {"check_manifest": True}]
+)
+def test_needs_directory_baseline_false_for_no_run_modes(extra):
+    from mutate4py.__main__ import _needs_directory_baseline
+
+    args = _make_args(**extra)
+    assert _needs_directory_baseline(["a.py"], args) is False
+
+
+def test_prepare_directory_baseline_returns_duration(monkeypatch):
+    from mutate4py.__main__ import _prepare_directory_baseline
+
+    monkeypatch.setattr("mutate4py._coverage.acquire_coverage", lambda **kwargs: {1, 2})
+    monkeypatch.setattr(
+        "mutate4py.__main__.run_baseline", lambda cmd, cwd: (1.23, None)
+    )
+
+    args = _make_args(test_command="pytest")
+    duration = _prepare_directory_baseline(args, ["a.py"], "/cwd")
+
+    assert duration == 1.23
+
+
+def test_prepare_directory_baseline_coverage_error_exits_1(monkeypatch, capsys):
+    from mutate4py._coverage import CoverageError
+    from mutate4py.__main__ import _prepare_directory_baseline
+
+    def raise_coverage_error(**kwargs):
+        raise CoverageError("no coverage source")
+
+    monkeypatch.setattr("mutate4py._coverage.acquire_coverage", raise_coverage_error)
+
+    args = _make_args()
+    with pytest.raises(SystemExit) as exc:
+        _prepare_directory_baseline(args, ["a.py"], "/cwd")
+    assert exc.value.code == 1
+    assert "no coverage source" in capsys.readouterr().err
+
+
+def test_prepare_directory_baseline_baseline_failure_exits_1(monkeypatch, capsys):
+    from mutate4py.__main__ import _prepare_directory_baseline
+
+    monkeypatch.setattr("mutate4py._coverage.acquire_coverage", lambda **kwargs: {1, 2})
+    monkeypatch.setattr(
+        "mutate4py.__main__.run_baseline", lambda cmd, cwd: (0.0, "boom")
+    )
+
+    args = _make_args()
+    with pytest.raises(SystemExit) as exc:
+        _prepare_directory_baseline(args, ["a.py"], "/cwd")
+    assert exc.value.code == 1
+    assert "boom" in capsys.readouterr().err
+
+
 # ── Mutant-killing gap tests ──────────────────────────────────────────────────
 
 
@@ -836,98 +1015,12 @@ def test_lines_non_integer_is_usage_error():
 
 
 # ── F5: mutual exclusion — --scan / --update-manifest ────────────────────────
-
-
-def test_scan_and_update_manifest_are_exclusive():
-    result = run_cli("--scan", "--update-manifest", source="x = 1\n")
-    assert result.returncode != 0
-
-
-def test_scan_and_lines_are_exclusive():
-    result = run_cli("--scan", "--lines", "7", source="x = 1\n")
-    assert result.returncode != 0
-
-
-def test_scan_and_since_last_run_are_exclusive():
-    result = run_cli("--scan", "--since-last-run", source="x = 1\n")
-    assert result.returncode != 0
-
-
-def test_scan_and_mutate_all_are_exclusive():
-    result = run_cli("--scan", "--mutate-all", source="x = 1\n")
-    assert result.returncode != 0
-
-
-def test_scan_and_timeout_factor_are_exclusive():
-    result = run_cli("--scan", "--timeout-factor", "5", source="x = 1\n")
-    assert result.returncode != 0
-
-
-def test_scan_and_test_command_are_exclusive():
-    result = run_cli("--scan", "--test-command", "tox", source="x = 1\n")
-    assert result.returncode != 0
-
-
-def test_scan_and_max_workers_are_exclusive():
-    result = run_cli("--scan", "--max-workers", "4", source="x = 1\n")
-    assert result.returncode != 0
-
-
-def test_update_manifest_and_lines_are_exclusive():
-    result = run_cli("--update-manifest", "--lines", "7", source="x = 1\n")
-    assert result.returncode != 0
-
-
-def test_update_manifest_and_since_last_run_are_exclusive():
-    result = run_cli("--update-manifest", "--since-last-run", source="x = 1\n")
-    assert result.returncode != 0
-
-
-def test_update_manifest_and_mutate_all_are_exclusive():
-    result = run_cli("--update-manifest", "--mutate-all", source="x = 1\n")
-    assert result.returncode != 0
-
-
-def test_update_manifest_and_max_workers_are_exclusive():
-    result = run_cli("--update-manifest", "--max-workers", "4", source="x = 1\n")
-    assert result.returncode != 0
-
-
-# ── F5: mutual exclusion — selection flags ────────────────────────────────────
-
-
-def test_since_last_run_and_mutate_all_are_exclusive():
-    result = run_cli("--since-last-run", "--mutate-all", source="x = 1\n")
-    assert result.returncode != 0
-
-
-def test_since_last_run_and_lines_are_exclusive():
-    result = run_cli("--since-last-run", "--lines", "7", source="x = 1\n")
-    assert result.returncode != 0
-
-
-def test_mutate_all_and_lines_are_exclusive():
-    result = run_cli("--mutate-all", "--lines", "7", source="x = 1\n")
-    assert result.returncode != 0
-
-
-# ── F5: --max-workers accepted with selection flags ───────────────────────────
-
-
-def test_max_workers_accepted_with_lines():
-    run_cli("--scan", "--lines", "7", "--max-workers", "4", source="x = 1\n")
-    # --scan + --lines is already exclusive, so test acceptance without --scan
-    # We can't actually run mutations without coverage, so just check parse acceptance
-    # by using --scan without --lines
-    result2 = run_cli("--max-workers", "4", "--lines", "7", source="x = 1\n")
-    # Will fail due to no coverage, but parse should accept (non-zero from coverage, not parse)
-    # The key is it should NOT fail with argparse/mutual-exclusion error (returncode 2)
-    # but may fail with coverage error (returncode 1 or non-zero)
-    # Check it doesn't print usage error about --max-workers and --lines
-    assert (
-        "--max-workers" not in result2.stderr
-        or "cannot be combined" not in result2.stderr
-    )
+#
+# Coverage for these flag-exclusivity combinations lives with the in-process
+# `_validate_mutual_exclusions` unit tests below (see "direct unit coverage"
+# section) rather than as subprocess CLI invocations here: they exercise pure
+# argparse-namespace validation logic with no filesystem/process dependency,
+# so a subprocess round-trip adds cost without adding coverage.
 
 
 def test_max_workers_with_lines_parse_accepted():
@@ -1125,6 +1218,11 @@ def _make_args(**kwargs):
         timeout_factor=10,
         min_timeout=1.0,
         test_command="pytest",
+        test_contexts=None,
+        cov_cmd=None,
+        lcov=None,
+        reuse_coverage=False,
+        warning_threshold=50,
     )
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -1139,6 +1237,46 @@ def test_validate_scan_and_update_manifest_exits(capsys):
     except SystemExit as exc:
         assert exc.code == 2
     assert "--scan" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"lines": "7"},
+        {"since_last_run": True},
+        {"mutate_all": True},
+        {"max_workers": 4},
+    ],
+)
+def test_validate_scan_with_run_only_flag_exits(capsys, extra):
+    from mutate4py.__main__ import _validate_mutual_exclusions
+
+    try:
+        _validate_mutual_exclusions(_make_args(scan=True, **extra))
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    assert "--scan" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"lines": "7"},
+        {"since_last_run": True},
+        {"mutate_all": True},
+        {"max_workers": 4},
+    ],
+)
+def test_validate_check_manifest_with_run_only_flag_exits(capsys, extra):
+    from mutate4py.__main__ import _validate_mutual_exclusions
+
+    try:
+        _validate_mutual_exclusions(_make_args(check_manifest=True, **extra))
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    assert "--check-manifest" in capsys.readouterr().err
 
 
 def test_validate_update_manifest_with_lines_exits(capsys):
@@ -1193,11 +1331,19 @@ def test_validate_scan_with_test_command_exits(capsys):
     assert "--test-command" in capsys.readouterr().err
 
 
-def test_validate_pairwise_selection_exits(capsys):
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"since_last_run": True, "mutate_all": True},
+        {"since_last_run": True, "lines": "7"},
+        {"mutate_all": True, "lines": "7"},
+    ],
+)
+def test_validate_pairwise_selection_exits(capsys, extra):
     from mutate4py.__main__ import _validate_mutual_exclusions
 
     try:
-        _validate_mutual_exclusions(_make_args(since_last_run=True, mutate_all=True))
+        _validate_mutual_exclusions(_make_args(**extra))
         assert False, "expected SystemExit"
     except SystemExit as exc:
         assert exc.code == 2
@@ -1220,6 +1366,7 @@ def _run_cli_path(path: str, *args: str) -> subprocess.CompletedProcess:
         text=True,
         cwd=REPO_ROOT,
         env={**os.environ, "PYTHONPATH": os.path.join(REPO_ROOT, "src")},
+        timeout=30,
     )
 
 
@@ -1246,36 +1393,6 @@ def test_check_manifest_current_exits_0(tmp_path):
 def test_check_manifest_in_help():
     result = run_cli("--help", source="x = 1\n")
     assert "--check-manifest" in result.stdout
-
-
-def test_check_manifest_and_scan_are_exclusive():
-    result = run_cli("--check-manifest", "--scan", source="x = 1\n")
-    assert result.returncode != 0
-
-
-def test_check_manifest_and_update_manifest_are_exclusive():
-    result = run_cli("--check-manifest", "--update-manifest", source="x = 1\n")
-    assert result.returncode != 0
-
-
-def test_check_manifest_and_lines_are_exclusive():
-    result = run_cli("--check-manifest", "--lines", "7", source="x = 1\n")
-    assert result.returncode != 0
-
-
-def test_check_manifest_and_since_last_run_are_exclusive():
-    result = run_cli("--check-manifest", "--since-last-run", source="x = 1\n")
-    assert result.returncode != 0
-
-
-def test_check_manifest_and_mutate_all_are_exclusive():
-    result = run_cli("--check-manifest", "--mutate-all", source="x = 1\n")
-    assert result.returncode != 0
-
-
-def test_check_manifest_and_max_workers_are_exclusive():
-    result = run_cli("--check-manifest", "--max-workers", "4", source="x = 1\n")
-    assert result.returncode != 0
 
 
 def test_validate_check_manifest_with_scan_exits(capsys):
@@ -1314,11 +1431,10 @@ def _make_src_dir(tmp_path, files: dict[str, str]) -> str:
     return str(d)
 
 
-def test_directory_run_mode_rejects_directory(tmp_path):
+def test_directory_run_mode_attempts_run_on_files(tmp_path):
     d = _make_src_dir(tmp_path, {"a.py": "x = 1\n"})
-    result = _run_cli_path(d)
-    assert result.returncode != 0
-    assert "directory" in result.stderr.lower() or result.returncode == 2
+    result = _run_cli_path(d, "--test-command", "true")
+    assert "run mode requires a single file, not a directory" not in result.stderr
 
 
 def test_directory_check_manifest_all_missing_exits_1(tmp_path):
@@ -1408,7 +1524,7 @@ def test_collect_py_files_ignores_non_py_files(tmp_path):
 # ── directory dispatch: in-process coverage ───────────────────────────────────
 
 
-def test_main_directory_run_mode_exits_2(tmp_path):
+def test_main_directory_run_mode_exits_1_without_coverage(tmp_path):
     import mutate4py.__main__ as m
 
     d = tmp_path / "src"
@@ -1417,7 +1533,7 @@ def test_main_directory_run_mode_exits_2(tmp_path):
     sys.argv = ["mutate4py", str(d)]
     with pytest.raises(SystemExit) as exc:
         m.main()
-    assert exc.value.code == 2
+    assert exc.value.code == 1
 
 
 def test_main_directory_check_manifest_missing_exits_1(tmp_path, capsys):
@@ -1475,3 +1591,52 @@ def test_main_directory_scan_exits_0(tmp_path, capsys):
         m.main()
     assert exc.value.code == 0
     assert "Mutation scan:" in capsys.readouterr().out
+
+
+# ── --test-contexts ───────────────────────────────────────────────────────────
+
+
+def test_test_contexts_incompatible_with_scan_exits_2(tmp_path):
+    import sqlite3
+
+    db = tmp_path / ".coverage"
+    conn = sqlite3.connect(str(db))
+    conn.execute("CREATE TABLE file (id INTEGER PRIMARY KEY, path TEXT)")
+    conn.execute("CREATE TABLE context (id INTEGER PRIMARY KEY, context TEXT)")
+    conn.execute(
+        "CREATE TABLE line_bits (file_id INTEGER, context_id INTEGER, numbits BLOB)"
+    )
+    conn.commit()
+    conn.close()
+    p = tmp_path / "mod.py"
+    p.write_text("x = a > b\n")
+    result = _run_cli_path(str(p), "--scan", "--test-contexts", str(db))
+    assert result.returncode == 2
+    assert "--test-contexts" in result.stderr
+
+
+def test_test_contexts_missing_file_exits_2(tmp_path):
+    p = tmp_path / "mod.py"
+    p.write_text("x = a > b\n")
+    result = _run_cli_path(str(p), "--test-contexts", str(tmp_path / "no.coverage"))
+    assert result.returncode == 2
+    assert "--test-contexts" in result.stderr
+
+
+def test_test_contexts_flag_accepted_with_valid_file(tmp_path):
+    import sqlite3
+
+    db = tmp_path / ".coverage"
+    conn = sqlite3.connect(str(db))
+    conn.execute("CREATE TABLE file (id INTEGER PRIMARY KEY, path TEXT)")
+    conn.execute("CREATE TABLE context (id INTEGER PRIMARY KEY, context TEXT)")
+    conn.execute(
+        "CREATE TABLE line_bits (file_id INTEGER, context_id INTEGER, numbits BLOB)"
+    )
+    conn.commit()
+    conn.close()
+    p = tmp_path / "mod.py"
+    p.write_text("x = a > b\n")
+    result = _run_cli_path(str(p), "--test-contexts", str(db))
+    assert "cannot be combined" not in result.stderr
+    assert "--test-contexts file not found" not in result.stderr

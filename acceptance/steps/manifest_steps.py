@@ -157,7 +157,7 @@ def given_fn_changed_by(m, params):
 @step(r'a previous manifest with functions "(.*)"')
 def given_prev_manifest_with_fns(m, params):
     spec = params.get("previous") or m.group(1)
-    ctx.prev_manifest = _parse_fn_spec(spec)
+    ctx.prev_manifest = _parse_fn_spec(spec, allow_bare_ids=False)
 
 
 @step(r'a current manifest with functions "(.*)"')
@@ -260,7 +260,8 @@ def then_json_line_begins_hash(m, params):
 def then_body_is_trimmed_original(m, params):
     begin_idx = ctx.embedded.index("# mutate4py-manifest-begin")
     body = ctx.embedded[:begin_idx]
-    expected = ctx.source.rstrip("\n") + "\n\n"
+    clean = ctx.source.rstrip("\n")
+    expected = clean + "\n\n\n" if clean else ""
     assert body == expected, f"body mismatch:\n{body!r}\n!=\n{expected!r}"
 
 
@@ -344,7 +345,8 @@ def then_body_identical(m, params):
     if original_begin != -1:
         expected_body = ctx.source[:original_begin]
     else:
-        expected_body = ctx.source.rstrip("\n") + "\n\n"
+        clean = ctx.source.rstrip("\n")
+        expected_body = clean + "\n\n\n" if clean else ""
     assert body == expected_body, f"body mismatch:\n{body!r}\n!=\n{expected_body!r}"
 
 
@@ -415,8 +417,14 @@ def then_no_manifest_written(m, params):
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 
-def _parse_fn_spec(spec: str) -> dict | None:
-    """Parse 'none' or 'func/a:h1, func/b:h2' into a manifest dict."""
+def _parse_fn_spec(spec: str, *, allow_bare_ids: bool = True) -> dict | None:
+    """Parse 'none' or 'func/a:h1, func/b:h2' into a manifest dict.
+
+    allow_bare_ids=False rejects entries missing ':hash' instead of defaulting
+    to hash 'h0' — used for "previous" specs, where every real example always
+    carries an explicit hash, so a colon-less entry only ever means corrupted
+    input, not an intentional shorthand.
+    """
     if spec.strip() == "none":
         return None
     functions = []
@@ -426,8 +434,10 @@ def _parse_fn_spec(spec: str) -> dict | None:
             continue
         if ":" in part:
             fid, fhash = part.split(":", 1)
-        else:
+        elif allow_bare_ids:
             fid, fhash = part, "h0"
+        else:
+            raise ValueError(f"malformed function spec (missing ':hash'): {part!r}")
         functions.append(
             {
                 "id": fid.strip(),

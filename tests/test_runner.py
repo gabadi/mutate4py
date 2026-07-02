@@ -822,6 +822,43 @@ def test_parallel_path_original_file_restored(tmp_path, monkeypatch):
     assert "mutate4py-manifest-begin" in final
 
 
+# ── _build_mutant_command ───────────────────────────────────────────────────────
+
+
+class _FakeTestContextDB:
+    def __init__(self, node_ids):
+        self._node_ids = node_ids
+
+    def tests_for_line(self, source_path, line):
+        return self._node_ids
+
+
+def test_build_mutant_command_no_ctx_db_returns_full_command():
+    from mutate4py._runner import _build_mutant_command
+
+    site = discover_sites("def f(a, b):\n    return a > b\n")[0]
+    cmd = _build_mutant_command("pytest", None, "/src/calc.py", site)
+    assert cmd == "pytest"
+
+
+def test_build_mutant_command_narrows_to_covering_tests():
+    from mutate4py._runner import _build_mutant_command
+
+    site = discover_sites("def f(a, b):\n    return a > b\n")[0]
+    ctx_db = _FakeTestContextDB(["tests/test_calc.py::test_gt"])
+    cmd = _build_mutant_command("pytest", ctx_db, "/src/calc.py", site)
+    assert cmd == "pytest tests/test_calc.py::test_gt"
+
+
+def test_build_mutant_command_falls_back_when_no_covering_tests():
+    from mutate4py._runner import _build_mutant_command
+
+    site = discover_sites("def f(a, b):\n    return a > b\n")[0]
+    ctx_db = _FakeTestContextDB(None)
+    cmd = _build_mutant_command("pytest", ctx_db, "/src/calc.py", site)
+    assert cmd == "pytest"
+
+
 # ── _run_mutation_loop ────────────────────────────────────────────────────────
 
 
