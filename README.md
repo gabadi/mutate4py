@@ -8,10 +8,8 @@ setup.
 A faithful Python port of [unclebob/mutate4go](https://github.com/unclebob/mutate4go),
 with the user-facing contract cross-checked against
 [unclebob/clj-mutate](https://github.com/unclebob/clj-mutate). Where Python forces a
-divergence (coverage acquisition, the manifest hash, no parallel workers) it is
-marked `[PY]` and justified in [`docs/spec.md`](docs/spec.md).
-
-> Status: **scaffold**. Not yet functional.
+divergence (coverage acquisition, the manifest hash) it is marked `[PY]` and
+justified in [`docs/spec.md`](docs/spec.md).
 
 ## Install
 
@@ -36,9 +34,9 @@ See `mutate4py --help` and the [spec](docs/spec.md) for the full flag set.
 
 ## How it differs from mutate4go (`[PY]`)
 
-- **Serial only** — `--max-workers` is removed; the copy-isolated-worker model is
-  unsound under Python editable installs (`pip install -e .`). Mutation is in-place,
-  which is correct everywhere.
+- **`--max-workers` uses clone-per-worker, not tree-copy+`cwd`** — mutate4go's
+  tree-copy model is unsound under Python editable installs (`pip install -e .`), so
+  each worker gets its own `uv`-provisioned venv instead.
 - **Coverage is acquired explicitly** — `--lcov` / `--cov-cmd` / `--reuse-coverage`
   (Python has no universal `-coverprofile` equivalent).
 - **Manifest hash is structural** (`ast.dump()`), so reformatting and comment edits

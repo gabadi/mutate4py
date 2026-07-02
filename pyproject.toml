@@ -1,12 +1,12 @@
 [project]
 name = "mutate4py"
-version = "0.0.0"
+version = "0.1.0"
 description = "Mutation testing for Python with an embedded-in-source manifest"
 readme = "README.md"
 license = "MIT"
 keywords = ["mutation", "testing", "coverage", "quality", "mutate"]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Testing",
@@ -38,9 +38,21 @@ crap4py = { git = "https://github.com/gabadi/crap4py", rev = "v0.1.1" }
 
 [dependency-groups]
 dev = [
+    "bump-my-version>=0.32.0",
     "crap4py",
     "hypothesis>=6.135.0",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "ruff>=0.15.18",
 ]
+
+[tool.bumpversion]
+current_version = "0.1.0"
+commit = true
+tag = true
+tag_name = "v{new_version}"
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
