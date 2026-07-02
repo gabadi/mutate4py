@@ -260,7 +260,8 @@ def then_json_line_begins_hash(m, params):
 def then_body_is_trimmed_original(m, params):
     begin_idx = ctx.embedded.index("# mutate4py-manifest-begin")
     body = ctx.embedded[:begin_idx]
-    expected = ctx.source.rstrip("\n") + "\n\n"
+    clean = ctx.source.rstrip("\n")
+    expected = clean + "\n\n\n" if clean else ""
     assert body == expected, f"body mismatch:\n{body!r}\n!=\n{expected!r}"
 
 
@@ -344,7 +345,8 @@ def then_body_identical(m, params):
     if original_begin != -1:
         expected_body = ctx.source[:original_begin]
     else:
-        expected_body = ctx.source.rstrip("\n") + "\n\n"
+        clean = ctx.source.rstrip("\n")
+        expected_body = clean + "\n\n\n" if clean else ""
     assert body == expected_body, f"body mismatch:\n{body!r}\n!=\n{expected_body!r}"
 
 
