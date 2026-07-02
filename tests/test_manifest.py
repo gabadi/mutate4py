@@ -104,7 +104,7 @@ def test_embed_body_above_footer_is_trimmed_original():
     result = embed_manifest(src, m)
     begin_idx = result.index("# mutate4py-manifest-begin")
     body = result[:begin_idx]
-    assert body == "x = 1\n\n"
+    assert body == "x = 1\n\n\n"
 
 
 def test_embed_strip_then_re_embed_is_idempotent_body():

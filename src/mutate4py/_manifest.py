@@ -29,14 +29,16 @@ def strip_manifest(source: str) -> str:
 def embed_manifest(source: str, manifest: dict) -> str:
     """Embed manifest into source, replacing any existing footer.
 
-    Format (port of mutate4go Strip/Embed):
-      <body, trailing newlines trimmed> + "\n\n"
+    Format (ruff-format-compatible: two blank lines before a trailing
+    top-level comment block, none if the body is empty):
+      <body, trailing newlines trimmed> + "\n\n\n" (omitted if body is empty)
       + "# mutate4py-manifest-begin\n# " + <single-line JSON> + "\n"
       + "# mutate4py-manifest-end\n"
     """
     clean = strip_manifest(source).rstrip("\n")
     json_line = json.dumps(manifest, separators=(",", ":"))
-    return clean + "\n\n" + _BEGIN + "\n" + "# " + json_line + "\n" + _END + "\n"
+    separator = "\n\n\n" if clean else ""
+    return clean + separator + _BEGIN + "\n" + "# " + json_line + "\n" + _END + "\n"
 
 
 def _uncomment_line(line: str) -> str:
@@ -166,5 +168,5 @@ def diff_manifests(previous: dict | None, current: dict) -> set[str]:
 
 
 # mutate4py-manifest-begin
-# {"version":1,"tested_at":"2026-06-29T05:03:30Z","module_hash":"b17fb2c8afae7ba54e31335f1cb235094d6c6a5bc903ea31ac4926857b9f6598","functions":[{"id":"func/strip_manifest","name":"strip_manifest","line":16,"end_line":26,"hash":"0c3dad79fa2576414fcfa48ad47748f2e0d76663a010c4b1ff0d931c04228808"},{"id":"func/embed_manifest","name":"embed_manifest","line":29,"end_line":39,"hash":"7241b85741ff0cf666f9cce3caa8baddfaba2655745ac07a8a01a4dc697b507d"},{"id":"func/_uncomment_line","name":"_uncomment_line","line":42,"end_line":49,"hash":"78c51423cd2362a1afa89007a26546d6c00ecfd5fd9f38f85502e50b7e29881f"},{"id":"func/_find_manifest_block","name":"_find_manifest_block","line":52,"end_line":58,"hash":"df04720e974840c1630bbe4444419dbcbb431505d103384f205eeb8d06cc2b4d"},{"id":"func/_parse_json_safe","name":"_parse_json_safe","line":61,"end_line":65,"hash":"16004732bb738b9003e78bfe43a7ee8238b61439e7a89532eb24befdb8979744"},{"id":"func/extract_manifest","name":"extract_manifest","line":68,"end_line":78,"hash":"2b17c77f37ccaac7b6af38c7670e112d598bc49a1fae4dc773b1e83a3c3cb833"},{"id":"func/_sha256_ast","name":"_sha256_ast","line":81,"end_line":82,"hash":"45da0f51e024b5fe64b95084f3074f927412338fc1d1e1d2f1690b0c4a66b3c5"},{"id":"func/manifests_structurally_equal","name":"manifests_structurally_equal","line":85,"end_line":94,"hash":"9ef437e0385515525621e5149161a4068f1a736be66a44063aab492aa79c35f3"},{"id":"func/build_manifest","name":"build_manifest","line":97,"end_line":113,"hash":"a735b486e2c5d362e01a5565c3f03b93132012a8fda9355eb6ef4670081c4781"},{"id":"func/_extract_functions","name":"_extract_functions","line":116,"end_line":145,"hash":"3de7d42663139b5f954dc01f0fd172f4d3429d72803a46ddc9ef6939e265d9eb"},{"id":"func/diff_manifests","name":"diff_manifests","line":148,"end_line":165,"hash":"7dace38d003dfc04471fbace27a7ab228e09f8aeb32129ae570598ba2b40eeb5"}]}
+# {"version":1,"tested_at":"2026-07-02T02:00:12Z","module_hash":"a096c70657f69e47fb895e8ef9408947eb2e5f3671f339fe9519f9181a997b65","functions":[{"id":"func/strip_manifest","name":"strip_manifest","line":16,"end_line":26,"hash":"0c3dad79fa2576414fcfa48ad47748f2e0d76663a010c4b1ff0d931c04228808"},{"id":"func/embed_manifest","name":"embed_manifest","line":29,"end_line":41,"hash":"d8484437c75b1f787827b5feafdd640555357e86cc462aa7778f7beafd3c559d"},{"id":"func/_uncomment_line","name":"_uncomment_line","line":44,"end_line":51,"hash":"78c51423cd2362a1afa89007a26546d6c00ecfd5fd9f38f85502e50b7e29881f"},{"id":"func/_find_manifest_block","name":"_find_manifest_block","line":54,"end_line":60,"hash":"df04720e974840c1630bbe4444419dbcbb431505d103384f205eeb8d06cc2b4d"},{"id":"func/_parse_json_safe","name":"_parse_json_safe","line":63,"end_line":67,"hash":"16004732bb738b9003e78bfe43a7ee8238b61439e7a89532eb24befdb8979744"},{"id":"func/extract_manifest","name":"extract_manifest","line":70,"end_line":80,"hash":"2b17c77f37ccaac7b6af38c7670e112d598bc49a1fae4dc773b1e83a3c3cb833"},{"id":"func/_sha256_ast","name":"_sha256_ast","line":83,"end_line":84,"hash":"45da0f51e024b5fe64b95084f3074f927412338fc1d1e1d2f1690b0c4a66b3c5"},{"id":"func/manifests_structurally_equal","name":"manifests_structurally_equal","line":87,"end_line":96,"hash":"9ef437e0385515525621e5149161a4068f1a736be66a44063aab492aa79c35f3"},{"id":"func/build_manifest","name":"build_manifest","line":99,"end_line":115,"hash":"a735b486e2c5d362e01a5565c3f03b93132012a8fda9355eb6ef4670081c4781"},{"id":"func/_extract_functions","name":"_extract_functions","line":118,"end_line":147,"hash":"3de7d42663139b5f954dc01f0fd172f4d3429d72803a46ddc9ef6939e265d9eb"},{"id":"func/diff_manifests","name":"diff_manifests","line":150,"end_line":167,"hash":"7dace38d003dfc04471fbace27a7ab228e09f8aeb32129ae570598ba2b40eeb5"}]}
 # mutate4py-manifest-end

@@ -21,5 +21,5 @@ def run_command(cmd: str, cwd: str, timeout: float) -> tuple[str, bool]:
 
 
 # mutate4py-manifest-begin
-# {"version":1,"tested_at":"2026-06-29T06:12:03Z","module_hash":"140b5a19257f812cf84093bca22817acc1b2a4edf5439cd51a49ee5a7137284b","functions":[{"id":"func/run_command","name":"run_command","line":8,"end_line":20,"hash":"d057ada7a6edbfaed83dc3883749643c727c691d1db3ac4ad44704c8754d4287"}]}
+# {"version":1,"tested_at":"2026-07-02T01:49:17Z","module_hash":"140b5a19257f812cf84093bca22817acc1b2a4edf5439cd51a49ee5a7137284b","functions":[{"id":"func/run_command","name":"run_command","line":8,"end_line":20,"hash":"d057ada7a6edbfaed83dc3883749643c727c691d1db3ac4ad44704c8754d4287"}]}
 # mutate4py-manifest-end
