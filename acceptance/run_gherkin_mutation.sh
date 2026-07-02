@@ -12,6 +12,12 @@ LOG_DIR="$(mktemp -d)"
 mkdir -p "$PARSED_DIR" "$GENERATED_DIR"
 chmod +x "$REPO_ROOT/acceptance/runner_adapter.py"
 
+# Per-mutation subprocess timeout (seconds). The mutator runs the whole
+# acceptance entrypoint per mutation; a single run is ~20s uncontended and far
+# longer under concurrent workers, so a generous ceiling avoids spurious
+# infrastructure_error timeouts that masquerade as survivors.
+export RUNNER_TIMEOUT="${RUNNER_TIMEOUT:-300}"
+
 declare -A STEPS_MAP
 STEPS_MAP[site-discovery]="site_discovery_steps"
 STEPS_MAP[manifest]="manifest_steps"

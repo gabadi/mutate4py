@@ -1,5 +1,6 @@
+# mutation-stamp: sha256=55c84b1b5e99d68a702e42d8ff487464a3744387269d79367055371693fa924c
 # acceptance-mutation-manifest-begin
-# {"version":1,"tested_at":"2026-06-29T05:42:05.530710Z","feature_name":"Mutation site discovery and the --scan count surface","feature_path":"/Users/gabadi/workspace/addi/mutate4py/features/site-discovery.feature","background_hash":"74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b","implementation_hash":"unknown","scenarios":[{"index":2,"name":"a site inside a function is attributed to that unit","scenario_hash":"02a32dca34253f02aa003669791745e13f18ebacc8847e72ad7632c890bbd07c","mutation_count":12,"result":{"Total":12,"Killed":12,"Survived":0,"Errors":0},"tested_at":"2026-06-29T05:42:05.530710Z"}]}
+# {"version":1,"tested_at":"2026-07-02T14:16:58.490262Z","feature_name":"Mutation site discovery and the --scan count surface","feature_path":"/Users/gabadi/workspace/addi/mutate4py/features/site-discovery.feature","background_hash":"74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b","implementation_hash":"unknown","scenarios":[{"index":0,"name":"a catalogued construct yields one mutation site","scenario_hash":"c263b00460597ebd9860356e9050f9633f236e6122306061009b081cc624f3bb","mutation_count":38,"result":{"Total":38,"Killed":38,"Survived":0,"Errors":0},"tested_at":"2026-07-02T04:09:10.994609Z"},{"index":1,"name":"an excluded construct yields no mutation site","scenario_hash":"caf62c80887e19a65fc8e58bbe2a4ef57ca9a47ce9664814debdf9bdd36f62ea","mutation_count":5,"result":{"Total":5,"Killed":5,"Survived":0,"Errors":0},"tested_at":"2026-07-02T04:09:10.994609Z"},{"index":2,"name":"a site inside a function is attributed to that unit","scenario_hash":"02a32dca34253f02aa003669791745e13f18ebacc8847e72ad7632c890bbd07c","mutation_count":12,"result":{"Total":12,"Killed":12,"Survived":0,"Errors":0},"tested_at":"2026-07-02T04:09:10.994609Z"},{"index":3,"name":"scanning a file prints the count block with no manifest","scenario_hash":"71a002b53edf8e89278c529798945cdc39a555b3cbdd62fb9ae181fe47d40177","mutation_count":6,"result":{"Total":6,"Killed":6,"Survived":0,"Errors":0},"tested_at":"2026-07-02T04:09:10.994609Z"},{"index":4,"name":"the warning line is gated by the threshold","scenario_hash":"1edcd9f574c29ddd6bacddb173a5a443200e64e51227f9d5c329af8d99542579","mutation_count":9,"result":{"Total":9,"Killed":9,"Survived":0,"Errors":0},"tested_at":"2026-07-02T04:09:10.994609Z"}]}
 # acceptance-mutation-manifest-end
 
 Feature: Mutation site discovery and the --scan count surface
@@ -117,8 +118,11 @@ Feature: Mutation site discovery and the --scan count surface
       | def outer with a lambda        | func/outer  |
 
   # site-discovery-4: --scan prints the count block, read-only, no manifest in F1
+  # <built> drives the fixture size; <total> is the count the scan must report.
+  # They match, but are separate columns so mutating either literal is caught:
+  # changing only the fixture or only the expected breaks the reported-count check.
   Scenario Outline: scanning a file prints the count block with no manifest
-    Given a Python file containing <total> mutation sites and no embedded manifest
+    Given a Python file containing <built> mutation sites and no embedded manifest
     When the command "mutate4py <file> --scan" is run
     Then the output line "Total mutation sites: <total>" is printed
     And the output line "Changed mutation sites: <total>" is printed
@@ -127,10 +131,10 @@ Feature: Mutation site discovery and the --scan count surface
     And the file is left unchanged
 
     Examples:
-      | total |
-      | 0     |
-      | 1     |
-      | 7     |
+      | built | total |
+      | 0     | 0     |
+      | 1     | 1     |
+      | 7     | 7     |
 
   # site-discovery-5: the warning line appears only when sites exceed the threshold
   Scenario Outline: the warning line is gated by the threshold

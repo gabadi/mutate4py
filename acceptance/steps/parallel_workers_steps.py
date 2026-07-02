@@ -179,6 +179,17 @@ def given_max_workers_flag(m, params):
     ctx.extra_cli_args = parts
 
 
+@step(r'the max-workers flag is "([^"]*)"')
+def given_max_workers_flag_or_default(m, params):
+    flag_str = params.get("flag") or m.group(1)
+    if flag_str == "(unset)":
+        ctx.max_workers_flag = None
+        ctx.extra_cli_args = []
+        return
+    ctx.max_workers_flag = flag_str
+    ctx.extra_cli_args = flag_str.split()
+
+
 @step(
     r'a selected site with index "(\d+)" on line (\d+) in function "([^"]*)" mutating "([^"]*)" to "([^"]*)"'
 )
@@ -330,7 +341,10 @@ def given_dir_has_entry(m, params):
         os.makedirs(entry_path, exist_ok=True)
         open(os.path.join(entry_path, "module.py"), "w").write("x = 1\n")
     else:
-        os.makedirs(entry_path, exist_ok=True)
+        raise ValueError(
+            f"Unknown working-directory entry fixture: {entry!r}; "
+            "expected one of .git, __pycache__, .mutate4py, src"
+        )
 
 
 @step(r"the target file is outside the working directory")
@@ -431,6 +445,14 @@ def then_workers_line(m, params):
     assert expected in stdout, f"Expected '{expected}' in stdout:\n{stdout}"
 
 
+@step(r'the output line "Total mutation sites: (\d+)" is printed')
+def then_total_sites_line(m, params):
+    total = params.get("total") or m.group(1)
+    expected = f"Total mutation sites: {total}"
+    stdout = ctx.cli_result.stdout
+    assert expected in stdout, f"Expected '{expected}' in stdout:\n{stdout}"
+
+
 @step(r'a "Mutation workers:" line "([^"]*)" printed')
 def then_workers_header_visibility(m, params):
     vis = params.get("visibility") or m.group(1)
@@ -439,10 +461,12 @@ def then_workers_header_visibility(m, params):
         assert "Mutation workers:" in stdout, (
             f"Expected 'Mutation workers:' in:\n{stdout}"
         )
-    else:
+    elif vis == "is not":
         assert "Mutation workers:" not in stdout, (
             f"Did not expect 'Mutation workers:' in:\n{stdout}"
         )
+    else:
+        raise AssertionError(f"Unknown visibility value: {vis!r}; expected 'is' or 'is not'")
 
 
 @step(r'a "worker-" token "([^"]*)" present in every per-mutant progress line')
@@ -454,9 +478,11 @@ def then_worker_token_visibility(m, params):
     if vis == "is":
         for line in progress:
             assert "worker-" in line, f"Expected worker-k token in: {line}"
-    else:
+    elif vis == "is not":
         for line in progress:
             assert "worker-" not in line, f"Did not expect worker-k token in: {line}"
+    else:
+        raise AssertionError(f"Unknown visibility value: {vis!r}; expected 'is' or 'is not'")
 
 
 @step(
@@ -491,6 +517,8 @@ def then_report_counts(m, params):
     elif tally == "Survived":
         m2 = _re.search(r"Survived: (\d+)", stdout)
         assert m2 and int(m2.group(1)) >= 1, f"Expected Survived >= 1 in:\n{stdout}"
+    else:
+        raise AssertionError(f"Unknown tally value: {tally!r}; expected 'Killed' or 'Survived'")
 
 
 @step(r'the per-mutant lines appear in arrival order "(\d+)", "(\d+)", "(\d+)"')

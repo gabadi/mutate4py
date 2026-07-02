@@ -1,5 +1,6 @@
+# mutation-stamp: sha256=afd729d7c8e59b088e47497f578ebeb47f1a880d9ce42b0f004a970ac5ecf3cb
 # acceptance-mutation-manifest-begin
-# {"version":1,"tested_at":"2026-06-28T23:23:46.153979Z","feature_name":"Parallel worker execution for --max-workers","feature_path":"features/parallel-workers.feature","background_hash":"1dd133df71819ac82cc0542649edb76c526b89f2510b6d55591dcaf624a517b7","implementation_hash":"sha256:26219c7e392486739a1ac2d7969af8b2b66220ef2720ce0b6c3fb1ae11e9f80a","scenarios":[{"index":3,"name":"the per-mutant worker token appears only on the parallel path","scenario_hash":"98de42caf2a775e97d8d596973810c120b97813b5e80cb71c3c967dc8292dbb1","mutation_count":9,"result":{"Total":9,"Killed":9,"Survived":0,"Errors":0},"tested_at":"2026-06-28T21:05:48.864433Z"},{"index":10,"name":"a worker error or short result count aborts strictly","scenario_hash":"7d4e32d91c9305cf37abe499978d7f5141109517d703c5412fcf0bf96055fc1c","mutation_count":4,"result":{"Total":4,"Killed":4,"Survived":0,"Errors":0},"tested_at":"2026-06-28T21:05:48.864433Z"},{"index":1,"name":"the worker count clamps to the number of selected sites","scenario_hash":"ca52890d2e326a950a6c5d9619c8873ec8cc24a913e56437470e5828fb9939cb","mutation_count":9,"result":{"Total":9,"Killed":9,"Survived":0,"Errors":0},"tested_at":"2026-06-28T21:00:11.123430Z"},{"index":2,"name":"the workers header line prints whenever --max-workers is over zero","scenario_hash":"2cbc70ed3c7ead9d71ba153ff3b110a2115821b28454d94227c92a326802da46","mutation_count":12,"result":{"Total":12,"Killed":12,"Survived":0,"Errors":0},"tested_at":"2026-06-28T21:00:11.123430Z"},{"index":5,"name":"a parallel mutant is classified exactly as the serial path would","scenario_hash":"dd0cb66003a299d9082413994d0bcb360cf5e2831e635770474d3b61d332eb4b","mutation_count":9,"result":{"Total":9,"Killed":9,"Survived":0,"Errors":0},"tested_at":"2026-06-28T21:00:11.123430Z"}]}
+# {"version":1,"tested_at":"2026-07-02T14:16:58.848064Z","feature_name":"Parallel worker execution for --max-workers","feature_path":"/Users/gabadi/workspace/addi/mutate4py/features/parallel-workers.feature","background_hash":"1dd133df71819ac82cc0542649edb76c526b89f2510b6d55591dcaf624a517b7","implementation_hash":"unknown","scenarios":[{"index":0,"name":"the worker count and site count decide serial vs parallel","scenario_hash":"2fa34f0f36f2376be972b7b76605c1b1c6cc1f0297bad15d7c788b4eea979e02","mutation_count":20,"result":{"Total":20,"Killed":20,"Survived":0,"Errors":0},"tested_at":"2026-07-02T14:13:10.322749Z"},{"index":1,"name":"the worker count clamps to the number of selected sites","scenario_hash":"b49ba9b26ba47f11fe1f53db97339bc6029c4d7ea1eb4c821a9d6932cecfc034","mutation_count":8,"result":{"Total":8,"Killed":8,"Survived":0,"Errors":0},"tested_at":"2026-07-02T14:13:10.322749Z"},{"index":2,"name":"the workers header line prints whenever --max-workers is set","scenario_hash":"3a61819984014d4e1d3f9ba901d550b636f7e5d48db52fdbe5c8c3f7d0fe8f21","mutation_count":16,"result":{"Total":16,"Killed":16,"Survived":0,"Errors":0},"tested_at":"2026-07-02T14:13:10.322749Z"},{"index":3,"name":"the per-mutant worker token appears only on the parallel path","scenario_hash":"5d3e7b79e253cace908a2e670dd0a56f40fca3a2b2bf72eb47e7c47cdf4dc451","mutation_count":15,"result":{"Total":15,"Killed":15,"Survived":0,"Errors":0},"tested_at":"2026-07-02T14:13:10.322749Z"},{"index":5,"name":"a parallel mutant is classified exactly as the serial path would","scenario_hash":"dd0cb66003a299d9082413994d0bcb360cf5e2831e635770474d3b61d332eb4b","mutation_count":9,"result":{"Total":9,"Killed":9,"Survived":0,"Errors":0},"tested_at":"2026-07-02T14:13:10.322749Z"},{"index":8,"name":"the worker tree copy handles skip-list and regular entries without error","scenario_hash":"164b4cbb635b13a1103c31bc347162dbcb3f8ee0d696545285f6da517157634d","mutation_count":4,"result":{"Total":4,"Killed":4,"Survived":0,"Errors":0},"tested_at":"2026-07-02T14:13:10.322749Z"},{"index":10,"name":"a worker error or short result count aborts strictly","scenario_hash":"7d4e32d91c9305cf37abe499978d7f5141109517d703c5412fcf0bf96055fc1c","mutation_count":4,"result":{"Total":4,"Killed":4,"Survived":0,"Errors":0},"tested_at":"2026-07-02T14:13:10.322749Z"}]}
 # acceptance-mutation-manifest-end
 
 Feature: Parallel worker execution for --max-workers
@@ -108,47 +109,68 @@ Feature: Parallel worker execution for --max-workers
     Given a Python source file with covered mutation sites
     And a baseline test command that passes
 
-  # parallel-workers-1: the serial/parallel switch follows --max-workers and site count
+  # parallel-workers-1: the serial/parallel switch follows --max-workers and site count.
+  # The effective-0 serial path is reachable ONLY by omitting the flag (the default);
+  # --max-workers 0 is a usage error (positive-int flag, see cli-surface-2), so the
+  # "0 workers -> serial" case is exercised via the unset default, not a literal 0.
   Scenario Outline: the worker count and site count decide serial vs parallel
     Given the file has "<sites>" selected mutation sites
-    And the flag supplied is "--max-workers <workers>"
+    And the max-workers flag is "<flag>"
     When I run mutate4py mutating that file
     Then the run takes the "<path>" path
+    And the output line "Total mutation sites: <total>" is printed
 
+    # <sites> drives the fixture size; <total> is the count the run must report.
+    # They match but are separate columns, so mutating either literal — or the
+    # <flag> string (a garbage flag aborts before the header prints) — is caught.
     Examples:
-      | workers | sites | path     |
-      | 0       | 5     | serial   |
-      | 1       | 5     | serial   |
-      | 4       | 1     | serial   |
-      | 2       | 2     | parallel |
-      | 4       | 5     | parallel |
+      | flag            | sites | total | path     |
+      | (unset)         | 5     | 5     | serial   |
+      | --max-workers 1 | 5     | 5     | serial   |
+      | --max-workers 4 | 1     | 1     | serial   |
+      | --max-workers 2 | 2     | 2     | parallel |
+      | --max-workers 4 | 5     | 5     | parallel |
 
   # parallel-workers-2: maxWorkers is clamped to the selected-site count
+  # Clamp-DOWN correctness (workers > sites -> shown == sites) is verified by the unit test
+  # test_parallel_path_workers_header_clamped. The above-clamp regime is an equivalent-mutant
+  # trap for gherkin: mutating the workers cell upward (e.g. 8 -> 17) still clamps to the same
+  # site count, so no row here would catch it. This scenario therefore covers only the
+  # load-bearing regime (workers <= sites, plus the equal boundary) where shown == workers.
   Scenario Outline: the worker count clamps to the number of selected sites
     Given the file has "<sites>" selected mutation sites
     And the flag supplied is "--max-workers <workers>"
     When I run mutate4py mutating that file
     Then the output line "Mutation workers: <shown>" is printed
+    And the output line "Total mutation sites: <total>" is printed
 
+    # <sites> drives the fixture; <total> is the reported count and <shown> the
+    # clamped worker count — separate columns so mutating any input literal is caught.
     Examples:
-      | workers | sites | shown |
-      | 8       | 3     | 3     |
-      | 4       | 5     | 4     |
-      | 2       | 2     | 2     |
+      | workers | sites | total | shown |
+      | 4       | 5     | 5     | 4     |
+      | 2       | 2     | 2     | 2     |
 
-  # parallel-workers-3: the Mutation workers line tracks the flag, not the path
-  Scenario Outline: the workers header line prints whenever --max-workers is over zero
+  # parallel-workers-3: the Mutation workers line tracks the flag, not the path.
+  # The header is suppressed only when the flag is unset (default serial); a literal
+  # --max-workers 0 is a usage error (see cli-surface-2), so the "is not" case is
+  # exercised via the unset default rather than a literal 0.
+  Scenario Outline: the workers header line prints whenever --max-workers is set
     Given the file has "<sites>" selected mutation sites
-    And the flag supplied is "--max-workers <workers>"
+    And the max-workers flag is "<flag>"
     When I run mutate4py mutating that file
     Then a "Mutation workers:" line "<visibility>" printed
+    And the output line "Total mutation sites: <total>" is printed
 
+    # <sites> drives the fixture; <total> is the reported count — separate columns so
+    # mutating either literal, or the <flag> string (garbage aborts before the
+    # header prints), is caught.
     Examples:
-      | workers | sites | visibility |
-      | 0       | 5     | is not     |
-      | 1       | 5     | is         |
-      | 4       | 1     | is         |
-      | 4       | 5     | is         |
+      | flag            | sites | total | visibility |
+      | (unset)         | 5     | 5     | is not     |
+      | --max-workers 1 | 5     | 5     | is         |
+      | --max-workers 4 | 1     | 1     | is         |
+      | --max-workers 4 | 5     | 5     | is         |
 
   # parallel-workers-4: the worker-<k> token tracks the path, not the flag
   Scenario Outline: the per-mutant worker token appears only on the parallel path
@@ -156,12 +178,17 @@ Feature: Parallel worker execution for --max-workers
     And the flag supplied is "--max-workers <workers>"
     When I run mutate4py mutating that file
     Then a "worker-" token "<visibility>" present in every per-mutant progress line
+    And the output line "Total mutation sites: <total>" is printed
+    And the output line "Mutation workers: <shown>" is printed
 
+    # <sites> drives the fixture; <total> is the reported count and <shown> the
+    # displayed worker count (clamped on the parallel path) — separate columns so
+    # mutating any input literal is caught.
     Examples:
-      | workers | sites | visibility |
-      | 1       | 5     | is not     |
-      | 4       | 1     | is not     |
-      | 4       | 5     | is         |
+      | workers | sites | total | shown | visibility |
+      | 1       | 5     | 5     | 1     | is not     |
+      | 4       | 1     | 1     | 4     | is not     |
+      | 4       | 5     | 5     | 4     | is         |
 
   # parallel-workers-5: the parallel per-mutant line is the verbatim upstream format
   Scenario: a parallel per-mutant line carries the worker token in upstream format

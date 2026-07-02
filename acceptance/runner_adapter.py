@@ -22,10 +22,18 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 
+def _default_timeout_s() -> float:
+    # The gherkin-mutator never sends a per-job timeout, so this default governs
+    # every mutation. A single full entrypoint run takes ~20s uncontended; under
+    # the mutator's concurrent workers (and batched features) it runs much longer,
+    # so keep this well above that. Override with RUNNER_TIMEOUT (seconds).
+    return float(os.environ.get("RUNNER_TIMEOUT", "300"))
+
+
 def _parse_timeout_ns(s: str) -> float:
-    m = re.match(r"^(\d+(?:\.\d+)?)(s|ms|m)$", s or "30s")
+    m = re.match(r"^(\d+(?:\.\d+)?)(s|ms|m)$", s or "")
     if not m:
-        return 30.0
+        return _default_timeout_s()
     val = float(m.group(1))
     unit = m.group(2)
     if unit == "ms":
@@ -39,7 +47,7 @@ def _run_job(job: dict) -> dict:
     job_id = job.get("id", "?")
     feature_json = job.get("feature_json", "")
     generated_dir = job.get("generated_dir", "")
-    timeout_s = _parse_timeout_ns(job.get("timeout", "30s"))
+    timeout_s = _parse_timeout_ns(job.get("timeout", ""))
 
     feature_stem = _stem_from_feature_json(feature_json, generated_dir)
     entrypoint = os.path.join(generated_dir, f"{feature_stem}_acceptance.py")

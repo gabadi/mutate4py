@@ -130,8 +130,10 @@ def then_function_id_is(m, params):
 
 @step(r"a Python file containing (\d+) mutation sites? and no embedded manifest")
 def given_file_with_n_sites(m, params):
-    total_str = params.get("total") or m.group(1)
-    n = int(total_str)
+    # Fixture size comes from the `built` column, kept separate from the `total`
+    # column asserted on the scan output, so mutating either literal is caught.
+    built_str = params.get("built") or m.group(1)
+    n = int(built_str)
     lines = [f"x{i} = a + b" for i in range(n)]
     src = "\n".join(lines) + "\n" if lines else "pass\n"
     ctx.sites = discover_sites(src)
@@ -176,8 +178,13 @@ def then_warning_line_is(m, params):
             f"warning text mismatch: {expected_warning!r} != {expected!r}"
         )
     else:
-        assert ctx.total <= ctx.threshold, (
-            f"expected no warning but {ctx.total} > {ctx.threshold}"
+        # The no-warning row documents the exact boundary: at total == threshold
+        # the gate is silent (warning fires only when total strictly exceeds
+        # threshold). Asserting equality pins both literals so mutating either
+        # the total or the threshold is caught.
+        assert ctx.total == ctx.threshold, (
+            f"expected no-warning boundary total == threshold, "
+            f"got total={ctx.total}, threshold={ctx.threshold}"
         )
 
 
