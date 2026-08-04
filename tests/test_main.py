@@ -424,6 +424,7 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
         "cwd": "/cwd",
         "baseline_duration": 1.5,
         "test_contexts_path": ".coverage",
+        "manifest_file": None,
     }
 
 
@@ -1432,8 +1433,8 @@ def test_manifest_file_update_writes_sidecar_and_footer_free_source(tmp_path):
     assert result.returncode == 0
     assert "Updated manifest:" in result.stdout
     assert sidecar.is_file()
-    manifest = json.loads(sidecar.read_text())
-    assert manifest["functions"][0]["id"] == "func/f"
+    sidecar_map = json.loads(sidecar.read_text())
+    assert sidecar_map[str(p)]["functions"][0]["id"] == "func/f"
     assert "mutate4py-manifest-begin" not in p.read_text()
 
 
@@ -1458,17 +1459,6 @@ def test_manifest_file_check_missing_sidecar_reports_missing(tmp_path):
 
     assert result.returncode == 1
     assert "Manifest missing:" in result.stdout
-
-
-def test_manifest_file_directory_target_is_usage_error(tmp_path):
-    d = _make_src_dir(tmp_path, {"a.py": "x = 1\n"})
-    sidecar = tmp_path / "shared.manifest.json"
-
-    result = _run_cli_path(d, "--check-manifest", "--manifest-file", str(sidecar))
-
-    assert result.returncode == 2
-    assert "--manifest-file" in result.stderr
-    assert "directory" in result.stderr
 
 
 def test_validate_check_manifest_with_scan_exits(capsys):
@@ -1569,6 +1559,37 @@ def test_directory_scan_processes_all_files(tmp_path):
     result = _run_cli_path(d, "--scan")
     assert result.returncode == 0
     assert result.stdout.count("Mutation scan:") == 2
+
+
+def test_directory_manifest_file_shares_one_sidecar_across_files(tmp_path):
+    """--manifest-file works for a directory target: one shared sidecar file
+    gets one entry per source file, and no source file gains an embedded footer."""
+    import json
+
+    d = _make_src_dir(
+        tmp_path,
+        {
+            "a.py": "def f(a, b):\n    return a > b\n",
+            "b.py": "def g(c, d):\n    return c + d\n",
+        },
+    )
+    sidecar = tmp_path / "shared.manifest.json"
+
+    result = _run_cli_path(d, "--update-manifest", "--manifest-file", str(sidecar))
+
+    assert result.returncode == 0
+    a_path = str(tmp_path / "src" / "a.py")
+    b_path = str(tmp_path / "src" / "b.py")
+    for path in (a_path, b_path):
+        assert "mutate4py-manifest-begin" not in open(path).read()
+
+    sidecar_map = json.loads(sidecar.read_text())
+    assert sidecar_map[a_path]["functions"][0]["id"] == "func/f"
+    assert sidecar_map[b_path]["functions"][0]["id"] == "func/g"
+
+    check_result = _run_cli_path(d, "--check-manifest", "--manifest-file", str(sidecar))
+    assert check_result.returncode == 0
+    assert check_result.stdout.count("Manifest current:") == 2
 
 
 def test_collect_py_files_skips_pycache(tmp_path):

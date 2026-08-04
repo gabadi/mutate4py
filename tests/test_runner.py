@@ -276,8 +276,8 @@ def test_run_mutations_sidecar_writes_manifest_file_and_footer_free_source(tmp_p
     assert "mutate4py-manifest-begin" not in final_source
 
     with open(sidecar_path) as f:
-        manifest = json.load(f)
-    assert manifest["functions"][0]["id"] == "func/f"
+        sidecar_map = json.load(f)
+    assert sidecar_map[src_path]["functions"][0]["id"] == "func/f"
 
 
 def test_run_mutations_baseline_failure_exits_1(tmp_path):
@@ -1182,9 +1182,9 @@ def test_finalize_source_sidecar_writes_manifest_file_not_footer(tmp_path):
     assert "mutate4py-manifest-begin" not in content
 
     with open(sidecar_path) as f:
-        manifest = json.load(f)
-    assert manifest["tested_at"] == "2026-01-01T00:00:00Z"
-    assert manifest["functions"][0]["id"] == "func/f"
+        sidecar_map = json.load(f)
+    assert sidecar_map[src_path]["tested_at"] == "2026-01-01T00:00:00Z"
+    assert sidecar_map[src_path]["functions"][0]["id"] == "func/f"
 
 
 def test_finalize_source_sidecar_removes_bak_when_present(tmp_path):
@@ -1279,13 +1279,24 @@ def test_check_manifest_does_not_modify_file(tmp_path):
 
 def test_read_sidecar_manifest_missing_file_returns_none_false(tmp_path):
     p = tmp_path / "missing.manifest.json"
-    assert read_sidecar_manifest(str(p)) == (None, False)
+    assert read_sidecar_manifest(str(p), "mod.py") == (None, False)
 
 
 def test_read_sidecar_manifest_invalid_json_returns_none_false(tmp_path):
     p = tmp_path / "bad.manifest.json"
     p.write_text("not-json")
-    assert read_sidecar_manifest(str(p)) == (None, False)
+    assert read_sidecar_manifest(str(p), "mod.py") == (None, False)
+
+
+def test_read_sidecar_manifest_missing_entry_returns_none_false(tmp_path):
+    """The sidecar exists and parses, but has no entry for this source path."""
+    p = tmp_path / "shared.manifest.json"
+    write_sidecar_manifest(
+        str(p),
+        "other.py",
+        {"version": 1, "tested_at": "x", "module_hash": "abc", "functions": []},
+    )
+    assert read_sidecar_manifest(str(p), "mod.py") == (None, False)
 
 
 def test_write_sidecar_manifest_round_trips_through_read(tmp_path):
@@ -1296,24 +1307,48 @@ def test_write_sidecar_manifest_round_trips_through_read(tmp_path):
         "module_hash": "abc",
         "functions": [],
     }
-    write_sidecar_manifest(str(p), m)
-    result, ok = read_sidecar_manifest(str(p))
+    write_sidecar_manifest(str(p), "mod.py", m)
+    result, ok = read_sidecar_manifest(str(p), "mod.py")
     assert ok is True
     assert result == m
 
 
-def test_write_sidecar_manifest_overwrites_existing_content(tmp_path):
+def test_write_sidecar_manifest_overwrites_existing_entry_for_same_path(tmp_path):
     p = tmp_path / "out.manifest.json"
     write_sidecar_manifest(
         str(p),
+        "mod.py",
         {"version": 1, "tested_at": "x", "module_hash": "old", "functions": []},
     )
     write_sidecar_manifest(
         str(p),
+        "mod.py",
         {"version": 1, "tested_at": "x", "module_hash": "new", "functions": []},
     )
-    result, _ = read_sidecar_manifest(str(p))
+    result, _ = read_sidecar_manifest(str(p), "mod.py")
     assert result["module_hash"] == "new"
+
+
+def test_write_sidecar_manifest_preserves_other_paths_entries(tmp_path):
+    """Writing one file's entry must not clobber another file's entry in the
+    same shared sidecar (the whole point of one PATH per directory run)."""
+    p = tmp_path / "shared.manifest.json"
+    write_sidecar_manifest(
+        str(p),
+        "a.py",
+        {"version": 1, "tested_at": "x", "module_hash": "a-hash", "functions": []},
+    )
+    write_sidecar_manifest(
+        str(p),
+        "b.py",
+        {"version": 1, "tested_at": "x", "module_hash": "b-hash", "functions": []},
+    )
+    result_a, ok_a = read_sidecar_manifest(str(p), "a.py")
+    result_b, ok_b = read_sidecar_manifest(str(p), "b.py")
+    assert ok_a is True
+    assert ok_b is True
+    assert result_a["module_hash"] == "a-hash"
+    assert result_b["module_hash"] == "b-hash"
 
 
 # ── update_manifest / check_manifest: sidecar mode (--manifest-file) ──────────
@@ -1330,9 +1365,34 @@ def test_update_manifest_sidecar_writes_manifest_file(tmp_path):
     update_manifest(path=str(p), source=src, manifest_file=str(sidecar))
 
     assert sidecar.is_file()
-    manifest = json.loads(sidecar.read_text())
-    assert manifest["version"] == 1
-    assert manifest["functions"][0]["id"] == "func/f"
+    sidecar_map = json.loads(sidecar.read_text())
+    assert sidecar_map[str(p)]["version"] == 1
+    assert sidecar_map[str(p)]["functions"][0]["id"] == "func/f"
+
+
+def test_update_manifest_sidecar_preserves_other_files_entries(tmp_path):
+    """A directory run reusing one --manifest-file PATH across files must not
+    let one file's --update-manifest clobber another file's entry."""
+    src_a = "def f(a, b):\n    return a > b\n"
+    src_b = "def g(c, d):\n    return c + d\n"
+    p_a = tmp_path / "a.py"
+    p_b = tmp_path / "b.py"
+    p_a.write_text(src_a)
+    p_b.write_text(src_b)
+    sidecar = tmp_path / "shared.manifest.json"
+
+    update_manifest(path=str(p_a), source=src_a, manifest_file=str(sidecar))
+    update_manifest(path=str(p_b), source=src_b, manifest_file=str(sidecar))
+
+    assert p_a.read_text() == src_a
+    assert p_b.read_text() == src_b
+    assert "mutate4py-manifest-begin" not in p_a.read_text()
+    assert "mutate4py-manifest-begin" not in p_b.read_text()
+
+    rc_a = check_manifest(path=str(p_a), source=src_a, manifest_file=str(sidecar))
+    rc_b = check_manifest(path=str(p_b), source=src_b, manifest_file=str(sidecar))
+    assert rc_a == 0
+    assert rc_b == 0
 
 
 def test_update_manifest_sidecar_leaves_source_free_of_footer(tmp_path):
