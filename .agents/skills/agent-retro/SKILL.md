@@ -1,7 +1,7 @@
 ---
 name: agent-retro
-description: Run a conversation retrospective — analyze what happened in this session, what worked, what didn't, and propose concrete improvements. Use when the user says "retro", "retrospective", "what happened in this session", "session review", "what did we do", "analyze this conversation", or when wrapping up a long session. Especially useful after using a skill you're developing. In swarmforge: invoked automatically as the last step before each role goes idle.
-compatibility: Primary — requires `entire` CLI (0.6.2+) for transcript extraction. Fallback — Claude Code ~/.claude/projects/ path. Python 3.8+ for the extraction script.
+description: "Run a conversation retrospective — analyze what happened in this session, what worked, what didn't, and propose concrete improvements. Use when the user says \"retro\", \"retrospective\", \"what happened in this session\", \"session review\", \"what did we do\", \"analyze this conversation\", or when wrapping up a long session. Especially useful after using a skill you're developing. In swarmforge: invoked automatically as the last step before each role goes idle."
+compatibility: "Primary — requires `entire` CLI (0.6.2+) for transcript extraction. Fallback — Claude Code ~/.claude/projects/ path. Python 3.8+ for the extraction script."
 metadata:
   author: gabadi/swarm-forge (fork of giannimassi/agent-retro)
   version: "0.1.0"

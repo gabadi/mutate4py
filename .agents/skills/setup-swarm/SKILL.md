@@ -1,7 +1,7 @@
 ---
 name: setup-swarm
-description: One-time project setup for SwarmForge. Run before the first `./swarm` launch. Installs language-appropriate quality tools, wires session tracking, writes permission allow-rules, and scaffolds .gitignore. Triggers on "setup swarm", "setup the swarm", "/setup-swarm", "first time setup", or "prepare project for swarm".
-compatibility: Requires git, Python 3. Optional but recommended: entire CLI (0.6.2+) for session tracking.
+description: "One-time project setup for SwarmForge. Run before the first `./swarm` launch. Installs language-appropriate quality tools, wires session tracking, writes permission allow-rules, and scaffolds .gitignore. Triggers on \"setup swarm\", \"setup the swarm\", \"/setup-swarm\", \"first time setup\", or \"prepare project for swarm\"."
+compatibility: "Requires git, Python 3. Optional but recommended: entire CLI (0.6.2+) for session tracking."
 metadata:
   author: gabadi/swarm-forge
   version: "0.1.0"
