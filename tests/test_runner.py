@@ -246,7 +246,7 @@ def test_run_mutations_sidecar_writes_manifest_file_and_footer_free_source(tmp_p
     script_path = str(tmp_path / "test.sh")
     _make_pass_script(script_path)
 
-    sidecar_path = str(tmp_path / "calc.manifest.json")
+    sidecar_path = src_path + ".manifest.json"
 
     import io
     from contextlib import redirect_stdout
@@ -266,7 +266,7 @@ def test_run_mutations_sidecar_writes_manifest_file_and_footer_free_source(tmp_p
             mutate_all=False,
             warning_threshold=1000,
             cwd=str(tmp_path),
-            manifest_file=sidecar_path,
+            manifest_file=True,
         )
 
     assert rc == 0
@@ -276,8 +276,8 @@ def test_run_mutations_sidecar_writes_manifest_file_and_footer_free_source(tmp_p
     assert "mutate4py-manifest-begin" not in final_source
 
     with open(sidecar_path) as f:
-        sidecar_map = json.load(f)
-    assert sidecar_map[src_path]["functions"][0]["id"] == "func/f"
+        sidecar = json.load(f)
+    assert sidecar["functions"][0]["id"] == "func/f"
 
 
 def test_run_mutations_baseline_failure_exits_1(tmp_path):
@@ -1162,7 +1162,7 @@ def test_finalize_source_manifest_is_valid_dict(tmp_path):
 
 
 def test_finalize_source_sidecar_writes_manifest_file_not_footer(tmp_path):
-    """manifest_file given => sidecar JSON gets the manifest; source stays footer-free."""
+    """manifest_file=True => sidecar JSON gets the manifest; source stays footer-free."""
     import json
 
     src = "def f(a, b):\n    return a > b\n"
@@ -1170,10 +1170,10 @@ def test_finalize_source_sidecar_writes_manifest_file_not_footer(tmp_path):
     bak_path = src_path + ".bak"
     with open(src_path, "w") as f:
         f.write(src)
-    sidecar_path = str(tmp_path / "f.manifest.json")
+    sidecar_path = src_path + ".manifest.json"
 
     _finalize_source(
-        src_path, src, "2026-01-01T00:00:00Z", bak_path, manifest_file=sidecar_path
+        src_path, src, "2026-01-01T00:00:00Z", bak_path, manifest_file=True
     )
 
     with open(src_path) as f:
@@ -1182,9 +1182,9 @@ def test_finalize_source_sidecar_writes_manifest_file_not_footer(tmp_path):
     assert "mutate4py-manifest-begin" not in content
 
     with open(sidecar_path) as f:
-        sidecar_map = json.load(f)
-    assert sidecar_map[src_path]["tested_at"] == "2026-01-01T00:00:00Z"
-    assert sidecar_map[src_path]["functions"][0]["id"] == "func/f"
+        sidecar = json.load(f)
+    assert sidecar["tested_at"] == "2026-01-01T00:00:00Z"
+    assert sidecar["functions"][0]["id"] == "func/f"
 
 
 def test_finalize_source_sidecar_removes_bak_when_present(tmp_path):
@@ -1195,10 +1195,9 @@ def test_finalize_source_sidecar_removes_bak_when_present(tmp_path):
         f.write(src)
     with open(bak_path, "w") as f:
         f.write(src)
-    sidecar_path = str(tmp_path / "f.manifest.json")
 
     _finalize_source(
-        src_path, src, "2026-01-01T00:00:00Z", bak_path, manifest_file=sidecar_path
+        src_path, src, "2026-01-01T00:00:00Z", bak_path, manifest_file=True
     )
 
     assert not os.path.isfile(bak_path)
@@ -1278,73 +1277,75 @@ def test_check_manifest_does_not_modify_file(tmp_path):
 
 
 def test_read_sidecar_manifest_missing_file_returns_none_false(tmp_path):
-    p = tmp_path / "missing.manifest.json"
-    assert read_sidecar_manifest(str(p), "mod.py") == (None, False)
+    p = tmp_path / "mod.py"
+    assert read_sidecar_manifest(str(p)) == (None, False)
 
 
 def test_read_sidecar_manifest_invalid_json_returns_none_false(tmp_path):
-    p = tmp_path / "bad.manifest.json"
-    p.write_text("not-json")
-    assert read_sidecar_manifest(str(p), "mod.py") == (None, False)
+    p = tmp_path / "mod.py"
+    (tmp_path / "mod.py.manifest.json").write_text("not-json")
+    assert read_sidecar_manifest(str(p)) == (None, False)
 
 
-def test_read_sidecar_manifest_missing_entry_returns_none_false(tmp_path):
-    """The sidecar exists and parses, but has no entry for this source path."""
-    p = tmp_path / "shared.manifest.json"
-    write_sidecar_manifest(
-        str(p),
-        "other.py",
-        {"version": 1, "tested_at": "x", "module_hash": "abc", "functions": []},
-    )
-    assert read_sidecar_manifest(str(p), "mod.py") == (None, False)
+def test_read_sidecar_manifest_non_dict_json_returns_none_false(tmp_path):
+    """Valid JSON that isn't an object (e.g. a hand-corrupted sidecar) must not
+    be treated as a real manifest — it should read as missing so the next
+    --update-manifest overwrites it with a fresh one."""
+    p = tmp_path / "mod.py"
+    (tmp_path / "mod.py.manifest.json").write_text("[1, 2, 3]")
+    assert read_sidecar_manifest(str(p)) == (None, False)
 
 
 def test_write_sidecar_manifest_round_trips_through_read(tmp_path):
-    p = tmp_path / "out.manifest.json"
+    p = tmp_path / "mod.py"
     m = {
         "version": 1,
         "tested_at": "2026-01-01T00:00:00Z",
         "module_hash": "abc",
         "functions": [],
     }
-    write_sidecar_manifest(str(p), "mod.py", m)
-    result, ok = read_sidecar_manifest(str(p), "mod.py")
+    write_sidecar_manifest(str(p), m)
+    result, ok = read_sidecar_manifest(str(p))
     assert ok is True
     assert result == m
 
 
-def test_write_sidecar_manifest_overwrites_existing_entry_for_same_path(tmp_path):
-    p = tmp_path / "out.manifest.json"
+def test_write_sidecar_manifest_overwrites_previous_content(tmp_path):
+    p = tmp_path / "mod.py"
     write_sidecar_manifest(
         str(p),
-        "mod.py",
         {"version": 1, "tested_at": "x", "module_hash": "old", "functions": []},
     )
     write_sidecar_manifest(
         str(p),
-        "mod.py",
         {"version": 1, "tested_at": "x", "module_hash": "new", "functions": []},
     )
-    result, _ = read_sidecar_manifest(str(p), "mod.py")
+    result, _ = read_sidecar_manifest(str(p))
     assert result["module_hash"] == "new"
 
 
-def test_write_sidecar_manifest_preserves_other_paths_entries(tmp_path):
-    """Writing one file's entry must not clobber another file's entry in the
-    same shared sidecar (the whole point of one PATH per directory run)."""
-    p = tmp_path / "shared.manifest.json"
+def test_write_sidecar_manifest_uses_source_path_plus_suffix(tmp_path):
+    p = tmp_path / "mod.py"
     write_sidecar_manifest(
         str(p),
-        "a.py",
+        {"version": 1, "tested_at": "x", "module_hash": "abc", "functions": []},
+    )
+    assert (tmp_path / "mod.py.manifest.json").is_file()
+
+
+def test_write_sidecar_manifest_does_not_touch_other_files_sidecars(tmp_path):
+    p_a = tmp_path / "a.py"
+    p_b = tmp_path / "b.py"
+    write_sidecar_manifest(
+        str(p_a),
         {"version": 1, "tested_at": "x", "module_hash": "a-hash", "functions": []},
     )
     write_sidecar_manifest(
-        str(p),
-        "b.py",
+        str(p_b),
         {"version": 1, "tested_at": "x", "module_hash": "b-hash", "functions": []},
     )
-    result_a, ok_a = read_sidecar_manifest(str(p), "a.py")
-    result_b, ok_b = read_sidecar_manifest(str(p), "b.py")
+    result_a, ok_a = read_sidecar_manifest(str(p_a))
+    result_b, ok_b = read_sidecar_manifest(str(p_b))
     assert ok_a is True
     assert ok_b is True
     assert result_a["module_hash"] == "a-hash"
@@ -1360,37 +1361,53 @@ def test_update_manifest_sidecar_writes_manifest_file(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     p = tmp_path / "mod.py"
     p.write_text(src)
-    sidecar = tmp_path / "mod.manifest.json"
+    sidecar = tmp_path / "mod.py.manifest.json"
 
-    update_manifest(path=str(p), source=src, manifest_file=str(sidecar))
+    update_manifest(path=str(p), source=src, manifest_file=True)
 
     assert sidecar.is_file()
-    sidecar_map = json.loads(sidecar.read_text())
-    assert sidecar_map[str(p)]["version"] == 1
-    assert sidecar_map[str(p)]["functions"][0]["id"] == "func/f"
+    sidecar_data = json.loads(sidecar.read_text())
+    assert sidecar_data["version"] == 1
+    assert sidecar_data["functions"][0]["id"] == "func/f"
 
 
-def test_update_manifest_sidecar_preserves_other_files_entries(tmp_path):
-    """A directory run reusing one --manifest-file PATH across files must not
-    let one file's --update-manifest clobber another file's entry."""
+def test_update_manifest_sidecar_overwrites_corrupted_sidecar(tmp_path):
+    """A hand-corrupted sidecar (valid JSON, not a manifest object) reads as
+    missing and gets replaced by --update-manifest, not left in place."""
+    import json
+
+    src = "def f(a, b):\n    return a > b\n"
+    p = tmp_path / "mod.py"
+    p.write_text(src)
+    sidecar = tmp_path / "mod.py.manifest.json"
+    sidecar.write_text("[1, 2, 3]")
+
+    update_manifest(path=str(p), source=src, manifest_file=True)
+
+    sidecar_data = json.loads(sidecar.read_text())
+    assert sidecar_data["functions"][0]["id"] == "func/f"
+
+
+def test_update_manifest_sidecar_does_not_touch_other_files_sidecars(tmp_path):
+    """Each file's sidecar lives at its own <file>.manifest.json, so a directory
+    run updating one file must not affect another file's sidecar or source."""
     src_a = "def f(a, b):\n    return a > b\n"
     src_b = "def g(c, d):\n    return c + d\n"
     p_a = tmp_path / "a.py"
     p_b = tmp_path / "b.py"
     p_a.write_text(src_a)
     p_b.write_text(src_b)
-    sidecar = tmp_path / "shared.manifest.json"
 
-    update_manifest(path=str(p_a), source=src_a, manifest_file=str(sidecar))
-    update_manifest(path=str(p_b), source=src_b, manifest_file=str(sidecar))
+    update_manifest(path=str(p_a), source=src_a, manifest_file=True)
+    update_manifest(path=str(p_b), source=src_b, manifest_file=True)
 
     assert p_a.read_text() == src_a
     assert p_b.read_text() == src_b
     assert "mutate4py-manifest-begin" not in p_a.read_text()
     assert "mutate4py-manifest-begin" not in p_b.read_text()
 
-    rc_a = check_manifest(path=str(p_a), source=src_a, manifest_file=str(sidecar))
-    rc_b = check_manifest(path=str(p_b), source=src_b, manifest_file=str(sidecar))
+    rc_a = check_manifest(path=str(p_a), source=src_a, manifest_file=True)
+    rc_b = check_manifest(path=str(p_b), source=src_b, manifest_file=True)
     assert rc_a == 0
     assert rc_b == 0
 
@@ -1399,9 +1416,8 @@ def test_update_manifest_sidecar_leaves_source_free_of_footer(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     p = tmp_path / "mod.py"
     p.write_text(src)
-    sidecar = tmp_path / "mod.manifest.json"
 
-    update_manifest(path=str(p), source=src, manifest_file=str(sidecar))
+    update_manifest(path=str(p), source=src, manifest_file=True)
 
     assert p.read_text() == src
     assert "mutate4py-manifest-begin" not in p.read_text()
@@ -1411,9 +1427,8 @@ def test_update_manifest_sidecar_reports_updated(tmp_path, capsys):
     src = "def f(a, b):\n    return a > b\n"
     p = tmp_path / "mod.py"
     p.write_text(src)
-    sidecar = tmp_path / "mod.manifest.json"
 
-    update_manifest(path=str(p), source=src, manifest_file=str(sidecar))
+    update_manifest(path=str(p), source=src, manifest_file=True)
 
     assert f"Updated manifest: {p}" in capsys.readouterr().out
 
@@ -1422,14 +1437,14 @@ def test_update_manifest_sidecar_second_run_is_unchanged(tmp_path, capsys):
     src = "def f(a, b):\n    return a > b\n"
     p = tmp_path / "mod.py"
     p.write_text(src)
-    sidecar = tmp_path / "mod.manifest.json"
+    sidecar = tmp_path / "mod.py.manifest.json"
 
-    update_manifest(path=str(p), source=src, manifest_file=str(sidecar))
+    update_manifest(path=str(p), source=src, manifest_file=True)
     sidecar_before = sidecar.read_text()
     source_before = p.read_text()
     capsys.readouterr()
 
-    update_manifest(path=str(p), source=p.read_text(), manifest_file=str(sidecar))
+    update_manifest(path=str(p), source=p.read_text(), manifest_file=True)
 
     assert f"Manifest unchanged: {p}" in capsys.readouterr().out
     assert sidecar.read_text() == sidecar_before
@@ -1445,10 +1460,9 @@ def test_update_manifest_sidecar_strips_stale_footer_even_when_sidecar_current(
     src = "def f(a, b):\n    return a > b\n"
     p = tmp_path / "mod.py"
     p.write_text(src)
-    sidecar = tmp_path / "mod.manifest.json"
 
     # Sidecar already current for this content...
-    update_manifest(path=str(p), source=src, manifest_file=str(sidecar))
+    update_manifest(path=str(p), source=src, manifest_file=True)
     # ...but the file on disk somehow still carries a stale embedded footer
     # (e.g. left over from switching a file from embedded to sidecar storage).
     stale_embedded_source = embed_manifest(
@@ -1456,26 +1470,24 @@ def test_update_manifest_sidecar_strips_stale_footer_even_when_sidecar_current(
     )
     p.write_text(stale_embedded_source)
 
-    update_manifest(
-        path=str(p), source=stale_embedded_source, manifest_file=str(sidecar)
-    )
+    update_manifest(path=str(p), source=stale_embedded_source, manifest_file=True)
 
     assert p.read_text() == src
     assert "mutate4py-manifest-begin" not in p.read_text()
 
 
 def test_update_manifest_default_mode_unaffected_by_manifest_file_param(tmp_path):
-    """manifest_file omitted (default None) => byte-identical to today's embed behavior."""
+    """manifest_file omitted (default False) => byte-identical to today's embed behavior."""
     src = "def f(a, b):\n    return a > b\n"
     p_default = tmp_path / "default.py"
     p_default.write_text(src)
-    p_explicit_none = tmp_path / "explicit_none.py"
-    p_explicit_none.write_text(src)
+    p_explicit_false = tmp_path / "explicit_false.py"
+    p_explicit_false.write_text(src)
 
     update_manifest(path=str(p_default), source=src)
-    update_manifest(path=str(p_explicit_none), source=src, manifest_file=None)
+    update_manifest(path=str(p_explicit_false), source=src, manifest_file=False)
 
-    assert p_default.read_text() == p_explicit_none.read_text()
+    assert p_default.read_text() == p_explicit_false.read_text()
     assert "mutate4py-manifest-begin" in p_default.read_text()
 
 
@@ -1483,9 +1495,8 @@ def test_check_manifest_sidecar_missing_returns_1(tmp_path, capsys):
     src = "def f(a, b):\n    return a > b\n"
     p = tmp_path / "mod.py"
     p.write_text(src)
-    sidecar = tmp_path / "mod.manifest.json"
 
-    rc = check_manifest(path=str(p), source=src, manifest_file=str(sidecar))
+    rc = check_manifest(path=str(p), source=src, manifest_file=True)
 
     assert rc == 1
     assert "Manifest missing:" in capsys.readouterr().out
@@ -1495,11 +1506,10 @@ def test_check_manifest_sidecar_current_returns_0(tmp_path, capsys):
     src = "def f(a, b):\n    return a > b\n"
     p = tmp_path / "mod.py"
     p.write_text(src)
-    sidecar = tmp_path / "mod.manifest.json"
-    update_manifest(path=str(p), source=src, manifest_file=str(sidecar))
+    update_manifest(path=str(p), source=src, manifest_file=True)
     capsys.readouterr()
 
-    rc = check_manifest(path=str(p), source=p.read_text(), manifest_file=str(sidecar))
+    rc = check_manifest(path=str(p), source=p.read_text(), manifest_file=True)
 
     assert rc == 0
     assert "Manifest current:" in capsys.readouterr().out
@@ -1509,12 +1519,11 @@ def test_check_manifest_sidecar_stale_returns_1(tmp_path, capsys):
     src = "def f(a, b):\n    return a > b\n"
     p = tmp_path / "mod.py"
     p.write_text(src)
-    sidecar = tmp_path / "mod.manifest.json"
-    update_manifest(path=str(p), source=src, manifest_file=str(sidecar))
+    update_manifest(path=str(p), source=src, manifest_file=True)
     capsys.readouterr()
     stale_source = src.replace("a > b", "a + b")
 
-    rc = check_manifest(path=str(p), source=stale_source, manifest_file=str(sidecar))
+    rc = check_manifest(path=str(p), source=stale_source, manifest_file=True)
 
     assert rc == 1
     assert "Manifest stale:" in capsys.readouterr().out
@@ -1527,9 +1536,8 @@ def test_check_manifest_sidecar_ignores_embedded_footer_in_source(tmp_path, caps
     p.write_text(src)
     update_manifest(path=str(p), source=src)  # embeds a footer, no sidecar written
     embedded_source = p.read_text()
-    sidecar = tmp_path / "mod.manifest.json"
 
-    rc = check_manifest(path=str(p), source=embedded_source, manifest_file=str(sidecar))
+    rc = check_manifest(path=str(p), source=embedded_source, manifest_file=True)
 
     assert rc == 1
     assert "Manifest missing:" in capsys.readouterr().out

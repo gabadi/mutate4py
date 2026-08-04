@@ -65,7 +65,7 @@ Mutate-test one file at a time: `mutate4py path/to/file.py [options]`
 | `--lcov PATH` | — (fixed path) | path to LCOV file | [PY] |
 | `--reuse-coverage` | reuse coverprofile on disk | reuse LCOV on disk | [PORT]/[PY] |
 | `--max-workers N` | N isolated parallel workers | same — serial default, parallel via `uv` clone-per-worker (§9) | [PORT]/[PY] |
-| `--manifest-file PATH` | — | store manifests in a shared sidecar JSON file at PATH (keyed by source path) instead of the in-source footer | [PY] |
+| `--manifest-file` | — | store each file's manifest as sidecar JSON (`<file>.manifest.json`) instead of the in-source footer | [PY] |
 
 **[PY] reasons:**
 
@@ -84,20 +84,19 @@ Mutate-test one file at a time: `mutate4py path/to/file.py [options]`
   via `cwd`, which is unsound under Python editable installs, so mutate4py provisions
   isolated per-worker copies with `uv` instead (clone-per-worker). Parsed/validated in
   F5; executed in F6.
-- **`--manifest-file PATH` (opt-in sidecar manifest storage).** Neither mutate4go nor
+- **`--manifest-file` (opt-in sidecar manifest storage).** Neither mutate4go nor
   clj-mutate has this — Python-only, and additive: default behavior (in-source
   footer) is unchanged when the flag is absent. Motivation: the embedded footer is a
   single unwrappable JSON line with no length cap, which trips line-length lint gates
   (e.g. ruff E501) on any file that has ever been mutation tested, and a hand-added
   `# noqa` on that line does not survive — `embed_manifest()` strips and rewrites the
-  footer on every `--update-manifest` / scored run. When `--manifest-file PATH` is
-  given, `--check-manifest` and `--update-manifest` read/write the manifest JSON at
-  `PATH` instead of the footer, the scored-run finalizer does the same, and the
-  source file is left free of any manifest footer (existing footers are stripped on
-  the next write). `PATH` holds one shared JSON object keyed by source path (`{source
-  path: manifest}`), not a single manifest — so one `PATH` works for a directory
-  target too: every file under it reads and writes only its own key, other files'
-  entries are left untouched, and no fan-out restriction applies.
+  footer on every `--update-manifest` / scored run. When `--manifest-file` is given,
+  `--check-manifest` and `--update-manifest` read/write each file's manifest JSON at
+  `<file>.manifest.json` (next to the source file) instead of the footer, the
+  scored-run finalizer does the same, and the source file is left free of any
+  manifest footer (existing footers are stripped on the next write). Each source file
+  gets its own sidecar, so directory targets need no fan-out logic: every file simply
+  reads and writes its own `<file>.manifest.json`.
 
 **[PORT] mutual-exclusion rules** (reproduce exactly):
 - `--scan` and `--update-manifest` are mutually exclusive and cannot combine with
@@ -191,20 +190,17 @@ Single JSON object embedded in the file footer between `#`-comment markers:
   `\n\n` + begin marker + `\n# ` + JSON + `\n` + end marker + `\n`. [PORT]
 - **Extract:** find markers, strip `# ` prefixes, JSON-parse. [PORT]
 
-**[PY] Sidecar storage (`--manifest-file PATH`, opt-in).** Same per-file JSON
-schema, wrapped one level: `PATH` holds a single JSON object mapping source path
-→ manifest (`{"a.py": {...}, "b.py": {...}}`), pretty-printed (`indent=2`,
-trailing newline).
+**[PY] Sidecar storage (`--manifest-file`, opt-in).** Same per-file JSON schema
+as the embedded footer, written standalone to `<source_path>.manifest.json`
+(pretty-printed, `indent=2`, trailing newline) instead of a footer.
 
-- `write_sidecar_manifest(manifest_path, source_path, manifest)` reads the whole
-  map at `manifest_path` (missing/unparseable ⇒ `{}`), sets
-  `map[source_path] = manifest`, and rewrites the whole file — other source
-  paths' entries are read back unchanged and rewritten verbatim, so one `PATH`
-  safely accumulates entries across many files (e.g. a directory run).
-- `read_sidecar_manifest(manifest_path, source_path)` reads the map and returns
-  `map[source_path]`; missing file, parse failure, or a missing key for
-  `source_path` all collapse to `(None, False)` — same "no manifest, not an
-  error" contract as `extract_manifest`.
+- `_sidecar_path(source_path)` returns `source_path + ".manifest.json"`.
+- `write_sidecar_manifest(source_path, manifest)` writes `manifest` to
+  `source_path`'s own sidecar file, overwriting it wholesale — there is nothing
+  else in the file to preserve.
+- `read_sidecar_manifest(source_path)` reads `source_path`'s sidecar file and
+  parses it; missing file or parse failure collapse to `(None, False)` — same
+  "no manifest, not an error" contract as `extract_manifest`.
 - The source file is written manifest-stripped (`strip_manifest()` output, no
   footer) whenever it is written at all — `update_manifest` and the scored-run
   finalizer both apply this in sidecar mode, so switching a file from embedded to
@@ -213,12 +209,12 @@ trailing newline).
   manifest-stripped source, so relocating storage does not touch mutation-testing
   correctness (module_hash, per-function hashes, diffing) at all.
 - `--check-manifest` / `--update-manifest` / the scored-run finalizer all read a
-  file's prior manifest from its own key in `PATH` when `--manifest-file` is
-  given, and from the in-source footer otherwise — never both. A stray footer
-  left over from a prior embedded run does not satisfy a sidecar-mode check.
-- Directory targets are supported: each file under the directory reads/writes
-  only its own key in the shared `PATH`, so a single `--manifest-file PATH`
-  covers a whole `--update-manifest`/`--check-manifest` sweep.
+  file's prior manifest from its own sidecar when `--manifest-file` is given,
+  and from the in-source footer otherwise — never both. A stray footer left over
+  from a prior embedded run does not satisfy a sidecar-mode check.
+- Directory targets are supported with no special-casing: each file under the
+  directory reads/writes its own `<file>.manifest.json`, so `--manifest-file`
+  covers a whole `--update-manifest`/`--check-manifest` sweep for free.
 
 ---
 

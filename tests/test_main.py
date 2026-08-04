@@ -424,7 +424,7 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
         "cwd": "/cwd",
         "baseline_duration": 1.5,
         "test_contexts_path": ".coverage",
-        "manifest_file": None,
+        "manifest_file": False,
     }
 
 
@@ -975,16 +975,16 @@ def test_build_parser_manifest_file_dest_is_manifest_file():
     from mutate4py.__main__ import _build_parser
 
     parser = _build_parser()
-    args = parser.parse_args(["f.py", "--manifest-file", "f.manifest.json"])
-    assert args.manifest_file == "f.manifest.json"
+    args = parser.parse_args(["f.py", "--manifest-file"])
+    assert args.manifest_file is True
 
 
-def test_build_parser_manifest_file_defaults_to_none():
+def test_build_parser_manifest_file_defaults_to_false():
     from mutate4py.__main__ import _build_parser
 
     parser = _build_parser()
     args = parser.parse_args(["f.py"])
-    assert args.manifest_file is None
+    assert args.manifest_file is False
 
 
 def test_max_workers_zero_is_usage_error(source="x = 1\n"):
@@ -1245,7 +1245,7 @@ def _make_args(**kwargs):
         lcov=None,
         reuse_coverage=False,
         warning_threshold=50,
-        manifest_file=None,
+        manifest_file=False,
     )
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -1426,25 +1426,24 @@ def test_manifest_file_update_writes_sidecar_and_footer_free_source(tmp_path):
 
     p = tmp_path / "mod.py"
     p.write_text("def f(a, b):\n    return a > b\n")
-    sidecar = tmp_path / "mod.manifest.json"
+    sidecar = tmp_path / "mod.py.manifest.json"
 
-    result = _run_cli_path(str(p), "--update-manifest", "--manifest-file", str(sidecar))
+    result = _run_cli_path(str(p), "--update-manifest", "--manifest-file")
 
     assert result.returncode == 0
     assert "Updated manifest:" in result.stdout
     assert sidecar.is_file()
-    sidecar_map = json.loads(sidecar.read_text())
-    assert sidecar_map[str(p)]["functions"][0]["id"] == "func/f"
+    sidecar_data = json.loads(sidecar.read_text())
+    assert sidecar_data["functions"][0]["id"] == "func/f"
     assert "mutate4py-manifest-begin" not in p.read_text()
 
 
 def test_manifest_file_check_reads_sidecar(tmp_path):
     p = tmp_path / "mod.py"
     p.write_text("def f(a, b):\n    return a > b\n")
-    sidecar = tmp_path / "mod.manifest.json"
-    _run_cli_path(str(p), "--update-manifest", "--manifest-file", str(sidecar))
+    _run_cli_path(str(p), "--update-manifest", "--manifest-file")
 
-    result = _run_cli_path(str(p), "--check-manifest", "--manifest-file", str(sidecar))
+    result = _run_cli_path(str(p), "--check-manifest", "--manifest-file")
 
     assert result.returncode == 0
     assert "Manifest current:" in result.stdout
@@ -1453,9 +1452,8 @@ def test_manifest_file_check_reads_sidecar(tmp_path):
 def test_manifest_file_check_missing_sidecar_reports_missing(tmp_path):
     p = tmp_path / "mod.py"
     p.write_text("def f(a, b):\n    return a > b\n")
-    sidecar = tmp_path / "mod.manifest.json"
 
-    result = _run_cli_path(str(p), "--check-manifest", "--manifest-file", str(sidecar))
+    result = _run_cli_path(str(p), "--check-manifest", "--manifest-file")
 
     assert result.returncode == 1
     assert "Manifest missing:" in result.stdout
@@ -1561,9 +1559,9 @@ def test_directory_scan_processes_all_files(tmp_path):
     assert result.stdout.count("Mutation scan:") == 2
 
 
-def test_directory_manifest_file_shares_one_sidecar_across_files(tmp_path):
-    """--manifest-file works for a directory target: one shared sidecar file
-    gets one entry per source file, and no source file gains an embedded footer."""
+def test_directory_manifest_file_writes_one_sidecar_per_file(tmp_path):
+    """--manifest-file works for a directory target: each source file gets its
+    own <file>.manifest.json, and no source file gains an embedded footer."""
     import json
 
     d = _make_src_dir(
@@ -1573,9 +1571,8 @@ def test_directory_manifest_file_shares_one_sidecar_across_files(tmp_path):
             "b.py": "def g(c, d):\n    return c + d\n",
         },
     )
-    sidecar = tmp_path / "shared.manifest.json"
 
-    result = _run_cli_path(d, "--update-manifest", "--manifest-file", str(sidecar))
+    result = _run_cli_path(d, "--update-manifest", "--manifest-file")
 
     assert result.returncode == 0
     a_path = str(tmp_path / "src" / "a.py")
@@ -1583,11 +1580,12 @@ def test_directory_manifest_file_shares_one_sidecar_across_files(tmp_path):
     for path in (a_path, b_path):
         assert "mutate4py-manifest-begin" not in open(path).read()
 
-    sidecar_map = json.loads(sidecar.read_text())
-    assert sidecar_map[a_path]["functions"][0]["id"] == "func/f"
-    assert sidecar_map[b_path]["functions"][0]["id"] == "func/g"
+    a_sidecar = json.loads(open(a_path + ".manifest.json").read())
+    b_sidecar = json.loads(open(b_path + ".manifest.json").read())
+    assert a_sidecar["functions"][0]["id"] == "func/f"
+    assert b_sidecar["functions"][0]["id"] == "func/g"
 
-    check_result = _run_cli_path(d, "--check-manifest", "--manifest-file", str(sidecar))
+    check_result = _run_cli_path(d, "--check-manifest", "--manifest-file")
     assert check_result.returncode == 0
     assert check_result.stdout.count("Manifest current:") == 2
 
