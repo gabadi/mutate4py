@@ -417,6 +417,60 @@ def test_run_mutations_crash_safety_restores_bak(tmp_path):
     assert "Restored source from backup" in output
 
 
+def test_run_mutations_preserves_tested_at_when_manifest_already_current(tmp_path):
+    """A scored --mutate-all run against source whose embedded manifest already
+    matches (module/function hashes unchanged) retains the OLD tested_at instead
+    of bumping it to now — i.e. the second of two runs on unchanged source produces
+    no diff. Uses a deliberately old tested_at so the assertion can't pass by luck
+    if both runs happen to land within the same wall-clock second."""
+    import json
+
+    from mutate4py._manifest import build_manifest, embed_manifest
+
+    src = "def f(a, b):\n    return a > b\n"
+    old_tested_at = "2020-01-01T00:00:00Z"
+    manifest = build_manifest(src, tested_at=old_tested_at)
+    source_with_manifest = embed_manifest(src, manifest)
+
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(source_with_manifest)
+
+    sites = discover_sites(src)
+    lcov_path = str(tmp_path / "cov.lcov")
+    _write_lcov(lcov_path, src_path, [s.line for s in sites])
+
+    script_path = str(tmp_path / "test.sh")
+    _make_pass_script(script_path)
+
+    import io
+    from contextlib import redirect_stdout
+
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        run_mutations(
+            path=src_path,
+            source=source_with_manifest,
+            cov_cmd=None,
+            lcov_path=lcov_path,
+            reuse_coverage=False,
+            test_command=f"sh {script_path}",
+            timeout_factor=10,
+            lines_filter=None,
+            since_last_run=False,
+            mutate_all=True,
+            warning_threshold=1000,
+            cwd=str(tmp_path),
+        )
+
+    with open(src_path) as f:
+        content = f.read()
+    manifest_line = [ln for ln in content.splitlines() if ln.startswith("# {")][0]
+    result_manifest = json.loads(manifest_line[2:])
+    assert result_manifest["tested_at"] == old_tested_at
+    assert content == source_with_manifest
+
+
 def test_run_mutations_reuse_coverage_warns(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "calc.py")
@@ -1201,6 +1255,70 @@ def test_finalize_source_sidecar_removes_bak_when_present(tmp_path):
     )
 
     assert not os.path.isfile(bak_path)
+
+
+def test_finalize_source_retains_existing_manifest_when_structurally_equal(tmp_path):
+    """When existing_manifest matches the candidate built from clean_source, the OLD
+    tested_at is kept in the written file rather than being bumped to the new one."""
+    import json
+
+    from mutate4py._manifest import build_manifest
+
+    src = "def f(a, b):\n    return a > b\n"
+    src_path = str(tmp_path / "f.py")
+    bak_path = src_path + ".bak"
+    with open(src_path, "w") as f:
+        f.write(src)
+
+    old_tested_at = "2020-01-01T00:00:00Z"
+    existing_manifest = build_manifest(src, tested_at=old_tested_at)
+
+    _finalize_source(
+        src_path,
+        src,
+        "2026-01-01T00:00:00Z",
+        bak_path,
+        existing_manifest=existing_manifest,
+    )
+
+    with open(src_path) as f:
+        content = f.read()
+    manifest_line = [ln for ln in content.splitlines() if ln.startswith("# {")][0]
+    manifest = json.loads(manifest_line[2:])
+    assert manifest["tested_at"] == old_tested_at
+
+
+def test_finalize_source_bumps_tested_at_when_existing_manifest_differs(tmp_path):
+    """When existing_manifest is structurally different from the candidate, a fresh
+    manifest with the new tested_at is embedded (today's default behavior)."""
+    import json
+
+    from mutate4py._manifest import build_manifest
+
+    old_src = "def f(a, b):\n    return a > b\n"
+    new_src = "def f(a, b):\n    return a >= b\n"
+    src_path = str(tmp_path / "f.py")
+    bak_path = src_path + ".bak"
+    with open(src_path, "w") as f:
+        f.write(new_src)
+
+    old_tested_at = "2020-01-01T00:00:00Z"
+    existing_manifest = build_manifest(old_src, tested_at=old_tested_at)
+    new_tested_at = "2026-01-01T00:00:00Z"
+
+    _finalize_source(
+        src_path,
+        new_src,
+        new_tested_at,
+        bak_path,
+        existing_manifest=existing_manifest,
+    )
+
+    with open(src_path) as f:
+        content = f.read()
+    manifest_line = [ln for ln in content.splitlines() if ln.startswith("# {")][0]
+    manifest = json.loads(manifest_line[2:])
+    assert manifest["tested_at"] == new_tested_at
 
 
 # ── check_manifest ────────────────────────────────────────────────────────────

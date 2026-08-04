@@ -72,7 +72,8 @@ term. This is the single canonical glossary for the project.
   previous manifest, plus **new** ids (no previous entry). **Removed** ids are
   dropped. No previous manifest ⇒ all current ids changed.
 - **`tested_at`** — RFC3339 timestamp stamped into the manifest when it is
-  (re)embedded. Bumped only when the manifest actually changes (ADR 0006).
+  (re)embedded. Bumped only when the manifest actually changes (ADR 0006,
+  extended to the F4 run loop's `_finalize_source` by ADR 0016).
 - **`--update-manifest`** — the thin CLI mode that rewrites the footer without
   running mutations. Idempotent: prints `Updated manifest: <file>` when it writes,
   `Manifest unchanged: <file>` when the file already matches (ADR 0006).
@@ -104,7 +105,8 @@ term. This is the single canonical glossary for the project.
 - **Run loop** — the full mutation run (spec §7): strip manifest → discover →
   build+diff manifest → acquire coverage + partition → select → header → [uncovered
   block] → baseline → per-site apply/test/classify/restore → restore → report →
-  re-embed manifest → cleanup (ADR 0010).
+  re-embed manifest (idempotent under structural equality, ADR 0016) →
+  cleanup (ADR 0010).
 - **Baseline** — one run of `--test-command` (default `pytest`) on the **unmutated**
   source; it must pass, and its duration sets the mutant timeout.
 - **Mutant timeout** — `max(1s, timeout-factor × baseline-duration)`; the `1s` floor
