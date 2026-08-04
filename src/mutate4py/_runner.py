@@ -26,6 +26,8 @@ from mutate4py._manifest import (
     embed_manifest,
     extract_manifest,
     manifests_structurally_equal,
+    parse_sidecar_manifest,
+    serialize_sidecar_manifest,
     strip_manifest,
 )
 
@@ -97,12 +99,40 @@ def _restore_from_backup(path: str, bak_path: str) -> str | None:
         return f.read()
 
 
+def read_sidecar_manifest(manifest_path: str) -> tuple[dict | None, bool]:
+    """Read a manifest from a sidecar JSON file.
+
+    Missing file or parse failure => (None, False), never an error (mirrors extract_manifest).
+    """
+    if not os.path.isfile(manifest_path):
+        return None, False
+    with open(manifest_path) as f:
+        text = f.read()
+    return parse_sidecar_manifest(text)
+
+
+def write_sidecar_manifest(manifest_path: str, manifest: dict) -> None:
+    """Write manifest to a sidecar JSON file."""
+    with open(manifest_path, "w") as f:
+        f.write(serialize_sidecar_manifest(manifest))
+
+
+def _read_existing_manifest(
+    source: str, manifest_file: str | None
+) -> tuple[dict | None, bool]:
+    """Read the prior manifest from its configured storage (sidecar or in-source footer)."""
+    if manifest_file is not None:
+        return read_sidecar_manifest(manifest_file)
+    return extract_manifest(source)
+
+
 def _compute_manifest_diff(
     source: str,
+    manifest_file: str | None = None,
 ) -> tuple[str, bool, set[str], str]:
     """Strip manifest, discover sites, diff; return (clean_source, manifest_exists, changed_fn_ids, tested_at)."""
     clean_source = strip_manifest(source)
-    existing_manifest, manifest_exists = extract_manifest(source)
+    existing_manifest, manifest_exists = _read_existing_manifest(source, manifest_file)
     tested_at = datetime.datetime.now(datetime.timezone.utc).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
@@ -260,6 +290,7 @@ def _execute_mutations(
     uncovered_count: int,
     test_ctx_db=None,
     abs_source_path: str = "",
+    manifest_file: str | None = None,
 ) -> int:
     """Run serial or parallel mutations, finalize source, print report. Returns exit code."""
     if use_parallel:
@@ -272,7 +303,7 @@ def _execute_mutations(
             mutant_timeout,
             max_workers,
         )
-        _finalize_source(path, clean_source, tested_at, bak_path)
+        _finalize_source(path, clean_source, tested_at, bak_path, manifest_file)
         if error_msg is not None:
             print(error_msg)
             return 1
@@ -287,7 +318,7 @@ def _execute_mutations(
             test_ctx_db=test_ctx_db,
             abs_source_path=abs_source_path,
         )
-        _finalize_source(path, clean_source, tested_at, bak_path)
+        _finalize_source(path, clean_source, tested_at, bak_path, manifest_file)
     _print_mutation_report(counts, survivors, uncovered_count)
     return 0
 
@@ -342,12 +373,40 @@ def _print_uncovered_if_needed(
         _print_uncovered_block(all_sites, covered_lines)
 
 
+def _write_manifest_output(
+    path: str,
+    clean_source: str,
+    manifest: dict,
+    manifest_file: str | None,
+    *,
+    write_source: bool = True,
+    write_manifest: bool = True,
+) -> None:
+    """Write clean_source/manifest to their configured storage (sidecar or in-source footer).
+
+    In embed mode (manifest_file is None) source and footer are always written
+    together as one file, so write_source/write_manifest are ignored there.
+    """
+    if manifest_file is not None:
+        if write_source:
+            with open(path, "w") as f:
+                f.write(clean_source)
+        if write_manifest:
+            write_sidecar_manifest(manifest_file, manifest)
+    else:
+        with open(path, "w") as f:
+            f.write(embed_manifest(clean_source, manifest))
+
+
 def _finalize_source(
-    path: str, clean_source: str, tested_at: str, bak_path: str
+    path: str,
+    clean_source: str,
+    tested_at: str,
+    bak_path: str,
+    manifest_file: str | None = None,
 ) -> None:
     fresh_manifest = build_manifest(clean_source, tested_at=tested_at)
-    with open(path, "w") as f:
-        f.write(embed_manifest(clean_source, fresh_manifest))
+    _write_manifest_output(path, clean_source, fresh_manifest, manifest_file)
     if os.path.isfile(bak_path):
         os.remove(bak_path)
 
@@ -435,28 +494,46 @@ def run_scan(
     print("\n".join(lines))
 
 
-def update_manifest(*, path: str, source: str) -> int:
-    """Execute --update-manifest: embed or refresh manifest footer. Returns exit code."""
-    existing, _ = extract_manifest(source)
+def update_manifest(*, path: str, source: str, manifest_file: str | None = None) -> int:
+    """Execute --update-manifest: refresh the manifest in its configured storage. Returns exit code."""
+    existing, _ = _read_existing_manifest(source, manifest_file)
     clean = strip_manifest(source)
     tested_at = datetime.datetime.now(datetime.timezone.utc).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
     candidate = build_manifest(clean, tested_at=tested_at)
-    if existing is not None and manifests_structurally_equal(existing, candidate):
+    manifest_changed = existing is None or not manifests_structurally_equal(
+        existing, candidate
+    )
+
+    if manifest_file is not None:
+        source_has_stale_footer = clean != source
+        if not manifest_changed and not source_has_stale_footer:
+            print(f"Manifest unchanged: {path}")
+            return 0
+        _write_manifest_output(
+            path,
+            clean,
+            candidate,
+            manifest_file,
+            write_source=source_has_stale_footer,
+            write_manifest=manifest_changed,
+        )
+        print(f"Updated manifest: {path}")
+        return 0
+
+    if not manifest_changed:
         print(f"Manifest unchanged: {path}")
         return 0
-    embedded = embed_manifest(source, candidate)
-    with open(path, "w") as f:
-        f.write(embedded)
+    _write_manifest_output(path, clean, candidate, manifest_file)
     print(f"Updated manifest: {path}")
     return 0
 
 
-def check_manifest(*, path: str, source: str) -> int:
-    """Check if the manifest embedded in source is up to date. Returns 0 if current, 1 if stale or missing."""
+def check_manifest(*, path: str, source: str, manifest_file: str | None = None) -> int:
+    """Check if the manifest in its configured storage is up to date. Returns 0 if current, 1 if stale or missing."""
     clean = strip_manifest(source)
-    existing, manifest_exists = extract_manifest(source)
+    existing, manifest_exists = _read_existing_manifest(source, manifest_file)
     if not manifest_exists:
         print(f"Manifest missing: {path}")
         return 1
@@ -486,7 +563,7 @@ def _setup_test_context_db(test_contexts_path: str | None, max_workers: int):
 
 
 def _load_clean_source(
-    path: str, bak_path: str, source: str
+    path: str, bak_path: str, source: str, manifest_file: str | None = None
 ) -> tuple[str, bool, set[str], str, list[Site], int]:
     """Rescue from backup if needed, strip/diff the manifest, and discover sites.
 
@@ -496,7 +573,7 @@ def _load_clean_source(
     if rescued is not None:
         source = rescued
     clean_source, manifest_exists, changed_fn_ids, tested_at = _compute_manifest_diff(
-        source
+        source, manifest_file
     )
     all_sites = discover_sites(clean_source)
     changed_count = len([s for s in all_sites if s.function_id in changed_fn_ids])
@@ -537,6 +614,7 @@ def run_mutations(
     cwd: str,
     baseline_duration: float | None = None,
     test_contexts_path: str | None = None,
+    manifest_file: str | None = None,
 ) -> int:
     """Execute the mutation run loop. Returns exit code (0 or 1)."""
     source_dir = os.path.dirname(os.path.abspath(path))
@@ -551,7 +629,7 @@ def run_mutations(
             tested_at,
             all_sites,
             changed_count,
-        ) = _load_clean_source(path, bak_path, source)
+        ) = _load_clean_source(path, bak_path, source, manifest_file)
 
         covered_lines, cov_error = _acquire_covered_lines(
             cov_cmd, lcov_path, reuse_coverage, cwd, os.path.abspath(path)
@@ -618,6 +696,7 @@ def run_mutations(
             uncovered_count=uncovered_count,
             test_ctx_db=test_ctx_db,
             abs_source_path=os.path.abspath(path),
+            manifest_file=manifest_file,
         )
     finally:
         if test_ctx_db is not None:
@@ -625,5 +704,5 @@ def run_mutations(
 
 
 # mutate4py-manifest-begin
-# {"version":1,"tested_at":"2026-07-02T02:06:47Z","module_hash":"f74ca2ab7913af9d9fa06754640f3e77c2be3d64643d125cd3319494e3b8051d","functions":[{"id":"func/_baseline_reason","name":"_baseline_reason","line":33,"end_line":37,"hash":"6037bd527abaf8a495048a7a504e32c167fda984b2204f6f777d58bb0bc94c61"},{"id":"func/run_baseline","name":"run_baseline","line":40,"end_line":47,"hash":"9c1ef7c2bd0a7a952d9f0e60242e19d1381e4ae12d5fc8d2bfac56334392ebff"},{"id":"func/_filter_by_lines","name":"_filter_by_lines","line":50,"end_line":51,"hash":"1e7c8b1b8930f0fc810c32e6cf5844f1d0f054da3a90b748c972c9db0f5cad1e"},{"id":"func/_filter_by_fn","name":"_filter_by_fn","line":54,"end_line":55,"hash":"7bde9d2b50f085b8aec9909193a5391e7967834e9797b3cf6069210bee7df73c"},{"id":"func/_select_sites","name":"_select_sites","line":58,"end_line":71,"hash":"a4cfca336899bc823f71712ead79d24bbfd99f5e8a487d88aa1865b6b51bd3fa"},{"id":"func/_print_uncovered_block","name":"_print_uncovered_block","line":74,"end_line":84,"hash":"64af8f5bf37b3fd3381b6d81e93670387bd64de4c897712faeb864afd9321127"},{"id":"func/_restore_from_backup","name":"_restore_from_backup","line":87,"end_line":97,"hash":"eac2a96184bf954d27a9b87a70232574967423aa03fd629a886f30ca9ffa916b"},{"id":"func/_compute_manifest_diff","name":"_compute_manifest_diff","line":100,"end_line":111,"hash":"85d7a8153b82877267da65bc0ab725fb87385e45407d06309fc83bbbf1f7034f"},{"id":"func/_print_run_header","name":"_print_run_header","line":114,"end_line":133,"hash":"3ee0e5c23c4147496ab8628aaa1b000b53672e6ba77d49c36437086cf6e51e35"},{"id":"func/_build_mutant_command","name":"_build_mutant_command","line":136,"end_line":145,"hash":"bc1503220dce4bbb2e426ff50fc788829cd38bd65db164f9004fad247015c138"},{"id":"func/_run_mutation_loop","name":"_run_mutation_loop","line":148,"end_line":174,"hash":"84b1ce049b70e44ea939941d1d373993f76e2be486a3705aa5b7794255bf37e5"},{"id":"func/_on_parallel_result","name":"_on_parallel_result","line":177,"end_line":187,"hash":"4f1c7c1086c1cdebaf9fb79f281ac1fdf96dbd37b1ad5fd4a0eb98fa470ebc86"},{"id":"func/_run_parallel_workers","name":"_run_parallel_workers","line":190,"end_line":217,"hash":"9ab09719131630f5b62f83b4c5356373433737eec8f4420cd78df51491c02fca"},{"id":"func/_print_mutation_report","name":"_print_mutation_report","line":220,"end_line":237,"hash":"e276b7d9ac64ac7b88a5951026631f3cb9a986395dea5a722bc0f295f9c4f3fa"},{"id":"func/_print_workers_header","name":"_print_workers_header","line":240,"end_line":245,"hash":"9fb25897b2527f7eb8cd253159ee387c6943b7af27873c5cb5273b78355cd27e"},{"id":"func/_execute_mutations","name":"_execute_mutations","line":248,"end_line":292,"hash":"a9a0e2f06428e4a6a077e716e477a2a33bb337f0d0e558967ce86e1164c28fee"},{"id":"func/_acquire_covered_lines","name":"_acquire_covered_lines","line":295,"end_line":317,"hash":"3f39ffb7e5332f5ef3fdc2b652c7c1c2cd9aebbcee201a3fc9702b46e2e294d7"},{"id":"func/_is_effective_since_last_run","name":"_is_effective_since_last_run","line":320,"end_line":328,"hash":"789b9710423097f9bf44371ea3d22d3300a1c723c306f059244c06899436696f"},{"id":"func/_should_run_parallel","name":"_should_run_parallel","line":331,"end_line":332,"hash":"15249ea2817e81a958e42069ced55937242a9097ca031e88d4843613b8cf330d"},{"id":"func/_print_uncovered_if_needed","name":"_print_uncovered_if_needed","line":335,"end_line":342,"hash":"e7d50ad1b3b6feaa64ff9ca52d187451d70910e4bc8191261d27ba2c149cd1f6"},{"id":"func/_finalize_source","name":"_finalize_source","line":345,"end_line":352,"hash":"8b6724a1dbc4f3b9c217d2f49e562e8da4156c1f63c15095cf81f6ea10d9248a"},{"id":"func/scan_report","name":"scan_report","line":355,"end_line":372,"hash":"a93f4b1530dfba54505143b85e4c075297dd27837402a4767874bf43ddd9f1fe"},{"id":"func/scan_report_with_coverage","name":"scan_report_with_coverage","line":375,"end_line":408,"hash":"8faf41b91bf5c704478273f814bc91a8dcff880deb1fefd000b7a13f752eb2b4"},{"id":"func/run_scan","name":"run_scan","line":411,"end_line":435,"hash":"0656659f7878296231be9b065258fee175bc982a7c368c61c9b1d0162c910254"},{"id":"func/update_manifest","name":"update_manifest","line":438,"end_line":453,"hash":"468c784118b34a7ec9f90bc3fe9f32f1e750845dc830d5df137f4f1bfc4cb9b9"},{"id":"func/check_manifest","name":"check_manifest","line":456,"end_line":471,"hash":"cb8a9eb29e549309b9f041bedbe0df5f3150058256a736c91d66c6f4e41f4843"},{"id":"func/_setup_test_context_db","name":"_setup_test_context_db","line":474,"end_line":485,"hash":"c1eed2316ef608c58b742dca1ff2394c3b15856b4f48788fdf17da0f6f60b8d8"},{"id":"func/_load_clean_source","name":"_load_clean_source","line":488,"end_line":510,"hash":"5cd8a57543d23c693a08a23e03d2e2510b7026799e08feee997ec61789d0c90c"},{"id":"func/_resolve_baseline_duration","name":"_resolve_baseline_duration","line":513,"end_line":519,"hash":"9885e555d18e824057b581e30b0d2345e78e9444ef82f6d5289d11977a6dd1c8"},{"id":"func/run_mutations","name":"run_mutations","line":522,"end_line":624,"hash":"b836bfd9f2045652ac6ed52b8fa0441a93e0c03a1cabadf67174b86a24736ad8"}]}
+# {"version":1,"tested_at":"2026-08-04T05:36:26Z","module_hash":"133b48a559124fe31e2d132bc529a36c568664a2c827def2a5269009adce6b37","functions":[{"id":"func/_baseline_reason","name":"_baseline_reason","line":35,"end_line":39,"hash":"6037bd527abaf8a495048a7a504e32c167fda984b2204f6f777d58bb0bc94c61"},{"id":"func/run_baseline","name":"run_baseline","line":42,"end_line":49,"hash":"9c1ef7c2bd0a7a952d9f0e60242e19d1381e4ae12d5fc8d2bfac56334392ebff"},{"id":"func/_filter_by_lines","name":"_filter_by_lines","line":52,"end_line":53,"hash":"1e7c8b1b8930f0fc810c32e6cf5844f1d0f054da3a90b748c972c9db0f5cad1e"},{"id":"func/_filter_by_fn","name":"_filter_by_fn","line":56,"end_line":57,"hash":"7bde9d2b50f085b8aec9909193a5391e7967834e9797b3cf6069210bee7df73c"},{"id":"func/_select_sites","name":"_select_sites","line":60,"end_line":73,"hash":"a4cfca336899bc823f71712ead79d24bbfd99f5e8a487d88aa1865b6b51bd3fa"},{"id":"func/_print_uncovered_block","name":"_print_uncovered_block","line":76,"end_line":86,"hash":"64af8f5bf37b3fd3381b6d81e93670387bd64de4c897712faeb864afd9321127"},{"id":"func/_restore_from_backup","name":"_restore_from_backup","line":89,"end_line":99,"hash":"eac2a96184bf954d27a9b87a70232574967423aa03fd629a886f30ca9ffa916b"},{"id":"func/read_sidecar_manifest","name":"read_sidecar_manifest","line":102,"end_line":111,"hash":"229dff489f1c547fb5af6fa4ed3bd818c4c91d791516f578485f75bdcabc25f9"},{"id":"func/write_sidecar_manifest","name":"write_sidecar_manifest","line":114,"end_line":117,"hash":"023532c1ff3959da668ca0c7f2014afc0d489c73560af9ce207f923847255c29"},{"id":"func/_read_existing_manifest","name":"_read_existing_manifest","line":120,"end_line":126,"hash":"1a75148450721e37572a877ea420b0570e623412965074148ce9570ea094c15b"},{"id":"func/_compute_manifest_diff","name":"_compute_manifest_diff","line":129,"end_line":141,"hash":"145ec318ac48e88c80d9f305e505061d06edc00a2e0ac96874c67fec1e7b5534"},{"id":"func/_print_run_header","name":"_print_run_header","line":144,"end_line":163,"hash":"3ee0e5c23c4147496ab8628aaa1b000b53672e6ba77d49c36437086cf6e51e35"},{"id":"func/_build_mutant_command","name":"_build_mutant_command","line":166,"end_line":175,"hash":"b48ea2b3efdeae32c601907890585b74f323bc381c517ff74ed33b3b3ffcf6cc"},{"id":"func/_run_mutation_loop","name":"_run_mutation_loop","line":178,"end_line":204,"hash":"84b1ce049b70e44ea939941d1d373993f76e2be486a3705aa5b7794255bf37e5"},{"id":"func/_on_parallel_result","name":"_on_parallel_result","line":207,"end_line":217,"hash":"4f1c7c1086c1cdebaf9fb79f281ac1fdf96dbd37b1ad5fd4a0eb98fa470ebc86"},{"id":"func/_run_parallel_workers","name":"_run_parallel_workers","line":220,"end_line":247,"hash":"9ab09719131630f5b62f83b4c5356373433737eec8f4420cd78df51491c02fca"},{"id":"func/_print_mutation_report","name":"_print_mutation_report","line":250,"end_line":267,"hash":"fae048d0bf5f93f358684deb84e65625bdad48a7f602d9cc525532b50ea82ca5"},{"id":"func/_print_workers_header","name":"_print_workers_header","line":270,"end_line":275,"hash":"9fb25897b2527f7eb8cd253159ee387c6943b7af27873c5cb5273b78355cd27e"},{"id":"func/_execute_mutations","name":"_execute_mutations","line":278,"end_line":323,"hash":"0cc9fe54fcafa5eed8b540fdb9d42de57301021cf9181b1bd53219775ca2ec64"},{"id":"func/_acquire_covered_lines","name":"_acquire_covered_lines","line":326,"end_line":348,"hash":"3f39ffb7e5332f5ef3fdc2b652c7c1c2cd9aebbcee201a3fc9702b46e2e294d7"},{"id":"func/_is_effective_since_last_run","name":"_is_effective_since_last_run","line":351,"end_line":359,"hash":"789b9710423097f9bf44371ea3d22d3300a1c723c306f059244c06899436696f"},{"id":"func/_should_run_parallel","name":"_should_run_parallel","line":362,"end_line":363,"hash":"15249ea2817e81a958e42069ced55937242a9097ca031e88d4843613b8cf330d"},{"id":"func/_print_uncovered_if_needed","name":"_print_uncovered_if_needed","line":366,"end_line":373,"hash":"e7d50ad1b3b6feaa64ff9ca52d187451d70910e4bc8191261d27ba2c149cd1f6"},{"id":"func/_write_manifest_output","name":"_write_manifest_output","line":376,"end_line":398,"hash":"b204e85817bf2e6696c38b9587f9a54f76cb40149c4a066bd14acd7ff176ea5a"},{"id":"func/_finalize_source","name":"_finalize_source","line":401,"end_line":411,"hash":"61b3006d214175beb4cd1ce3e88c942d2f854f8d0b4d424e455070f37b1d2b23"},{"id":"func/scan_report","name":"scan_report","line":414,"end_line":431,"hash":"a93f4b1530dfba54505143b85e4c075297dd27837402a4767874bf43ddd9f1fe"},{"id":"func/scan_report_with_coverage","name":"scan_report_with_coverage","line":434,"end_line":467,"hash":"8faf41b91bf5c704478273f814bc91a8dcff880deb1fefd000b7a13f752eb2b4"},{"id":"func/run_scan","name":"run_scan","line":470,"end_line":494,"hash":"0656659f7878296231be9b065258fee175bc982a7c368c61c9b1d0162c910254"},{"id":"func/update_manifest","name":"update_manifest","line":497,"end_line":530,"hash":"7102715da5cb10bb9cae368995a06cacab5d351d992f26ec343a95f8a08e1b32"},{"id":"func/check_manifest","name":"check_manifest","line":533,"end_line":548,"hash":"bd186d9890d7f6752371e770b343bca535c7775f068ed4c065477a9b338e8732"},{"id":"func/_setup_test_context_db","name":"_setup_test_context_db","line":551,"end_line":562,"hash":"c1eed2316ef608c58b742dca1ff2394c3b15856b4f48788fdf17da0f6f60b8d8"},{"id":"func/_load_clean_source","name":"_load_clean_source","line":565,"end_line":587,"hash":"e7b8d25678f3e11fdec53b9b3c156fb254b324ff732cba25ea3c32d77429d317"},{"id":"func/_resolve_baseline_duration","name":"_resolve_baseline_duration","line":590,"end_line":596,"hash":"9885e555d18e824057b581e30b0d2345e78e9444ef82f6d5289d11977a6dd1c8"},{"id":"func/run_mutations","name":"run_mutations","line":599,"end_line":703,"hash":"0a4f31a0ae56980d21f3b73d139c414e9715f9987e1ae6e30c5329bc305e3692"}]}
 # mutate4py-manifest-end

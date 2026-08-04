@@ -65,6 +65,7 @@ Mutate-test one file at a time: `mutate4py path/to/file.py [options]`
 | `--lcov PATH` | — (fixed path) | path to LCOV file | [PY] |
 | `--reuse-coverage` | reuse coverprofile on disk | reuse LCOV on disk | [PORT]/[PY] |
 | `--max-workers N` | N isolated parallel workers | same — serial default, parallel via `uv` clone-per-worker (§9) | [PORT]/[PY] |
+| `--manifest-file PATH` | — | store the manifest as sidecar JSON at PATH instead of the in-source footer | [PY] |
 
 **[PY] reasons:**
 
@@ -83,6 +84,19 @@ Mutate-test one file at a time: `mutate4py path/to/file.py [options]`
   via `cwd`, which is unsound under Python editable installs, so mutate4py provisions
   isolated per-worker copies with `uv` instead (clone-per-worker). Parsed/validated in
   F5; executed in F6.
+- **`--manifest-file PATH` (opt-in sidecar manifest storage).** Neither mutate4go nor
+  clj-mutate has this — Python-only, and additive: default behavior (in-source
+  footer) is unchanged when the flag is absent. Motivation: the embedded footer is a
+  single unwrappable JSON line with no length cap, which trips line-length lint gates
+  (e.g. ruff E501) on any file that has ever been mutation tested, and a hand-added
+  `# noqa` on that line does not survive — `embed_manifest()` strips and rewrites the
+  footer on every `--update-manifest` / scored run. When `--manifest-file PATH` is
+  given, `--check-manifest` and `--update-manifest` read/write the manifest JSON at
+  `PATH` instead of the footer, the scored-run finalizer does the same, and the
+  source file is left free of any manifest footer (existing footers are stripped on
+  the next write). Not supported when `<file>` is a directory — a single literal
+  sidecar path shared across every file in the directory would silently overwrite
+  one file's manifest with another's; combining the two is a usage error.
 
 **[PORT] mutual-exclusion rules** (reproduce exactly):
 - `--scan` and `--update-manifest` are mutually exclusive and cannot combine with
@@ -175,6 +189,25 @@ Single JSON object embedded in the file footer between `#`-comment markers:
 - **Embed:** strip any existing manifest, trim trailing newlines, append
   `\n\n` + begin marker + `\n# ` + JSON + `\n` + end marker + `\n`. [PORT]
 - **Extract:** find markers, strip `# ` prefixes, JSON-parse. [PORT]
+
+**[PY] Sidecar storage (`--manifest-file PATH`, opt-in).** Same JSON schema, a
+different location:
+
+- The manifest is written to `PATH` as pretty-printed JSON (`indent=2`, trailing
+  newline) via `write_sidecar_manifest`, instead of being embedded in the source
+  footer. Read back via `read_sidecar_manifest`: missing file or parse failure ⇒
+  `(None, False)` — same "no manifest, not an error" contract as `extract_manifest`.
+- The source file is written manifest-stripped (`strip_manifest()` output, no
+  footer) whenever it is written at all — `update_manifest` and the scored-run
+  finalizer both apply this in sidecar mode, so switching a file from embedded to
+  sidecar storage strips its old footer on the first write.
+- Hashing is identical either way: `build_manifest()` always operates on
+  manifest-stripped source, so relocating storage does not touch mutation-testing
+  correctness (module_hash, per-function hashes, diffing) at all.
+- `--check-manifest` / `--update-manifest` / the scored-run finalizer all read the
+  prior manifest from `PATH` when `--manifest-file` is given, and from the in-source
+  footer otherwise — never both. A stray footer left over from a prior embedded run
+  does not satisfy a sidecar-mode check.
 
 ---
 
