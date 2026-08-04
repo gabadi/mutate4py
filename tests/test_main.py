@@ -424,6 +424,7 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
         "cwd": "/cwd",
         "baseline_duration": 1.5,
         "test_contexts_path": ".coverage",
+        "manifest_file": False,
     }
 
 
@@ -970,6 +971,22 @@ def test_build_parser_flag_defaults():
     assert args.verbose is False
 
 
+def test_build_parser_manifest_file_dest_is_manifest_file():
+    from mutate4py.__main__ import _build_parser
+
+    parser = _build_parser()
+    args = parser.parse_args(["f.py", "--manifest-file"])
+    assert args.manifest_file is True
+
+
+def test_build_parser_manifest_file_defaults_to_false():
+    from mutate4py.__main__ import _build_parser
+
+    parser = _build_parser()
+    args = parser.parse_args(["f.py"])
+    assert args.manifest_file is False
+
+
 def test_max_workers_zero_is_usage_error(source="x = 1\n"):
     result = run_cli("--max-workers", "0", source="x = 1\n")
     assert result.returncode != 0
@@ -1059,6 +1076,11 @@ def test_help_exits_zero():
 def test_help_lists_max_workers():
     result = run_cli("--help", source="x = 1\n")
     assert "--max-workers" in result.stdout
+
+
+def test_help_lists_manifest_file():
+    result = run_cli("--help", source="x = 1\n")
+    assert "--manifest-file" in result.stdout
 
 
 def test_help_with_invalid_args_still_exits_zero():
@@ -1223,6 +1245,7 @@ def _make_args(**kwargs):
         lcov=None,
         reuse_coverage=False,
         warning_threshold=50,
+        manifest_file=False,
     )
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -1395,6 +1418,47 @@ def test_check_manifest_in_help():
     assert "--check-manifest" in result.stdout
 
 
+# ── --manifest-file: single file end-to-end ────────────────────────────────────
+
+
+def test_manifest_file_update_writes_sidecar_and_footer_free_source(tmp_path):
+    import json
+
+    p = tmp_path / "mod.py"
+    p.write_text("def f(a, b):\n    return a > b\n")
+    sidecar = tmp_path / "mod.py.manifest.json"
+
+    result = _run_cli_path(str(p), "--update-manifest", "--manifest-file")
+
+    assert result.returncode == 0
+    assert "Updated manifest:" in result.stdout
+    assert sidecar.is_file()
+    sidecar_data = json.loads(sidecar.read_text())
+    assert sidecar_data["functions"][0]["id"] == "func/f"
+    assert "mutate4py-manifest-begin" not in p.read_text()
+
+
+def test_manifest_file_check_reads_sidecar(tmp_path):
+    p = tmp_path / "mod.py"
+    p.write_text("def f(a, b):\n    return a > b\n")
+    _run_cli_path(str(p), "--update-manifest", "--manifest-file")
+
+    result = _run_cli_path(str(p), "--check-manifest", "--manifest-file")
+
+    assert result.returncode == 0
+    assert "Manifest current:" in result.stdout
+
+
+def test_manifest_file_check_missing_sidecar_reports_missing(tmp_path):
+    p = tmp_path / "mod.py"
+    p.write_text("def f(a, b):\n    return a > b\n")
+
+    result = _run_cli_path(str(p), "--check-manifest", "--manifest-file")
+
+    assert result.returncode == 1
+    assert "Manifest missing:" in result.stdout
+
+
 def test_validate_check_manifest_with_scan_exits(capsys):
     from mutate4py.__main__ import _validate_mutual_exclusions
 
@@ -1493,6 +1557,37 @@ def test_directory_scan_processes_all_files(tmp_path):
     result = _run_cli_path(d, "--scan")
     assert result.returncode == 0
     assert result.stdout.count("Mutation scan:") == 2
+
+
+def test_directory_manifest_file_writes_one_sidecar_per_file(tmp_path):
+    """--manifest-file works for a directory target: each source file gets its
+    own <file>.manifest.json, and no source file gains an embedded footer."""
+    import json
+
+    d = _make_src_dir(
+        tmp_path,
+        {
+            "a.py": "def f(a, b):\n    return a > b\n",
+            "b.py": "def g(c, d):\n    return c + d\n",
+        },
+    )
+
+    result = _run_cli_path(d, "--update-manifest", "--manifest-file")
+
+    assert result.returncode == 0
+    a_path = str(tmp_path / "src" / "a.py")
+    b_path = str(tmp_path / "src" / "b.py")
+    for path in (a_path, b_path):
+        assert "mutate4py-manifest-begin" not in open(path).read()
+
+    a_sidecar = json.loads(open(a_path + ".manifest.json").read())
+    b_sidecar = json.loads(open(b_path + ".manifest.json").read())
+    assert a_sidecar["functions"][0]["id"] == "func/f"
+    assert b_sidecar["functions"][0]["id"] == "func/g"
+
+    check_result = _run_cli_path(d, "--check-manifest", "--manifest-file")
+    assert check_result.returncode == 0
+    assert check_result.stdout.count("Manifest current:") == 2
 
 
 def test_collect_py_files_skips_pycache(tmp_path):

@@ -55,6 +55,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Verify the manifest footer is up to date; exit 1 if missing or stale; no test run",
     )
     parser.add_argument(
+        "--manifest-file",
+        action="store_true",
+        dest="manifest_file",
+        help="Store the manifest as sidecar JSON (<file>.manifest.json) next to "
+        "each source file instead of embedding it in the source file",
+    )
+    parser.add_argument(
         "--cov-cmd",
         dest="cov_cmd",
         default=None,
@@ -282,9 +289,11 @@ def _run_on_file(
     baseline_duration: float | None = None,
 ) -> int:
     if args.check_manifest:
-        return check_manifest(path=py_file, source=source)
+        return check_manifest(
+            path=py_file, source=source, manifest_file=args.manifest_file
+        )
     if args.update_manifest:
-        update_manifest(path=py_file, source=source)
+        update_manifest(path=py_file, source=source, manifest_file=args.manifest_file)
         return 0
     if args.scan:
         try:
@@ -320,6 +329,7 @@ def _run_on_file(
         cwd=cwd,
         baseline_duration=baseline_duration,
         test_contexts_path=args.test_contexts,
+        manifest_file=args.manifest_file,
     )
 
 
@@ -375,12 +385,16 @@ def _dispatch_directory(args: argparse.Namespace) -> None:
 
 def _dispatch_single_file(args: argparse.Namespace, source: str, cwd: str) -> None:
     if args.check_manifest:
-        sys.exit(check_manifest(path=args.file, source=source))
+        sys.exit(
+            check_manifest(
+                path=args.file, source=source, manifest_file=args.manifest_file
+            )
+        )
     if args.scan:
         _run_scan(args, source, cwd)
         return
     if args.update_manifest:
-        update_manifest(path=args.file, source=source)
+        update_manifest(path=args.file, source=source, manifest_file=args.manifest_file)
         return
     lines_filter = _parse_lines(args.lines)
     max_workers = args.max_workers if args.max_workers is not None else 0
@@ -401,6 +415,7 @@ def _dispatch_single_file(args: argparse.Namespace, source: str, cwd: str) -> No
             max_workers=max_workers,
             cwd=cwd,
             test_contexts_path=args.test_contexts,
+            manifest_file=args.manifest_file,
         )
     )
 
@@ -427,5 +442,5 @@ if __name__ == "__main__":
 
 
 # mutate4py-manifest-begin
-# {"version":1,"tested_at":"2026-07-02T02:02:20Z","module_hash":"32777e82b0b3b4a9982ff5faa2919627d426bb07ceb1ce081394be0ae88ea3b5","functions":[{"id":"func/_positive_int","name":"_positive_int","line":19,"end_line":27,"hash":"06de4d3f74cf39cb40383657b49523cefc38cdf8566d5f8125553f3fd3c195d3"},{"id":"func/_build_parser","name":"_build_parser","line":30,"end_line":129,"hash":"672fb3d43c0aa60073f06287ace42d2e63d874447bb620bbff3d7e10771074fc"},{"id":"func/_check_coverage_flags","name":"_check_coverage_flags","line":132,"end_line":141,"hash":"42edc6617a1e291bd93d3578d7e32e708f713f9084ccba6be2331ad9b0ec9f87"},{"id":"func/_no_run_flag","name":"_no_run_flag","line":144,"end_line":150,"hash":"59aa486011c3e3158e11848b3f49b3182be927b8b3fc1c89b7b93890a7470ba9"},{"id":"func/_exit_incompatible","name":"_exit_incompatible","line":153,"end_line":155,"hash":"db2fe36913cbe87d3616570466315a8988310564ec93851dc7290d8065b8cee0"},{"id":"func/_check_no_run_incompatibilities","name":"_check_no_run_incompatibilities","line":158,"end_line":170,"hash":"53d50c7e588b2c2c608132917c7e016812ad25cb7f5f8fa6780e4a91ace9431b"},{"id":"func/_check_scan_only_incompatibilities","name":"_check_scan_only_incompatibilities","line":173,"end_line":180,"hash":"77d8a7f28df92300239bc3881b089c51438d9dafd77dd134a1e01964e4d24ada"},{"id":"func/_check_selection_exclusivity","name":"_check_selection_exclusivity","line":183,"end_line":194,"hash":"6ff1d994acd05c8dac1f9d7c4467a6fc74aa37899720361f85876e0f79a40e26"},{"id":"func/_validate_mutual_exclusions","name":"_validate_mutual_exclusions","line":197,"end_line":211,"hash":"6155e6243361768bcdfd18a457def365adbf180f8e41ac3f9e6497e59fe6790b"},{"id":"func/_load_source","name":"_load_source","line":214,"end_line":221,"hash":"b5c0322beb2e960c86d48fc3d00b8e1a910b64d4cfcadc414911fbcac6c7cc04"},{"id":"func/_parse_line_token","name":"_parse_line_token","line":224,"end_line":239,"hash":"3ede4fa8f423d5d27e97f3e7c6aec920c3e2e308159c05b42643d0c474b7fb86"},{"id":"func/_parse_lines","name":"_parse_lines","line":242,"end_line":247,"hash":"4febad296c3c5be36594a0188127548ab4edcba48a3bd946848e9c583b398ac4"},{"id":"func/_run_scan","name":"_run_scan","line":250,"end_line":264,"hash":"8075b51b362f0442df434fb5830df8d0de03eeb295e4bd0b1354700c6c9e29df"},{"id":"func/_collect_py_files","name":"_collect_py_files","line":267,"end_line":274,"hash":"3dd82fa868ce457a6024239044e42205bc3d9218355f35401fb058145e9f8150"},{"id":"func/_run_on_file","name":"_run_on_file","line":277,"end_line":323,"hash":"0c2e68f1e622a962ae8134453c57f1c4d0d25fb1d21330862043d938875ec7ce"},{"id":"func/_needs_directory_baseline","name":"_needs_directory_baseline","line":326,"end_line":330,"hash":"5d52f1c4f16dafb723d1963e0b2dc0e8aa625d0c3fe72a339d9c711bffe48a51"},{"id":"func/_prepare_directory_baseline","name":"_prepare_directory_baseline","line":333,"end_line":357,"hash":"811f2e34fd3d23c47aafd1c0e685a6ded294a940ea0873332b5411777396df3a"},{"id":"func/_dispatch_directory","name":"_dispatch_directory","line":360,"end_line":373,"hash":"1871680f3e0bde79b844ea330bc1980d42f273dd7c018ed3040479fdb3007dfc"},{"id":"func/_dispatch_single_file","name":"_dispatch_single_file","line":376,"end_line":405,"hash":"e20bf33a95e7a7ac5579f11bd2eebefa288d0ed88c066af8beacd93021d18ee7"},{"id":"func/main","name":"main","line":408,"end_line":422,"hash":"58fd6a6fdaf50ad3a0fa1c83943ad39ff9688067d63cdcc5ab0bd73ae2f341f7"}]}
+# {"version":1,"tested_at":"2026-08-04T13:22:37Z","module_hash":"8d9985cfa0a043f0c80f4246cc09143aaac7772b936523da5644f51a6c8561a3","functions":[{"id":"func/_positive_int","name":"_positive_int","line":19,"end_line":27,"hash":"06de4d3f74cf39cb40383657b49523cefc38cdf8566d5f8125553f3fd3c195d3"},{"id":"func/_build_parser","name":"_build_parser","line":30,"end_line":136,"hash":"c53f1351289e2083bbb4c9733e7ea56368cd805a793d6b28d56b5a9626f705b4"},{"id":"func/_check_coverage_flags","name":"_check_coverage_flags","line":139,"end_line":148,"hash":"42edc6617a1e291bd93d3578d7e32e708f713f9084ccba6be2331ad9b0ec9f87"},{"id":"func/_no_run_flag","name":"_no_run_flag","line":151,"end_line":157,"hash":"59aa486011c3e3158e11848b3f49b3182be927b8b3fc1c89b7b93890a7470ba9"},{"id":"func/_exit_incompatible","name":"_exit_incompatible","line":160,"end_line":162,"hash":"db2fe36913cbe87d3616570466315a8988310564ec93851dc7290d8065b8cee0"},{"id":"func/_check_no_run_incompatibilities","name":"_check_no_run_incompatibilities","line":165,"end_line":177,"hash":"53d50c7e588b2c2c608132917c7e016812ad25cb7f5f8fa6780e4a91ace9431b"},{"id":"func/_check_scan_only_incompatibilities","name":"_check_scan_only_incompatibilities","line":180,"end_line":187,"hash":"77d8a7f28df92300239bc3881b089c51438d9dafd77dd134a1e01964e4d24ada"},{"id":"func/_check_selection_exclusivity","name":"_check_selection_exclusivity","line":190,"end_line":201,"hash":"6ff1d994acd05c8dac1f9d7c4467a6fc74aa37899720361f85876e0f79a40e26"},{"id":"func/_validate_mutual_exclusions","name":"_validate_mutual_exclusions","line":204,"end_line":218,"hash":"6155e6243361768bcdfd18a457def365adbf180f8e41ac3f9e6497e59fe6790b"},{"id":"func/_load_source","name":"_load_source","line":221,"end_line":228,"hash":"b5c0322beb2e960c86d48fc3d00b8e1a910b64d4cfcadc414911fbcac6c7cc04"},{"id":"func/_parse_line_token","name":"_parse_line_token","line":231,"end_line":246,"hash":"3ede4fa8f423d5d27e97f3e7c6aec920c3e2e308159c05b42643d0c474b7fb86"},{"id":"func/_parse_lines","name":"_parse_lines","line":249,"end_line":254,"hash":"4febad296c3c5be36594a0188127548ab4edcba48a3bd946848e9c583b398ac4"},{"id":"func/_run_scan","name":"_run_scan","line":257,"end_line":271,"hash":"8075b51b362f0442df434fb5830df8d0de03eeb295e4bd0b1354700c6c9e29df"},{"id":"func/_collect_py_files","name":"_collect_py_files","line":274,"end_line":281,"hash":"3dd82fa868ce457a6024239044e42205bc3d9218355f35401fb058145e9f8150"},{"id":"func/_run_on_file","name":"_run_on_file","line":284,"end_line":333,"hash":"dd7080b90f6869ae98138abbefaeee5fc92eccab73b6932a855e432a3266d1b0"},{"id":"func/_needs_directory_baseline","name":"_needs_directory_baseline","line":336,"end_line":340,"hash":"5d52f1c4f16dafb723d1963e0b2dc0e8aa625d0c3fe72a339d9c711bffe48a51"},{"id":"func/_prepare_directory_baseline","name":"_prepare_directory_baseline","line":343,"end_line":367,"hash":"811f2e34fd3d23c47aafd1c0e685a6ded294a940ea0873332b5411777396df3a"},{"id":"func/_dispatch_directory","name":"_dispatch_directory","line":370,"end_line":383,"hash":"1871680f3e0bde79b844ea330bc1980d42f273dd7c018ed3040479fdb3007dfc"},{"id":"func/_dispatch_single_file","name":"_dispatch_single_file","line":386,"end_line":420,"hash":"8aec4e9b86461dd262a69ef6ec4c8e8de87ca63b0f27a8c8d6a326a1fc0727e2"},{"id":"func/main","name":"main","line":423,"end_line":437,"hash":"58fd6a6fdaf50ad3a0fa1c83943ad39ff9688067d63cdcc5ab0bd73ae2f341f7"}]}
 # mutate4py-manifest-end
