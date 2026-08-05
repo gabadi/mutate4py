@@ -1,8 +1,15 @@
 """Testable helpers for cli_surface_steps.py."""
 
+import os
 import shlex
 
 _SCAN_INCOMPATIBLE_FLAGS = {"--timeout-factor", "--test-command", "--max-workers"}
+
+_MANIFEST_REPORT_PREFIXES = (
+    "Manifest missing:",
+    "Manifest current:",
+    "Manifest stale:",
+)
 
 
 def default_source() -> str:
@@ -157,6 +164,29 @@ def assert_worker_count(
     )
     assert dispatch_max_workers == int(count), (
         f"Expected dispatch_max_workers={count}, got {dispatch_max_workers}"
+    )
+
+
+def exclude_run_args(mode_flag: str, pattern: str, directory: str) -> list[str]:
+    """Return CLI args for a directory-mode run under a single --exclude pattern."""
+    return [directory] + split_flags(mode_flag) + ["--exclude", pattern]
+
+
+def reported_manifest_files(stdout: str) -> list[str]:
+    """Basenames of the files a --check-manifest run reported on, in output order."""
+    names = []
+    for line in stdout.splitlines():
+        for prefix in _MANIFEST_REPORT_PREFIXES:
+            if line.startswith(prefix):
+                names.append(os.path.basename(line[len(prefix) :].strip()))
+    return names
+
+
+def assert_only_reported(stdout: str, expected: str) -> None:
+    """Assert the run reported on exactly one file, and that it is `expected`."""
+    reported = reported_manifest_files(stdout)
+    assert reported == [expected], (
+        f"Expected only {expected!r} to be reported, got {reported}:\n{stdout}"
     )
 
 

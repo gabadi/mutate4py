@@ -1083,6 +1083,11 @@ def test_help_lists_manifest_file():
     assert "--manifest-file" in result.stdout
 
 
+def test_help_lists_exclude():
+    result = run_cli("--help", source="x = 1\n")
+    assert "--exclude" in result.stdout
+
+
 def test_help_with_invalid_args_still_exits_zero():
     # --help is honoured before any validation
     result = run_cli("--help", "--max-workers", "0", source="x = 1\n")
@@ -1246,6 +1251,8 @@ def _make_args(**kwargs):
         reuse_coverage=False,
         warning_threshold=50,
         manifest_file=False,
+        verbose=False,
+        exclude=None,
     )
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -1543,6 +1550,125 @@ def test_directory_check_manifest_one_stale_exits_1(tmp_path):
     assert "Manifest current:" in result.stdout
 
 
+def test_directory_check_manifest_excluded_file_ignored_exits_0(tmp_path):
+    import mutate4py.__main__ as m
+
+    d = tmp_path / "src"
+    d.mkdir()
+    p_a = d / "a.py"
+    p_a.write_text("def f(): pass\n")
+    sys.argv = ["mutate4py", str(p_a), "--update-manifest"]
+    m.main()
+
+    (d / "b.py").write_text("def g(): pass\n")
+
+    result = _run_cli_path(str(d), "--check-manifest", "--exclude", "*/b.py")
+    assert result.returncode == 0
+    assert "Manifest current:" in result.stdout
+    assert "b.py" not in result.stdout
+
+
+def test_directory_check_manifest_stale_survivor_exits_1(tmp_path):
+    """One non-excluded stale file still fails, reporting only that file."""
+    import mutate4py.__main__ as m
+
+    d = tmp_path / "src"
+    d.mkdir()
+    p_a = d / "a.py"
+    p_a.write_text("def f(): pass\n")
+    sys.argv = ["mutate4py", str(p_a), "--update-manifest"]
+    m.main()
+
+    (d / "b.py").write_text("def g(): pass\n")
+    (d / "c.py").write_text("def h(): pass\n")
+
+    result = _run_cli_path(str(d), "--check-manifest", "--exclude", "*/c.py")
+    assert result.returncode == 1
+    assert "Manifest missing:" in result.stdout
+    assert "b.py" in result.stdout
+    assert "c.py" not in result.stdout
+
+
+def test_directory_all_files_excluded_exits_2(tmp_path):
+    d = _make_src_dir(tmp_path, {"a.py": "def f(): pass\n", "b.py": "def g(): pass\n"})
+    result = _run_cli_path(d, "--check-manifest", "--exclude", "*.py")
+    assert result.returncode == 2
+    assert "error: no Python files to process." in result.stderr
+    assert result.stdout == ""
+
+
+def test_directory_with_no_py_files_exits_2(tmp_path):
+    d = tmp_path / "src"
+    d.mkdir()
+    (d / "README.md").write_text("docs\n")
+    result = _run_cli_path(str(d), "--check-manifest")
+    assert result.returncode == 2
+    assert "error: no Python files to process." in result.stderr
+
+
+def test_directory_all_files_excluded_exits_2_in_scan_mode(tmp_path):
+    d = _make_src_dir(tmp_path, {"a.py": "x = 1\n"})
+    result = _run_cli_path(d, "--scan", "--exclude", "*.py")
+    assert result.returncode == 2
+    assert "error: no Python files to process." in result.stderr
+
+
+def test_directory_all_files_excluded_exits_2_in_update_manifest_mode(tmp_path):
+    d = _make_src_dir(tmp_path, {"a.py": "x = 1\n"})
+    result = _run_cli_path(d, "--update-manifest", "--exclude", "*.py")
+    assert result.returncode == 2
+    assert "error: no Python files to process." in result.stderr
+    assert "mutate4py-manifest-begin" not in (tmp_path / "src" / "a.py").read_text()
+
+
+def test_directory_all_files_excluded_exits_2_in_run_mode(tmp_path):
+    """Run mode bails before acquiring coverage or timing a baseline."""
+    d = _make_src_dir(tmp_path, {"a.py": "x = 1\n"})
+    result = _run_cli_path(d, "--exclude", "*.py", "--test-command", "false")
+    assert result.returncode == 2
+    assert "error: no Python files to process." in result.stderr
+
+
+def test_directory_verbose_reports_excluded_files(tmp_path):
+    d = _make_src_dir(tmp_path, {"a.py": "def f(): pass\n", "b.py": "def g(): pass\n"})
+    result = _run_cli_path(d, "--check-manifest", "--exclude", "*/b.py", "--verbose")
+    assert f"Excluded: {os.path.join(d, 'b.py')}" in result.stdout
+    assert "Excluded: " + os.path.join(d, "a.py") not in result.stdout
+
+
+def test_directory_excluded_files_are_silent_without_verbose(tmp_path):
+    d = _make_src_dir(tmp_path, {"a.py": "def f(): pass\n", "b.py": "def g(): pass\n"})
+    result = _run_cli_path(d, "--check-manifest", "--exclude", "*/b.py")
+    assert "Excluded:" not in result.stdout
+    assert "b.py" not in result.stdout
+
+
+def test_single_file_matching_exclude_exits_2(tmp_path):
+    p = tmp_path / "mod.py"
+    p.write_text("def f(): pass\n")
+    result = _run_cli_path(str(p), "--check-manifest", "--exclude", "*/mod.py")
+    assert result.returncode == 2
+    assert "error: no Python files to process." in result.stderr
+    assert "Manifest missing:" not in result.stdout
+
+
+def test_single_file_verbose_reports_the_excluded_target(tmp_path):
+    p = tmp_path / "mod.py"
+    p.write_text("def f(): pass\n")
+    result = _run_cli_path(
+        str(p), "--check-manifest", "--exclude", "*/mod.py", "--verbose"
+    )
+    assert f"Excluded: {p}" in result.stdout
+
+
+def test_single_file_not_matching_exclude_is_a_no_op(tmp_path):
+    p = tmp_path / "mod.py"
+    p.write_text("def f(): pass\n")
+    result = _run_cli_path(str(p), "--check-manifest", "--exclude", "*/other.py")
+    assert result.returncode == 1
+    assert "Manifest missing:" in result.stdout
+
+
 def test_directory_update_manifest_processes_all_files(tmp_path):
     d = _make_src_dir(tmp_path, {"a.py": "def f(): pass\n", "b.py": "def g(): pass\n"})
     result = _run_cli_path(d, "--update-manifest")
@@ -1614,6 +1740,166 @@ def test_collect_py_files_ignores_non_py_files(tmp_path):
     (d / "data.txt").write_text("data")
     files = _collect_py_files(str(d))
     assert files == [str(d / "mod.py")]
+
+
+# ── --exclude: collector filtering ────────────────────────────────────────────
+
+
+def _make_pkg_tree(tmp_path) -> str:
+    """pkg/{mod.py, __init__.py, sub/{deep.py, __init__.py}}; return pkg path."""
+    d = tmp_path / "pkg"
+    sub = d / "sub"
+    sub.mkdir(parents=True)
+    for p in (d / "mod.py", d / "__init__.py", sub / "deep.py", sub / "__init__.py"):
+        p.write_text("x = 1\n")
+    return str(d)
+
+
+def test_collect_py_files_exclude_matches_nested_path(tmp_path):
+    from mutate4py.__main__ import _collect_py_files
+
+    d = _make_pkg_tree(tmp_path)
+    files = _collect_py_files(d, ["*/sub/deep.py"])
+    assert os.path.join(d, "sub", "deep.py") not in files
+    assert os.path.join(d, "mod.py") in files
+    assert os.path.join(d, "sub", "__init__.py") in files
+
+
+def test_collect_py_files_exclude_patterns_union_not_intersect(tmp_path):
+    from mutate4py.__main__ import _collect_py_files
+
+    d = _make_pkg_tree(tmp_path)
+    files = _collect_py_files(d, ["*/__init__.py", "*/sub/*.py"])
+    # union: both patterns drop files, and a file matching only one is still dropped
+    assert files == [os.path.join(d, "mod.py")]
+
+
+def test_collect_py_files_exclude_no_match_is_a_no_op(tmp_path):
+    from mutate4py.__main__ import _collect_py_files
+
+    d = _make_pkg_tree(tmp_path)
+    assert _collect_py_files(d, ["*/nothing_here.py"]) == _collect_py_files(d)
+
+
+def test_collect_py_files_exclude_still_skips_pycache(tmp_path):
+    from mutate4py.__main__ import _collect_py_files
+
+    d = tmp_path / "pkg"
+    d.mkdir()
+    (d / "mod.py").write_text("x = 1\n")
+    cache = d / "__pycache__"
+    cache.mkdir()
+    (cache / "mod.cpython-312.py").write_text("x = 1\n")
+    files = _collect_py_files(str(d), ["*/other.py"])
+    assert files == [str(d / "mod.py")]
+
+
+def test_is_excluded_is_case_sensitive(tmp_path):
+    from mutate4py.__main__ import _is_excluded
+
+    assert _is_excluded("src/Mod.py", ["src/Mod.py"])
+    assert not _is_excluded("src/Mod.py", ["src/mod.py"])
+
+
+def test_is_target_py_file_requires_a_py_suffix():
+    from mutate4py.__main__ import _is_target_py_file
+
+    assert _is_target_py_file("pkg/mod.py", ())
+    assert not _is_target_py_file("pkg/README.md", ())
+    assert not _is_target_py_file("pkg/mod.py", ["*/mod.py"])
+
+
+def test_walkable_dirs_sorts_and_drops_pycache():
+    from mutate4py.__main__ import _walkable_dirs
+
+    assert _walkable_dirs(["sub", "__pycache__", "abc"]) == ["abc", "sub"]
+
+
+# ── --exclude: dispatch-level reporting and exits ─────────────────────────────
+
+
+def test_report_excluded_prints_only_dropped_files(tmp_path, capsys):
+    from mutate4py.__main__ import _collect_py_files, _report_excluded
+
+    d = _make_pkg_tree(tmp_path)
+    kept = _collect_py_files(d, ["*/sub/deep.py"])
+    _report_excluded(d, kept)
+    out = capsys.readouterr().out
+    assert out == f"Excluded: {os.path.join(d, 'sub', 'deep.py')}\n"
+
+
+def test_report_excluded_prints_nothing_when_nothing_dropped(tmp_path, capsys):
+    from mutate4py.__main__ import _collect_py_files, _report_excluded
+
+    d = _make_pkg_tree(tmp_path)
+    _report_excluded(d, _collect_py_files(d))
+    assert capsys.readouterr().out == ""
+
+
+def test_exit_no_files_exits_2_with_message(capsys):
+    from mutate4py.__main__ import _exit_no_files
+
+    with pytest.raises(SystemExit) as exc:
+        _exit_no_files()
+    assert exc.value.code == 2
+    assert capsys.readouterr().err == "error: no Python files to process.\n"
+
+
+def test_directory_files_returns_survivors(tmp_path):
+    from mutate4py.__main__ import _directory_files
+
+    d = _make_pkg_tree(tmp_path)
+    args = _make_args(file=d, exclude=["*/sub/*.py"])
+    assert _directory_files(args) == [
+        os.path.join(d, "__init__.py"),
+        os.path.join(d, "mod.py"),
+    ]
+
+
+def test_directory_files_exits_2_when_all_excluded(tmp_path, capsys):
+    from mutate4py.__main__ import _directory_files
+
+    args = _make_args(file=_make_pkg_tree(tmp_path), exclude=["*.py"])
+    with pytest.raises(SystemExit) as exc:
+        _directory_files(args)
+    assert exc.value.code == 2
+    assert "no Python files to process" in capsys.readouterr().err
+
+
+def test_directory_files_verbose_reports_before_exiting(tmp_path, capsys):
+    from mutate4py.__main__ import _directory_files
+
+    d = _make_pkg_tree(tmp_path)
+    args = _make_args(file=d, exclude=["*.py"], verbose=True)
+    with pytest.raises(SystemExit):
+        _directory_files(args)
+    assert capsys.readouterr().out.count("Excluded: ") == 4
+
+
+def test_exit_if_target_excluded_returns_when_no_match(tmp_path):
+    from mutate4py.__main__ import _exit_if_target_excluded
+
+    args = _make_args(file="pkg/mod.py", exclude=["*/other.py"])
+    _exit_if_target_excluded(args)  # must not raise
+
+
+def test_exit_if_target_excluded_exits_2_on_match(capsys):
+    from mutate4py.__main__ import _exit_if_target_excluded
+
+    args = _make_args(file="pkg/mod.py", exclude=["*/mod.py"])
+    with pytest.raises(SystemExit) as exc:
+        _exit_if_target_excluded(args)
+    assert exc.value.code == 2
+    assert capsys.readouterr().out == ""
+
+
+def test_exit_if_target_excluded_verbose_names_the_target(capsys):
+    from mutate4py.__main__ import _exit_if_target_excluded
+
+    args = _make_args(file="pkg/mod.py", exclude=["*/mod.py"], verbose=True)
+    with pytest.raises(SystemExit):
+        _exit_if_target_excluded(args)
+    assert capsys.readouterr().out == "Excluded: pkg/mod.py\n"
 
 
 # ── directory dispatch: in-process coverage ───────────────────────────────────

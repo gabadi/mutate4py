@@ -136,7 +136,17 @@ term. This is the single canonical glossary for the project.
 - **Flag matrix** — the full §2 option set F5 parses and validates: `--scan`,
   `--update-manifest`, `--lines`, `--since-last-run`, `--mutate-all`,
   `--mutation-warning N`, `--timeout-factor N`, `--test-command CMD`,
-  `--max-workers N`, the three coverage flags, `--verbose`, `--help`.
+  `--max-workers N`, `--exclude PATTERN`, the three coverage flags, `--verbose`,
+  `--help`.
+- **`--exclude PATTERN`** — repeatable (`action="append"`) directory-mode scope
+  control: a file whose walked path matches ANY pattern (`fnmatch.fnmatchcase`, no
+  `**` emulation) is dropped inside the collector, so it is never scanned, never
+  reported, and cannot affect the exit code, in all four directory modes and for a
+  single-file target. Silent unless `--verbose`, which prints `Excluded: <path>` per
+  dropped file. Not exclusive of anything — it composes with every other flag.
+- **Nothing to process** — the empty-file-list outcome: exclusions (or a directory
+  with no `.py` files) leaving zero files prints `error: no Python files to
+  process.` to stderr and exits **2**, rather than passing vacuously.
 - **Usage error** — a rejected invocation: print a usage/error message, exit
   **non-zero**, run no analysis and no test command. Triggers: unknown flag, missing
   value, invalid numeric value, illegal flag combination, missing/nonexistent source

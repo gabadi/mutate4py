@@ -8,6 +8,7 @@ from acceptance.steps.cli_surface_helpers import (
     assert_dispatched_to,
     assert_no_analysis,
     assert_nonzero_exit,
+    assert_only_reported,
     assert_option_accepted,
     assert_usage_error,
     assert_usage_lists_max_workers,
@@ -16,7 +17,9 @@ from acceptance.steps.cli_surface_helpers import (
     assert_zero_exit,
     default_source,
     described_args,
+    exclude_run_args,
     lcov_content,
+    reported_manifest_files,
     require_result,
     single_flag_args,
     split_flags,
@@ -349,3 +352,48 @@ def test_assert_option_max_workers_value():
 def test_assert_option_max_workers_value_fails():
     with pytest.raises(AssertionError):
         assert_option_accepted("max-workers", "4", 1, "err")
+
+
+# ── --exclude helpers ─────────────────────────────────────────────────────────
+
+
+def test_exclude_run_args_appends_pattern_after_mode_flag():
+    assert exclude_run_args("--check-manifest", "*/skip.py", "/tmp/pkg") == [
+        "/tmp/pkg",
+        "--check-manifest",
+        "--exclude",
+        "*/skip.py",
+    ]
+
+
+def test_reported_manifest_files_collects_basenames_in_order():
+    stdout = (
+        "Manifest missing: /tmp/pkg/keep.py\n"
+        "Manifest current: /tmp/pkg/other.py\n"
+        "Manifest stale: /tmp/pkg/third.py\n"
+    )
+    assert reported_manifest_files(stdout) == ["keep.py", "other.py", "third.py"]
+
+
+def test_reported_manifest_files_ignores_unrelated_lines():
+    assert (
+        reported_manifest_files(
+            "Mutation scan: /tmp/pkg/keep.py\nManifest exists: false\n"
+        )
+        == []
+    )
+
+
+def test_assert_only_reported_passes_for_a_single_match():
+    assert_only_reported("Manifest missing: /tmp/pkg/keep.py\n", "keep.py")
+
+
+def test_assert_only_reported_fails_when_another_file_appears():
+    stdout = "Manifest missing: /tmp/pkg/keep.py\nManifest missing: /tmp/pkg/skip.py\n"
+    with pytest.raises(AssertionError):
+        assert_only_reported(stdout, "keep.py")
+
+
+def test_assert_only_reported_fails_when_nothing_is_reported():
+    with pytest.raises(AssertionError):
+        assert_only_reported("", "keep.py")

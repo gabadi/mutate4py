@@ -13,6 +13,7 @@ from acceptance.steps.cli_surface_helpers import (
     assert_dispatched_to,
     assert_no_analysis,
     assert_nonzero_exit,
+    assert_only_reported,
     assert_option_accepted,
     assert_usage_error,
     assert_usage_lists_max_workers,
@@ -21,6 +22,7 @@ from acceptance.steps.cli_surface_helpers import (
     assert_zero_exit,
     default_source,
     described_args,
+    exclude_run_args,
     lcov_content,
     require_result,
     single_flag_args,
@@ -49,6 +51,7 @@ class Context:
         self.lcov_path: str | None = None
         self.cli_result: subprocess.CompletedProcess | None = None
         self.dispatch_max_workers: int | None = None
+        self.dir_path: str | None = None
 
     def reset(self):
         self.tmpdir = None
@@ -56,6 +59,7 @@ class Context:
         self.lcov_path = None
         self.cli_result = None
         self.dispatch_max_workers = None
+        self.dir_path = None
 
     def ensure_tmpdir(self) -> str:
         if self.tmpdir is None:
@@ -78,6 +82,19 @@ class Context:
                 f.write(lcov_content(src))
         return self.lcov_path
 
+    def make_dir_with(self, *names: str) -> str:
+        d = os.path.join(self.ensure_tmpdir(), "pkg")
+        os.makedirs(d, exist_ok=True)
+        for name in names:
+            with open(os.path.join(d, name), "w") as f:
+                f.write(default_source())
+        self.dir_path = d
+        return d
+
+    def require_dir(self) -> str:
+        assert self.dir_path is not None, "No directory created"
+        return self.dir_path
+
 
 ctx = Context()
 
@@ -90,6 +107,11 @@ def given_source_with_sites(m, params):
     ctx.reset()
     ctx.ensure_src()
     ctx.ensure_lcov()
+
+
+@step(r'a directory holding "(.*)" and "(.*)"')
+def given_directory_holding(m, params):
+    ctx.make_dir_with(m.group(1).strip(), m.group(2).strip())
 
 
 # ── When steps ────────────────────────────────────────────────────────────────
@@ -113,6 +135,12 @@ def when_run_with_two_flags(m, params):
     args = two_flag_args(
         m.group(1).strip(), m.group(2).strip(), ctx.ensure_src(), ctx.ensure_lcov()
     )
+    ctx.cli_result = _run_mutate4py(*args, cwd=ctx.ensure_tmpdir())
+
+
+@step(r'I run mutate4py on that directory with "(.*)" excluding "(.*)"')
+def when_run_directory_excluding(m, params):
+    args = exclude_run_args(m.group(1).strip(), m.group(2).strip(), ctx.require_dir())
     ctx.cli_result = _run_mutate4py(*args, cwd=ctx.ensure_tmpdir())
 
 
@@ -184,6 +212,12 @@ def then_usage_lists_max_workers(m, params):
 def then_dispatched_to(m, params):
     r = require_result(ctx.cli_result)
     assert_dispatched_to(m.group(1).strip(), r.returncode, r.stdout, r.stderr)
+
+
+@step(r'only "(.*)" is reported')
+def then_only_reported(m, params):
+    r = require_result(ctx.cli_result)
+    assert_only_reported(r.stdout, m.group(1).strip())
 
 
 @step(r'the dispatcher receives a worker count of "(.*)"')

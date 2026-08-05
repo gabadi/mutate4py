@@ -66,6 +66,7 @@ Mutate-test one file at a time: `mutate4py path/to/file.py [options]`
 | `--reuse-coverage` | reuse coverprofile on disk | reuse LCOV on disk | [PORT]/[PY] |
 | `--max-workers N` | N isolated parallel workers | same — serial default, parallel via `uv` clone-per-worker (§9) | [PORT]/[PY] |
 | `--manifest-file` | — | store each file's manifest as sidecar JSON (`<file>.manifest.json`) instead of the in-source footer | [PY] |
+| `--exclude PATTERN` | — | skip files whose path matches PATTERN (fnmatch glob, repeatable) | [PY] |
 
 **[PY] reasons:**
 
@@ -97,6 +98,31 @@ Mutate-test one file at a time: `mutate4py path/to/file.py [options]`
   manifest footer (existing footers are stripped on the next write). Each source file
   gets its own sidecar, so directory targets need no fan-out logic: every file simply
   reads and writes its own `<file>.manifest.json`.
+- **`--exclude PATTERN` (directory-mode scope control).** Neither mutate4go nor
+  clj-mutate has this, because neither has mutate4py's directory target: upstream
+  mutate-tests one file per invocation, so the caller's shell already decides which
+  files are in scope. mutate4py accepts a directory and walks it, which makes "this
+  file is deliberately out of scope" (`__init__.py`, migrations, vendored code) a
+  question the tool itself has to answer — otherwise `--check-manifest src/` can only
+  be adopted by a project willing to carry a manifest on literally every file.
+  Matching is `fnmatch.fnmatchcase` against the path exactly as walked (built from the
+  target the user passed), applied inside the collector so all four directory modes
+  (`--scan`, `--update-manifest`, `--check-manifest`, scored run) share one filter; a
+  file matching any pattern is dropped before dispatch, so it is never scanned, never
+  reported, and cannot affect the exit code. `fnmatchcase`, not `fnmatch`: the latter
+  applies `os.path.normcase`, which would make the same command exclude different
+  files on macOS than on Linux. There is no `**` emulation and no basename fallback —
+  fnmatch's `*` already crosses `/`, so `'*/vendor/*'` matches at any depth, at the
+  documented cost that `'*.py'` excludes everything and a bare `'__init__.py'` matches
+  only at the root. **`action="append"`, not the comma-split precedent of `--lines`:**
+  a glob may legitimately contain a comma (`'*/{a,b}/*'`, or any path with one), so
+  splitting on `,` would corrupt valid patterns, whereas `--lines`' values are
+  integers that never can. When the filter (or an empty tree) leaves no file to
+  process, the run prints `error: no Python files to process.` to stderr and exits
+  **2** — the usage-error code, chosen over a vacuous 0 so that a typo'd pattern that
+  silently matches everything fails CI instead of passing it. Excluded files produce
+  no output unless `--verbose` is given, which prints one `Excluded: <path>` line per
+  dropped file.
 
 **[PORT] mutual-exclusion rules** (reproduce exactly):
 - `--scan` and `--update-manifest` are mutually exclusive and cannot combine with

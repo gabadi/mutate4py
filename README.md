@@ -32,6 +32,42 @@ pytest --cov --cov-branch --cov-report=lcov:lcov.info
 
 See `mutate4py --help` and the [spec](docs/spec.md) for the full flag set.
 
+## Directory mode
+
+Point `mutate4py` at a directory instead of a file and every `.py` file under it is
+processed in turn (`__pycache__` is skipped). This works for `--scan`,
+`--update-manifest`, `--check-manifest`, and scored runs alike.
+
+```bash
+mutate4py src/ --check-manifest
+```
+
+`--exclude PATTERN` drops files from that walk. It is repeatable, and a file is
+skipped if it matches **any** pattern — never scanned, never reported, never able to
+fail the run:
+
+```bash
+mutate4py src/ --check-manifest \
+  --exclude '*/__init__.py' \
+  --exclude '*/migrations/*' \
+  --exclude '*/vendor/*'
+```
+
+Patterns are matched with `fnmatch.fnmatchcase` (case-sensitive on every platform)
+against the whole path as walked — i.e. built from the path you passed, so `src/`
+yields `src/pkg/mod.py`. Two consequences worth knowing:
+
+- `*` crosses `/`, so `--exclude '*.py'` excludes **everything**, and `'*/vendor/*'`
+  already matches at any depth. There is no special `**` handling.
+- A bare basename only matches at the root: use `'*/__init__.py'`, not
+  `'__init__.py'`.
+
+Excluded files are silent by default; `--verbose` prints one `Excluded: <path>` line
+each. If the exclusions leave nothing to process — or the directory holds no `.py`
+files at all — the command prints `error: no Python files to process.` and exits
+**2**, rather than passing vacuously. `--exclude` also applies to a single-file
+target: a target that matches is not analysed, and exits 2 the same way.
+
 ## How it differs from mutate4go (`[PY]`)
 
 - **`--max-workers` uses clone-per-worker, not tree-copy+`cwd`** — mutate4go's
