@@ -1410,6 +1410,19 @@ def _run_cli_path(path: str, *args: str) -> subprocess.CompletedProcess:
     )
 
 
+def _run_cli_in(cwd: str, *args: str) -> subprocess.CompletedProcess:
+    """Run mutate4py with no positional path, from a given cwd (for
+    zero-positional autodiscovery tests, issue #22 items 3, 8-12)."""
+    return subprocess.run(
+        [sys.executable, "-m", "mutate4py"] + list(args),
+        capture_output=True,
+        text=True,
+        cwd=cwd,
+        env={**os.environ, "PYTHONPATH": os.path.join(REPO_ROOT, "src")},
+        timeout=30,
+    )
+
+
 def test_check_manifest_missing_exits_1(tmp_path):
     p = tmp_path / "mod.py"
     p.write_text("def f(a, b):\n    return a > b\n")
@@ -2083,6 +2096,26 @@ def test_main_two_positionals_dispatches_the_union_path_in_process(tmp_path, cap
     assert f"Manifest missing: {b_dir / 'b.py'}" in out
 
 
+def test_main_zero_positionals_dispatches_autodiscovery_in_process(
+    tmp_path, capsys, monkeypatch
+):
+    """Direct (non-subprocess) exercise of the zero-positional branch
+    through main(), so _resolve_roots' autodiscovery path gets real
+    coverage (mirrors the union-path test above)."""
+    import mutate4py.__main__ as m
+
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    (ws / "pyproject.toml").write_text("[tool.uv.workspace]\n")
+    (ws / "a.py").write_text("def f(): pass\n")
+    monkeypatch.chdir(ws)
+    sys.argv = ["mutate4py", "--check-manifest"]
+    with pytest.raises(SystemExit) as exc:
+        m.main()
+    assert exc.value.code == 1
+    assert f"Manifest missing: {ws / 'a.py'}" in capsys.readouterr().out
+
+
 # ── --test-contexts ───────────────────────────────────────────────────────────
 
 
@@ -2423,9 +2456,12 @@ def test_union_exclude_composes_with_multiple_roots(tmp_path):
     assert "b.py" not in result.stdout
 
 
-def test_zero_positionals_still_errors(tmp_path):
-    """Phase A leaves the zero-positional case erroring; autodiscovery
-    (issue #22 items 3, 8-12) lands in a later cycle."""
+def test_zero_positionals_triggers_autodiscovery(tmp_path):
+    """Issue #22 item 3: no new flag, the absence of positionals is the
+    autodiscovery trigger. This repo's own pyproject.toml has no
+    [tool.uv.workspace], so autodiscovery from REPO_ROOT errors there —
+    which is itself proof that autodiscovery ran, not the old "missing
+    positional" usage error."""
     result = subprocess.run(
         [sys.executable, "-m", "mutate4py", "--scan"],
         capture_output=True,
@@ -2435,3 +2471,79 @@ def test_zero_positionals_still_errors(tmp_path):
     )
     assert result.returncode == 2
     assert result.stdout == ""
+    assert os.path.join(REPO_ROOT, "pyproject.toml") in result.stderr
+    assert "[tool.uv.workspace]" in result.stderr
+
+
+# ── uv workspace autodiscovery (issue #22 items 3, 8-12): CLI-level ────────────
+
+
+def _write_workspace(tmp_path, members=None, exclude=None):
+    """Build a workspace at tmp_path/"ws"; return its path."""
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    lines = ["[tool.uv.workspace]"]
+    if members is not None:
+        items = ", ".join(f'"{m}"' for m in members)
+        lines.append(f"members = [{items}]")
+    if exclude is not None:
+        items = ", ".join(f'"{e}"' for e in exclude)
+        lines.append(f"exclude = [{items}]")
+    (ws / "pyproject.toml").write_text("\n".join(lines) + "\n")
+    return ws
+
+
+def test_autodiscovery_single_root_workspace_check_manifest(tmp_path):
+    ws = _write_workspace(tmp_path)
+    (ws / "a.py").write_text("def f(): pass\n")
+    result = _run_cli_in(str(ws), "--check-manifest")
+    assert result.returncode == 1
+    assert f"Manifest missing: {ws / 'a.py'}" in result.stdout
+
+
+def test_autodiscovery_multi_member_workspace_unions_all_roots(tmp_path):
+    ws = _write_workspace(tmp_path, members=["pkgs/*"])
+    a_dir, b_dir = ws / "pkgs" / "a", ws / "pkgs" / "b"
+    a_dir.mkdir(parents=True)
+    b_dir.mkdir(parents=True)
+    (a_dir / "pyproject.toml").write_text('[project]\nname = "a"\n')
+    (b_dir / "pyproject.toml").write_text('[project]\nname = "b"\n')
+    (a_dir / "a.py").write_text("def f(): pass\n")
+    (b_dir / "b.py").write_text("def g(): pass\n")
+    result = _run_cli_in(str(ws), "--check-manifest")
+    assert result.returncode == 1
+    assert f"Manifest missing: {a_dir / 'a.py'}" in result.stdout
+    assert f"Manifest missing: {b_dir / 'b.py'}" in result.stdout
+
+
+def test_autodiscovery_exclude_removes_member_files_from_the_union(tmp_path):
+    """Item 10: an excluded member's files are absent from the union even
+    though they physically sit under the workspace root's recursive walk."""
+    ws = _write_workspace(tmp_path, members=["pkgs/*"], exclude=["pkgs/b"])
+    a_dir, b_dir = ws / "pkgs" / "a", ws / "pkgs" / "b"
+    a_dir.mkdir(parents=True)
+    b_dir.mkdir(parents=True)
+    (a_dir / "pyproject.toml").write_text('[project]\nname = "a"\n')
+    (b_dir / "pyproject.toml").write_text('[project]\nname = "b"\n')
+    (a_dir / "a.py").write_text("def f(): pass\n")
+    (b_dir / "b.py").write_text("def g(): pass\n")
+    result = _run_cli_in(str(ws), "--check-manifest")
+    assert result.returncode == 1
+    assert f"Manifest missing: {a_dir / 'a.py'}" in result.stdout
+    assert "b.py" not in result.stdout
+
+
+def test_autodiscovery_no_workspace_found_exits_2(tmp_path):
+    isolated = tmp_path / "isolated"
+    isolated.mkdir()
+    result = _run_cli_in(str(isolated), "--scan")
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert "pyproject.toml" in result.stderr
+    assert str(isolated) in result.stderr
+
+
+def test_autodiscovery_help_mentions_it(tmp_path):
+    result = _run_cli_in(str(tmp_path), "--help")
+    assert result.returncode == 0
+    assert "autodiscov" in result.stdout.lower()
