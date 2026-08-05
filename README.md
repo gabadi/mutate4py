@@ -81,7 +81,9 @@ inspected. Full rationale in [ADR 0017](docs/adr/0017-multi-root-targets-and-uv-
 ## Directory mode
 
 Point `mutate4py` at a directory instead of a file and every `.py` file under it is
-processed in turn (`__pycache__` is skipped). This works for `--scan`,
+processed in turn. The walk prunes `__pycache__`, `venv`, `node_modules`, and any
+dot-directory (`.git`, `.venv`, …); `build/` and `dist/` are left walkable (issue
+#22 — previously only `__pycache__` was pruned). This works for `--scan`,
 `--update-manifest`, `--check-manifest`, and scored runs alike.
 
 ```bash
@@ -108,8 +110,10 @@ stands alone as a whole `/`-bounded component (glued to literal text, e.g.
 `foo**bar`, it degrades to an ordinary same-segment wildcard). Two consequences
 worth knowing:
 
-- `*` stays within one path segment, so `--exclude '*.py'` only matches a `.py`
-  file directly at the walked root — use `'**/*.py'` to match at any depth, and
+- `*` stays within one path segment, and the path always has the walked
+  directory prefixed on it (see the next point) — so `--exclude '*.py'` matches
+  **nothing**: it can never match a string containing `/`. Even a file directly
+  inside the target (`src/a.py`) needs `'src/*.py'` or `'**/*.py'`, and
   `'**/vendor/**'` (not `'*/vendor/*'`) to match `vendor/` wherever it sits.
 - A bare basename never matches: the path always has the target directory
   prefixed on it (even for a file sitting directly inside the target), so

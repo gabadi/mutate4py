@@ -165,6 +165,11 @@ term. This is the single canonical glossary for the project.
   silently, not an error, diverging from real `uv`.
   `[tool.uv.workspace].exclude` is honored (not required by the AC) and
   prunes both the member list and the workspace root's recursive walk.
+- **Directory-mode pruning** — the walk itself, before `--exclude` ever runs,
+  skips `__pycache__`, `venv`, `node_modules`, and any dot-directory (`.git`,
+  `.venv`, …); `build/` and `dist/` are left walkable. Applies to every
+  directory-mode run, autodiscovered or not (issue #22 — previously only
+  `__pycache__` was pruned).
 - **`--exclude PATTERN`** — repeatable (`action="append"`) directory-mode scope
   control: a file whose walked path matches ANY pattern (shared glob dialect
   above, ADR 0017) is dropped inside the collector, so it is never scanned, never

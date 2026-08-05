@@ -15,9 +15,13 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #           (ValidateArgs, consumeValueOption, parsePositiveInt, parseLines).
   #
   # CONTRACT:
-  #   command: mutate4py <file> [options]   (one file per invocation)
+  #   command: mutate4py [PATH ...] [options]   (0+ targets: literal paths or
+  #            glob patterns; issue #22, ADR 0017)
   #   request — the §2 flag matrix F5 parses and validates:
-  #     <file>               — positional, required; the source to mutate.
+  #     <targets>            — positional, 0+ PATHs, literal or glob; arity
+  #                            decides the run shape: 1 resolved root = today's
+  #                            single-file/directory dispatch, 2+ = a union
+  #                            batch, 0 = uv workspace autodiscovery (ADR 0017).
   #     --scan               — no-run mode: count sites (F1 surface).
   #     --update-manifest    — no-run mode: rewrite the footer manifest (F2 surface).
   #     --lines L1,L2,...     — selection: comma-separated POSITIVE ints.
@@ -29,7 +33,9 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #     --max-workers N       — positive int, default 0/unset = serial (ADR 0013).
   #     --cov-cmd CMD | --lcov PATH | --reuse-coverage — the three coverage flags.
   #     --exclude PATTERN     — repeatable; skip files whose walked path matches the
-  #                             fnmatch glob (union across patterns). [PY] §2.
+  #                             shared glob dialect (union across patterns) — the
+  #                             same dialect <targets> and uv members/exclude use
+  #                             (ADR 0017). [PY] §2.
   #     --verbose             — log to stderr.
   #     --help                — print usage, exit 0.
   #   on ACCEPT: parsed options are dispatched —
@@ -39,7 +45,9 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #   on REJECT (usage error): a usage/error message is printed and the process exits
   #     NON-ZERO, having run NO analysis and NO test command. Reject classes:
   #     unknown flag, missing value for a value flag, invalid numeric value,
-  #     illegal flag combination, missing/nonexistent source file.
+  #     illegal flag combination, a literal target path that does not exist, a
+  #     glob pattern matching nothing, zero positionals with no uv workspace
+  #     discoverable from cwd upward (ADR 0017).
   #
   # CONSTRAINTS:
   #   - Positive-int flags (--mutation-warning, --timeout-factor, --max-workers) require
@@ -53,7 +61,10 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #       * --cov-cmd / --lcov / --reuse-coverage: PAIRWISE exclusive (F3 ADR 0008).
   #   - --max-workers joins ONLY the scan/update-manifest exclusion; it MAY combine with
   #     the selection flags (it does not conflict with --lines/--since-last-run/--mutate-all).
-  #   - Missing source file (no positional, or path does not exist) is a usage error.
+  #   - A literal target path that does not exist, or a glob pattern matching
+  #     nothing, is a usage error. Zero positionals is NOT itself a usage error —
+  #     it triggers uv workspace autodiscovery; that only errors (exit 2) if no
+  #     [tool.uv.workspace] is discoverable climbing from cwd (ADR 0017).
   #   - Defaults when unset: --mutation-warning 50, --timeout-factor 10,
   #     --test-command "pytest", --max-workers serial.
   #

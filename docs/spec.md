@@ -127,18 +127,21 @@ batch, and zero triggers uv workspace autodiscovery instead of a usage error.
   file is deliberately out of scope" (`__init__.py`, migrations, vendored code) a
   question the tool itself has to answer — otherwise `--check-manifest src/` can only
   be adopted by a project willing to carry a manifest on literally every file.
-  Matching is `fnmatch.fnmatchcase` against the path exactly as walked (built from the
-  target the user passed), applied inside the collector so all four directory modes
-  (`--scan`, `--update-manifest`, `--check-manifest`, scored run) share one filter; a
-  file matching any pattern is dropped before dispatch, so it is never scanned, never
-  reported, and cannot affect the exit code. `fnmatchcase`, not `fnmatch`: the latter
-  applies `os.path.normcase`, which would make the same command exclude different
-  files on macOS than on Linux. There is no `**` emulation and no basename fallback —
-  fnmatch's `*` already crosses `/`, so `'*/vendor/*'` matches at any depth, at the
-  documented cost that `'*.py'` excludes everything and a bare `'__init__.py'` never
-  matches anything — the path is always prefixed with the target directory, even for
-  a file directly inside it, so the pattern must be prefixed too (e.g.
-  `'*/__init__.py'`). **`action="append"`, not the comma-split precedent of `--lines`:**
+  Matching is the shared glob dialect (§2's `<targets>` row, ADR 0017) against the
+  path exactly as walked (built from the target the user passed), applied inside the
+  collector so all four directory modes (`--scan`, `--update-manifest`,
+  `--check-manifest`, scored run) share one filter; a file matching any pattern is
+  dropped before dispatch, so it is never scanned, never reported, and cannot affect
+  the exit code. `*` matches exactly one path segment and never crosses `/`; `**`
+  matches zero or more segments, but only when it stands alone as a whole
+  `/`-bounded component (`foo**bar` degrades to an ordinary same-segment wildcard).
+  This replaced the pre-#22 `fnmatch.fnmatchcase` dialect, whose `*` crossed `/`
+  unconditionally and had no real `**`. Two consequences worth knowing: `'*.py'`
+  matches nothing under a directory target — the path is always prefixed with the
+  walked directory, so even a file directly inside it (e.g. `src/a.py`) needs
+  `'src/*.py'` or `'**/*.py'` to match; a bare basename like `'__init__.py'`
+  likewise never matches anything — use `'**/__init__.py'`.
+  **`action="append"`, not the comma-split precedent of `--lines`:**
   a glob may legitimately contain a comma (`'*/{a,b}/*'`, or any path with one), so
   splitting on `,` would corrupt valid patterns, whereas `--lines`' values are
   integers that never can. When the filter (or an empty tree) leaves no file to
@@ -146,7 +149,11 @@ batch, and zero triggers uv workspace autodiscovery instead of a usage error.
   **2** — the usage-error code, chosen over a vacuous 0 so that a typo'd pattern that
   silently matches everything fails CI instead of passing it. Excluded files produce
   no output unless `--verbose` is given, which prints one `Excluded: <path>` line per
-  dropped file.
+  dropped file. **The walk itself also prunes** `__pycache__`, `venv`,
+  `node_modules`, and any dot-directory (`.git`, `.venv`, …) before `--exclude` ever
+  runs; `build/` and `dist/` are left walkable. This applies to every directory-mode
+  run, autodiscovered or not — a behavior change from pre-#22, which pruned only
+  `__pycache__`.
 
 **[PORT] mutual-exclusion rules** (reproduce exactly):
 - `--scan` and `--update-manifest` are mutually exclusive and cannot combine with
