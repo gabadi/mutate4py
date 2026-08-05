@@ -136,7 +136,49 @@ term. This is the single canonical glossary for the project.
 - **Flag matrix** — the full §2 option set F5 parses and validates: `--scan`,
   `--update-manifest`, `--lines`, `--since-last-run`, `--mutate-all`,
   `--mutation-warning N`, `--timeout-factor N`, `--test-command CMD`,
-  `--max-workers N`, the three coverage flags, `--verbose`, `--help`.
+  `--max-workers N`, `--exclude PATTERN`, the three coverage flags, `--verbose`,
+  `--help`.
+- **Target resolution** — the phase between flag validation and dispatch (ADR
+  0017, issue #22) that turns the positional(s) into a concrete file list. `file`
+  (required, singular) became `files` (`nargs="*"`, zero or more); each is a
+  **glob pattern**, expanded via `glob.glob(pattern, recursive=True)`, not just
+  a literal path. Resolved-root count decides the run shape: **one** → today's
+  single-file/directory dispatch, byte-for-byte unchanged; **two or more** → a
+  **union batch** (one baseline, one exit code, `.py` files deduped by
+  `os.path.realpath`); **zero** → **workspace autodiscovery** (below). No
+  `--discover`/`--workspace` flag — arity alone is the trigger.
+- **Glob dialect** — the one pattern-matching dialect shared by positional
+  targets, `--exclude`, and uv `members`/`exclude` (ADR 0017): `*` matches
+  exactly one path segment and never crosses `/`; `**` matches zero or more
+  segments, but only when it stands alone as a whole `/`-bounded component
+  (glued to literal text, e.g. `foo**bar`, it degrades to an ordinary
+  same-segment wildcard). Hand-rolled in `_glob_dialect.py` because
+  `pathlib.PurePath.full_match`, which has this dialect natively, is 3.13+.
+  Replaces `--exclude`'s old `fnmatch.fnmatchcase` dialect.
+- **Workspace autodiscovery** — the zero-positional path (ADR 0017): climb
+  from `cwd` (inclusive) to the nearest ancestor `pyproject.toml`; it must
+  declare `[tool.uv.workspace]` or the run errors there, exit 2, without
+  climbing further (mirrors uv's own `find_workspace`; stdlib `tomllib` only,
+  never a `uv` subprocess). Roots = the workspace root (walked recursively,
+  same as directory mode) plus every `[tool.uv.workspace].members`-glob match
+  that has its own `pyproject.toml` — a match without one is skipped
+  silently, not an error, diverging from real `uv`.
+  `[tool.uv.workspace].exclude` is honored (not required by the AC) and
+  prunes both the member list and the workspace root's recursive walk.
+- **Directory-mode pruning** — the walk itself, before `--exclude` ever runs,
+  skips `__pycache__`, `venv`, `node_modules`, and any dot-directory (`.git`,
+  `.venv`, …); `build/` and `dist/` are left walkable. Applies to every
+  directory-mode run, autodiscovered or not (issue #22 — previously only
+  `__pycache__` was pruned).
+- **`--exclude PATTERN`** — repeatable (`action="append"`) directory-mode scope
+  control: a file whose walked path matches ANY pattern (shared glob dialect
+  above, ADR 0017) is dropped inside the collector, so it is never scanned, never
+  reported, and cannot affect the exit code, in all four directory modes and for a
+  single-file target. Silent unless `--verbose`, which prints `Excluded: <path>` per
+  dropped file. Not exclusive of anything — it composes with every other flag.
+- **Nothing to process** — the empty-file-list outcome: exclusions (or a directory
+  with no `.py` files) leaving zero files prints `error: no Python files to
+  process.` to stderr and exits **2**, rather than passing vacuously.
 - **Usage error** — a rejected invocation: print a usage/error message, exit
   **non-zero**, run no analysis and no test command. Triggers: unknown flag, missing
   value, invalid numeric value, illegal flag combination, missing/nonexistent source

@@ -32,9 +32,11 @@ which this mirrors module-for-module.
 
 mutate4go is a Go binary. mutate4py cannot be.
 
-- **Language:** Python ≥ 3.10 (matches `crap4py`). **Parser:** stdlib `ast`
-  (zero dependencies; `end_lineno`/`end_col_offset` available since 3.8 give the
-  byte-precise spans needed for splice/restore).
+- **Language:** Python ≥ 3.11 (raised from 3.10 in issue #22, so uv workspace
+  autodiscovery can use stdlib `tomllib` — 3.11+ only — without adding a `tomli`
+  dependency; see ADR 0017). **Parser:** stdlib `ast` (zero dependencies;
+  `end_lineno`/`end_col_offset` available since 3.8 give the byte-precise spans
+  needed for splice/restore).
 - **Packaging:** `hatchling` + `pyproject.toml`, console-script entry point
   `mutate4py = "mutate4py.__main__:main"` (mirrors crap4py).
 - **Distribution:** **PyPI**. Run with `uvx mutate4py`, install with
@@ -47,10 +49,15 @@ mutate4go is a Go binary. mutate4py cannot be.
 
 ## 2. CLI surface
 
-Mutate-test one file at a time: `mutate4py path/to/file.py [options]`
+Mutate-test one or more targets: `mutate4py [PATH ...] [options]` (issue #22, ADR
+0017). Each `PATH` is a literal file/directory or a glob pattern (§2's shared
+dialect, `<targets>` row below); the resolved roots decide the run shape — one root
+is today's single-file/directory dispatch unchanged, two or more run as one union
+batch, and zero triggers uv workspace autodiscovery instead of a usage error.
 
 | Flag | mutate4go | mutate4py | Tag |
 |------|-----------|-----------|-----|
+| `<targets>` (0+ `PATH`s) | exactly one file, required | 0+ literal paths or glob patterns; 1 resolved root = today's dispatch, 2+ = union batch (one baseline, one exit code), 0 = uv workspace autodiscovery | [PY] |
 | `--scan` | count sites, no coverage/tests | same | [PORT] |
 | `--update-manifest` | rewrite footer manifest only | same | [PORT] |
 | `--lines L1,L2,...` | only these source lines | same | [PORT] |
@@ -66,9 +73,25 @@ Mutate-test one file at a time: `mutate4py path/to/file.py [options]`
 | `--reuse-coverage` | reuse coverprofile on disk | reuse LCOV on disk | [PORT]/[PY] |
 | `--max-workers N` | N isolated parallel workers | same — serial default, parallel via `uv` clone-per-worker (§9) | [PORT]/[PY] |
 | `--manifest-file` | — | store each file's manifest as sidecar JSON (`<file>.manifest.json`) instead of the in-source footer | [PY] |
+| `--exclude PATTERN` | — | skip files whose path matches PATTERN (shared glob dialect, repeatable) | [PY] |
 
 **[PY] reasons:**
 
+- **`<targets>` (multi-root, glob positionals, uv workspace autodiscovery — issue
+  #22, ADR 0017).** Full rationale in the ADR; the essentials: positionals are
+  expanded via stdlib `glob.glob(pattern, recursive=True)`, so `mutate4py 'pkg/*.py'`
+  works without shell globbing doing it first. Arity, not a flag, decides the run
+  shape (see the table row above). Zero positionals autodiscover a uv workspace:
+  climb from `cwd` to the nearest ancestor `pyproject.toml` (stop there even if it
+  has no `[tool.uv.workspace]` — mirrors uv's own `find_workspace`, does not keep
+  climbing), then the roots are the workspace root (walked recursively, as directory
+  mode always has) plus every `[tool.uv.workspace].members`-matched directory that
+  has its own `pyproject.toml` — a match without one is skipped silently, diverging
+  from real `uv`, which errors. `[tool.uv.workspace].exclude` is honored (not
+  required by the AC) and prunes both the member list and the workspace root's
+  recursive walk, by directory-path identity, not by re-encoding the path as a glob
+  string. stdlib `tomllib` only, never a `uv` subprocess; needing it unconditionally
+  raised the Python floor to 3.11 (§1) rather than adding a `tomli` dependency.
 - **`--test-command` defaults to `pytest`** (Go defaults `go test ./...`, clj
   defaults `clj -M:spec ...`; all three ports ship a default — `pytest` is the
   Python near-universal). Override for `unittest`/`nose`/custom.
@@ -97,6 +120,40 @@ Mutate-test one file at a time: `mutate4py path/to/file.py [options]`
   manifest footer (existing footers are stripped on the next write). Each source file
   gets its own sidecar, so directory targets need no fan-out logic: every file simply
   reads and writes its own `<file>.manifest.json`.
+- **`--exclude PATTERN` (directory-mode scope control).** Neither mutate4go nor
+  clj-mutate has this, because neither has mutate4py's directory target: upstream
+  mutate-tests one file per invocation, so the caller's shell already decides which
+  files are in scope. mutate4py accepts a directory and walks it, which makes "this
+  file is deliberately out of scope" (`__init__.py`, migrations, vendored code) a
+  question the tool itself has to answer — otherwise `--check-manifest src/` can only
+  be adopted by a project willing to carry a manifest on literally every file.
+  Matching is the shared glob dialect (§2's `<targets>` row, ADR 0017) against the
+  path exactly as walked (built from the target the user passed), applied inside the
+  collector so all four directory modes (`--scan`, `--update-manifest`,
+  `--check-manifest`, scored run) share one filter; a file matching any pattern is
+  dropped before dispatch, so it is never scanned, never reported, and cannot affect
+  the exit code. `*` matches exactly one path segment and never crosses `/`; `**`
+  matches zero or more segments, but only when it stands alone as a whole
+  `/`-bounded component (`foo**bar` degrades to an ordinary same-segment wildcard).
+  This replaced the pre-#22 `fnmatch.fnmatchcase` dialect, whose `*` crossed `/`
+  unconditionally and had no real `**`. Two consequences worth knowing: `'*.py'`
+  matches nothing under a directory target — the path is always prefixed with the
+  walked directory, so even a file directly inside it (e.g. `src/a.py`) needs
+  `'src/*.py'` or `'**/*.py'` to match; a bare basename like `'__init__.py'`
+  likewise never matches anything — use `'**/__init__.py'`.
+  **`action="append"`, not the comma-split precedent of `--lines`:**
+  a glob may legitimately contain a comma (`'*/{a,b}/*'`, or any path with one), so
+  splitting on `,` would corrupt valid patterns, whereas `--lines`' values are
+  integers that never can. When the filter (or an empty tree) leaves no file to
+  process, the run prints `error: no Python files to process.` to stderr and exits
+  **2** — the usage-error code, chosen over a vacuous 0 so that a typo'd pattern that
+  silently matches everything fails CI instead of passing it. Excluded files produce
+  no output unless `--verbose` is given, which prints one `Excluded: <path>` line per
+  dropped file. **The walk itself also prunes** `__pycache__`, `venv`,
+  `node_modules`, and any dot-directory (`.git`, `.venv`, …) before `--exclude` ever
+  runs; `build/` and `dist/` are left walkable. This applies to every directory-mode
+  run, autodiscovered or not — a behavior change from pre-#22, which pruned only
+  `__pycache__`.
 
 **[PORT] mutual-exclusion rules** (reproduce exactly):
 - `--scan` and `--update-manifest` are mutually exclusive and cannot combine with

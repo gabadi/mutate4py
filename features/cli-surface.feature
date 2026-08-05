@@ -1,6 +1,6 @@
-# mutation-stamp: sha256=4bb2047f6fd9b297f4f198a164f7df2fd26e72d9f9ba18789bbe56d7ed007d09
+# mutation-stamp: sha256=bdfc4cb6dd3a1bbab17390cc025829b7af3dc62f8b146c7fae0ab851dbed7320
 # acceptance-mutation-manifest-begin
-# {"version":1,"tested_at":"2026-07-02T14:16:58.492908Z","feature_name":"The CLI surface parses, validates, and dispatches the flag matrix","feature_path":"/Users/gabadi/workspace/addi/mutate4py/features/cli-surface.feature","background_hash":"1203275c6eabf9fc410f98f69ac6af108b327191aeca7b251b7f196f4d6e6eaf","implementation_hash":"unknown","scenarios":[{"index":0,"name":"the full flag matrix parses and applies its default","scenario_hash":"f58044050f009b80096d5ade66cdc5d6048e4029c5c683144d237429011492bc","mutation_count":24,"result":{"Total":24,"Killed":24,"Survived":0,"Errors":0},"tested_at":"2026-07-02T02:54:24.264819Z"},{"index":1,"name":"a numeric flag rejects values that are not positive integers","scenario_hash":"6f1c256c9442246f7a2d6d6bf02c61aff355b799164b881eecfa1599978288c0","mutation_count":11,"result":{"Total":11,"Killed":11,"Survived":0,"Errors":0},"tested_at":"2026-07-02T02:54:24.264819Z"},{"index":2,"name":"a value flag with a missing value is rejected","scenario_hash":"2eeab52799ce2b3e6662c4bba4851a503dc9c168109362e87ebb23a6f5309e2f","mutation_count":5,"result":{"Total":5,"Killed":5,"Survived":0,"Errors":0},"tested_at":"2026-07-02T02:54:24.264819Z"},{"index":3,"name":"a no-run mode rejects being combined with an execution option","scenario_hash":"c547fbec1018baff4e0a5b38c8405f20d50e9917ebb4ee6202dcad0ea3de4ed0","mutation_count":24,"result":{"Total":24,"Killed":24,"Survived":0,"Errors":0},"tested_at":"2026-07-02T02:54:24.264819Z"},{"index":4,"name":"combining two selection flags is a usage error","scenario_hash":"d2954272964e2887ddc585f79ecee9abf28d1b46ce94ac3b774c3494d59c2f72","mutation_count":6,"result":{"Total":6,"Killed":6,"Survived":0,"Errors":0},"tested_at":"2026-07-02T02:54:24.264819Z"},{"index":5,"name":"--max-workers is accepted alongside a selection flag","scenario_hash":"65f8dd172a38a062d2ba6c54c8c0a253173e7732ea67de7c08c5674e7cd840b4","mutation_count":3,"result":{"Total":3,"Killed":3,"Survived":0,"Errors":0},"tested_at":"2026-07-02T02:54:24.264819Z"},{"index":6,"name":"an unknown flag or missing source file is rejected","scenario_hash":"813c2a7317dad0bca22919363855242b2948b289ef215390fe7d6fd47afcc940","mutation_count":3,"result":{"Total":3,"Killed":3,"Survived":0,"Errors":0},"tested_at":"2026-07-02T02:54:24.264819Z"},{"index":7,"name":"--help short-circuits to usage even with invalid args","scenario_hash":"aeb3ab3b6fafbd8eadfa31d3c68818374fd4288c2d9b1bf9459654db45b577d4","mutation_count":3,"result":{"Total":3,"Killed":3,"Survived":0,"Errors":0},"tested_at":"2026-07-02T02:54:24.264819Z"},{"index":8,"name":"validated options are routed to the right behaviour","scenario_hash":"ed881adfbdea0ad219b14c17fbc9e4126192d00e628d71e3ec4805536181a6dd","mutation_count":6,"result":{"Total":6,"Killed":6,"Survived":0,"Errors":0},"tested_at":"2026-07-02T02:54:24.264819Z"}]}
+# {"version":1,"tested_at":"2026-08-05T06:34:34Z","feature_name":"The CLI surface parses, validates, and dispatches the flag matrix","feature_path":"features/cli-surface.feature","background_hash":"1203275c6eabf9fc410f98f69ac6af108b327191aeca7b251b7f196f4d6e6eaf","implementation_hash":"sha256:270c59e799909ae28b518b18fdd82d84caf82d2b5e15ffabe26f611d1ebf7c63","scenarios":[{"index":0,"name":"the full flag matrix parses and applies its default","scenario_hash":"35e28bf7facb9d3c7fdfcac3937137c41d4622ce540cca20291f1fb3b14263d9","mutation_count":24,"result":{"Total":24,"Killed":24,"Survived":0,"Errors":0},"tested_at":"2026-08-05T06:34:34Z"},{"index":1,"name":"a numeric flag rejects values that are not positive integers","scenario_hash":"a2c7162b81dcdd3a79f489b3256f997b25d42a9660d3d68e859394d9502ef2ef","mutation_count":11,"result":{"Total":11,"Killed":11,"Survived":0,"Errors":0},"tested_at":"2026-08-05T06:34:34Z"},{"index":2,"name":"a value flag with a missing value is rejected","scenario_hash":"c37764cca4646af139a58f03693bab5820d727a41c92787bfc07beebdffb5b0a","mutation_count":5,"result":{"Total":5,"Killed":5,"Survived":0,"Errors":0},"tested_at":"2026-08-05T06:34:34Z"},{"index":3,"name":"a no-run mode rejects being combined with an execution option","scenario_hash":"30f46756fb76de41193baa294affbb621e661f5a1d670c3b26d7b4fae770d3fb","mutation_count":24,"result":{"Total":24,"Killed":24,"Survived":0,"Errors":0},"tested_at":"2026-08-05T06:34:34Z"},{"index":4,"name":"combining two selection flags is a usage error","scenario_hash":"88ff433e01244df649696d2076a6a8a2df4ee1a22f323d8c51400cb49ac80335","mutation_count":6,"result":{"Total":6,"Killed":6,"Survived":0,"Errors":0},"tested_at":"2026-08-05T06:34:34Z"},{"index":5,"name":"--max-workers is accepted alongside a selection flag","scenario_hash":"3ab1c84ab1c02366f62e18afb506789995ccc145af73681ae21b8cf9fff416f1","mutation_count":3,"result":{"Total":3,"Killed":3,"Survived":0,"Errors":0},"tested_at":"2026-08-05T06:34:34Z"},{"index":6,"name":"an unknown flag or missing source file is rejected","scenario_hash":"43c42d8a2bec629c31a639050708aa4aaae4036452dbceea3f40bd98a12868fd","mutation_count":3,"result":{"Total":3,"Killed":3,"Survived":0,"Errors":0},"tested_at":"2026-08-05T06:34:34Z"},{"index":7,"name":"--help short-circuits to usage even with invalid args","scenario_hash":"0f1c3f6768d7f821b590a1d9f8f3b9e9876f4f5dd78ef8813db0d5c33da45a2c","mutation_count":3,"result":{"Total":3,"Killed":3,"Survived":0,"Errors":0},"tested_at":"2026-08-05T06:34:34Z"},{"index":8,"name":"validated options are routed to the right behaviour","scenario_hash":"2053e21dff52520290af1b4bcd55de386ea5b0ad7ba405b96dcf62a575f6e11b","mutation_count":6,"result":{"Total":6,"Killed":6,"Survived":0,"Errors":0},"tested_at":"2026-08-05T06:34:34Z"}]}
 # acceptance-mutation-manifest-end
 
 Feature: The CLI surface parses, validates, and dispatches the flag matrix
@@ -15,9 +15,13 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #           (ValidateArgs, consumeValueOption, parsePositiveInt, parseLines).
   #
   # CONTRACT:
-  #   command: mutate4py <file> [options]   (one file per invocation)
+  #   command: mutate4py [PATH ...] [options]   (0+ targets: literal paths or
+  #            glob patterns; issue #22, ADR 0017)
   #   request — the §2 flag matrix F5 parses and validates:
-  #     <file>               — positional, required; the source to mutate.
+  #     <targets>            — positional, 0+ PATHs, literal or glob; arity
+  #                            decides the run shape: 1 resolved root = today's
+  #                            single-file/directory dispatch, 2+ = a union
+  #                            batch, 0 = uv workspace autodiscovery (ADR 0017).
   #     --scan               — no-run mode: count sites (F1 surface).
   #     --update-manifest    — no-run mode: rewrite the footer manifest (F2 surface).
   #     --lines L1,L2,...     — selection: comma-separated POSITIVE ints.
@@ -28,6 +32,10 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #     --test-command CMD    — string, default "pytest" ([PY] §2).
   #     --max-workers N       — positive int, default 0/unset = serial (ADR 0013).
   #     --cov-cmd CMD | --lcov PATH | --reuse-coverage — the three coverage flags.
+  #     --exclude PATTERN     — repeatable; skip files whose walked path matches the
+  #                             shared glob dialect (union across patterns) — the
+  #                             same dialect <targets> and uv members/exclude use
+  #                             (ADR 0017). [PY] §2.
   #     --verbose             — log to stderr.
   #     --help                — print usage, exit 0.
   #   on ACCEPT: parsed options are dispatched —
@@ -37,7 +45,9 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #   on REJECT (usage error): a usage/error message is printed and the process exits
   #     NON-ZERO, having run NO analysis and NO test command. Reject classes:
   #     unknown flag, missing value for a value flag, invalid numeric value,
-  #     illegal flag combination, missing/nonexistent source file.
+  #     illegal flag combination, a literal target path that does not exist, a
+  #     glob pattern matching nothing, zero positionals with no uv workspace
+  #     discoverable from cwd upward (ADR 0017).
   #
   # CONSTRAINTS:
   #   - Positive-int flags (--mutation-warning, --timeout-factor, --max-workers) require
@@ -51,7 +61,10 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #       * --cov-cmd / --lcov / --reuse-coverage: PAIRWISE exclusive (F3 ADR 0008).
   #   - --max-workers joins ONLY the scan/update-manifest exclusion; it MAY combine with
   #     the selection flags (it does not conflict with --lines/--since-last-run/--mutate-all).
-  #   - Missing source file (no positional, or path does not exist) is a usage error.
+  #   - A literal target path that does not exist, or a glob pattern matching
+  #     nothing, is a usage error. Zero positionals is NOT itself a usage error —
+  #     it triggers uv workspace autodiscovery; that only errors (exit 2) if no
+  #     [tool.uv.workspace] is discoverable climbing from cwd (ADR 0017).
   #   - Defaults when unset: --mutation-warning 50, --timeout-factor 10,
   #     --test-command "pytest", --max-workers serial.
   #
@@ -228,3 +241,15 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
     When I run mutate4py with the accepted flags "--max-workers 4 (a coverage flag)"
     Then the run is dispatched to the "run loop" behaviour
     And the dispatcher receives a worker count of "4"
+
+  # cli-surface-11: an --exclude match is dropped from the directory walk entirely
+  Scenario: an excluded file takes no part in a directory-mode run
+    Given a directory holding "keep.py" and "skip.py"
+    When I run mutate4py on that directory with "--check-manifest" excluding "**/skip.py"
+    Then only "keep.py" is reported
+
+  # cli-surface-12: two or more resolved positional targets run as one union batch (#22)
+  Scenario: two file targets run as a single union batch
+    Given two Python source files "one.py" and "two.py" without a manifest
+    When I run mutate4py on both files with "--check-manifest"
+    Then both "one.py" and "two.py" are reported
