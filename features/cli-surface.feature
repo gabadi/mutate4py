@@ -234,5 +234,5 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   # cli-surface-11: an --exclude match is dropped from the directory walk entirely
   Scenario: an excluded file takes no part in a directory-mode run
     Given a directory holding "keep.py" and "skip.py"
-    When I run mutate4py on that directory with "--check-manifest" excluding "*/skip.py"
+    When I run mutate4py on that directory with "--check-manifest" excluding "**/skip.py"
     Then only "keep.py" is reported
