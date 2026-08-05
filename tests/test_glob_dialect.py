@@ -1,8 +1,11 @@
 """Unit tests for the shared glob dialect (issue #22 item 4).
 
 Dialect: `*` matches exactly one path segment (never crosses `/`); `**` matches
-zero or more segments. Used by --exclude (this cycle) and, in a later cycle,
-positional patterns and uv `members`/`exclude`.
+zero or more segments, but only when it stands alone as a whole `/`-bounded
+path component — glued to literal text it degrades to a same-segment
+wildcard. Used by --exclude (this cycle) and, in a later cycle, uv
+`members`/`exclude` (positional patterns are expanded by stdlib
+`glob.glob`, not this matcher).
 """
 
 from mutate4py._glob_dialect import glob_match
@@ -67,3 +70,20 @@ def test_matching_is_case_sensitive():
 def test_regex_special_characters_in_pattern_are_literal():
     assert glob_match("src/a.py", "src/a.py")
     assert not glob_match("src/aXpy", "src/a.py")
+
+
+def test_double_star_glued_to_literal_text_does_not_cross_a_slash():
+    """'**' only gets the "zero or more segments" meaning when it stands
+    alone as a whole path component; glued to "foo" it is not a boundary
+    component and must behave like an ordinary same-segment wildcard,
+    matching stdlib glob.glob's own treatment of "foo**bar"."""
+    assert not glob_match("foo/x/y/bar", "foo**bar")
+    assert glob_match("fooXbar", "foo**bar")
+
+
+def test_double_star_glued_before_a_slash_still_requires_the_slash():
+    """ "foo**/bar" is not a boundary "**" component (it's glued to "foo"),
+    so it must not fold the following '/' into an optional zero-segment
+    match — it must not match "foobar" with no slash at all."""
+    assert not glob_match("foobar", "foo**/bar")
+    assert glob_match("fooX/bar", "foo**/bar")

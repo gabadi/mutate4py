@@ -1088,6 +1088,16 @@ def test_help_lists_exclude():
     assert "--exclude" in result.stdout
 
 
+def test_build_parser_declares_the_file_scratch_field():
+    """args.file is a declared field of the parser's Namespace, not an
+    attribute _dispatch injects unannounced (issue #22 review)."""
+    from mutate4py.__main__ import _build_parser
+
+    args = _build_parser().parse_args(["a.py"])
+    assert args.files == ["a.py"]
+    assert args.file is None
+
+
 def test_help_with_invalid_args_still_exits_zero():
     # --help is honoured before any validation
     result = run_cli("--help", "--max-workers", "0", source="x = 1\n")
