@@ -1652,6 +1652,27 @@ def test_single_file_matching_exclude_exits_2(tmp_path):
     assert "Manifest missing:" not in result.stdout
 
 
+def test_missing_single_file_reports_not_found_even_when_excluded(tmp_path):
+    """A path that does not exist reports the real error, never 'excluded'."""
+    missing = str(tmp_path / "mod.py")
+    result = _run_cli_path(missing, "--check-manifest", "--exclude", "*/mod.py")
+    assert result.returncode == 2
+    assert "No such file or directory" in result.stderr
+    assert "no Python files to process" not in result.stderr
+
+
+def test_existing_single_file_matching_exclude_reports_exclusion_not_not_found(
+    tmp_path,
+):
+    """The companion ordering: an existing target that matches is an exclusion."""
+    p = tmp_path / "mod.py"
+    p.write_text("def f(): pass\n")
+    result = _run_cli_path(str(p), "--check-manifest", "--exclude", "*/mod.py")
+    assert result.returncode == 2
+    assert "error: no Python files to process." in result.stderr
+    assert "No such file or directory" not in result.stderr
+
+
 def test_single_file_verbose_reports_the_excluded_target(tmp_path):
     p = tmp_path / "mod.py"
     p.write_text("def f(): pass\n")
