@@ -113,8 +113,10 @@ Mutate-test one file at a time: `mutate4py path/to/file.py [options]`
   applies `os.path.normcase`, which would make the same command exclude different
   files on macOS than on Linux. There is no `**` emulation and no basename fallback —
   fnmatch's `*` already crosses `/`, so `'*/vendor/*'` matches at any depth, at the
-  documented cost that `'*.py'` excludes everything and a bare `'__init__.py'` matches
-  only at the root. **`action="append"`, not the comma-split precedent of `--lines`:**
+  documented cost that `'*.py'` excludes everything and a bare `'__init__.py'` never
+  matches anything — the path is always prefixed with the target directory, even for
+  a file directly inside it, so the pattern must be prefixed too (e.g.
+  `'*/__init__.py'`). **`action="append"`, not the comma-split precedent of `--lines`:**
   a glob may legitimately contain a comma (`'*/{a,b}/*'`, or any path with one), so
   splitting on `,` would corrupt valid patterns, whereas `--lines`' values are
   integers that never can. When the filter (or an empty tree) leaves no file to

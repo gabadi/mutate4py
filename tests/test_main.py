@@ -1643,6 +1643,26 @@ def test_directory_excluded_files_are_silent_without_verbose(tmp_path):
     assert "b.py" not in result.stdout
 
 
+def test_directory_two_exclude_flags_both_take_effect(tmp_path):
+    """Two separate --exclude flags on argv both apply (action="append"), not just
+    the last one (which is what a dropped/misconfigured `dest` would leave)."""
+    d = _make_pkg_tree(tmp_path)
+    result = _run_cli_path(
+        d,
+        "--check-manifest",
+        "--exclude",
+        "*/__init__.py",
+        "--exclude",
+        "*/sub/deep.py",
+        "--verbose",
+    )
+    assert f"Excluded: {os.path.join(d, '__init__.py')}" in result.stdout
+    assert f"Excluded: {os.path.join(d, 'sub', '__init__.py')}" in result.stdout
+    assert f"Excluded: {os.path.join(d, 'sub', 'deep.py')}" in result.stdout
+    assert "Excluded: " + os.path.join(d, "mod.py") not in result.stdout
+    assert "Manifest missing: " + os.path.join(d, "mod.py") in result.stdout
+
+
 def test_single_file_matching_exclude_exits_2(tmp_path):
     p = tmp_path / "mod.py"
     p.write_text("def f(): pass\n")

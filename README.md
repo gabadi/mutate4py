@@ -59,8 +59,10 @@ yields `src/pkg/mod.py`. Two consequences worth knowing:
 
 - `*` crosses `/`, so `--exclude '*.py'` excludes **everything**, and `'*/vendor/*'`
   already matches at any depth. There is no special `**` handling.
-- A bare basename only matches at the root: use `'*/__init__.py'`, not
-  `'__init__.py'`.
+- A bare basename never matches: the path always has the target directory
+  prefixed on it (even for a file sitting directly inside the target), so
+  `'__init__.py'` matches nothing at any depth. Always prefix it, e.g.
+  `'*/__init__.py'`.
 
 Excluded files are silent by default; `--verbose` prints one `Excluded: <path>` line
 each. If the exclusions leave nothing to process — or the directory holds no `.py`
