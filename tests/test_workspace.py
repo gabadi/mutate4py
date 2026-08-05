@@ -231,28 +231,6 @@ def test_pyproject_without_workspace_table_names_that_path(
     assert "[tool.uv.workspace]" in err
 
 
-# ── tomllib availability guard (item 6): no new dependency added ───────────────
-
-
-def test_load_toml_without_stdlib_tomllib_errors_instead_of_crashing(
-    tmp_path, monkeypatch, capsys
-):
-    """Simulates Python 3.10 (no stdlib tomllib): a clear usage error, not
-    an ImportError traceback, and no third-party dependency was added."""
-    import mutate4py._workspace as workspace_module
-
-    d = tmp_path / "ws"
-    d.mkdir()
-    _write(d / "pyproject.toml", _workspace_pyproject())
-    monkeypatch.chdir(d)
-    monkeypatch.setattr(workspace_module, "tomllib", None)
-    with pytest.raises(SystemExit) as exc:
-        _discover_workspace_roots()
-    assert exc.value.code == 2
-    err = capsys.readouterr().err
-    assert "3.11" in err
-
-
 # ── ordering: workspace root first, then members (item 15) ─────────────────────
 
 

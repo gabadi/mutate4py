@@ -4,18 +4,16 @@ Zero positional arguments trigger this: climb from cwd to the nearest
 ancestor `pyproject.toml`, require it to declare `[tool.uv.workspace]`, then
 resolve `members`/`exclude` globs against that workspace root (not cwd).
 Mirrors uv's own `find_workspace` — stdlib `tomllib` only, never a `uv`
-subprocess.
+subprocess. Requires Python 3.11+ (tomllib is stdlib there); the project's
+`requires-python` floor was bumped to match rather than adding a `tomli`
+dependency.
 """
 
 import glob
 import os
 import sys
+import tomllib
 from collections.abc import Sequence
-
-try:
-    import tomllib
-except ModuleNotFoundError:  # Python 3.10: no stdlib tomllib.
-    tomllib = None  # type: ignore[assignment]
 
 
 def _find_pyproject(start: str) -> str | None:
@@ -48,18 +46,7 @@ def _exit_no_workspace_table(pyproject_path: str) -> None:
     sys.exit(2)
 
 
-def _exit_no_tomllib() -> None:
-    print(
-        "error: workspace autodiscovery requires Python 3.11+ (stdlib tomllib); "
-        "pass a path explicitly.",
-        file=sys.stderr,
-    )
-    sys.exit(2)
-
-
 def _load_toml(path: str) -> dict:
-    if tomllib is None:
-        _exit_no_tomllib()
     with open(path, "rb") as f:
         return tomllib.load(f)
 
@@ -121,5 +108,5 @@ def _workspace_exclude_dirs() -> list[str]:
 
 
 # mutate4py-manifest-begin
-# {"version":1,"tested_at":"2026-08-05T15:48:14Z","module_hash":"512f1a6c716cf8f58d17783a4dcee231ee6936cb03d666e530e6056711ca48e7","functions":[{"id":"func/_find_pyproject","name":"_find_pyproject","line":21,"end_line":34,"hash":"04f3e0c7f7a6fc4c348645147119e2748936ff5e3890eeffe6fb8c0d80fb3f8b"},{"id":"func/_exit_no_pyproject_found","name":"_exit_no_pyproject_found","line":37,"end_line":43,"hash":"e88f818abbaf483dafc18d261403fc1d8807f859e902d09460f1bd58d5e9cdd8"},{"id":"func/_exit_no_workspace_table","name":"_exit_no_workspace_table","line":46,"end_line":48,"hash":"66c99eec46a339bd96794020dd8af222aa3a711df6cfe6745166e5c5aef5a0e6"},{"id":"func/_exit_no_tomllib","name":"_exit_no_tomllib","line":51,"end_line":57,"hash":"de198f54f1091e96c443a9ce89b227c2f1688e71f64edb06eddfb6cef3bca61a"},{"id":"func/_load_toml","name":"_load_toml","line":60,"end_line":64,"hash":"f0422f34c9e6a250a2e14d007d78759db9ad1c4d76de5bb19ab161d963904195"},{"id":"func/_workspace_table","name":"_workspace_table","line":67,"end_line":68,"hash":"a07f248b77917e030e08ff97548fe8a18f5bb7e58663165988de979f5fcc8a13"},{"id":"func/_load_workspace_config","name":"_load_workspace_config","line":71,"end_line":81,"hash":"f4d5f4e9366f4333a34aa9e4aa17b662b6960b297b237be154433df5e4375cf2"},{"id":"func/_resolve_dirs","name":"_resolve_dirs","line":84,"end_line":91,"hash":"a6dbbc238f2b2949d680ac1ffbfaee2f285934f7c94c317987f329b2d51dfbf8"},{"id":"func/_resolve_member_dirs","name":"_resolve_member_dirs","line":94,"end_line":98,"hash":"dcc817758fdadd1ee1aada7a9b40028adb5af03f35bf172e131bb4948e6a1942"},{"id":"func/_is_excluded_dir","name":"_is_excluded_dir","line":101,"end_line":103,"hash":"cbfad646d44179d595f92fe2661938f71c33569dbd9e61b25fff1eb95b5f7398"},{"id":"func/_discover_workspace_roots","name":"_discover_workspace_roots","line":106,"end_line":113,"hash":"da8aa9dfabef27d094e5b46eede19fc15f218eb5eb88c51ea5b83fbeb8d39bbf"},{"id":"func/_workspace_exclude_dirs","name":"_workspace_exclude_dirs","line":116,"end_line":120,"hash":"d438febc6ad461ccd70e39c76e8d16b6a9633a1580b9e9e083a5a510b4d8843b"}]}
+# {"version":1,"tested_at":"2026-08-05T16:01:34Z","module_hash":"4ac506cba27c8746efb8e5c616584db1f358f222b324b259d41d826f64cdf6a3","functions":[{"id":"func/_find_pyproject","name":"_find_pyproject","line":19,"end_line":32,"hash":"04f3e0c7f7a6fc4c348645147119e2748936ff5e3890eeffe6fb8c0d80fb3f8b"},{"id":"func/_exit_no_pyproject_found","name":"_exit_no_pyproject_found","line":35,"end_line":41,"hash":"e88f818abbaf483dafc18d261403fc1d8807f859e902d09460f1bd58d5e9cdd8"},{"id":"func/_exit_no_workspace_table","name":"_exit_no_workspace_table","line":44,"end_line":46,"hash":"66c99eec46a339bd96794020dd8af222aa3a711df6cfe6745166e5c5aef5a0e6"},{"id":"func/_load_toml","name":"_load_toml","line":49,"end_line":51,"hash":"32809ec1bfb21913821a400cb62624931cd9bc62cd9f010951b80e6c93599f2d"},{"id":"func/_workspace_table","name":"_workspace_table","line":54,"end_line":55,"hash":"a07f248b77917e030e08ff97548fe8a18f5bb7e58663165988de979f5fcc8a13"},{"id":"func/_load_workspace_config","name":"_load_workspace_config","line":58,"end_line":68,"hash":"f4d5f4e9366f4333a34aa9e4aa17b662b6960b297b237be154433df5e4375cf2"},{"id":"func/_resolve_dirs","name":"_resolve_dirs","line":71,"end_line":78,"hash":"a6dbbc238f2b2949d680ac1ffbfaee2f285934f7c94c317987f329b2d51dfbf8"},{"id":"func/_resolve_member_dirs","name":"_resolve_member_dirs","line":81,"end_line":85,"hash":"dcc817758fdadd1ee1aada7a9b40028adb5af03f35bf172e131bb4948e6a1942"},{"id":"func/_is_excluded_dir","name":"_is_excluded_dir","line":88,"end_line":90,"hash":"cbfad646d44179d595f92fe2661938f71c33569dbd9e61b25fff1eb95b5f7398"},{"id":"func/_discover_workspace_roots","name":"_discover_workspace_roots","line":93,"end_line":100,"hash":"da8aa9dfabef27d094e5b46eede19fc15f218eb5eb88c51ea5b83fbeb8d39bbf"},{"id":"func/_workspace_exclude_dirs","name":"_workspace_exclude_dirs","line":103,"end_line":107,"hash":"d438febc6ad461ccd70e39c76e8d16b6a9633a1580b9e9e083a5a510b4d8843b"}]}
 # mutate4py-manifest-end
