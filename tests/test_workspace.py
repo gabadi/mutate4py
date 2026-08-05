@@ -244,3 +244,113 @@ def test_roots_start_with_the_workspace_root(tmp_path, monkeypatch):
     roots = _discover_workspace_roots()
     assert roots[0] == str(ws)
     assert os.path.abspath(roots[0]) == roots[0]
+
+
+# ── malformed / unreadable pyproject.toml: exit 2, not a crash (review #1) ─────
+
+
+def test_malformed_toml_exits_2_naming_the_file(tmp_path, monkeypatch, capsys):
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    _write(ws / "pyproject.toml", "[tool.uv.workspace\n")  # unclosed table header
+    monkeypatch.chdir(ws)
+    with pytest.raises(SystemExit) as exc:
+        _discover_workspace_roots()
+    assert exc.value.code == 2
+    err = capsys.readouterr().err
+    assert str(ws / "pyproject.toml") in err
+
+
+def test_unreadable_pyproject_exits_2_naming_the_file(tmp_path, monkeypatch, capsys):
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    p = ws / "pyproject.toml"
+    _write(p, _workspace_pyproject())
+    p.chmod(0)
+    monkeypatch.chdir(ws)
+    try:
+        with pytest.raises(SystemExit) as exc:
+            _discover_workspace_roots()
+        assert exc.value.code == 2
+        err = capsys.readouterr().err
+        assert str(p) in err
+    finally:
+        p.chmod(0o644)  # restore so tmp_path cleanup can remove it
+
+
+# ── members/exclude must be a list of strings (review #1c, #2) ─────────────────
+
+
+def test_members_with_a_non_string_element_exits_2(tmp_path, monkeypatch, capsys):
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    _write(ws / "pyproject.toml", "[tool.uv.workspace]\nmembers = [123]\n")
+    monkeypatch.chdir(ws)
+    with pytest.raises(SystemExit) as exc:
+        _discover_workspace_roots()
+    assert exc.value.code == 2
+    err = capsys.readouterr().err
+    assert str(ws / "pyproject.toml") in err
+    assert "members" in err
+
+
+def test_members_as_a_bare_string_exits_2_instead_of_iterating_characters(
+    tmp_path, monkeypatch, capsys
+):
+    """TOML permits `members = "pkgs/*"` (a bare string); Python would
+    silently iterate it character-by-character if not validated."""
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    _write(ws / "pyproject.toml", '[tool.uv.workspace]\nmembers = "pkgs/*"\n')
+    monkeypatch.chdir(ws)
+    with pytest.raises(SystemExit) as exc:
+        _discover_workspace_roots()
+    assert exc.value.code == 2
+    err = capsys.readouterr().err
+    assert "members" in err
+
+
+def test_exclude_with_a_non_string_element_exits_2(tmp_path, monkeypatch, capsys):
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    _write(ws / "pyproject.toml", "[tool.uv.workspace]\nexclude = [123]\n")
+    monkeypatch.chdir(ws)
+    with pytest.raises(SystemExit) as exc:
+        _discover_workspace_roots()
+    assert exc.value.code == 2
+    err = capsys.readouterr().err
+    assert "exclude" in err
+
+
+# ── symlink loop under a `**` member pattern: dedup by realpath (review #4) ────
+
+
+def test_resolve_dirs_dedups_a_symlink_loop_by_realpath(tmp_path, monkeypatch):
+    ws = tmp_path / "ws"
+    pkgs = ws / "pkgs"
+    a = pkgs / "a"
+    a.mkdir(parents=True)
+    _write(a / "pyproject.toml", _package_pyproject("a"))
+    # A symlink cycle inside "a" that glob's recursive "**" would otherwise
+    # walk into repeatedly, rediscovering "a" itself many times over.
+    (a / "loop").symlink_to(a, target_is_directory=True)
+    _write(ws / "pyproject.toml", _workspace_pyproject(members=["pkgs/**"]))
+    monkeypatch.chdir(ws)
+    roots = _discover_workspace_roots()
+    assert roots.count(str(a)) == 1
+
+
+# ── ".." in a members glob: normalized, not blocked (review #5) ────────────────
+
+
+def test_dotdot_in_members_glob_is_normalized(tmp_path, monkeypatch):
+    outside = tmp_path / "outside_pkg"
+    outside.mkdir()
+    _write(outside / "pyproject.toml", _package_pyproject("outside"))
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    _write(ws / "pyproject.toml", _workspace_pyproject(members=["../outside_pkg"]))
+    monkeypatch.chdir(ws)
+    roots = _discover_workspace_roots()
+    assert str(outside) in roots
+    assert ".." not in roots[1]

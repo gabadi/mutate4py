@@ -1263,6 +1263,7 @@ def _make_args(**kwargs):
         manifest_file=False,
         verbose=False,
         exclude=None,
+        prune_dirs=(),
     )
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -1823,6 +1824,52 @@ def test_collect_py_files_file_root_respects_exclude():
     from mutate4py.__main__ import _collect_py_files
 
     assert _collect_py_files("pkg/mod.py", ["**/mod.py"]) == []
+
+
+# ── _collect_py_files: prune_dirs (issue #22 phase B review #3) ────────────────
+#
+# [tool.uv.workspace].exclude names real directories, not glob patterns.
+# prune_dirs matches them by path identity (realpath), not by re-encoding
+# the literal path as a glob string — a directory literally named
+# "some*dir" must not accidentally swallow a sibling "someXXXdir" the way
+# a synthesized f"{d}/**" glob pattern would.
+
+
+def test_collect_py_files_prune_dirs_skips_the_whole_subtree(tmp_path):
+    from mutate4py.__main__ import _collect_py_files
+
+    d = tmp_path / "pkg"
+    vendor = d / "vendor"
+    vendor.mkdir(parents=True)
+    (d / "a.py").write_text("x = 1\n")
+    (vendor / "b.py").write_text("x = 2\n")
+    files = _collect_py_files(str(d), prune_dirs=[str(vendor)])
+    assert files == [str(d / "a.py")]
+
+
+def test_collect_py_files_prune_dirs_does_not_use_glob_matching(tmp_path):
+    """A pruned directory containing a glob metacharacter must not affect
+    an unrelated sibling whose name happens to match it as a pattern."""
+    from mutate4py.__main__ import _collect_py_files
+
+    d = tmp_path / "pkg"
+    starred = d / "some*dir"
+    sibling = d / "someXXXdir"
+    starred.mkdir(parents=True)
+    sibling.mkdir(parents=True)
+    (starred / "a.py").write_text("x = 1\n")
+    (sibling / "b.py").write_text("x = 2\n")
+    files = _collect_py_files(str(d), prune_dirs=[str(starred)])
+    assert files == [str(sibling / "b.py")]
+
+
+def test_collect_py_files_prune_dirs_defaults_to_no_pruning(tmp_path):
+    from mutate4py.__main__ import _collect_py_files
+
+    d = tmp_path / "pkg"
+    d.mkdir()
+    (d / "a.py").write_text("x = 1\n")
+    assert _collect_py_files(str(d)) == [str(d / "a.py")]
 
 
 # ── --exclude: collector filtering ────────────────────────────────────────────
