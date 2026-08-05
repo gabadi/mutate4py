@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 from acceptance.steps.cli_surface_helpers import (
     accepted_flags_args,
     assert_accepted,
+    assert_all_reported,
     assert_dispatched_to,
     assert_no_analysis,
     assert_nonzero_exit,
@@ -27,6 +28,7 @@ from acceptance.steps.cli_surface_helpers import (
     require_result,
     single_flag_args,
     two_flag_args,
+    two_target_run_args,
 )
 from acceptance.steps.step_lib import make_registry
 
@@ -52,6 +54,7 @@ class Context:
         self.cli_result: subprocess.CompletedProcess | None = None
         self.dispatch_max_workers: int | None = None
         self.dir_path: str | None = None
+        self.file_pair: tuple[str, str] | None = None
 
     def reset(self):
         self.tmpdir = None
@@ -60,6 +63,7 @@ class Context:
         self.cli_result = None
         self.dispatch_max_workers = None
         self.dir_path = None
+        self.file_pair = None
 
     def ensure_tmpdir(self) -> str:
         if self.tmpdir is None:
@@ -95,6 +99,20 @@ class Context:
         assert self.dir_path is not None, "No directory created"
         return self.dir_path
 
+    def make_two_files(self, name1: str, name2: str) -> tuple[str, str]:
+        d = self.ensure_tmpdir()
+        p1 = os.path.join(d, name1)
+        p2 = os.path.join(d, name2)
+        for p in (p1, p2):
+            with open(p, "w") as f:
+                f.write(default_source())
+        self.file_pair = (p1, p2)
+        return self.file_pair
+
+    def require_file_pair(self) -> tuple[str, str]:
+        assert self.file_pair is not None, "No file pair created"
+        return self.file_pair
+
 
 ctx = Context()
 
@@ -112,6 +130,12 @@ def given_source_with_sites(m, params):
 @step(r'a directory holding "(.*)" and "(.*)"')
 def given_directory_holding(m, params):
     ctx.make_dir_with(m.group(1).strip(), m.group(2).strip())
+
+
+@step(r'two Python source files "(.*)" and "(.*)" without a manifest')
+def given_two_files(m, params):
+    ctx.reset()
+    ctx.make_two_files(m.group(1).strip(), m.group(2).strip())
 
 
 # ── When steps ────────────────────────────────────────────────────────────────
@@ -141,6 +165,13 @@ def when_run_with_two_flags(m, params):
 @step(r'I run mutate4py on that directory with "(.*)" excluding "(.*)"')
 def when_run_directory_excluding(m, params):
     args = exclude_run_args(m.group(1).strip(), m.group(2).strip(), ctx.require_dir())
+    ctx.cli_result = _run_mutate4py(*args, cwd=ctx.ensure_tmpdir())
+
+
+@step(r'I run mutate4py on both files with "(.*)"')
+def when_run_on_both_files(m, params):
+    p1, p2 = ctx.require_file_pair()
+    args = two_target_run_args(m.group(1).strip(), p1, p2)
     ctx.cli_result = _run_mutate4py(*args, cwd=ctx.ensure_tmpdir())
 
 
@@ -218,6 +249,12 @@ def then_dispatched_to(m, params):
 def then_only_reported(m, params):
     r = require_result(ctx.cli_result)
     assert_only_reported(r.stdout, m.group(1).strip())
+
+
+@step(r'both "(.*)" and "(.*)" are reported')
+def then_both_reported(m, params):
+    r = require_result(ctx.cli_result)
+    assert_all_reported(r.stdout, [m.group(1).strip(), m.group(2).strip()])
 
 
 @step(r'the dispatcher receives a worker count of "(.*)"')

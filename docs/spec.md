@@ -32,9 +32,11 @@ which this mirrors module-for-module.
 
 mutate4go is a Go binary. mutate4py cannot be.
 
-- **Language:** Python ≥ 3.10 (matches `crap4py`). **Parser:** stdlib `ast`
-  (zero dependencies; `end_lineno`/`end_col_offset` available since 3.8 give the
-  byte-precise spans needed for splice/restore).
+- **Language:** Python ≥ 3.11 (raised from 3.10 in issue #22, so uv workspace
+  autodiscovery can use stdlib `tomllib` — 3.11+ only — without adding a `tomli`
+  dependency; see ADR 0017). **Parser:** stdlib `ast` (zero dependencies;
+  `end_lineno`/`end_col_offset` available since 3.8 give the byte-precise spans
+  needed for splice/restore).
 - **Packaging:** `hatchling` + `pyproject.toml`, console-script entry point
   `mutate4py = "mutate4py.__main__:main"` (mirrors crap4py).
 - **Distribution:** **PyPI**. Run with `uvx mutate4py`, install with
@@ -47,10 +49,15 @@ mutate4go is a Go binary. mutate4py cannot be.
 
 ## 2. CLI surface
 
-Mutate-test one file at a time: `mutate4py path/to/file.py [options]`
+Mutate-test one or more targets: `mutate4py [PATH ...] [options]` (issue #22, ADR
+0017). Each `PATH` is a literal file/directory or a glob pattern (§2's shared
+dialect, `<targets>` row below); the resolved roots decide the run shape — one root
+is today's single-file/directory dispatch unchanged, two or more run as one union
+batch, and zero triggers uv workspace autodiscovery instead of a usage error.
 
 | Flag | mutate4go | mutate4py | Tag |
 |------|-----------|-----------|-----|
+| `<targets>` (0+ `PATH`s) | exactly one file, required | 0+ literal paths or glob patterns; 1 resolved root = today's dispatch, 2+ = union batch (one baseline, one exit code), 0 = uv workspace autodiscovery | [PY] |
 | `--scan` | count sites, no coverage/tests | same | [PORT] |
 | `--update-manifest` | rewrite footer manifest only | same | [PORT] |
 | `--lines L1,L2,...` | only these source lines | same | [PORT] |
@@ -66,10 +73,25 @@ Mutate-test one file at a time: `mutate4py path/to/file.py [options]`
 | `--reuse-coverage` | reuse coverprofile on disk | reuse LCOV on disk | [PORT]/[PY] |
 | `--max-workers N` | N isolated parallel workers | same — serial default, parallel via `uv` clone-per-worker (§9) | [PORT]/[PY] |
 | `--manifest-file` | — | store each file's manifest as sidecar JSON (`<file>.manifest.json`) instead of the in-source footer | [PY] |
-| `--exclude PATTERN` | — | skip files whose path matches PATTERN (fnmatch glob, repeatable) | [PY] |
+| `--exclude PATTERN` | — | skip files whose path matches PATTERN (shared glob dialect, repeatable) | [PY] |
 
 **[PY] reasons:**
 
+- **`<targets>` (multi-root, glob positionals, uv workspace autodiscovery — issue
+  #22, ADR 0017).** Full rationale in the ADR; the essentials: positionals are
+  expanded via stdlib `glob.glob(pattern, recursive=True)`, so `mutate4py 'pkg/*.py'`
+  works without shell globbing doing it first. Arity, not a flag, decides the run
+  shape (see the table row above). Zero positionals autodiscover a uv workspace:
+  climb from `cwd` to the nearest ancestor `pyproject.toml` (stop there even if it
+  has no `[tool.uv.workspace]` — mirrors uv's own `find_workspace`, does not keep
+  climbing), then the roots are the workspace root (walked recursively, as directory
+  mode always has) plus every `[tool.uv.workspace].members`-matched directory that
+  has its own `pyproject.toml` — a match without one is skipped silently, diverging
+  from real `uv`, which errors. `[tool.uv.workspace].exclude` is honored (not
+  required by the AC) and prunes both the member list and the workspace root's
+  recursive walk, by directory-path identity, not by re-encoding the path as a glob
+  string. stdlib `tomllib` only, never a `uv` subprocess; needing it unconditionally
+  raised the Python floor to 3.11 (§1) rather than adding a `tomli` dependency.
 - **`--test-command` defaults to `pytest`** (Go defaults `go test ./...`, clj
   defaults `clj -M:spec ...`; all three ports ship a default — `pytest` is the
   Python near-universal). Override for `unittest`/`nose`/custom.

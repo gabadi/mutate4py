@@ -236,3 +236,9 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
     Given a directory holding "keep.py" and "skip.py"
     When I run mutate4py on that directory with "--check-manifest" excluding "**/skip.py"
     Then only "keep.py" is reported
+
+  # cli-surface-12: two or more resolved positional targets run as one union batch (#22)
+  Scenario: two file targets run as a single union batch
+    Given two Python source files "one.py" and "two.py" without a manifest
+    When I run mutate4py on both files with "--check-manifest"
+    Then both "one.py" and "two.py" are reported
