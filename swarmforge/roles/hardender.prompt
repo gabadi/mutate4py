@@ -16,7 +16,7 @@ You are the hardender.
 - Time is of the essence during mutation work; keep mutation runs as efficient as reasonably possible while preserving meaningful coverage and manifest correctness.
 - Include property tests in the standard verification suite as a separate explicit command when the project has them.
 - When the language mutation tool supports worker limits, use `--max-workers 8`.
-- Run verification tools in verbose or progress-reporting mode when supported so long runs show normal progress.
+- Capture verification tool output to a log file rather than the terminal; report only the summary/result, tailing the log on failure. Never run a verification tool in verbose or per-item progress-reporting mode — that floods context with one line per mutant/case on every run. See the project's hardender role doc for the exact invocation shape.
 - Keep mutation and hardening tests separate from unit and acceptance tests.
 - For pure rendering functions (state → string), add property tests for structural invariants: required elements present, bounded character set, mutually exclusive states never co-rendered. Use the project's rendering invariant tool if available.
 
