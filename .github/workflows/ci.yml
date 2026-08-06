@@ -18,12 +18,17 @@ jobs:
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           enable-cache: true
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+      # Gate commands live in the justfile (one source of truth for CI + local
+      # `just check`) — see justfile's header comment. Steps stay separate
+      # (rather than one `just check` call) so the Actions UI keeps per-gate
+      # timing and log folding.
       - name: Lint
-        run: uv run ruff check src/ tests/
+        run: just lint
       - name: Format check
-        run: uv run ruff format --check src/ tests/
+        run: just format-check
       - name: Tests
-        run: uv run pytest --cov --cov-report=lcov:lcov.info --cov-report=term-missing --cov-fail-under=90
+        run: just test
       - name: Install lcov
         run: sudo apt-get install -y lcov
         if: always()
@@ -34,7 +39,7 @@ jobs:
           coverage-files: lcov.info
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: CRAP
-        run: uv run crap4py src/ --lcov lcov.info --max-crap 6
+        run: just crap
       - name: Install drywall
         run: |
           gh release download --repo gabadi/drywall --pattern 'drywall-linux-x86_64' --output drywall
@@ -42,12 +47,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: DRY
-        run: ./drywall src/
+        run: just dry
+        env:
+          DRYWALL: ./drywall
       - name: Mutation manifest
-        run: uv run mutate4py src/ --check-manifest
+        run: just manifest
       - name: Install gherkin-parser
         run: |
           git clone --depth 1 https://github.com/unclebob/Acceptance-Pipeline-Specification /tmp/aps
           cd /tmp/aps && go build -o /usr/local/bin/gherkin-parser ./cmd/gherkin-parser
       - name: Acceptance tests
-        run: bash acceptance/run_acceptance.sh
+        run: just acceptance

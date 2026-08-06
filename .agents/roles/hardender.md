@@ -10,6 +10,18 @@ Key commands:
 
 `--scan`, `--update-manifest`, and `--check-manifest` are mutually exclusive. `--scan` and `--update-manifest` accept exactly ONE file; for multi-file operations loop over files or use a directory with `--check-manifest`.
 
+## Running a Scored Mutation Pass (use `just mutate`, never raw `mutate4py --mutate-all`)
+`_runner.py` prints one `[i/total] <status> line N ...` line per mutation site unconditionally on a scored run — for the ~346-site full-src/ surface that's ~20k chars an agent's Bash tool would otherwise capture in full, every hardening iteration.
+
+Invoke scored runs through the justfile instead of calling `mutate4py --mutate-all` directly:
+```
+just check test          # once per verification pass, refreshes lcov.info + .coverage
+just mutate <path>        # e.g. just mutate src/mutate4py/_runner.py --mutate-all
+```
+`just mutate` is `justfile`'s wrapper: it redirects the run to a temp log, then prints only the `Mutation Report` block (Killed/Survived/Uncovered counts + every Survivor's `line N desc` — still fully actionable) via `awk '/^Mutation Report$/,0'`. On a non-zero exit it also tails the last 20 log lines, so an infra failure that happens before the summary prints is still visible. This is the same shape `perf.sh`'s (now `just perf`) `_run` helper already used — see `justfile`'s header comment.
+
+`just check` (no args) runs the full CI-equivalent gate list the same way — one ✓/✗ line per gate, full output in `check.log`, tailed only on failure.
+
 ## CRAP Tool
 crap4py is installed from local sibling `~/workspace/addi/crap4py` via `uv tool install ~/workspace/addi/crap4py`, not from PyPI or GitHub URL.
 
