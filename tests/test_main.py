@@ -71,6 +71,7 @@ def test_scan_warning_above_threshold():
     assert result.returncode == 0
 
 
+@pytest.mark.integration
 def test_missing_file_exits_nonzero():
     result = subprocess.run(
         [sys.executable, "-m", "mutate4py", "/nonexistent/path.py", "--scan"],
@@ -83,6 +84,7 @@ def test_missing_file_exits_nonzero():
     assert result.stdout == ""
 
 
+@pytest.mark.integration
 def test_missing_file_error_on_stderr():
     result = subprocess.run(
         [sys.executable, "-m", "mutate4py", "/nonexistent/path.py", "--scan"],
@@ -745,6 +747,7 @@ def test_do_update_manifest_tested_at_iso8601_utc_format(tmp_path):
     assert False, "No manifest JSON line found in output"
 
 
+@pytest.mark.integration
 def test_main_no_coverage_flag_errors_about_coverage(tmp_path):
     # F4: invoking with no coverage flag attempts a run and errors about missing coverage.
     p = tmp_path / "s.py"
@@ -1140,6 +1143,7 @@ def test_unknown_flag_is_usage_error():
     assert result.returncode != 0
 
 
+@pytest.mark.integration
 def test_no_positional_file_is_usage_error():
     result = subprocess.run(
         [sys.executable, "-m", "mutate4py"],
@@ -1424,6 +1428,7 @@ def _run_cli_in(cwd: str, *args: str) -> subprocess.CompletedProcess:
     )
 
 
+@pytest.mark.integration
 def test_check_manifest_missing_exits_1(tmp_path):
     p = tmp_path / "mod.py"
     p.write_text("def f(a, b):\n    return a > b\n")
@@ -1432,6 +1437,7 @@ def test_check_manifest_missing_exits_1(tmp_path):
     assert "Manifest missing:" in result.stdout
 
 
+@pytest.mark.integration
 def test_check_manifest_current_exits_0(tmp_path):
     import mutate4py.__main__ as m
 
@@ -1452,6 +1458,7 @@ def test_check_manifest_in_help():
 # ── --manifest-file: single file end-to-end ────────────────────────────────────
 
 
+@pytest.mark.integration
 def test_manifest_file_update_writes_sidecar_and_footer_free_source(tmp_path):
     import json
 
@@ -1469,6 +1476,7 @@ def test_manifest_file_update_writes_sidecar_and_footer_free_source(tmp_path):
     assert "mutate4py-manifest-begin" not in p.read_text()
 
 
+@pytest.mark.integration
 def test_manifest_file_check_reads_sidecar(tmp_path):
     p = tmp_path / "mod.py"
     p.write_text("def f(a, b):\n    return a > b\n")
@@ -1480,6 +1488,7 @@ def test_manifest_file_check_reads_sidecar(tmp_path):
     assert "Manifest current:" in result.stdout
 
 
+@pytest.mark.integration
 def test_manifest_file_check_missing_sidecar_reports_missing(tmp_path):
     p = tmp_path / "mod.py"
     p.write_text("def f(a, b):\n    return a > b\n")
@@ -1526,12 +1535,14 @@ def _make_src_dir(tmp_path, files: dict[str, str]) -> str:
     return str(d)
 
 
+@pytest.mark.integration
 def test_directory_run_mode_attempts_run_on_files(tmp_path):
     d = _make_src_dir(tmp_path, {"a.py": "x = 1\n"})
     result = _run_cli_path(d, "--test-command", "true")
     assert "run mode requires a single file, not a directory" not in result.stderr
 
 
+@pytest.mark.integration
 def test_directory_check_manifest_all_missing_exits_1(tmp_path):
     d = _make_src_dir(tmp_path, {"a.py": "def f(): pass\n", "b.py": "def g(): pass\n"})
     result = _run_cli_path(d, "--check-manifest")
@@ -1539,6 +1550,7 @@ def test_directory_check_manifest_all_missing_exits_1(tmp_path):
     assert "Manifest missing:" in result.stdout
 
 
+@pytest.mark.integration
 def test_directory_check_manifest_all_current_exits_0(tmp_path):
     import mutate4py.__main__ as m
 
@@ -1555,6 +1567,7 @@ def test_directory_check_manifest_all_current_exits_0(tmp_path):
     assert "Manifest current:" in result.stdout
 
 
+@pytest.mark.integration
 def test_directory_check_manifest_one_stale_exits_1(tmp_path):
     import mutate4py.__main__ as m
 
@@ -1574,6 +1587,7 @@ def test_directory_check_manifest_one_stale_exits_1(tmp_path):
     assert "Manifest current:" in result.stdout
 
 
+@pytest.mark.integration
 def test_directory_check_manifest_excluded_file_ignored_exits_0(tmp_path):
     import mutate4py.__main__ as m
 
@@ -1592,6 +1606,7 @@ def test_directory_check_manifest_excluded_file_ignored_exits_0(tmp_path):
     assert "b.py" not in result.stdout
 
 
+@pytest.mark.integration
 def test_directory_check_manifest_stale_survivor_exits_1(tmp_path):
     """One non-excluded stale file still fails, reporting only that file."""
     import mutate4py.__main__ as m
@@ -1613,6 +1628,7 @@ def test_directory_check_manifest_stale_survivor_exits_1(tmp_path):
     assert "c.py" not in result.stdout
 
 
+@pytest.mark.integration
 def test_directory_all_files_excluded_exits_2(tmp_path):
     d = _make_src_dir(tmp_path, {"a.py": "def f(): pass\n", "b.py": "def g(): pass\n"})
     result = _run_cli_path(d, "--check-manifest", "--exclude", "**/*.py")
@@ -1621,6 +1637,7 @@ def test_directory_all_files_excluded_exits_2(tmp_path):
     assert result.stdout == ""
 
 
+@pytest.mark.integration
 def test_directory_with_no_py_files_exits_2(tmp_path):
     d = tmp_path / "src"
     d.mkdir()
@@ -1630,6 +1647,7 @@ def test_directory_with_no_py_files_exits_2(tmp_path):
     assert "error: no Python files to process." in result.stderr
 
 
+@pytest.mark.integration
 def test_directory_all_files_excluded_exits_2_in_scan_mode(tmp_path):
     d = _make_src_dir(tmp_path, {"a.py": "x = 1\n"})
     result = _run_cli_path(d, "--scan", "--exclude", "**/*.py")
@@ -1637,6 +1655,7 @@ def test_directory_all_files_excluded_exits_2_in_scan_mode(tmp_path):
     assert "error: no Python files to process." in result.stderr
 
 
+@pytest.mark.integration
 def test_directory_all_files_excluded_exits_2_in_update_manifest_mode(tmp_path):
     d = _make_src_dir(tmp_path, {"a.py": "x = 1\n"})
     result = _run_cli_path(d, "--update-manifest", "--exclude", "**/*.py")
@@ -1645,6 +1664,7 @@ def test_directory_all_files_excluded_exits_2_in_update_manifest_mode(tmp_path):
     assert "mutate4py-manifest-begin" not in (tmp_path / "src" / "a.py").read_text()
 
 
+@pytest.mark.integration
 def test_directory_all_files_excluded_exits_2_in_run_mode(tmp_path):
     """Run mode bails before acquiring coverage or timing a baseline."""
     d = _make_src_dir(tmp_path, {"a.py": "x = 1\n"})
@@ -1653,6 +1673,7 @@ def test_directory_all_files_excluded_exits_2_in_run_mode(tmp_path):
     assert "error: no Python files to process." in result.stderr
 
 
+@pytest.mark.integration
 def test_directory_verbose_reports_excluded_files(tmp_path):
     d = _make_src_dir(tmp_path, {"a.py": "def f(): pass\n", "b.py": "def g(): pass\n"})
     result = _run_cli_path(d, "--check-manifest", "--exclude", "**/b.py", "--verbose")
@@ -1660,6 +1681,7 @@ def test_directory_verbose_reports_excluded_files(tmp_path):
     assert "Excluded: " + os.path.join(d, "a.py") not in result.stdout
 
 
+@pytest.mark.integration
 def test_directory_excluded_files_are_silent_without_verbose(tmp_path):
     d = _make_src_dir(tmp_path, {"a.py": "def f(): pass\n", "b.py": "def g(): pass\n"})
     result = _run_cli_path(d, "--check-manifest", "--exclude", "**/b.py")
@@ -1667,6 +1689,7 @@ def test_directory_excluded_files_are_silent_without_verbose(tmp_path):
     assert "b.py" not in result.stdout
 
 
+@pytest.mark.integration
 def test_directory_two_exclude_flags_both_take_effect(tmp_path):
     """Two separate --exclude flags on argv both apply (action="append"), not just
     the last one (which is what a dropped/misconfigured `dest` would leave)."""
@@ -1687,6 +1710,7 @@ def test_directory_two_exclude_flags_both_take_effect(tmp_path):
     assert "Manifest missing: " + os.path.join(d, "mod.py") in result.stdout
 
 
+@pytest.mark.integration
 def test_single_file_matching_exclude_exits_2(tmp_path):
     p = tmp_path / "mod.py"
     p.write_text("def f(): pass\n")
@@ -1696,6 +1720,7 @@ def test_single_file_matching_exclude_exits_2(tmp_path):
     assert "Manifest missing:" not in result.stdout
 
 
+@pytest.mark.integration
 def test_missing_single_file_reports_not_found_even_when_excluded(tmp_path):
     """A path that does not exist reports the real error, never 'excluded'."""
     missing = str(tmp_path / "mod.py")
@@ -1705,6 +1730,7 @@ def test_missing_single_file_reports_not_found_even_when_excluded(tmp_path):
     assert "no Python files to process" not in result.stderr
 
 
+@pytest.mark.integration
 def test_existing_single_file_matching_exclude_reports_exclusion_not_not_found(
     tmp_path,
 ):
@@ -1717,6 +1743,7 @@ def test_existing_single_file_matching_exclude_reports_exclusion_not_not_found(
     assert "No such file or directory" not in result.stderr
 
 
+@pytest.mark.integration
 def test_single_file_verbose_reports_the_excluded_target(tmp_path):
     p = tmp_path / "mod.py"
     p.write_text("def f(): pass\n")
@@ -1726,6 +1753,7 @@ def test_single_file_verbose_reports_the_excluded_target(tmp_path):
     assert f"Excluded: {p}" in result.stdout
 
 
+@pytest.mark.integration
 def test_single_file_not_matching_exclude_is_a_no_op(tmp_path):
     p = tmp_path / "mod.py"
     p.write_text("def f(): pass\n")
@@ -1734,6 +1762,7 @@ def test_single_file_not_matching_exclude_is_a_no_op(tmp_path):
     assert "Manifest missing:" in result.stdout
 
 
+@pytest.mark.integration
 def test_directory_update_manifest_processes_all_files(tmp_path):
     d = _make_src_dir(tmp_path, {"a.py": "def f(): pass\n", "b.py": "def g(): pass\n"})
     result = _run_cli_path(d, "--update-manifest")
@@ -1743,6 +1772,7 @@ def test_directory_update_manifest_processes_all_files(tmp_path):
         assert "mutate4py-manifest-begin" in content
 
 
+@pytest.mark.integration
 def test_directory_scan_processes_all_files(tmp_path):
     d = _make_src_dir(tmp_path, {"a.py": "x = a > b\n", "b.py": "y = c + d\n"})
     result = _run_cli_path(d, "--scan")
@@ -1750,6 +1780,7 @@ def test_directory_scan_processes_all_files(tmp_path):
     assert result.stdout.count("Mutation scan:") == 2
 
 
+@pytest.mark.integration
 def test_directory_manifest_file_writes_one_sidecar_per_file(tmp_path):
     """--manifest-file works for a directory target: each source file gets its
     own <file>.manifest.json, and no source file gains an embedded footer."""
@@ -2166,6 +2197,7 @@ def test_main_zero_positionals_dispatches_autodiscovery_in_process(
 # ── --test-contexts ───────────────────────────────────────────────────────────
 
 
+@pytest.mark.integration
 def test_test_contexts_incompatible_with_scan_exits_2(tmp_path):
     import sqlite3
 
@@ -2185,6 +2217,7 @@ def test_test_contexts_incompatible_with_scan_exits_2(tmp_path):
     assert "--test-contexts" in result.stderr
 
 
+@pytest.mark.integration
 def test_test_contexts_missing_file_exits_2(tmp_path):
     p = tmp_path / "mod.py"
     p.write_text("x = a > b\n")
@@ -2193,6 +2226,7 @@ def test_test_contexts_missing_file_exits_2(tmp_path):
     assert "--test-contexts" in result.stderr
 
 
+@pytest.mark.integration
 def test_test_contexts_flag_accepted_with_valid_file(tmp_path):
     import sqlite3
 
@@ -2366,6 +2400,7 @@ def test_collect_union_files_verbose_reports_excluded_per_root(tmp_path, capsys)
 # ── multi-root positionals (issue #22): CLI-level arity/union behavior ─────────
 
 
+@pytest.mark.integration
 def test_union_two_directories_processes_files_from_both(tmp_path):
     a_dir = tmp_path / "a_pkg"
     b_dir = tmp_path / "b_pkg"
@@ -2379,6 +2414,7 @@ def test_union_two_directories_processes_files_from_both(tmp_path):
     assert f"Manifest missing: {b_dir / 'b.py'}" in result.stdout
 
 
+@pytest.mark.integration
 def test_union_glob_pattern_matching_two_files_processes_both(tmp_path):
     d = tmp_path / "pkg"
     d.mkdir()
@@ -2390,6 +2426,7 @@ def test_union_glob_pattern_matching_two_files_processes_both(tmp_path):
     assert f"Manifest missing: {d / 'b.py'}" in result.stdout
 
 
+@pytest.mark.integration
 def test_single_glob_match_dispatches_as_a_single_file(tmp_path):
     """Arity rule (item 2): exactly one resolved path -> today's single-file
     dispatch, even though the argument was a glob pattern."""
@@ -2401,6 +2438,7 @@ def test_single_glob_match_dispatches_as_a_single_file(tmp_path):
     assert f"Manifest missing: {d / 'only.py'}" in result.stdout
 
 
+@pytest.mark.integration
 def test_glob_matched_non_py_file_is_dropped_silently(tmp_path):
     d = tmp_path / "pkg"
     d.mkdir()
@@ -2412,6 +2450,7 @@ def test_glob_matched_non_py_file_is_dropped_silently(tmp_path):
     assert f"Manifest missing: {d / 'a.py'}" in result.stdout
 
 
+@pytest.mark.integration
 def test_literal_non_py_single_target_still_uses_todays_dispatch(tmp_path):
     """Item 6's carve-out: a literally-typed (non-wildcard) path is never
     silently dropped for lacking a .py suffix; arity 1 always reaches the
@@ -2423,6 +2462,7 @@ def test_literal_non_py_single_target_still_uses_todays_dispatch(tmp_path):
     assert f"Manifest missing: {p}" in result.stdout
 
 
+@pytest.mark.integration
 def test_pattern_matching_nothing_exits_2_naming_the_pattern(tmp_path):
     pattern = str(tmp_path / "nosuch" / "*.py")
     result = _run_cli_path(pattern, "--check-manifest")
@@ -2430,6 +2470,7 @@ def test_pattern_matching_nothing_exits_2_naming_the_pattern(tmp_path):
     assert pattern in result.stderr
 
 
+@pytest.mark.integration
 def test_union_fails_fast_before_processing_any_file(tmp_path):
     """Item 7: all positionals are validated before anything is collected —
     a bad second pattern must produce no output for the good first one."""
@@ -2443,6 +2484,7 @@ def test_union_fails_fast_before_processing_any_file(tmp_path):
     assert missing in result.stderr
 
 
+@pytest.mark.integration
 def test_union_dedups_the_same_root_given_twice(tmp_path):
     d = tmp_path / "pkg"
     d.mkdir()
@@ -2452,6 +2494,7 @@ def test_union_dedups_the_same_root_given_twice(tmp_path):
     assert result.stdout.count("a.py") == 1
 
 
+@pytest.mark.integration
 def test_union_preserves_root_order_not_a_global_sort(tmp_path):
     """Item 15: files from the first root's walk print before the second
     root's, even though the second root's filename would sort first."""
@@ -2465,6 +2508,7 @@ def test_union_preserves_root_order_not_a_global_sort(tmp_path):
     assert result.stdout.index("zz.py") < result.stdout.index("aa.py")
 
 
+@pytest.mark.integration
 def test_union_empty_root_is_silent_when_another_root_has_files(tmp_path):
     """Item 17: an individual empty root is not an error; only an empty
     whole union is."""
@@ -2478,6 +2522,7 @@ def test_union_empty_root_is_silent_when_another_root_has_files(tmp_path):
     assert "no Python files to process" not in result.stderr
 
 
+@pytest.mark.integration
 def test_union_whole_union_empty_exits_2(tmp_path):
     empty_a = tmp_path / "empty_a"
     empty_b = tmp_path / "empty_b"
@@ -2488,6 +2533,7 @@ def test_union_whole_union_empty_exits_2(tmp_path):
     assert "error: no Python files to process." in result.stderr
 
 
+@pytest.mark.integration
 def test_union_exclude_composes_with_multiple_roots(tmp_path):
     a_dir = tmp_path / "a_pkg"
     b_dir = tmp_path / "b_pkg"
@@ -2503,6 +2549,7 @@ def test_union_exclude_composes_with_multiple_roots(tmp_path):
     assert "b.py" not in result.stdout
 
 
+@pytest.mark.integration
 def test_zero_positionals_triggers_autodiscovery(tmp_path):
     """Issue #22 item 3: no new flag, the absence of positionals is the
     autodiscovery trigger. This repo's own pyproject.toml has no
@@ -2540,6 +2587,7 @@ def _write_workspace(tmp_path, members=None, exclude=None):
     return ws
 
 
+@pytest.mark.integration
 def test_autodiscovery_single_root_workspace_check_manifest(tmp_path):
     ws = _write_workspace(tmp_path)
     (ws / "a.py").write_text("def f(): pass\n")
@@ -2548,6 +2596,7 @@ def test_autodiscovery_single_root_workspace_check_manifest(tmp_path):
     assert f"Manifest missing: {ws / 'a.py'}" in result.stdout
 
 
+@pytest.mark.integration
 def test_autodiscovery_multi_member_workspace_unions_all_roots(tmp_path):
     ws = _write_workspace(tmp_path, members=["pkgs/*"])
     a_dir, b_dir = ws / "pkgs" / "a", ws / "pkgs" / "b"
@@ -2563,6 +2612,7 @@ def test_autodiscovery_multi_member_workspace_unions_all_roots(tmp_path):
     assert f"Manifest missing: {b_dir / 'b.py'}" in result.stdout
 
 
+@pytest.mark.integration
 def test_autodiscovery_exclude_removes_member_files_from_the_union(tmp_path):
     """Item 10: an excluded member's files are absent from the union even
     though they physically sit under the workspace root's recursive walk."""
@@ -2580,6 +2630,7 @@ def test_autodiscovery_exclude_removes_member_files_from_the_union(tmp_path):
     assert "b.py" not in result.stdout
 
 
+@pytest.mark.integration
 def test_autodiscovery_no_workspace_found_exits_2(tmp_path):
     isolated = tmp_path / "isolated"
     isolated.mkdir()
@@ -2590,6 +2641,7 @@ def test_autodiscovery_no_workspace_found_exits_2(tmp_path):
     assert str(isolated) in result.stderr
 
 
+@pytest.mark.integration
 def test_autodiscovery_help_mentions_it(tmp_path):
     result = _run_cli_in(str(tmp_path), "--help")
     assert result.returncode == 0

@@ -27,7 +27,10 @@ packages = ["src/mutate4py"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--tb=short"
+addopts = "--tb=short --strict-markers"
+markers = [
+    "integration: spawns a real subprocess (fresh Python interpreter) via _run_cli_path/_run_cli_in; excluded from the mutation test command, run only by the full `test` gate.",
+]
 
 [tool.coverage.run]
 source = ["mutate4py"]
