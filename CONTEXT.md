@@ -136,7 +136,9 @@ term. This is the single canonical glossary for the project.
 - **`--test-contexts PATH`** — narrows each mutant's test run to the tests covering
   the mutated line. `PATH` is a **test-context db**; a missing file is a usage error
   (exit 2) before any mutation runs. Forces serial execution (never combines with the
-  parallel engine). Python-only; no upstream counterpart (ADR 0018).
+  parallel engine). Python-only; no upstream counterpart (ADR 0018). One CLI-level
+  path serves every file in a directory/union/workspace batch, so a workspace run
+  expects **one combined db** covering all members, not one db per member.
 - **Test-context db** — a coverage.py SQLite `.coverage` file written by
   `pytest --cov-context=test`, mapping each source line to the **contexts** (pytest
   node IDs) that executed it. Read-only, via `TestContextDB` (`_test_selection.py`).
@@ -157,7 +159,8 @@ term. This is the single canonical glossary for the project.
   coverage), never uncovered code. Prints
   `error: test-context db disagrees with coverage: <file>:<line>: <hint>` to stderr
   and exits **2**; the whole run stops and no `Mutation Report` is printed. The
-  source is still restored and the manifest re-embedded, as on any other abort.
+  source is still restored and the manifest re-embedded, as on any other abort. In a
+  batch the abort is per-file — the other files still run (batch exit code below).
 - **`Test selection: narrowed <n>, static <k>` line** — the report line inside the
   `Mutation Report` block, directly after `Uncovered:`, printed only when
   `--test-contexts` is supplied. The block is where agents look, so the tally lives
@@ -179,6 +182,11 @@ term. This is the single canonical glossary for the project.
   **union batch** (one baseline, one exit code, `.py` files deduped by
   `os.path.realpath`); **zero** → **workspace autodiscovery** (below). No
   `--discover`/`--workspace` flag — arity alone is the trigger.
+- **Batch exit code** — in every multi-file mode (directory, union, workspace), the
+  process exit code is the **worst** per-file code seen, severity `2 > 1 > 0`, not a
+  boolean collapse (`_run_files_and_exit`, ADR 0018 amendment). A failing file never
+  stops the batch; it only contributes its code. So a selection disagreement (2) in
+  one file stays distinguishable from an ordinary run failure (1) in another.
 - **Glob dialect** — the one pattern-matching dialect shared by positional
   targets, `--exclude`, and uv `members`/`exclude` (ADR 0017): `*` matches
   exactly one path segment and never crosses `/`; `**` matches zero or more

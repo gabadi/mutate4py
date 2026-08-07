@@ -57,7 +57,7 @@ batch, and zero triggers uv workspace autodiscovery instead of a usage error.
 
 | Flag | mutate4go | mutate4py | Tag |
 |------|-----------|-----------|-----|
-| `<targets>` (0+ `PATH`s) | exactly one file, required | 0+ literal paths or glob patterns; 1 resolved root = today's dispatch, 2+ = union batch (one baseline, one exit code), 0 = uv workspace autodiscovery | [PY] |
+| `<targets>` (0+ `PATH`s) | exactly one file, required | 0+ literal paths or glob patterns; 1 resolved root = today's dispatch, 2+ = union batch (one baseline; exit code = worst per-file code, 2 > 1 > 0), 0 = uv workspace autodiscovery | [PY] |
 | `--scan` | count sites, no coverage/tests | same | [PORT] |
 | `--update-manifest` | rewrite footer manifest only | same | [PORT] |
 | `--lines L1,L2,...` | only these source lines | same | [PORT] |
@@ -123,7 +123,11 @@ batch, and zero triggers uv workspace autodiscovery instead of a usage error.
   entirely, which can only be an input defect because selected sites are
   LCOV-covered by construction (§6) — the run aborts with exit **2** and an
   actionable stderr message naming the file, the line, and whether the db looks
-  stale or path-mismatched. Both coverage.py storage modes classify identically
+  stale or path-mismatched. In directory/union/workspace mode the abort is
+  per-file: the remaining files still run to completion, and the process exits
+  with the worst per-file code (2 > 1 > 0). One db path serves the whole batch, so
+  a workspace run expects one combined context db covering every member (ADR
+  0018). Both coverage.py storage modes classify identically
   (`line_bits` when `has_arcs=0`, `arc` when `has_arcs=1`). `--test-contexts`
   forces serial execution, so it never combines with the parallel engine (§9).
 - **`--manifest-file` (opt-in sidecar manifest storage).** Neither mutate4go nor

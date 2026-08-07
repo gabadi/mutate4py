@@ -117,6 +117,51 @@ for a *correct* pair of inputs.
 - Pytest start-up cost per narrowed run is a separate concern, tracked in #25/#26.
 - Still open, deliberately out of scope here: `--test-contexts` with
   `--max-workers >= 2` silently forcing serial execution (it is a silent repair of
-  the same family this ADR rejects); and the directory/union batch dispatch
+  the same family this ADR rejects).
+- **Resolved by the amendment below:** the directory/union batch dispatch
   (`_run_files_and_exit`) collapsing every non-zero per-file exit code to 1, which
-  makes a case-3 abort indistinguishable from survivors on a multi-file run.
+  made a case-3 abort indistinguishable from an ordinary failure on a multi-file run.
+
+## Amendment (2026-08-06) — `--test-contexts` in workspace/union batches
+
+Issue #27's remaining question: what `--test-contexts` means when the run spans
+two or more resolved roots (union batch) or an autodiscovered uv workspace.
+
+### Combined-db model
+
+`--test-contexts PATH` is **one CLI-level path reused for every file in the
+batch** — each file opens its own fresh sqlite connection to that same path
+(`_setup_test_context_db` → `TestContextDB.__init__`). This is the intended
+usage, not an oversight: the user is expected to generate **one combined
+`.coverage` context db covering the whole workspace** (a single
+`pytest --cov-context=test` run spanning every member project), not one db per
+member. A per-member db would make a batch's members disagree about the same
+shared source lines, and the three-case model above already turns any such
+mismatch into a loud case-3 abort rather than a silent degradation. No per-member
+`--test-contexts` resolution is added.
+
+### Batch exit code is the worst per-file code
+
+`_run_files_and_exit` now aggregates with `max()` rather than collapsing every
+non-zero result to 1. Severity order is **2 > 1 > 0**: if any file aborts with a
+selection disagreement the batch exits 2; else if any file hit a
+coverage/baseline/test-command failure the batch exits 1; else 0. The loop still
+runs every file to completion — a failing file contributes its code to the
+aggregate but does not stop the batch. This applies uniformly to all
+directory/union batches (`_dispatch_directory` and `_dispatch_union` both funnel
+through it), not only `--test-contexts` runs: an exit code that distinguishes
+"your inputs disagree" from "a run failed" is worth having everywhere.
+
+### Open, not blocking
+
+- **Coarser-than-function selection reasoning in workspace mode** — e.g. skipping
+  a member project outright when it has zero changed sites, instead of running
+  the shared batch baseline against it. Not done: today `_prepare_directory_baseline`
+  runs **once for the whole batch**, and per-member skipping requires per-member
+  baselines instead. That is an architectural shift in the baseline model, not a
+  local change, so it stays out of this pass (same framing as the forced-serial
+  note above). Revisit if per-member baseline cost is shown to dominate a run.
+- **Cost scaling with workspace member count** — not measured this session, and
+  deferred alongside the item above because it is the same underlying question:
+  per-member versus shared-baseline cost. Measurement, not a decision, is what
+  would unblock it.
