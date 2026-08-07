@@ -133,7 +133,7 @@ target: a target that matches is not analysed, and exits 2 the same way.
   each worker gets its own `uv`-provisioned venv instead.
 - **Coverage is acquired explicitly** — `--lcov` / `--cov-cmd` / `--reuse-coverage`
   (Python has no universal `-coverprofile` equivalent).
-- **Manifest hash is structural** (`ast.dump()`), so reformatting and comment edits
+- **Manifest hash is structural** (`ast.unparse()`), so reformatting and comment edits
   don't trigger a re-test, but any behavior-affecting edit does.
 - **Operators are localized** to Python: adds `and`/`or`, `True`/`False`, and the
   identity/membership negation flips `is`/`is not` and `in`/`not in`.
