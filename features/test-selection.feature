@@ -1,6 +1,10 @@
 Feature: Per-mutant test selection and directory run mode
 
   # TRACKING: Issue #15 — directory run mode + --test-contexts
+  #           Issue #27 — three-case selection replaces #15's silent full-suite
+  #           fallback; docs/adr/0018-test-selection-three-case-no-silent-fallback.md;
+  #           docs/spec.md §2 (--test-contexts row), §8 (report block);
+  #           CONTEXT.md "Per-mutant test selection (--test-contexts)".
   #
   # CONTRACT:
   #   command: mutate4py <file-or-dir> [--test-contexts PATH] [other flags]
@@ -9,9 +13,22 @@ Feature: Per-mutant test selection and directory run mode
   #   directory run mode — when <file-or-dir> is a directory, iterate over
   #     all .py files and run mutations on each; exit non-zero if any file
   #     has survivors or errors.
-  #   per-mutant test selection — when --test-contexts is set, for each mutant
-  #     on line L, query the db for test node IDs covering L and run only those;
-  #     fall back to full --test-command when no tests cover the line.
+  #   per-mutant test selection — when --test-contexts is set, every selected
+  #     site's line falls into exactly one of three declared cases; there is no
+  #     silent fallback:
+  #       1 narrowed — the db names tests covering the line: run only those.
+  #       2 static   — the db shows the line executing only under the empty
+  #         (whole-run) context, i.e. at import time, so no test owns it: run the
+  #         full --test-command, as the stated rule (Stryker's "static mutant"
+  #         policy). Structural, not an error.
+  #       3 disagreement — the db has nothing for the line, or the file is absent
+  #         from the db entirely: the two coverage sources disagree, so the run
+  #         aborts with exit 2 and an actionable message. Selected sites are
+  #         LCOV-covered by construction, so a db miss is always an input defect
+  #         (stale db / path mismatch / subprocess coverage), never uncovered code.
+  #   report line — whenever --test-contexts is set, the Mutation Report block
+  #     carries "Test selection: narrowed <n>, static <k>" after the "Uncovered:"
+  #     line. Absent when --test-contexts is not supplied.
   #   parallelism override — when --test-contexts is set and --max-workers >= 2,
   #     run mode proceeds serially (parallel workers share a fixed test_command,
   #     extending _workers.py for per-mutant selection is out of scope).
@@ -20,16 +37,30 @@ Feature: Per-mutant test selection and directory run mode
   #   - --test-contexts PATH: missing file → exit 2, clear error to stderr.
   #   - Numbits decoding: byte N bit B → line N×8+B+1 (coverage.py v7+ format).
   #   - Context strings have |run (or similar) suffix stripped to yield node IDs.
-  #   - Empty context strings (overall run, not per-test) are ignored.
-  #   - When no tests cover a mutated line, run the full --test-command (no skip).
+  #   - The empty context string is the case-2 signal, not noise: a line matched
+  #     ONLY by it is static. A line matched by both it and a named test is
+  #     narrowed — a named test always wins.
+  #   - Both storage modes classify identically: line_bits (has_arcs=0) and arc
+  #     (has_arcs=1, where a context touches a line if the line is a positive
+  #     endpoint of one of its arcs).
+  #   - Case 3 aborts the whole run, not just the one mutant; the remaining
+  #     selected sites are not attempted.
+  #   - The report is not printed on a case-3 abort (no misleading tally).
   #   - When --test-contexts is set and --max-workers >= 2, serial mode is used.
   #   - Directory run mode: exits non-zero if ANY file's run exits non-zero.
   #   - Directory run mode: skips __pycache__ directories.
   #
   # SEQUENCING:
   #   - --test-contexts validation occurs before any mutations run.
-  #   - Per-mutant command: "{test_command} {node_id_1} {node_id_2} ..." when
-  #     tests are found; "{test_command}" when no tests cover the line.
+  #   - The db is queried for a site BEFORE that site's mutant is spliced in, so a
+  #     case-3 abort leaves the source unmutated for that site.
+  #   - On a case-3 abort the source is still restored and the manifest re-embedded
+  #     (the same finalize step a completed run performs), and .mutate4py.bak is
+  #     removed — an abort leaves no half-written file behind.
+  #   - Per-mutant command: "{test_command} {node_id_1} {node_id_2} ..." in case 1
+  #     (node IDs shell-quoted); "{test_command}" verbatim in case 2.
+  #   - The "Test selection:" line prints after "Uncovered:" and before any
+  #     "Survivors:" block.
   #   - Directory run: files processed in sorted order; per-file run is serial.
 
   Scenario: --test-contexts missing file exits 2 with clear error
@@ -47,6 +78,39 @@ Feature: Per-mutant test selection and directory run mode
     Given a directory "src/" containing Python files
     When mutate4py is run on the directory in run mode and one file has survivors
     Then the exit code is non-zero
+
+  # case 1 — the db names the tests, so only those run
+  Scenario: a line named by tests runs only those tests
+    Given a .coverage db naming "tests/test_calc.py::test_gt" as covering the mutated line
+    When mutate4py is run with "--test-contexts .coverage"
+    Then that mutant's test command is "pytest tests/test_calc.py::test_gt"
+    And the report line "Test selection: narrowed 1, static 0" is printed
+
+  # case 2 — import-time code has no owning test, so the full suite runs
+  Scenario: a line executed only at import time runs the full test command
+    Given a .coverage db showing the mutated line only under the empty context
+    When mutate4py is run with "--test-contexts .coverage"
+    Then that mutant's test command is the full "--test-command" verbatim
+    And the report line "Test selection: narrowed 0, static 1" is printed
+
+  # case 3 — the two coverage sources disagree, so the run stops
+  Scenario Outline: a db that cannot account for a covered line aborts the run
+    Given a .coverage db in which the mutated line "<state>"
+    When mutate4py is run with "--test-contexts .coverage"
+    Then the exit code is 2
+    And stderr contains "<hint>"
+    And no "Mutation Report" is printed
+    And after the run the source has no mutant spliced in
+
+    Examples:
+      | state                           | hint                            |
+      | is absent though LCOV-covered   | absent from the test-context db |
+      | is in a file absent from the db | not in the test-context db      |
+
+  Scenario: the report line is absent without --test-contexts
+    Given a Python source file with covered mutation sites
+    When mutate4py is run without "--test-contexts"
+    Then no "Test selection:" line is printed
 
   Scenario: --test-contexts with --max-workers >= 2 forces serial mode
     Given a Python source file with mutation sites covered by known tests
