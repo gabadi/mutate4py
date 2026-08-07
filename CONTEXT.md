@@ -57,9 +57,9 @@ term. This is the single canonical glossary for the project.
   at the time it was last mutation-tested; lets a later run tell which units changed.
   Fields: `version`, `tested_at`, `module_hash`, `functions[]` (spec §5). Owned by
   F2; **absent in F1** (ADR 0002).
-- **Unit hash** — `sha256(ast.dump(subtree))` of the unit's AST node. Position- and
+- **Unit hash** — `sha256(ast.unparse(subtree))` of the unit's AST node. Position- and
   reformat-independent; changes on rename/literal/operator/re-block edits (ADR 0005).
-- **`module_hash`** — `sha256(ast.dump(module))` over the manifest-stripped source.
+- **`module_hash`** — `sha256(ast.unparse(module))` over the manifest-stripped source.
   A top-level manifest field, separate from per-unit hashes.
 - **Embed** — write the manifest into the footer: strip any existing manifest, trim
   trailing newlines, append `\n\n` + begin marker + `\n# ` + JSON + `\n` + end

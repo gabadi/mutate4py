@@ -1,7 +1,5 @@
 """Unit tests for manifest embed/extract/diff (F2)."""
 
-import ast
-import hashlib
 import json
 import pytest
 
@@ -20,10 +18,6 @@ from mutate4py._manifest import (
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
-
-
-def _hash(src: str) -> str:
-    return hashlib.sha256(ast.dump(ast.parse(src)).encode()).hexdigest()
 
 
 def _make_manifest(**overrides) -> dict:
@@ -315,7 +309,7 @@ def test_build_manifest_hash_stable_across_whitespace_reformat():
     src2 = "def foo():\n    return   1\n"
     m1 = build_manifest(src1, tested_at="2026-01-01T00:00:00Z")
     m2 = build_manifest(src2, tested_at="2026-01-01T00:00:00Z")
-    # ast.dump is whitespace-insensitive within expressions
+    # ast.unparse renders a canonical form, so intra-expression spacing is lost
     assert m1["functions"][0]["hash"] == m2["functions"][0]["hash"]
 
 
