@@ -2194,6 +2194,48 @@ def test_main_zero_positionals_dispatches_autodiscovery_in_process(
     assert f"Manifest missing: {ws / 'a.py'}" in capsys.readouterr().out
 
 
+# ── batch exit-code aggregation ───────────────────────────────────────────────
+
+
+def _run_batch(monkeypatch, codes):
+    """Drive _run_files_and_exit over fake files returning `codes` in order."""
+    import mutate4py.__main__ as m
+
+    files = [f"f{i}.py" for i in range(len(codes))]
+    by_file = dict(zip(files, codes))
+    seen = []
+
+    def fake_run_on_file(args, py_file, source, cwd, baseline_duration=None):
+        seen.append(py_file)
+        return by_file[py_file]
+
+    monkeypatch.setattr(m, "_load_source", lambda path: "x = 1\n")
+    monkeypatch.setattr(m, "_run_on_file", fake_run_on_file)
+
+    with pytest.raises(SystemExit) as exc:
+        m._run_files_and_exit(_make_args(scan=True), files)
+    assert seen == files, "every file must run, even after one fails"
+    return exc.value.code
+
+
+@pytest.mark.parametrize(
+    "codes,expected",
+    [
+        ([0, 0, 0], 0),
+        ([0, 1, 0], 1),
+        ([0, 2, 0], 2),
+        ([1, 2, 0], 2),
+        ([2, 1, 0], 2),
+        ([1, 1, 1], 1),
+        ([2, 2], 2),
+    ],
+)
+def test_run_files_and_exit_reports_worst_code(monkeypatch, codes, expected):
+    """The batch exit code is the highest-severity per-file code (2 > 1 > 0),
+    not a boolean collapse, and is order-independent."""
+    assert _run_batch(monkeypatch, codes) == expected
+
+
 # ── --test-contexts ───────────────────────────────────────────────────────────
 
 

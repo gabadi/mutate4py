@@ -174,8 +174,10 @@ def test_tests_for_line_returns_matching_test(tmp_path):
         },
     )
     ctx_db = TestContextDB(str(db))
-    tests = ctx_db.tests_for_line("/src/foo.py", 10)
-    assert tests == ["tests/test_foo.py::test_bar"]
+    assert ctx_db.tests_for_line("/src/foo.py", 10) == (
+        "narrowed",
+        ["tests/test_foo.py::test_bar"],
+    )
     ctx_db.close()
 
 
@@ -191,37 +193,38 @@ def test_tests_for_line_returns_multiple_tests(tmp_path):
         },
     )
     ctx_db = TestContextDB(str(db))
-    tests = ctx_db.tests_for_line("/src/foo.py", 10)
+    outcome, tests = ctx_db.tests_for_line("/src/foo.py", 10)
+    assert outcome == "narrowed"
     assert sorted(tests) == sorted(
         ["tests/test_foo.py::test_bar", "tests/test_foo.py::test_baz"]
     )
     ctx_db.close()
 
 
-def test_tests_for_line_returns_none_for_uncovered_line(tmp_path):
+def test_tests_for_line_line_absent_when_no_context_recorded_the_line(tmp_path):
     db = tmp_path / ".coverage"
     _make_coverage_db(
         str(db),
         {"/src/foo.py": {"tests/test_foo.py::test_bar|run": {10}}},
     )
     ctx_db = TestContextDB(str(db))
-    assert ctx_db.tests_for_line("/src/foo.py", 999) is None
+    assert ctx_db.tests_for_line("/src/foo.py", 999) == ("line-absent", [])
     ctx_db.close()
 
 
-def test_tests_for_line_returns_none_when_file_not_in_db(tmp_path):
+def test_tests_for_line_file_absent_when_file_not_in_db(tmp_path):
     db = tmp_path / ".coverage"
     _make_coverage_db(
         str(db),
         {"/src/foo.py": {"tests/test_foo.py::test_bar|run": {10}}},
     )
     ctx_db = TestContextDB(str(db))
-    assert ctx_db.tests_for_line("/src/bar.py", 10) is None
+    assert ctx_db.tests_for_line("/src/bar.py", 10) == ("file-absent", [])
     ctx_db.close()
 
 
-def test_empty_context_string_skipped(tmp_path):
-    """Empty context (overall run, not per-test) must not appear in results."""
+def test_empty_context_only_is_static(tmp_path):
+    """A line seen only under the empty (whole-run) context is import-time code."""
     db = tmp_path / ".coverage"
     _make_coverage_db(
         str(db),
@@ -233,7 +236,27 @@ def test_empty_context_string_skipped(tmp_path):
         },
     )
     ctx_db = TestContextDB(str(db))
-    assert ctx_db.tests_for_line("/src/foo.py", 10) is None
+    assert ctx_db.tests_for_line("/src/foo.py", 10) == ("static", [])
+    ctx_db.close()
+
+
+def test_empty_context_does_not_suppress_a_covering_test(tmp_path):
+    """A named test wins over the empty context when both recorded the line."""
+    db = tmp_path / ".coverage"
+    _make_coverage_db(
+        str(db),
+        {
+            "/src/foo.py": {
+                "": {10},
+                "tests/test_foo.py::test_bar|run": {10},
+            }
+        },
+    )
+    ctx_db = TestContextDB(str(db))
+    assert ctx_db.tests_for_line("/src/foo.py", 10) == (
+        "narrowed",
+        ["tests/test_foo.py::test_bar"],
+    )
     ctx_db.close()
 
 
@@ -256,7 +279,10 @@ def test_tests_for_line_arc_mode_matches_fromno(tmp_path):
         },
     )
     ctx_db = TestContextDB(str(db))
-    assert ctx_db.tests_for_line("/src/foo.py", 10) == ["tests/test_foo.py::test_bar"]
+    assert ctx_db.tests_for_line("/src/foo.py", 10) == (
+        "narrowed",
+        ["tests/test_foo.py::test_bar"],
+    )
     ctx_db.close()
 
 
@@ -271,7 +297,10 @@ def test_tests_for_line_arc_mode_matches_tono(tmp_path):
         },
     )
     ctx_db = TestContextDB(str(db))
-    assert ctx_db.tests_for_line("/src/foo.py", 11) == ["tests/test_foo.py::test_bar"]
+    assert ctx_db.tests_for_line("/src/foo.py", 11) == (
+        "narrowed",
+        ["tests/test_foo.py::test_bar"],
+    )
     ctx_db.close()
 
 
@@ -287,21 +316,22 @@ def test_tests_for_line_arc_mode_returns_multiple_tests(tmp_path):
         },
     )
     ctx_db = TestContextDB(str(db))
-    tests = ctx_db.tests_for_line("/src/foo.py", 10)
+    outcome, tests = ctx_db.tests_for_line("/src/foo.py", 10)
+    assert outcome == "narrowed"
     assert sorted(tests) == sorted(
         ["tests/test_foo.py::test_bar", "tests/test_foo.py::test_baz"]
     )
     ctx_db.close()
 
 
-def test_tests_for_line_arc_mode_returns_none_for_uncovered_line(tmp_path):
+def test_tests_for_line_arc_mode_line_absent_for_unrecorded_line(tmp_path):
     db = tmp_path / ".coverage"
     _make_coverage_db_arcs(
         str(db),
         {"/src/foo.py": {"tests/test_foo.py::test_bar|run": [(-1, 10), (10, -1)]}},
     )
     ctx_db = TestContextDB(str(db))
-    assert ctx_db.tests_for_line("/src/foo.py", 999) is None
+    assert ctx_db.tests_for_line("/src/foo.py", 999) == ("line-absent", [])
     ctx_db.close()
 
 
@@ -317,13 +347,42 @@ def test_tests_for_line_arc_mode_excludes_synthetic_entry_exit_sentinels(tmp_pat
         {"/src/foo.py": {"tests/test_foo.py::test_bar|run": [(-1, 10), (10, -1)]}},
     )
     ctx_db = TestContextDB(str(db))
-    assert ctx_db.tests_for_line("/src/foo.py", -1) is None
-    assert ctx_db.tests_for_line("/src/foo.py", 0) is None
+    assert ctx_db.tests_for_line("/src/foo.py", -1) == ("line-absent", [])
+    assert ctx_db.tests_for_line("/src/foo.py", 0) == ("line-absent", [])
     ctx_db.close()
 
 
-def test_tests_for_line_arc_mode_empty_context_string_skipped(tmp_path):
-    """Empty context (overall run, not per-test) must not appear in results."""
+def test_tests_for_line_arc_mode_rejects_line_zero_even_when_an_arc_carries_it(
+    tmp_path,
+):
+    """0 is not a 1-based line number, so it must not match however the db reads."""
+    db = tmp_path / ".coverage"
+    _make_coverage_db_arcs(
+        str(db),
+        {"/src/foo.py": {"tests/test_foo.py::test_bar|run": [(0, 10), (10, 0)]}},
+    )
+    ctx_db = TestContextDB(str(db))
+    assert ctx_db.tests_for_line("/src/foo.py", 0) == ("line-absent", [])
+    ctx_db.close()
+
+
+def test_tests_for_line_arc_mode_matches_line_one(tmp_path):
+    """Line 1 is a real line, on the far side of the <= 0 guard's boundary."""
+    db = tmp_path / ".coverage"
+    _make_coverage_db_arcs(
+        str(db),
+        {"/src/foo.py": {"tests/test_foo.py::test_bar|run": [(-1, 1), (1, -1)]}},
+    )
+    ctx_db = TestContextDB(str(db))
+    assert ctx_db.tests_for_line("/src/foo.py", 1) == (
+        "narrowed",
+        ["tests/test_foo.py::test_bar"],
+    )
+    ctx_db.close()
+
+
+def test_tests_for_line_arc_mode_empty_context_only_is_static(tmp_path):
+    """A line seen only under the empty (whole-run) context is import-time code."""
     db = tmp_path / ".coverage"
     _make_coverage_db_arcs(
         str(db),
@@ -335,16 +394,36 @@ def test_tests_for_line_arc_mode_empty_context_string_skipped(tmp_path):
         },
     )
     ctx_db = TestContextDB(str(db))
-    assert ctx_db.tests_for_line("/src/foo.py", 10) is None
+    assert ctx_db.tests_for_line("/src/foo.py", 10) == ("static", [])
     ctx_db.close()
 
 
-def test_tests_for_line_arc_mode_returns_none_when_file_not_in_db(tmp_path):
+def test_tests_for_line_arc_mode_empty_context_does_not_suppress_a_test(tmp_path):
+    """A named test wins over the empty context when both recorded the line."""
+    db = tmp_path / ".coverage"
+    _make_coverage_db_arcs(
+        str(db),
+        {
+            "/src/foo.py": {
+                "": [(-1, 10), (10, -1)],
+                "tests/test_foo.py::test_bar|run": [(-1, 10), (10, -1)],
+            }
+        },
+    )
+    ctx_db = TestContextDB(str(db))
+    assert ctx_db.tests_for_line("/src/foo.py", 10) == (
+        "narrowed",
+        ["tests/test_foo.py::test_bar"],
+    )
+    ctx_db.close()
+
+
+def test_tests_for_line_arc_mode_file_absent_when_file_not_in_db(tmp_path):
     db = tmp_path / ".coverage"
     _make_coverage_db_arcs(
         str(db),
         {"/src/foo.py": {"tests/test_foo.py::test_bar|run": [(-1, 10), (10, -1)]}},
     )
     ctx_db = TestContextDB(str(db))
-    assert ctx_db.tests_for_line("/src/bar.py", 10) is None
+    assert ctx_db.tests_for_line("/src/bar.py", 10) == ("file-absent", [])
     ctx_db.close()

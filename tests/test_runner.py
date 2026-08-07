@@ -2,6 +2,7 @@
 
 import os
 
+import pytest
 
 from mutate4py._discovery import Site, apply_mutant, discover_sites
 from mutate4py._manifest import embed_manifest
@@ -932,37 +933,79 @@ def test_parallel_path_original_file_restored(tmp_path, monkeypatch):
 
 
 class _FakeTestContextDB:
-    def __init__(self, node_ids):
-        self._node_ids = node_ids
+    def __init__(self, outcome, node_ids=()):
+        self._result = (outcome, list(node_ids))
 
     def tests_for_line(self, source_path, line):
-        return self._node_ids
+        return self._result
+
+
+def _one_site(src="def f(a, b):\n    return a > b\n"):
+    return discover_sites(src)[0]
 
 
 def test_build_mutant_command_no_ctx_db_returns_full_command():
     from mutate4py._runner import _build_mutant_command
 
-    site = discover_sites("def f(a, b):\n    return a > b\n")[0]
-    cmd = _build_mutant_command("pytest", None, "/src/calc.py", site)
-    assert cmd == "pytest"
+    assert _build_mutant_command("pytest", None, "/src/calc.py", _one_site()) == (
+        "pytest",
+        None,
+    )
 
 
 def test_build_mutant_command_narrows_to_covering_tests():
     from mutate4py._runner import _build_mutant_command
 
-    site = discover_sites("def f(a, b):\n    return a > b\n")[0]
-    ctx_db = _FakeTestContextDB(["tests/test_calc.py::test_gt"])
-    cmd = _build_mutant_command("pytest", ctx_db, "/src/calc.py", site)
-    assert cmd == "pytest tests/test_calc.py::test_gt"
+    ctx_db = _FakeTestContextDB("narrowed", ["tests/test_calc.py::test_gt"])
+    assert _build_mutant_command("pytest", ctx_db, "/src/calc.py", _one_site()) == (
+        "pytest tests/test_calc.py::test_gt",
+        "narrowed",
+    )
 
 
-def test_build_mutant_command_falls_back_when_no_covering_tests():
+def test_build_mutant_command_quotes_node_ids():
     from mutate4py._runner import _build_mutant_command
 
-    site = discover_sites("def f(a, b):\n    return a > b\n")[0]
-    ctx_db = _FakeTestContextDB(None)
-    cmd = _build_mutant_command("pytest", ctx_db, "/src/calc.py", site)
-    assert cmd == "pytest"
+    ctx_db = _FakeTestContextDB("narrowed", ["tests/t.py::test_a[x y]"])
+    cmd, _ = _build_mutant_command("pytest", ctx_db, "/src/calc.py", _one_site())
+    assert cmd == "pytest 'tests/t.py::test_a[x y]'"
+
+
+def test_build_mutant_command_static_line_runs_full_command():
+    from mutate4py._runner import _build_mutant_command
+
+    ctx_db = _FakeTestContextDB("static")
+    assert _build_mutant_command("pytest", ctx_db, "/src/calc.py", _one_site()) == (
+        "pytest",
+        "static",
+    )
+
+
+@pytest.mark.parametrize(
+    "outcome, hint",
+    [
+        ("line-absent", "absent from the test-context db"),
+        ("file-absent", "not in the test-context db"),
+    ],
+)
+def test_build_mutant_command_disagreement_raises(outcome, hint):
+    from mutate4py._runner import TestSelectionError, _build_mutant_command
+
+    ctx_db = _FakeTestContextDB(outcome)
+    with pytest.raises(TestSelectionError) as excinfo:
+        _build_mutant_command("pytest", ctx_db, "/src/calc.py", _one_site())
+    message = str(excinfo.value)
+    assert "/src/calc.py:2" in message
+    assert hint in message
+
+
+def test_build_mutant_command_unrecognized_outcome_raises():
+    """No outcome may fall through to a full-suite run counted as narrowed."""
+    from mutate4py._runner import TestSelectionError, _build_mutant_command
+
+    ctx_db = _FakeTestContextDB("something-new")
+    with pytest.raises(TestSelectionError, match="unrecognized selection outcome"):
+        _build_mutant_command("pytest", ctx_db, "/src/calc.py", _one_site())
 
 
 # ── _run_mutation_loop ────────────────────────────────────────────────────────
@@ -972,7 +1015,7 @@ def test_run_mutation_loop_empty_sites_returns_zero_counts(tmp_path):
     """Zero selected sites means all counts start and stay at zero — kills initial-value mutants."""
     src_file = tmp_path / "calc.py"
     src_file.write_text("x = 1\n")
-    counts, survivors = _run_mutation_loop(
+    counts, survivors, selection_counts = _run_mutation_loop(
         selected_sites=[],
         clean_source="x = 1\n",
         path=str(src_file),
@@ -982,6 +1025,158 @@ def test_run_mutation_loop_empty_sites_returns_zero_counts(tmp_path):
     )
     assert counts == {"killed": 0, "timeout": 0, "survived": 0}
     assert survivors == []
+    assert selection_counts is None
+
+
+def _loop_over_two_sites(tmp_path, ctx_db):
+    src = "def f(a, b):\n    return a > b\n\n\ndef g(a, b):\n    return a + b\n"
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(src)
+    return _run_mutation_loop(
+        selected_sites=discover_sites(src),
+        clean_source=src,
+        path=str(src_file),
+        cwd=str(tmp_path),
+        test_command="exit 1",
+        mutant_timeout=5.0,
+        test_ctx_db=ctx_db,
+        abs_source_path=str(src_file),
+    )
+
+
+def test_run_mutation_loop_tallies_narrowed_selections(tmp_path):
+    _, _, selection_counts = _loop_over_two_sites(
+        tmp_path, _FakeTestContextDB("narrowed", ["tests/test_calc.py::test_f"])
+    )
+    assert selection_counts == {"narrowed": 2, "static": 0}
+
+
+def test_run_mutation_loop_tallies_static_selections(tmp_path):
+    _, _, selection_counts = _loop_over_two_sites(
+        tmp_path, _FakeTestContextDB("static")
+    )
+    assert selection_counts == {"narrowed": 0, "static": 2}
+
+
+def test_run_mutation_loop_disagreement_aborts_before_applying_the_mutant(tmp_path):
+    from mutate4py._runner import TestSelectionError
+
+    src = "def f(a, b):\n    return a > b\n"
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(src)
+    with pytest.raises(TestSelectionError):
+        _run_mutation_loop(
+            selected_sites=discover_sites(src),
+            clean_source=src,
+            path=str(src_file),
+            cwd=str(tmp_path),
+            test_command="exit 1",
+            mutant_timeout=5.0,
+            test_ctx_db=_FakeTestContextDB("line-absent"),
+            abs_source_path=str(src_file),
+        )
+    assert src_file.read_text() == src
+
+
+# ── --test-contexts end-to-end: report line and the case-3 abort ──────────────
+
+
+def _run_with_stub_ctx_db(
+    tmp_path, monkeypatch, outcome, node_ids=(), *, test_contexts=".coverage"
+):
+    import mutate4py._test_selection as ts
+
+    class _StubDB:
+        def __init__(self, db_path):
+            self.closed = False
+
+        def tests_for_line(self, source_path, line):
+            return outcome, list(node_ids)
+
+        def close(self):
+            self.closed = True
+
+    monkeypatch.setattr(ts, "TestContextDB", _StubDB)
+    src = _make_multi_site_source(3)
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+    lcov_path = str(tmp_path / "cov.lcov")
+    _write_lcov_for_source(lcov_path, src_path, src)
+    rc = run_mutations(
+        path=src_path,
+        source=src,
+        cov_cmd=None,
+        lcov_path=lcov_path,
+        reuse_coverage=False,
+        test_command="exit 0",
+        timeout_factor=10,
+        lines_filter=None,
+        since_last_run=False,
+        mutate_all=False,
+        warning_threshold=1000,
+        cwd=str(tmp_path),
+        test_contexts_path=test_contexts,
+    )
+    return rc, src_path, src
+
+
+def test_report_counts_narrowed_selections(tmp_path, monkeypatch, capsys):
+    rc, _, _ = _run_with_stub_ctx_db(
+        tmp_path, monkeypatch, "narrowed", ["tests/test_calc.py::test_f"]
+    )
+    assert rc == 0
+    assert "Test selection: narrowed 3, static 0" in capsys.readouterr().out
+
+
+def test_report_counts_static_selections(tmp_path, monkeypatch, capsys):
+    rc, _, _ = _run_with_stub_ctx_db(tmp_path, monkeypatch, "static")
+    assert rc == 0
+    assert "Test selection: narrowed 0, static 3" in capsys.readouterr().out
+
+
+def test_report_omits_test_selection_line_without_a_context_db(
+    tmp_path, monkeypatch, capsys
+):
+    rc, _, _ = _run_with_stub_ctx_db(
+        tmp_path, monkeypatch, "narrowed", test_contexts=None
+    )
+    assert rc == 0
+    assert "Test selection:" not in capsys.readouterr().out
+
+
+def test_test_selection_line_sits_after_uncovered_in_the_report(
+    tmp_path, monkeypatch, capsys
+):
+    _run_with_stub_ctx_db(tmp_path, monkeypatch, "static")
+    lines = capsys.readouterr().out.splitlines()
+    report = lines[lines.index("Mutation Report") :]
+    assert report[4].startswith("Uncovered: ")
+    assert report[5].startswith("Test selection: ")
+
+
+@pytest.mark.parametrize("outcome", ["line-absent", "file-absent"])
+def test_disagreement_exits_2_with_no_report(tmp_path, monkeypatch, capsys, outcome):
+    rc, src_path, src = _run_with_stub_ctx_db(tmp_path, monkeypatch, outcome)
+    captured = capsys.readouterr()
+    assert rc == 2
+    assert "Mutation Report" not in captured.out
+    assert "error: test-context db disagrees with coverage" in captured.err
+    assert f"{src_path}:2" in captured.err
+
+
+def test_disagreement_restores_the_source_and_removes_the_backup(
+    tmp_path, monkeypatch, capsys
+):
+    from mutate4py._manifest import strip_manifest
+
+    rc, src_path, src = _run_with_stub_ctx_db(tmp_path, monkeypatch, "line-absent")
+    capsys.readouterr()
+    assert rc == 2
+    with open(src_path) as f:
+        final = f.read()
+    assert strip_manifest(final).rstrip("\n") == src.rstrip("\n")
+    assert not os.path.isfile(src_path + ".bak")
 
 
 # ── _should_run_parallel boundary conditions ──────────────────────────────────

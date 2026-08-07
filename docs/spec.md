@@ -57,7 +57,7 @@ batch, and zero triggers uv workspace autodiscovery instead of a usage error.
 
 | Flag | mutate4go | mutate4py | Tag |
 |------|-----------|-----------|-----|
-| `<targets>` (0+ `PATH`s) | exactly one file, required | 0+ literal paths or glob patterns; 1 resolved root = today's dispatch, 2+ = union batch (one baseline, one exit code), 0 = uv workspace autodiscovery | [PY] |
+| `<targets>` (0+ `PATH`s) | exactly one file, required | 0+ literal paths or glob patterns; 1 resolved root = today's dispatch, 2+ = union batch (one baseline; exit code = worst per-file code, 2 > 1 > 0), 0 = uv workspace autodiscovery | [PY] |
 | `--scan` | count sites, no coverage/tests | same | [PORT] |
 | `--update-manifest` | rewrite footer manifest only | same | [PORT] |
 | `--lines L1,L2,...` | only these source lines | same | [PORT] |
@@ -72,6 +72,7 @@ batch, and zero triggers uv workspace autodiscovery instead of a usage error.
 | `--lcov PATH` | — (fixed path) | path to LCOV file | [PY] |
 | `--reuse-coverage` | reuse coverprofile on disk | reuse LCOV on disk | [PORT]/[PY] |
 | `--max-workers N` | N isolated parallel workers | same — serial default, parallel via `uv` clone-per-worker (§9) | [PORT]/[PY] |
+| `--test-contexts PATH` | — | narrow each mutant's test run to the tests covering the mutated line, read from a coverage.py context db (ADR 0018) | [PY] |
 | `--manifest-file` | — | store each file's manifest as sidecar JSON (`<file>.manifest.json`) instead of the in-source footer | [PY] |
 | `--exclude PATTERN` | — | skip files whose path matches PATTERN (shared glob dialect, repeatable) | [PY] |
 
@@ -107,6 +108,28 @@ batch, and zero triggers uv workspace autodiscovery instead of a usage error.
   via `cwd`, which is unsound under Python editable installs, so mutate4py provisions
   isolated per-worker copies with `uv` instead (clone-per-worker). Parsed/validated in
   F5; executed in F6.
+- **`--test-contexts PATH` (per-mutant test selection).** Neither mutate4go nor
+  clj-mutate has this: Go's per-package test binary and Clojure's test runner give
+  no cheap per-test line attribution, whereas coverage.py's `--cov-context=test`
+  writes one directly into the `.coverage` SQLite db. `PATH` points at that db; a
+  missing file is a usage error (exit 2) before any mutation runs. For every
+  selected site, the db is queried for the mutated line and the outcome is one of
+  three declared cases — **no silent fallback** (ADR 0018): **narrowed**, the db
+  names covering tests, so only those run (`<test-command> <node-id>...`, node IDs
+  shell-quoted); **static**, the line executed only under coverage.py's empty
+  (whole-run) context — import-time code that no single test owns — so the full
+  `--test-command` runs verbatim, as the stated rule (Stryker's "static mutant"
+  policy); **disagreement**, the db has nothing for the line or lacks the file
+  entirely, which can only be an input defect because selected sites are
+  LCOV-covered by construction (§6) — the run aborts with exit **2** and an
+  actionable stderr message naming the file, the line, and whether the db looks
+  stale or path-mismatched. In directory/union/workspace mode the abort is
+  per-file: the remaining files still run to completion, and the process exits
+  with the worst per-file code (2 > 1 > 0). One db path serves the whole batch, so
+  a workspace run expects one combined context db covering every member (ADR
+  0018). Both coverage.py storage modes classify identically
+  (`line_bits` when `has_arcs=0`, `arc` when `has_arcs=1`). `--test-contexts`
+  forces serial execution, so it never combines with the parallel engine (§9).
 - **`--manifest-file` (opt-in sidecar manifest storage).** Neither mutate4go nor
   clj-mutate has this — Python-only, and additive: default behavior (in-source
   footer) is unchanged when the flag is absent. Motivation: the embedded footer is a
@@ -351,11 +374,14 @@ Mutation Report
 Killed: <killed+timeout>
 Survived: <survived>
 Uncovered: <uncovered>
+Test selection: narrowed <n>, static <k>
 
 Survivors:
   line <L> <desc> <functionID>
 ```
 (Survivors block only when survived > 0.) `<desc>` = `"<original> -> <mutant>"`.
+The `Test selection:` line is **[PY]** and prints only when `--test-contexts` is
+supplied (ADR 0018); without the flag the block is upstream-verbatim.
 
 **`--scan` output:**
 ```

@@ -131,6 +131,41 @@ term. This is the single canonical glossary for the project.
   classification may be stale.`, printed on the `--reuse-coverage` run path before the
   header (ADR 0010).
 
+### Per-mutant test selection (`--test-contexts`, [PY] addition to F4)
+
+- **`--test-contexts PATH`** — narrows each mutant's test run to the tests covering
+  the mutated line. `PATH` is a **test-context db**; a missing file is a usage error
+  (exit 2) before any mutation runs. Forces serial execution (never combines with the
+  parallel engine). Python-only; no upstream counterpart (ADR 0018). One CLI-level
+  path serves every file in a directory/union/workspace batch, so a workspace run
+  expects **one combined db** covering all members, not one db per member.
+- **Test-context db** — a coverage.py SQLite `.coverage` file written by
+  `pytest --cov-context=test`, mapping each source line to the **contexts** (pytest
+  node IDs) that executed it. Read-only, via `TestContextDB` (`_test_selection.py`).
+  Classifies identically in both coverage.py storage modes: `line_bits`
+  (`has_arcs=0`) and `arc` (`has_arcs=1`).
+- **Empty context** — coverage.py's whole-run context (`""`), as opposed to a named
+  per-test one. A line matched *only* by it ran at import time. It is a signal, not
+  noise; a named test matching the same line always wins.
+- **Selection outcome** — the per-site verdict `TestContextDB.tests_for_line`
+  returns, one of four, covering three declared cases (ADR 0018; **no silent
+  fallback**): **`narrowed`** (case 1 — named tests cover the line, so only those
+  run), **`static`** (case 2 — empty context only, so the full `--test-command` runs
+  verbatim, as the stated rule), **`line-absent`** / **`file-absent`** (case 3 — the
+  db cannot account for an LCOV-covered line, so the run aborts).
+- **Selection disagreement** — case 3: the context db and the LCOV coverage gate
+  contradict each other. Since selected sites are LCOV-covered by construction, this
+  is always an input defect (stale db, path-format mismatch, or subprocess-recorded
+  coverage), never uncovered code. Prints
+  `error: test-context db disagrees with coverage: <file>:<line>: <hint>` to stderr
+  and exits **2**; the whole run stops and no `Mutation Report` is printed. The
+  source is still restored and the manifest re-embedded, as on any other abort. In a
+  batch the abort is per-file — the other files still run (batch exit code below).
+- **`Test selection: narrowed <n>, static <k>` line** — the report line inside the
+  `Mutation Report` block, directly after `Uncovered:`, printed only when
+  `--test-contexts` is supplied. The block is where agents look, so the tally lives
+  there rather than in a warning line (ADR 0018).
+
 ### CLI surface & validation (F5)
 
 - **Flag matrix** — the full §2 option set F5 parses and validates: `--scan`,
@@ -147,6 +182,11 @@ term. This is the single canonical glossary for the project.
   **union batch** (one baseline, one exit code, `.py` files deduped by
   `os.path.realpath`); **zero** → **workspace autodiscovery** (below). No
   `--discover`/`--workspace` flag — arity alone is the trigger.
+- **Batch exit code** — in every multi-file mode (directory, union, workspace), the
+  process exit code is the **worst** per-file code seen, severity `2 > 1 > 0`, not a
+  boolean collapse (`_run_files_and_exit`, ADR 0018 amendment). A failing file never
+  stops the batch; it only contributes its code. So a selection disagreement (2) in
+  one file stays distinguishable from an ordinary run failure (1) in another.
 - **Glob dialect** — the one pattern-matching dialect shared by positional
   targets, `--exclude`, and uv `members`/`exclude` (ADR 0017): `*` matches
   exactly one path segment and never crosses `/`; `**` matches zero or more
