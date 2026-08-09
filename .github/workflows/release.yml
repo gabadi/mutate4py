@@ -19,6 +19,7 @@ jobs:
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           enable-cache: true
+          version: "0.12.3"
       - name: Build
         run: uv build
       - name: Publish to PyPI

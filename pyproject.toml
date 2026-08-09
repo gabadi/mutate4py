@@ -36,18 +36,15 @@ markers = [
 source = ["mutate4py"]
 branch = true
 
-[tool.uv.sources]
-crap4py = { git = "https://github.com/gabadi/crap4py", rev = "v0.1.1" }
-
 [dependency-groups]
 dev = [
-    "bump-my-version>=0.32.0",
-    "crap4py",
-    "hypothesis>=6.135.0",
-    "pytest>=9.1.1",
-    "pytest-cov>=7.1.0",
-    "ruff>=0.15.18",
-    "tach>=0.35.0",
+    "bump-my-version==1.5.1",
+    "crap4py==0.1.1",
+    "hypothesis==6.165.2",
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "ruff==0.16.2",
+    "tach==0.35.0",
 ]
 
 [tool.bumpversion]
