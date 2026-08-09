@@ -10,10 +10,13 @@ dependency.
 """
 
 import glob
+import logging
 import os
 import sys
 import tomllib
 from collections.abc import Sequence
+
+_logger = logging.getLogger(__name__)
 
 
 def _find_pyproject(start: str) -> str | None:
@@ -33,28 +36,24 @@ def _find_pyproject(start: str) -> str | None:
 
 
 def _exit_no_pyproject_found(cwd: str) -> None:
-    print(
-        f"error: no [tool.uv.workspace] found; searched from {cwd} upward, no pyproject.toml. Pass a path explicitly.",
-        file=sys.stderr,
+    _logger.error(
+        f"error: no [tool.uv.workspace] found; searched from {cwd} upward, no pyproject.toml. Pass a path explicitly."
     )
     sys.exit(2)
 
 
 def _exit_no_workspace_table(pyproject_path: str) -> None:
-    print(f"error: {pyproject_path} has no [tool.uv.workspace].", file=sys.stderr)
+    _logger.error(f"error: {pyproject_path} has no [tool.uv.workspace].")
     sys.exit(2)
 
 
 def _exit_bad_pyproject(path: str, reason: str) -> None:
-    print(f"error: could not read {path}: {reason}", file=sys.stderr)
+    _logger.error(f"error: could not read {path}: {reason}")
     sys.exit(2)
 
 
 def _exit_bad_workspace_key(pyproject_path: str, key: str) -> None:
-    print(
-        f"error: {pyproject_path} [tool.uv.workspace].{key} must be a list of strings.",
-        file=sys.stderr,
-    )
+    _logger.error(f"error: {pyproject_path} [tool.uv.workspace].{key} must be a list of strings.")
     sys.exit(2)
 
 

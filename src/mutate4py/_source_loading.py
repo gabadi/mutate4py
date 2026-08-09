@@ -5,6 +5,7 @@ happen before coverage acquisition and site selection can start.
 
 import dataclasses
 import datetime
+import logging
 import os
 
 from mutate4py._discovery import Site, discover_sites
@@ -20,6 +21,8 @@ from mutate4py._manifest_storage import (
     _write_manifest_output,
 )
 
+_logger = logging.getLogger(__name__)
+
 
 def _restore_from_backup(path: str, bak_path: str) -> str | None:
     """Restore source from backup if present; return rescued source or None."""
@@ -29,7 +32,7 @@ def _restore_from_backup(path: str, bak_path: str) -> str | None:
         rescued = f.read()
     with open(path, "w") as f:
         f.write(rescued)
-    print("Restored source from backup (previous run was interrupted).")
+    _logger.info("Restored source from backup (previous run was interrupted).")
     with open(path) as f:
         return f.read()
 

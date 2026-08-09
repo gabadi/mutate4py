@@ -2,9 +2,9 @@
 
 import dataclasses
 import datetime
+import logging
 import os
 import subprocess
-import sys
 import time
 
 from mutate4py._coverage import CoverageError
@@ -67,6 +67,8 @@ from mutate4py._source_loading import (
     _prepare_run_setup,
 )
 
+_logger = logging.getLogger(__name__)
+
 
 @dataclasses.dataclass
 class RunMutationsRequest:
@@ -112,19 +114,19 @@ def run_baseline(cmd: str, cwd: str) -> tuple[float, str | None]:
 
 
 def _print_lines(lines: list[str]) -> None:
-    """Print a report block's lines as one call, or nothing when the block is empty."""
+    """Log a report block's lines as one call, or nothing when the block is empty."""
     if lines:
-        print("\n".join(lines))
+        _logger.info("\n".join(lines))
 
 
 def run_scan(*, path: str, source: str, warning_threshold: int, coverage: CoverageSource) -> None:
-    """Execute --scan: print site counts. Raises CoverageError on acquisition failure."""
+    """Execute --scan: log site counts. Raises CoverageError on acquisition failure."""
     has_coverage = coverage.cov_cmd is not None or coverage.lcov_path is not None or coverage.reuse_coverage
     if has_coverage:
         lines, _ = scan_report_with_coverage(path, source, warning_threshold, coverage)
     else:
         lines, _ = scan_report(path, source, warning_threshold)
-    print("\n".join(lines))
+    _logger.info("\n".join(lines))
 
 
 def update_manifest(*, path: str, source: str, manifest_file: bool = False) -> int:
@@ -140,7 +142,7 @@ def update_manifest(*, path: str, source: str, manifest_file: bool = False) -> i
     if manifest_file:
         source_has_stale_footer = clean != source
         if not manifest_changed and not source_has_stale_footer:
-            print(f"Manifest unchanged: {path}")
+            _logger.info(f"Manifest unchanged: {path}")
             return 0
         _write_manifest_output(
             clean,
@@ -149,14 +151,14 @@ def update_manifest(*, path: str, source: str, manifest_file: bool = False) -> i
             write_source=source_has_stale_footer,
             write_manifest=manifest_changed,
         )
-        print(f"Updated manifest: {path}")
+        _logger.info(f"Updated manifest: {path}")
         return 0
 
     if not manifest_changed:
-        print(f"Manifest unchanged: {path}")
+        _logger.info(f"Manifest unchanged: {path}")
         return 0
     _write_manifest_output(clean, manifest_to_embed, loc)
-    print(f"Updated manifest: {path}")
+    _logger.info(f"Updated manifest: {path}")
     return 0
 
 
@@ -166,18 +168,18 @@ def check_manifest(*, path: str, source: str, manifest_file: bool = False) -> in
     loc = ManifestLocation(path=path, manifest_file=manifest_file)
     existing, manifest_exists = _read_existing_manifest(source, loc)
     if not manifest_exists:
-        print(f"Manifest missing: {path}")
+        _logger.info(f"Manifest missing: {path}")
         return 1
     existing_source_sha256 = existing.get("source_sha256")
     if existing_source_sha256 is not None and existing_source_sha256 == source_sha256(clean):
-        print(f"Manifest current: {path}")
+        _logger.info(f"Manifest current: {path}")
         return 0
     tested_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     candidate = build_manifest(clean, tested_at=tested_at)
     if manifests_structurally_equal(existing, candidate):
-        print(f"Manifest current: {path}")
+        _logger.info(f"Manifest current: {path}")
         return 0
-    print(f"Manifest stale: {path}")
+    _logger.info(f"Manifest stale: {path}")
     return 1
 
 
@@ -215,7 +217,11 @@ def _select_and_prepare(
         abs_source=os.path.abspath(request.path),
     )
     if cov_error is not None:
-        print(f"error: {cov_error}")
+        # .info, not .error: this single-file path has always written its
+        # coverage/baseline failures to stdout (unlike _dispatch.py's directory
+        # path, which sends the equivalent messages to stderr) — preserved
+        # verbatim rather than "fixed" as a side effect of this migration.
+        _logger.info(f"error: {cov_error}")
         return SelectionOutcome(error_code=1)
 
     covered_count, uncovered_count = partition_sites(loaded.all_sites, covered_lines)
@@ -259,7 +265,8 @@ def _select_and_prepare(
         request.baseline_duration, request.test_command, request.cwd
     )
     if baseline_error is not None:
-        print(f"baseline failed: {baseline_error}")
+        # .info, not .error: see the matching note on the cov_error branch above.
+        _logger.info(f"baseline failed: {baseline_error}")
         return SelectionOutcome(error_code=1)
 
     with open(setup.bak_path, "w") as f:
@@ -337,17 +344,16 @@ def run_mutations(request: RunMutationsRequest) -> int:
                 existing_manifest=setup.loaded.existing_manifest,
             )
         if result.error_msg is not None:
-            print(result.error_msg)
+            # .info, not .error: this has always gone to stdout, same as the
+            # cov_error/baseline_error branches in _select_and_prepare above.
+            _logger.info(result.error_msg)
             return 1
         _print_lines(
             _mutation_report_lines(result.counts, result.survivors, outcome.uncovered_count, result.selection_counts)
         )
         return 0
     except TestSelectionError as exc:
-        print(
-            f"error: test-context db disagrees with coverage: {exc}",
-            file=sys.stderr,
-        )
+        _logger.error(f"error: test-context db disagrees with coverage: {exc}")
         return 2
     finally:
         if test_ctx_db is not None:

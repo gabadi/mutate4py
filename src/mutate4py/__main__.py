@@ -1,6 +1,7 @@
 """CLI entry point for mutate4py."""
 
 import argparse
+import logging
 import sys
 
 from mutate4py._cli_validation import (
@@ -13,6 +14,14 @@ from mutate4py._dispatch import _dispatch
 from mutate4py._target_resolution import TargetResolutionError
 
 DEFAULT_WARNING_THRESHOLD = 50
+
+# Hardcoded rather than __name__: `python -m mutate4py` runs this file with
+# __name__ == "__main__" (a top-level logger with no parent), while the
+# installed console-script entry point imports it normally as
+# "mutate4py.__main__". Hardcoding keeps this logger a child of the
+# "mutate4py" logger that the package's __init__.py configures on import
+# (which always runs first, under either entry point).
+_logger = logging.getLogger("mutate4py.__main__")
 
 
 def _positive_int(value: str) -> int:
@@ -137,7 +146,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--verbose",
         action="store_true",
         dest="verbose",
-        help="Log actions to stderr",
+        help="Report additional detail, e.g. which files --exclude skipped",
     )
     parser.add_argument(
         "--test-contexts",
@@ -176,7 +185,7 @@ def main() -> None:
         _check_test_contexts_file(args)
         _dispatch(args)
     except (ValidationError, TargetResolutionError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        _logger.error(f"error: {exc}")
         sys.exit(exc.exit_code)
 
 

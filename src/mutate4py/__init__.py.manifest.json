@@ -1,7 +1,50 @@
 {
   "version": 1,
-  "tested_at": "2026-08-09T07:16:15Z",
-  "module_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-  "source_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
-  "functions": []
+  "tested_at": "2026-08-09T20:06:52Z",
+  "module_hash": "bfa0c9fd74ac15010172336bf1a2c6e294e6da7a9f9eb63e757236da0a25ee61",
+  "source_sha256": "cffe63e32bea92aae572f1882e8eef55e827072433c9ecd8854029e2ea43dbb4",
+  "functions": [
+    {
+      "id": "func/_MaxLevelFilter.__init__",
+      "name": "__init__",
+      "line": 17,
+      "end_line": 19,
+      "hash": "4a5397ae1823aba426ac9a6e6e667d7b662a746745c45bb8b6b6efe71ef59791"
+    },
+    {
+      "id": "func/_MaxLevelFilter.filter",
+      "name": "filter",
+      "line": 21,
+      "end_line": 22,
+      "hash": "9b852a8cba1bccf9eeed679f49d5722720b6f18624a1ca43cfa6db2380dda370"
+    },
+    {
+      "id": "func/_LiveStreamHandler.__init__",
+      "name": "__init__",
+      "line": 32,
+      "end_line": 34,
+      "hash": "2bc80046c87d57f21968d437d8322f6d7b5eeb371a0e72116c47825555eb7db9"
+    },
+    {
+      "id": "func/_LiveStreamHandler.stream",
+      "name": "stream",
+      "line": 37,
+      "end_line": 38,
+      "hash": "90148411bf8904fefbf91f2721c4aa75d609b961227a2abd78ab7350309d4e61"
+    },
+    {
+      "id": "func/_LiveStreamHandler.stream",
+      "name": "stream",
+      "line": 41,
+      "end_line": 42,
+      "hash": "291b24b341fbdb9d7c2bd2d2883e9815caea360f4a0adebe66b850fcf2ea7f5c"
+    },
+    {
+      "id": "func/_configure_logging",
+      "name": "_configure_logging",
+      "line": 45,
+      "end_line": 60,
+      "hash": "c717ffec11a22edc0ec1c46dac71cd7b470682e0ea6e15fcc7a4b7becf71e4df"
+    }
+  ]
 }

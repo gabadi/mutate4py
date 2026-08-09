@@ -2,9 +2,13 @@
 narrowing of which sites get mutated, and the serial/parallel switch.
 """
 
+import logging
+
 from mutate4py._coverage import CoverageError, acquire_coverage
 from mutate4py._discovery import Site
 from mutate4py._report import _uncovered_block_lines
+
+_logger = logging.getLogger(__name__)
 
 
 def _filter_by_lines(covered: list[Site], lines_filter: set[int]) -> list[Site]:
@@ -42,7 +46,7 @@ def _acquire_covered_lines(
 ) -> tuple[set[int] | None, str | None]:
     """Acquire coverage; return (covered_lines, error_message_or_None)."""
     if reuse_coverage:
-        print("Reusing existing coverage; covered/uncovered classification may be stale.")
+        _logger.info("Reusing existing coverage; covered/uncovered classification may be stale.")
     try:
         covered_lines = acquire_coverage(
             cov_cmd=cov_cmd,

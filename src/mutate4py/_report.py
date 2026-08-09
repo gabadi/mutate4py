@@ -1,10 +1,11 @@
 """Report formatting for the run loop: line-returning formatters plus the two
-scan-path report builders. The run loop (`_runner.py`) prints these lines at
-its own edge; nothing here calls print() except `_on_parallel_result`, which
-is itself just a formatting call wrapped for use as a worker-thread callback.
+scan-path report builders. The run loop (`_runner.py`) logs these lines at
+its own edge; nothing here logs except `_on_parallel_result`, which is
+itself just a formatting call wrapped for use as a worker-thread callback.
 """
 
 import dataclasses
+import logging
 import os
 
 from mutate4py._coverage import acquire_coverage
@@ -16,6 +17,8 @@ __all__ = [
     "scan_report",
     "scan_report_with_coverage",
 ]
+
+_logger = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -88,8 +91,8 @@ def _parallel_progress_line(result: dict) -> str:
 
 
 def _on_parallel_result(result: dict) -> None:
-    """Print a per-mutant progress line in arrival order (called from worker thread)."""
-    print(_parallel_progress_line(result))
+    """Log a per-mutant progress line in arrival order (called from worker thread)."""
+    _logger.info(_parallel_progress_line(result))
 
 
 def _mutation_report_lines(

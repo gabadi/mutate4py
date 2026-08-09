@@ -114,22 +114,3 @@ max-locals = 15
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*.py" = ["FBT003"]  # idiomatic pytest-style positional bools at call sites, not an API smell
-# print is this CLI's actual output mechanism, not debug leakage:
-"src/mutate4py/__main__.py" = ["T201"]  # the CLI adapter's job
-"src/mutate4py/_runner.py" = ["T201"]  # ticket 06 factored the five report blocks' formatting out
-# of their print calls, but the module still legitimately prints ~20 status/error/note messages
-# (manifest state, coverage/baseline/fork-server notices) that are outside that ticket's scope;
-# moving those to __main__.py is a larger, unscoped change for a future ticket, not this one.
-"src/mutate4py/_report.py" = ["T201"]  # _on_parallel_result is a worker-thread print callback
-# (gate 08); it moved here verbatim with the rest of the report formatters it wraps.
-"src/mutate4py/_execution.py" = ["T201"]  # _run_mutation_loop's one print is per-mutant progress
-# feedback, not a final report (gate 09); it moved here verbatim with the loop it's inside.
-"src/mutate4py/_workspace.py" = ["T201"]  # print-then-exit precedent kept deliberately; see _target_resolution.py's module docstring (issue #38 gate 05)
-"src/mutate4py/_dispatch.py" = ["T201"]  # moved here verbatim from __main__.py (gate 11); same
-# print-then-exit CLI-output role, just relocated.
-"src/mutate4py/_run_prep.py" = ["T201"]  # _prepare_fork_server's two notes moved here verbatim
-# from _runner.py (gate 13); same best-effort-fallback notice role, just relocated.
-"src/mutate4py/_site_selection.py" = ["T201"]  # _acquire_covered_lines' reuse-coverage note moved
-# here verbatim from _runner.py (gate 14); same status-notice role, just relocated.
-"src/mutate4py/_source_loading.py" = ["T201"]  # _restore_from_backup's rescue notice moved here
-# verbatim from _runner.py (gate 15); same status-notice role, just relocated.

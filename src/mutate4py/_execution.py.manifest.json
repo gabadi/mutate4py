@@ -1,42 +1,42 @@
 {
   "version": 1,
-  "tested_at": "2026-08-09T17:14:08Z",
-  "module_hash": "adaf6fea22a7e59db80b97050d0597dde52cf8c8733dc408d0cee3563d4e659d",
-  "source_sha256": "84c0222f78e1d1e777d733af1f70d7b5e358d09c719f3fe8c00176ba4c29189d",
+  "tested_at": "2026-08-09T20:06:54Z",
+  "module_hash": "91f9944becfe7cb9421694241f82345c4a7dccde035ee282c487a43c564747e8",
+  "source_sha256": "603f55c758403fdcbc4469945124dadfc02fb1491f57f57d7911237fcfb28927",
   "functions": [
     {
       "id": "func/_build_mutant_command",
       "name": "_build_mutant_command",
-      "line": 47,
-      "end_line": 66,
+      "line": 50,
+      "end_line": 69,
       "hash": "9dadd97a7e9c7e001d6f773b1776379e86106c9221180797357242d440745237"
     },
     {
       "id": "func/_run_single_mutant",
       "name": "_run_single_mutant",
-      "line": 69,
-      "end_line": 79,
+      "line": 72,
+      "end_line": 82,
       "hash": "69aa6636055bdba948183b5541fd63e214b0a3fa5dfb67550049fac524608d54"
     },
     {
       "id": "func/_run_mutation_loop",
       "name": "_run_mutation_loop",
-      "line": 82,
-      "end_line": 115,
-      "hash": "94d4b6ae5e22330c55f5e54dfe3d2cadd9e376d2938c516d3de9581e9488ba9a"
+      "line": 85,
+      "end_line": 118,
+      "hash": "924d8f5b12be188da5fb598065a54bfdb6c64da91c531d8253e066dd3a9477d7"
     },
     {
       "id": "func/_run_parallel_workers",
       "name": "_run_parallel_workers",
-      "line": 118,
-      "end_line": 143,
+      "line": 121,
+      "end_line": 146,
       "hash": "56ec1a217400d8f328b8e65e70a5e615caeef490ce077d449a28fb52a04ffbbc"
     },
     {
       "id": "func/_execute_mutations",
       "name": "_execute_mutations",
-      "line": 161,
-      "end_line": 179,
+      "line": 164,
+      "end_line": 182,
       "hash": "0ac49180bafa06ffd7af51ce08ab54044c0c113fa44cb30d884fc4af11010049"
     }
   ]

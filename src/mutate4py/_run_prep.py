@@ -5,7 +5,10 @@ own account — an unavailable fork server falls back to the per-mutant
 subprocess model instead of failing the run.
 """
 
+import logging
 import shlex
+
+_logger = logging.getLogger(__name__)
 
 
 def _setup_test_context_db(test_contexts_path: str | None, max_workers: int):
@@ -39,7 +42,7 @@ def _prepare_fork_server(*, requested: bool, test_command: str, cwd: str, guarde
     from mutate4py._fork_server import ForkServer, ForkServerUnavailable, is_available
 
     if not is_available(test_command):
-        print(
+        _logger.info(
             "note: fork-server fast path needs a plain `pytest` --test-command "
             "on a POSIX platform; using the per-mutant subprocess model instead."
         )
@@ -49,7 +52,7 @@ def _prepare_fork_server(*, requested: bool, test_command: str, cwd: str, guarde
     try:
         server.prime()
     except ForkServerUnavailable as exc:
-        print(f"note: fork-server fast path unavailable ({exc}); using the per-mutant subprocess model instead.")
+        _logger.info(f"note: fork-server fast path unavailable ({exc}); using the per-mutant subprocess model instead.")
         return None
     return server
 

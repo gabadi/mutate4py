@@ -1,11 +1,12 @@
 """Mutant execution engine for the run loop: builds each mutant's test
 command, runs it (serial loop, fork server, or parallel workers), and tallies
-counts/survivors. Nothing here writes the manifest or prints a final report —
-callers own both; the one print left is per-mutant progress feedback, using
-line formatters `_report` already owns.
+counts/survivors. Nothing here writes the manifest or logs a final report —
+callers own both; the one log call left is per-mutant progress feedback,
+using line formatters `_report` already owns.
 """
 
 import dataclasses
+import logging
 import shlex
 
 from mutate4py._cmd import run_command as _run_command
@@ -13,6 +14,8 @@ from mutate4py._discovery import Site, apply_mutant
 from mutate4py._report import _on_parallel_result, _serial_progress_line
 
 __all__ = ["MutantExecCtx", "TestSelectionError"]
+
+_logger = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass
@@ -111,7 +114,7 @@ def _run_mutation_loop(
         counts[status] += 1
         if status == "survived":
             survivors.append(site)
-        print(_serial_progress_line(i, total_selected, status, site))
+        _logger.info(_serial_progress_line(i, total_selected, status, site))
     return counts, survivors, (selection_counts if ctx.test_ctx_db is not None else None)
 
 

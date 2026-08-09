@@ -18,6 +18,7 @@ is unchanged by this module's existence.
 """
 
 import argparse
+import logging
 import os
 import sys
 
@@ -40,6 +41,8 @@ from mutate4py._target_resolution import (
 )
 from mutate4py._workspace import _discover_workspace_roots, _workspace_exclude_dirs
 
+_logger = logging.getLogger(__name__)
+
 
 def _load_source(path: str) -> str:
     """Read source file; exit with error if unreadable."""
@@ -47,7 +50,7 @@ def _load_source(path: str) -> str:
         with open(path) as f:
             return f.read()
     except (FileNotFoundError, PermissionError, IsADirectoryError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        _logger.error(f"error: {exc}")
         sys.exit(2)
 
 
@@ -59,7 +62,7 @@ def _syntax_error_reason(exc: SyntaxError) -> str:
 
 
 def _report_parse_error(path: str, exc: SyntaxError) -> None:
-    print(f"error: cannot parse {path}: {_syntax_error_reason(exc)}", file=sys.stderr)
+    _logger.error(f"error: cannot parse {path}: {_syntax_error_reason(exc)}")
 
 
 def _parse_line_token(token: str) -> int:
@@ -67,13 +70,10 @@ def _parse_line_token(token: str) -> int:
     try:
         n = int(token)
     except ValueError:
-        print(f"error: --lines value {token!r} is not a valid integer.", file=sys.stderr)
+        _logger.error(f"error: --lines value {token!r} is not a valid integer.")
         sys.exit(2)
     if n < 1:
-        print(
-            f"error: --lines value {token!r} must be a positive integer (>= 1).",
-            file=sys.stderr,
-        )
+        _logger.error(f"error: --lines value {token!r} must be a positive integer (>= 1).")
         sys.exit(2)
     return n
 
@@ -101,7 +101,7 @@ def _run_scan(args: argparse.Namespace, path: str, source: str, cwd: str) -> Non
             ),
         )
     except CoverageError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        _logger.error(f"error: {exc}")
         sys.exit(2)
 
 
@@ -167,19 +167,19 @@ def _prepare_directory_baseline(args: argparse.Namespace, files: list[str], cwd:
             source_path=os.path.abspath(files[0]),
         )
     except CoverageError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        _logger.error(f"error: {exc}")
         sys.exit(1)
     baseline_duration, baseline_error = run_baseline(args.test_command, cwd)
     if baseline_error is not None:
-        print(f"baseline failed: {baseline_error}", file=sys.stderr)
+        _logger.error(f"baseline failed: {baseline_error}")
         sys.exit(1)
     return baseline_duration
 
 
 def _report_excluded(excluded: list[str]) -> None:
-    """Print one line per file --exclude dropped from the walk (--verbose only)."""
+    """Log one line per file --exclude dropped from the walk (--verbose only)."""
     for path in excluded:
-        print(f"Excluded: {path}")
+        _logger.info(f"Excluded: {path}")
 
 
 def _collect_union_files(args: argparse.Namespace, roots: list[str]) -> list[str]:
@@ -223,7 +223,7 @@ def _run_files_and_exit(args: argparse.Namespace, files: list[str]) -> None:
             exit_code = max(exit_code, 2)
             parse_failures += 1
     if parse_failures:
-        print(f"error: {parse_failures} files could not be parsed", file=sys.stderr)
+        _logger.error(f"error: {parse_failures} files could not be parsed")
     sys.exit(exit_code)
 
 
@@ -239,7 +239,7 @@ def _raise_if_target_excluded(args: argparse.Namespace) -> None:
     if not _is_excluded(args.file, args.exclude or ()):
         return
     if args.verbose:
-        print(f"Excluded: {args.file}")
+        _logger.info(f"Excluded: {args.file}")
     raise NoFilesToProcessError()
 
 
