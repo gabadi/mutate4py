@@ -181,7 +181,11 @@ toml = [
 [[package]]
 name = "crap4py"
 version = "0.1.1"
-source = { git = "https://github.com/gabadi/crap4py?rev=42b8960a8b349f79cad42dc27bf98ffcfe53e096#42b8960a8b349f79cad42dc27bf98ffcfe53e096" }
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/48/a8/dc6cc095b29eeba5c37ab04605819782f5f5e080cde38c97063bbeff1780/crap4py-0.1.1.tar.gz", hash = "sha256:bd5f4ecc1613490515fd229f6958fad06cf448497e6c99a612712fce965272cc", size = 216435, upload-time = "2026-06-24T03:25:06.586Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/03/c6/eda37aa64d84a3e22a5c9242e5696a83750c7737dc99d43bce97dfc53e53/crap4py-0.1.1-py3-none-any.whl", hash = "sha256:2cdaf28dccfc88313c95f1bacdf99fe19a39efbe9855d981352bb02a7a17a90c", size = 12913, upload-time = "2026-06-24T03:25:05.266Z" },
+]
 
 [[package]]
 name = "gitdb"
@@ -370,7 +374,7 @@ dev = [
 [package.metadata.requires-dev]
 dev = [
     { name = "bump-my-version", specifier = "==1.5.1" },
-    { name = "crap4py", git = "https://github.com/gabadi/crap4py?rev=42b8960a8b349f79cad42dc27bf98ffcfe53e096" },
+    { name = "crap4py", specifier = "==0.1.1" },
     { name = "hypothesis", specifier = "==6.165.2" },
     { name = "pytest", specifier = "==9.1.1" },
     { name = "pytest-cov", specifier = "==7.1.0" },

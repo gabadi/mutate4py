@@ -36,15 +36,10 @@ markers = [
 source = ["mutate4py"]
 branch = true
 
-[tool.uv.sources]
-# rev is the commit SHA that tag v0.1.1 resolves to (mirrors the SHA-pinned
-# GitHub Actions in .github/workflows/), not the tag itself.
-crap4py = { git = "https://github.com/gabadi/crap4py", rev = "42b8960a8b349f79cad42dc27bf98ffcfe53e096" }
-
 [dependency-groups]
 dev = [
     "bump-my-version==1.5.1",
-    "crap4py",
+    "crap4py==0.1.1",
     "hypothesis==6.165.2",
     "pytest==9.1.1",
     "pytest-cov==7.1.0",
