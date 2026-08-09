@@ -76,7 +76,7 @@ Feature: Per-mutant test selection and directory run mode
 
   Scenario: directory run mode exits non-zero if any file fails
     Given a directory "src/" containing Python files
-    When mutate4py is run on the directory in run mode and one file has survivors
+    When mutate4py is run on the directory in run mode and one file fails to parse
     Then the exit code is non-zero
 
   # case 1 — the db names the tests, so only those run
