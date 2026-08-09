@@ -80,6 +80,16 @@
 # cross-deps against `cli_validation` or `target_resolution`, so it sits in
 # its own layer alongside them, directly above `report` (its one non-domain
 # dependency).
+#
+# Issue #38 gate 15 extracted the run loop's source-loading cluster (backup
+# rescue, manifest diffing, and site discovery on the stripped source) out of
+# `_runner.py` into `_source_loading`. It imports `_manifest_storage` (its
+# only non-domain dependency, for `ManifestLocation`/read/write) alongside
+# `_manifest` and `_discovery` (`domain`); it doesn't need `_report`, so
+# unlike `site_selection` it isn't required to sit above `report`. It's
+# depended on only by `run_loop`, with no cross-deps against the other
+# no-cross-dep layers, so it sits in its own layer directly above
+# `manifest_storage` (its one non-domain dependency).
 source_roots = ["src"]
 layers = [
     "cli_adapter",
@@ -92,6 +102,7 @@ layers = [
     "site_selection",
     "target_resolution",
     "report",
+    "source_loading",
     "manifest_storage",
     "domain",
     "primitives",
@@ -171,6 +182,11 @@ depends_on = []
 [[modules]]
 path = "mutate4py._manifest_storage"
 layer = "manifest_storage"
+depends_on = []
+
+[[modules]]
+path = "mutate4py._source_loading"
+layer = "source_loading"
 depends_on = []
 
 [[modules]]

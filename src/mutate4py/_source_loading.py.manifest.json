@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-09T19:08:18Z",
+  "module_hash": "d3579631cbff6a4fdc0129f2c3d3c753aeb225f3b7a1b55c2516e24745c902b5",
+  "source_sha256": "1b260d0eb9006d80b5f2d7dc86ff4373b1debc293ed61bf67838f5b938a10b90",
+  "functions": [
+    {
+      "id": "func/_restore_from_backup",
+      "name": "_restore_from_backup",
+      "line": 24,
+      "end_line": 34,
+      "hash": "eac2a96184bf954d27a9b87a70232574967423aa03fd629a886f30ca9ffa916b"
+    },
+    {
+      "id": "func/_compute_manifest_diff",
+      "name": "_compute_manifest_diff",
+      "line": 37,
+      "end_line": 47,
+      "hash": "d08433bb0849f205d8858e678ace5c389d3af239003f92fc8fdec3c92f7fa3dd"
+    },
+    {
+      "id": "func/_finalize_source",
+      "name": "_finalize_source",
+      "line": 50,
+      "end_line": 67,
+      "hash": "82a1a22052c2b8805aee2d4d3d0bd465fbfc9fa17bd32663d45b3e43a83dbbac"
+    },
+    {
+      "id": "func/_load_clean_source",
+      "name": "_load_clean_source",
+      "line": 83,
+      "end_line": 105,
+      "hash": "3edb8fbb7289e83860ed1df56579b3216cd79d5a9f5c758cfac51bfce3f3cb19"
+    },
+    {
+      "id": "func/_prepare_run_setup",
+      "name": "_prepare_run_setup",
+      "line": 117,
+      "end_line": 122,
+      "hash": "a1a5b0dd699f4e9d2f4dbf7ec74a109fc237f5ec9a265846b25eee6bb982ec6b"
+    }
+  ]
+}

@@ -131,3 +131,5 @@ max-locals = 15
 # from _runner.py (gate 13); same best-effort-fallback notice role, just relocated.
 "src/mutate4py/_site_selection.py" = ["T201"]  # _acquire_covered_lines' reuse-coverage note moved
 # here verbatim from _runner.py (gate 14); same status-notice role, just relocated.
+"src/mutate4py/_source_loading.py" = ["T201"]  # _restore_from_backup's rescue notice moved here
+# verbatim from _runner.py (gate 15); same status-notice role, just relocated.
