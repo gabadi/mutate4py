@@ -10,6 +10,9 @@ Navigation and universal invariants for all agents in this project.
 - `just check` — all CI gates, same order as `.github/workflows/ci.yml` (log-per-gate in `check.log`, ✓/✗ printed, tail on failure). `just check <gate> [<gate> ...]` runs a subset; `just --list` shows public recipes.
 - `just mutate <path> [<args>]` — scored mutation run with per-mutant progress captured to a log; only the `Mutation Report` summary is printed. Use this instead of raw `uv run mutate4py <path> --mutate-all` (see `.agents/roles/hardender.md`).
 
+## Code Review
+- Use `/mattpocock-skills:code-review`, never bare `/code-review` (different, heavier skill).
+
 ## Tool Paths (Local Machine)
 - `crap4py`: installed from local sibling `~/workspace/addi/crap4py` via `uv tool install ~/workspace/addi/crap4py` (not PyPI, not GitHub URL)
 - `drywall`: available at `/Users/gabadi/.local/bin/drywall` (not in PyPI under that name)
@@ -28,7 +31,8 @@ Navigation and universal invariants for all agents in this project.
 - When modifying source with an embedded manifest, always strip manifest first, modify body, then re-embed; never append after the manifest footer — `strip_manifest` removes everything from begin-marker to EOF
 
 ## Module Dependency Invariants
-- `_coverage.py` must not import from `_discovery.py`; if coverage code needs Site objects, move that function to `_discovery.py` (IO-free domain boundary).
+- `tach.toml` is the enforced source of truth for package layering (`src/mutate4py/*`); `tach check` runs inside the `lint` gate. The prose below describes the same contract — if it ever drifts from `tach.toml`, the config wins.
+- `_coverage.py` must not import from `_discovery.py`; if coverage code needs Site objects, move that function to `_discovery.py` (IO-free domain boundary). Enforced: both sit in `tach.toml`'s `domain` layer with no `depends_on` between them, so `tach check` fails the moment either imports the other.
 - Acceptance step files are boundary files (15-site mutation threshold); extractable pure logic belongs in `*_helpers.py` modules with their own unit tests.
 - `coverage_helpers.py` is the testable module for acceptance step helper functions; unit tests live in `tests/test_coverage_helpers.py`.
 - `cli_surface_helpers.py` is the testable module for CLI surface acceptance step helpers; unit tests live in `tests/test_cli_surface_helpers.py`.

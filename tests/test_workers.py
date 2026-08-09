@@ -5,7 +5,10 @@ import pytest
 from mutate4py._discovery import Site, discover_sites
 from mutate4py._workers import (
     ParallelRunError,
+    ParallelRunRequest,
+    SiteAssignment,
     WorkerFailureError,
+    WorkerRunSettings,
     _assign_sites_to_workers,
     _copy_tree,
     _run_command,
@@ -223,16 +226,20 @@ def test_run_one_site_survived(tmp_path, monkeypatch):
     monkeypatch.delenv("_MUTATE4PY_TEST_WORKER_WRITE_FAIL", raising=False)
 
     result = _run_one_site(
-        worker_idx=1,
-        site=site,
-        site_idx=1,
-        total=1,
-        clean_source=src,
-        worker_root=str(tmp_path),
-        worker_file_path=str(worker_file),
-        test_command="exit 0",
-        mutant_timeout=5.0,
-        on_result=_noop_on_result,
+        SiteAssignment(
+            worker_idx=1,
+            site=site,
+            site_idx=1,
+            total=1,
+            worker_root=str(tmp_path),
+            worker_file_path=str(worker_file),
+        ),
+        WorkerRunSettings(
+            clean_source=src,
+            test_command="exit 0",
+            mutant_timeout=5.0,
+            on_result=_noop_on_result,
+        ),
     )
     assert result["status"] == "survived"
     assert worker_file.read_text() == src
@@ -247,16 +254,20 @@ def test_run_one_site_killed(tmp_path, monkeypatch):
     monkeypatch.delenv("_MUTATE4PY_TEST_WORKER_WRITE_FAIL", raising=False)
 
     result = _run_one_site(
-        worker_idx=1,
-        site=site,
-        site_idx=1,
-        total=1,
-        clean_source=src,
-        worker_root=str(tmp_path),
-        worker_file_path=str(worker_file),
-        test_command="exit 1",
-        mutant_timeout=5.0,
-        on_result=_noop_on_result,
+        SiteAssignment(
+            worker_idx=1,
+            site=site,
+            site_idx=1,
+            total=1,
+            worker_root=str(tmp_path),
+            worker_file_path=str(worker_file),
+        ),
+        WorkerRunSettings(
+            clean_source=src,
+            test_command="exit 1",
+            mutant_timeout=5.0,
+            on_result=_noop_on_result,
+        ),
     )
     assert result["status"] == "killed"
     assert worker_file.read_text() == src
@@ -271,16 +282,20 @@ def test_run_one_site_write_fail_env_hook(tmp_path, monkeypatch):
 
     with pytest.raises(WorkerFailureError, match="injected test failure"):
         _run_one_site(
-            worker_idx=2,
-            site=sites[0],
-            site_idx=1,
-            total=1,
-            clean_source=src,
-            worker_root=str(tmp_path),
-            worker_file_path=str(worker_file),
-            test_command="exit 0",
-            mutant_timeout=5.0,
-            on_result=_noop_on_result,
+            SiteAssignment(
+                worker_idx=2,
+                site=sites[0],
+                site_idx=1,
+                total=1,
+                worker_root=str(tmp_path),
+                worker_file_path=str(worker_file),
+            ),
+            WorkerRunSettings(
+                clean_source=src,
+                test_command="exit 0",
+                mutant_timeout=5.0,
+                on_result=_noop_on_result,
+            ),
         )
 
 
@@ -307,16 +322,20 @@ def test_run_one_site_write_oserror(tmp_path, monkeypatch):
 
     with pytest.raises(WorkerFailureError, match="could not write file copy"):
         _run_one_site(
-            worker_idx=1,
-            site=sites[0],
-            site_idx=1,
-            total=1,
-            clean_source=src,
-            worker_root=str(tmp_path),
-            worker_file_path=str(worker_file),
-            test_command="exit 0",
-            mutant_timeout=5.0,
-            on_result=_noop_on_result,
+            SiteAssignment(
+                worker_idx=1,
+                site=sites[0],
+                site_idx=1,
+                total=1,
+                worker_root=str(tmp_path),
+                worker_file_path=str(worker_file),
+            ),
+            WorkerRunSettings(
+                clean_source=src,
+                test_command="exit 0",
+                mutant_timeout=5.0,
+                on_result=_noop_on_result,
+            ),
         )
 
 
@@ -337,12 +356,14 @@ def test_run_parallel_short_result_raises(tmp_path, monkeypatch):
 
     with pytest.raises(ParallelRunError, match="mutation workers stopped"):
         run_parallel(
-            selected_sites=sites,
-            clean_source=src,
-            source_path=str(src_file),
-            cwd=str(tmp_path),
-            test_command="exit 0",
-            mutant_timeout=5.0,
-            max_workers=2,
-            on_result=_noop_on_result,
+            ParallelRunRequest(
+                selected_sites=sites,
+                clean_source=src,
+                source_path=str(src_file),
+                cwd=str(tmp_path),
+                test_command="exit 0",
+                mutant_timeout=5.0,
+                max_workers=2,
+                on_result=_noop_on_result,
+            )
         )

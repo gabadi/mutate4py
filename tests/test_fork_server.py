@@ -93,9 +93,7 @@ def test_assert_source_clean_ignores_unrelated_modules(tmp_path):
 _module_name_counter = itertools.count()
 
 
-def _write_fixture_project(
-    tmp_path, *, target_body: str, test_body: str, conftest_body: str = ""
-) -> tuple[str, str]:
+def _write_fixture_project(tmp_path, *, target_body: str, test_body: str, conftest_body: str = "") -> tuple[str, str]:
     """Write a minimal pytest project; return (cwd, target_path).
 
     A root conftest.py (even empty) is what makes pytest add the project
@@ -110,14 +108,10 @@ def _write_fixture_project(
     mod_name = f"under_test_{next(_module_name_counter)}"
     target = tmp_path / f"{mod_name}.py"
     target.write_text(textwrap.dedent(target_body).format(mod=mod_name))
-    (tmp_path / "conftest.py").write_text(
-        textwrap.dedent(conftest_body).format(mod=mod_name)
-    )
+    (tmp_path / "conftest.py").write_text(textwrap.dedent(conftest_body).format(mod=mod_name))
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
-    (tests_dir / f"test_{mod_name}.py").write_text(
-        textwrap.dedent(test_body).format(mod=mod_name)
-    )
+    (tests_dir / f"test_{mod_name}.py").write_text(textwrap.dedent(test_body).format(mod=mod_name))
     return str(tmp_path), str(target)
 
 
@@ -176,9 +170,7 @@ def test_prime_leak_does_not_poison_a_later_same_named_file(tmp_path):
     tests_b.mkdir()
     (tests_b / f"test_{mod_name}.py").write_text(_ADD_TEST_BODY.format(mod=mod_name))
 
-    server_b = ForkServer(
-        cwd=str(dir_b), extra_args=["-q", "tests"], guarded_path=str(target_b)
-    )
+    server_b = ForkServer(cwd=str(dir_b), extra_args=["-q", "tests"], guarded_path=str(target_b))
     server_b.prime()  # must not raise: file a's leak must not have persisted
 
 
@@ -231,8 +223,7 @@ def test_run_picks_up_post_prime_mutation_from_disk(tmp_path):
         f.write("def add(a, b):\n    return a - b\n")
     status, _ = server.run(timeout=30.0)
     assert status == "killed", (
-        "child re-used a stale pre-mutation module instead of re-reading "
-        "the file from disk after fork"
+        "child re-used a stale pre-mutation module instead of re-reading the file from disk after fork"
     )
 
     # Restore and re-run: must go back to survived, proving each fork reads
@@ -249,11 +240,7 @@ def test_run_reports_timeout_and_kills_child(tmp_path):
         tmp_path,
         target_body="def add(a, b):\n    return a + b\n",
         test_body=(
-            "import time\n"
-            "from {mod} import add\n"
-            "def test_add():\n"
-            "    time.sleep(5)\n"
-            "    assert add(2, 2) == 4\n"
+            "import time\nfrom {mod} import add\ndef test_add():\n    time.sleep(5)\n    assert add(2, 2) == 4\n"
         ),
     )
     server = ForkServer(cwd=cwd, extra_args=["-q", "tests"], guarded_path=target)
@@ -276,10 +263,7 @@ def test_run_does_not_leak_child_stdout(tmp_path, capsys):
         tmp_path,
         target_body="def add(a, b):\n    return a + b\n",
         test_body=(
-            "from {mod} import add\n"
-            "def test_add():\n"
-            "    print('SHOULD_NOT_APPEAR')\n"
-            "    assert add(2, 2) == 4\n"
+            "from {mod} import add\ndef test_add():\n    print('SHOULD_NOT_APPEAR')\n    assert add(2, 2) == 4\n"
         ),
     )
     server = ForkServer(cwd=cwd, extra_args=["-q", "tests"], guarded_path=target)

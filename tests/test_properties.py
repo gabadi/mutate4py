@@ -81,9 +81,7 @@ _MANIFEST_WITH_FNS = st.fixed_dictionaries(
         "version": st.just(1),
         "tested_at": st.just("2026-01-01T00:00:00Z"),
         "module_hash": st.text(min_size=1, max_size=64),
-        "functions": st.lists(
-            _FN_ENTRY, min_size=0, max_size=5, unique_by=lambda f: f["id"]
-        ),
+        "functions": st.lists(_FN_ENTRY, min_size=0, max_size=5, unique_by=lambda f: f["id"]),
     }
 )
 
@@ -258,8 +256,7 @@ def test_apply_mutant_always_differs_from_clean(source: str) -> None:
     for site in sites:
         mutated = apply_mutant(source, site)
         assert mutated != source, (
-            f"apply_mutant produced identical source for site index={site.index} "
-            f"line={site.line} desc={site.desc!r}"
+            f"apply_mutant produced identical source for site index={site.index} line={site.line} desc={site.desc!r}"
         )
 
 
@@ -281,9 +278,7 @@ def test_discover_sites_indices_are_unique_and_zero_based(source: str) -> None:
     """Site indices must be unique and form a 0-based contiguous range."""
     sites = discover_sites(source)
     indices = [s.index for s in sites]
-    assert indices == list(range(len(sites))), (
-        f"Non-contiguous or duplicate indices: {indices}"
-    )
+    assert indices == list(range(len(sites))), f"Non-contiguous or duplicate indices: {indices}"
 
 
 @given(_PYTHON_SOURCES)
@@ -317,9 +312,7 @@ def _make_indexed_site(index: int) -> Site:
     n_workers=st.integers(min_value=1, max_value=10),
 )
 @settings(max_examples=80)
-def test_assign_sites_every_site_appears_exactly_once(
-    n_sites: int, n_workers: int
-) -> None:
+def test_assign_sites_every_site_appears_exactly_once(n_sites: int, n_workers: int) -> None:
     """Every site must appear in exactly one worker's assignment list."""
     from mutate4py._workers import _assign_sites_to_workers
 
@@ -354,9 +347,7 @@ def test_assign_sites_worker_keys_in_bounds(n_sites: int, n_workers: int) -> Non
     n_workers=st.integers(min_value=1, max_value=10),
 )
 @settings(max_examples=80)
-def test_assign_sites_site_idx_is_1_based_global_position(
-    n_sites: int, n_workers: int
-) -> None:
+def test_assign_sites_site_idx_is_1_based_global_position(n_sites: int, n_workers: int) -> None:
     """site_idx in each assignment must equal site.index + 1 (1-based global position)."""
     from mutate4py._workers import _assign_sites_to_workers
 

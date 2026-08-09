@@ -100,9 +100,7 @@ def test_discover_nested_glob_pattern_in_members(tmp_path, monkeypatch):
     assert _discover_workspace_roots() == [str(ws), str(g1_pkg), str(g2_pkg)]
 
 
-def test_member_matched_by_glob_without_pyproject_is_skipped_silently(
-    tmp_path, monkeypatch
-):
+def test_member_matched_by_glob_without_pyproject_is_skipped_silently(tmp_path, monkeypatch):
     ws = tmp_path / "ws"
     pkgs = ws / "pkgs"
     has_one, missing_one = pkgs / "has", pkgs / "missing"
@@ -115,9 +113,7 @@ def test_member_matched_by_glob_without_pyproject_is_skipped_silently(
     assert _discover_workspace_roots() == [str(ws), str(has_one)]
 
 
-def test_member_declaring_its_own_workspace_table_is_included_normally(
-    tmp_path, monkeypatch
-):
+def test_member_declaring_its_own_workspace_table_is_included_normally(tmp_path, monkeypatch):
     ws = tmp_path / "ws"
     member = ws / "pkgs" / "a"
     member.mkdir(parents=True)
@@ -146,9 +142,7 @@ def test_exclude_prunes_an_excluded_member_from_the_roots(tmp_path, monkeypatch)
     assert _discover_workspace_roots() == [str(ws), str(a)]
 
 
-def test_workspace_exclude_dirs_resolves_relative_to_the_workspace_root(
-    tmp_path, monkeypatch
-):
+def test_workspace_exclude_dirs_resolves_relative_to_the_workspace_root(tmp_path, monkeypatch):
     ws = tmp_path / "ws"
     vendor = ws / "vendor"
     vendor.mkdir(parents=True)
@@ -181,9 +175,7 @@ def test_members_glob_resolves_against_workspace_root_not_cwd(tmp_path, monkeypa
 # ── the ancestor climb stops at the FIRST pyproject.toml (review point 2) ──────
 
 
-def test_climb_stops_at_first_pyproject_toml_even_without_a_workspace_table(
-    tmp_path, monkeypatch, capsys
-):
+def test_climb_stops_at_first_pyproject_toml_even_without_a_workspace_table(tmp_path, monkeypatch, capsys):
     outer = tmp_path / "outer"
     member = outer / "member"
     member.mkdir(parents=True)
@@ -216,9 +208,7 @@ def test_no_pyproject_found_names_the_search_start(tmp_path, monkeypatch, capsys
     assert "pyproject.toml" in err
 
 
-def test_pyproject_without_workspace_table_names_that_path(
-    tmp_path, monkeypatch, capsys
-):
+def test_pyproject_without_workspace_table_names_that_path(tmp_path, monkeypatch, capsys):
     d = tmp_path / "plain"
     d.mkdir()
     _write(d / "pyproject.toml", _package_pyproject())
@@ -294,9 +284,7 @@ def test_members_with_a_non_string_element_exits_2(tmp_path, monkeypatch, capsys
     assert "members" in err
 
 
-def test_members_as_a_bare_string_exits_2_instead_of_iterating_characters(
-    tmp_path, monkeypatch, capsys
-):
+def test_members_as_a_bare_string_exits_2_instead_of_iterating_characters(tmp_path, monkeypatch, capsys):
     """TOML permits `members = "pkgs/*"` (a bare string); Python would
     silently iterate it character-by-character if not validated."""
     ws = tmp_path / "ws"

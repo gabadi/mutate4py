@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-09T20:06:57Z",
+  "module_hash": "f0731e9d3f85282264d8b7318d34908d477c7e3427b7d58f6a6093205c1ef0a8",
+  "source_sha256": "4117562492b09ebbc37f44c84e422606add9d0721c5045965d54569135baaf23",
+  "functions": [
+    {
+      "id": "func/_filter_by_lines",
+      "name": "_filter_by_lines",
+      "line": 14,
+      "end_line": 15,
+      "hash": "1e7c8b1b8930f0fc810c32e6cf5844f1d0f054da3a90b748c972c9db0f5cad1e"
+    },
+    {
+      "id": "func/_filter_by_fn",
+      "name": "_filter_by_fn",
+      "line": 18,
+      "end_line": 19,
+      "hash": "7bde9d2b50f085b8aec9909193a5391e7967834e9797b3cf6069210bee7df73c"
+    },
+    {
+      "id": "func/_select_sites",
+      "name": "_select_sites",
+      "line": 22,
+      "end_line": 36,
+      "hash": "07a1ea44bf0d2a19a2e1f55de96ff235008d1772dea5ebe04db65736b07278e5"
+    },
+    {
+      "id": "func/_acquire_covered_lines",
+      "name": "_acquire_covered_lines",
+      "line": 39,
+      "end_line": 60,
+      "hash": "2c9a528fdb317c9409bb5532a9bce89b5798fc1ff1198cf07f32233696b9b48a"
+    },
+    {
+      "id": "func/_is_effective_since_last_run",
+      "name": "_is_effective_since_last_run",
+      "line": 63,
+      "end_line": 70,
+      "hash": "4ab182b08d24d414c154b7c752f4d97ee36950db02d17626f7a0a8fa213eb4f5"
+    },
+    {
+      "id": "func/_should_run_parallel",
+      "name": "_should_run_parallel",
+      "line": 73,
+      "end_line": 74,
+      "hash": "15249ea2817e81a958e42069ced55937242a9097ca031e88d4843613b8cf330d"
+    },
+    {
+      "id": "func/_uncovered_lines_if_needed",
+      "name": "_uncovered_lines_if_needed",
+      "line": 77,
+      "end_line": 92,
+      "hash": "aede366f281f1725e2cbbaa2eda1949749e40b1bae0d61cb8c71cec08cc6d724"
+    }
+  ]
+}

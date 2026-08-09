@@ -38,7 +38,8 @@ def _hashes(src: str) -> tuple[str, str]:
 
 STABLE_CORPUS: dict[str, tuple[str, str]] = {
     "annotations_and_defaults": (
-        "def f(a: int = 1, /, b: 'str' = '', *c: int, d: list[int] | None = None, **e: object) -> dict[str, int]:\n    return {}\n",
+        "def f(a: int = 1, /, b: 'str' = '', *c: int, d: list[int] | None = None, "
+        "**e: object) -> dict[str, int]:\n    return {}\n",
         "8b00617672b9704d538e82525a244132f7b0879c1ff83fd94a0e52088a771ad0",
     ),
     "attribute_and_subscript_chain": (
@@ -134,15 +135,19 @@ STABLE_CORPUS: dict[str, tuple[str, str]] = {
         "d541ef0c35ef2a18f0e6cfb2c36d0e1622b4de34e2a1ea2d9c8713a85e30df18",
     ),
     "match_as_capture": (
-        "def f(x):\n    match x:\n        case [1, 2] as pair:\n            return pair\n        case str() | bytes() as s:\n            return s\n",
+        "def f(x):\n    match x:\n        case [1, 2] as pair:\n            return pair\n"
+        "        case str() | bytes() as s:\n            return s\n",
         "e1443a1a5030866a9302bc31731daf7b204b3ec359ae3b24a7099a03b266963d",
     ),
     "match_class_sequence_mapping": (
-        "def f(p):\n    match p:\n        case Point(x=0, y=0) | Point(x=1):\n            return 'origin'\n        case [a, *rest] if a > 0:\n            return rest\n        case {'k': v, **extra}:\n            return (v, extra)\n",
+        "def f(p):\n    match p:\n        case Point(x=0, y=0) | Point(x=1):\n            return 'origin'\n"
+        "        case [a, *rest] if a > 0:\n            return rest\n"
+        "        case {'k': v, **extra}:\n            return (v, extra)\n",
         "ae02b58b38befc261aca5854d6383e15792684647450fb18244a4448e74b24c5",
     ),
     "match_literal": (
-        "def f(x):\n    match x:\n        case 1:\n            return 'one'\n        case _:\n            return 'other'\n",
+        "def f(x):\n    match x:\n        case 1:\n            return 'one'\n"
+        "        case _:\n            return 'other'\n",
         "96cb753bfd80e5db388d415e81578cbd93e5a78e0028eb2a18814e217c680be0",
     ),
     "nested_comprehension_conditions": (
@@ -227,9 +232,7 @@ QUOTE_REUSE_CORPUS: dict[str, tuple[str, str, str]] = {
 @pytest.mark.parametrize("name", sorted(QUOTE_REUSE_CORPUS))
 def test_quote_reuse_corpus_digest_is_pinned_per_minor(name):
     src, reuse_digest, escaped_digest = QUOTE_REUSE_CORPUS[name]
-    expected = (
-        reuse_digest if sys.version_info[:2] in _QUOTE_REUSE_MINORS else escaped_digest
-    )
+    expected = reuse_digest if sys.version_info[:2] in _QUOTE_REUSE_MINORS else escaped_digest
     assert _hashes(src) == (expected, expected)
 
 

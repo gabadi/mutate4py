@@ -10,10 +10,13 @@ dependency.
 """
 
 import glob
+import logging
 import os
 import sys
 import tomllib
 from collections.abc import Sequence
+
+_logger = logging.getLogger(__name__)
 
 
 def _find_pyproject(start: str) -> str | None:
@@ -33,29 +36,24 @@ def _find_pyproject(start: str) -> str | None:
 
 
 def _exit_no_pyproject_found(cwd: str) -> None:
-    print(
-        f"error: no [tool.uv.workspace] found; searched from {cwd} upward, "
-        "no pyproject.toml. Pass a path explicitly.",
-        file=sys.stderr,
+    _logger.error(
+        f"error: no [tool.uv.workspace] found; searched from {cwd} upward, no pyproject.toml. Pass a path explicitly."
     )
     sys.exit(2)
 
 
 def _exit_no_workspace_table(pyproject_path: str) -> None:
-    print(f"error: {pyproject_path} has no [tool.uv.workspace].", file=sys.stderr)
+    _logger.error(f"error: {pyproject_path} has no [tool.uv.workspace].")
     sys.exit(2)
 
 
 def _exit_bad_pyproject(path: str, reason: str) -> None:
-    print(f"error: could not read {path}: {reason}", file=sys.stderr)
+    _logger.error(f"error: could not read {path}: {reason}")
     sys.exit(2)
 
 
 def _exit_bad_workspace_key(pyproject_path: str, key: str) -> None:
-    print(
-        f"error: {pyproject_path} [tool.uv.workspace].{key} must be a list of strings.",
-        file=sys.stderr,
-    )
+    _logger.error(f"error: {pyproject_path} [tool.uv.workspace].{key} must be a list of strings.")
     sys.exit(2)
 
 
@@ -147,8 +145,3 @@ def _workspace_exclude_dirs() -> list[str]:
     workspace_root, workspace = _load_workspace_config()
     exclude_patterns = _workspace_list(workspace_root, workspace, "exclude")
     return _resolve_dirs(workspace_root, exclude_patterns)
-
-
-# mutate4py-manifest-begin
-# {"version":1,"tested_at":"2026-08-05T16:18:19Z","module_hash":"0f3109f8371fee438330a2fd8901c5d7ed26f1b1d447ed9a87f437a228172310","functions":[{"id":"func/_find_pyproject","name":"_find_pyproject","line":19,"end_line":32,"hash":"04f3e0c7f7a6fc4c348645147119e2748936ff5e3890eeffe6fb8c0d80fb3f8b"},{"id":"func/_exit_no_pyproject_found","name":"_exit_no_pyproject_found","line":35,"end_line":41,"hash":"e88f818abbaf483dafc18d261403fc1d8807f859e902d09460f1bd58d5e9cdd8"},{"id":"func/_exit_no_workspace_table","name":"_exit_no_workspace_table","line":44,"end_line":46,"hash":"66c99eec46a339bd96794020dd8af222aa3a711df6cfe6745166e5c5aef5a0e6"},{"id":"func/_exit_bad_pyproject","name":"_exit_bad_pyproject","line":49,"end_line":51,"hash":"d28968ebf3fd11eee22cb2dce59f0351123231802ded9d2716408fb5170508a7"},{"id":"func/_exit_bad_workspace_key","name":"_exit_bad_workspace_key","line":54,"end_line":59,"hash":"436a4d0da69fde436b55654172ff298234713580c67fa2c1cce098d9b2af721e"},{"id":"func/_load_toml","name":"_load_toml","line":62,"end_line":69,"hash":"87b867c769f6c70acf7b86b6698aea318d56a7400003212c162c27b2afbac052"},{"id":"func/_workspace_table","name":"_workspace_table","line":72,"end_line":73,"hash":"a07f248b77917e030e08ff97548fe8a18f5bb7e58663165988de979f5fcc8a13"},{"id":"func/_workspace_list","name":"_workspace_list","line":76,"end_line":85,"hash":"366d6bd55f6289a6385d2dbfda067de52b9a02d775bf0eb0e07bc77d9c18fc51"},{"id":"func/_load_workspace_config","name":"_load_workspace_config","line":88,"end_line":98,"hash":"f4d5f4e9366f4333a34aa9e4aa17b662b6960b297b237be154433df5e4375cf2"},{"id":"func/_resolve_dirs","name":"_resolve_dirs","line":101,"end_line":117,"hash":"1d40075ff14b99c39b7692f7a81973c630aa5ccede25957ce306e3a2d55b61ab"},{"id":"func/_resolve_member_dirs","name":"_resolve_member_dirs","line":120,"end_line":124,"hash":"dcc817758fdadd1ee1aada7a9b40028adb5af03f35bf172e131bb4948e6a1942"},{"id":"func/_is_excluded_dir","name":"_is_excluded_dir","line":127,"end_line":129,"hash":"cbfad646d44179d595f92fe2661938f71c33569dbd9e61b25fff1eb95b5f7398"},{"id":"func/_discover_workspace_roots","name":"_discover_workspace_roots","line":132,"end_line":141,"hash":"d7e0d0ee32d6e98f11ec3905d8aacac147c53d3badc97b6d57778769b21b2541"},{"id":"func/_workspace_exclude_dirs","name":"_workspace_exclude_dirs","line":144,"end_line":149,"hash":"7eee43120ced8fe816d25e4647683eaf8ddd87fdf3ce4fffc76eda2fbfd68504"}]}
-# mutate4py-manifest-end

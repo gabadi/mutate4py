@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-09T07:16:16Z",
+  "module_hash": "140b5a19257f812cf84093bca22817acc1b2a4edf5439cd51a49ee5a7137284b",
+  "source_sha256": "3325dc10a84e1380822c378db3c3fc845eb6d29a4c50d5c09fd239db3299a4c5",
+  "functions": [
+    {
+      "id": "func/run_command",
+      "name": "run_command",
+      "line": 8,
+      "end_line": 20,
+      "hash": "d057ada7a6edbfaed83dc3883749643c727c691d1db3ac4ad44704c8754d4287"
+    }
+  ]
+}

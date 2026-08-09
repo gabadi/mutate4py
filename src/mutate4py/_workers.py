@@ -4,6 +4,7 @@ Each worker is an isolated tree copy of the working directory, provisioned with
 its own uv venv. Workers run test commands verbatim with cwd = worker root.
 """
 
+import dataclasses
 import os
 import shutil
 import subprocess
@@ -15,7 +16,42 @@ from typing import Callable
 from mutate4py._cmd import run_command as _run_command
 from mutate4py._discovery import Site, apply_mutant
 
-__all__ = ["ParallelRunError", "WorkerFailureError", "run_parallel"]
+__all__ = ["ParallelRunError", "ParallelRunRequest", "WorkerFailureError", "run_parallel"]
+
+
+@dataclasses.dataclass
+class SiteAssignment:
+    """One (site, worker) pairing plus its position in the overall progress count."""
+
+    worker_idx: int
+    site: Site
+    site_idx: int
+    total: int
+    worker_root: str
+    worker_file_path: str
+
+
+@dataclasses.dataclass
+class WorkerRunSettings:
+    """Shared across every mutant run within one parallel dispatch."""
+
+    clean_source: str
+    test_command: str
+    mutant_timeout: float
+    on_result: Callable
+
+
+@dataclasses.dataclass
+class ParallelRunRequest:
+    selected_sites: list[Site]
+    clean_source: str
+    source_path: str
+    cwd: str
+    test_command: str
+    mutant_timeout: float
+    max_workers: int
+    on_result: Callable
+
 
 _SKIP_ENTRIES = {
     ".git",
@@ -65,54 +101,37 @@ def _provision_worker(worker_root: str) -> None:
     )
 
 
-def _run_one_site(
-    worker_idx: int,
-    site: Site,
-    site_idx: int,
-    total: int,
-    clean_source: str,
-    worker_root: str,
-    worker_file_path: str,
-    test_command: str,
-    mutant_timeout: float,
-    on_result: Callable,
-) -> dict:
+def _run_one_site(assignment: SiteAssignment, settings: WorkerRunSettings) -> dict:
     """Mutate the worker copy, run test, restore, call on_result, return result dict."""
-    with open(worker_file_path) as f:
+    with open(assignment.worker_file_path) as f:
         original_source = f.read()
 
-    mutated = apply_mutant(clean_source, site)
+    mutated = apply_mutant(settings.clean_source, assignment.site)
     if os.environ.get("_MUTATE4PY_TEST_WORKER_WRITE_FAIL") == "1":
-        raise WorkerFailureError(
-            f"worker-{worker_idx} could not write file copy: injected test failure"
-        )
+        raise WorkerFailureError(f"worker-{assignment.worker_idx} could not write file copy: injected test failure")
     try:
-        with open(worker_file_path, "w") as f:
+        with open(assignment.worker_file_path, "w") as f:
             f.write(mutated)
     except OSError as e:
-        raise WorkerFailureError(
-            f"worker-{worker_idx} could not write file copy: {e}"
-        ) from e
+        raise WorkerFailureError(f"worker-{assignment.worker_idx} could not write file copy: {e}") from e
 
     try:
-        status, _ = _run_command(test_command, worker_root, mutant_timeout)
+        status, _ = _run_command(settings.test_command, assignment.worker_root, settings.mutant_timeout)
     finally:
         try:
-            with open(worker_file_path, "w") as f:
+            with open(assignment.worker_file_path, "w") as f:
                 f.write(original_source)
         except OSError as e:
-            raise WorkerFailureError(
-                f"worker-{worker_idx} could not restore file copy: {e}"
-            ) from e
+            raise WorkerFailureError(f"worker-{assignment.worker_idx} could not restore file copy: {e}") from e
 
     result = {
-        "worker_idx": worker_idx,
-        "site": site,
-        "site_idx": site_idx,
-        "total": total,
+        "worker_idx": assignment.worker_idx,
+        "site": assignment.site,
+        "site_idx": assignment.site_idx,
+        "total": assignment.total,
         "status": status,
     }
-    on_result(result)
+    settings.on_result(result)
     return result
 
 
@@ -127,9 +146,7 @@ def _provision_workers(run_root: str, n_workers: int, real_cwd: str) -> list[str
     return worker_roots
 
 
-def _assign_sites_to_workers(
-    selected_sites: list[Site], n_workers: int
-) -> dict[int, list[tuple[int, Site, int]]]:
+def _assign_sites_to_workers(selected_sites: list[Site], n_workers: int) -> dict[int, list[tuple[int, Site, int]]]:
     """Round-robin assign sites to workers; return by_worker grouping."""
     by_worker: dict[int, list[tuple[int, Site, int]]] = defaultdict(list)
     for i, site in enumerate(selected_sites):
@@ -150,17 +167,7 @@ def _summarize_results(results: list[dict]) -> tuple[dict[str, int], list[Site]]
     return counts, survivors
 
 
-def run_parallel(
-    *,
-    selected_sites: list[Site],
-    clean_source: str,
-    source_path: str,
-    cwd: str,
-    test_command: str,
-    mutant_timeout: float,
-    max_workers: int,
-    on_result: Callable,
-) -> tuple[dict, list[Site]]:
+def run_parallel(request: ParallelRunRequest) -> tuple[dict, list[Site]]:
     """Run sites in parallel across max_workers isolated worker copies.
 
     on_result(result_dict) is called from worker threads as each site finishes —
@@ -170,19 +177,25 @@ def run_parallel(
     Raises WorkerFailureError on write/restore failure.
     Raises ParallelRunError if collected results != selected site count.
     """
-    real_source = os.path.realpath(source_path)
-    real_cwd = os.path.realpath(cwd)
+    real_source = os.path.realpath(request.source_path)
+    real_cwd = os.path.realpath(request.cwd)
     if not real_source.startswith(real_cwd + os.sep):
-        raise ParallelRunError(
-            f"target file must be inside working directory: {source_path}"
-        )
+        raise ParallelRunError(f"target file must be inside working directory: {request.source_path}")
 
-    n_workers = min(max_workers, len(selected_sites))
+    selected_sites = request.selected_sites
+    n_workers = min(request.max_workers, len(selected_sites))
     source_rel = os.path.relpath(real_source, real_cwd)
 
     pid = os.getpid()
     nanos = time.monotonic_ns()
     run_root = os.path.join(real_cwd, ".mutate4py", "workers", f"run-{pid}-{nanos}")
+
+    settings = WorkerRunSettings(
+        clean_source=request.clean_source,
+        test_command=request.test_command,
+        mutant_timeout=request.mutant_timeout,
+        on_result=request.on_result,
+    )
 
     try:
         worker_roots = _provision_workers(run_root, n_workers, real_cwd)
@@ -193,16 +206,15 @@ def run_parallel(
         def _run_one_assignment(assignment: tuple[int, Site, int]) -> dict:
             worker_idx, site, site_idx = assignment
             return _run_one_site(
-                worker_idx=worker_idx,
-                site=site,
-                site_idx=site_idx,
-                total=len(selected_sites),
-                clean_source=clean_source,
-                worker_root=worker_roots[worker_idx - 1],
-                worker_file_path=os.path.join(worker_roots[worker_idx - 1], source_rel),
-                test_command=test_command,
-                mutant_timeout=mutant_timeout,
-                on_result=on_result,
+                SiteAssignment(
+                    worker_idx=worker_idx,
+                    site=site,
+                    site_idx=site_idx,
+                    total=len(selected_sites),
+                    worker_root=worker_roots[worker_idx - 1],
+                    worker_file_path=os.path.join(worker_roots[worker_idx - 1], source_rel),
+                ),
+                settings,
             )
 
         # Sites for the same worker must run sequentially (same file path).
@@ -225,17 +237,10 @@ def run_parallel(
                 results.extend(future.result())
 
         if len(results) != len(selected_sites):
-            raise ParallelRunError(
-                f"mutation workers stopped after {len(results)}/{len(selected_sites)} results"
-            )
+            raise ParallelRunError(f"mutation workers stopped after {len(results)}/{len(selected_sites)} results")
 
         results.sort(key=lambda r: r["site_idx"])
         return _summarize_results(results)
 
     finally:
         shutil.rmtree(run_root, ignore_errors=True)
-
-
-# mutate4py-manifest-begin
-# {"version":1,"tested_at":"2026-07-02T02:09:48Z","module_hash":"1b51cca50a42bd35077981abe64e898f8461d0e3195fe89f68c7edaba9b263a4","functions":[{"id":"func/_copy_tree","name":"_copy_tree","line":39,"end_line":49,"hash":"70da0fab59abec453b034042208b4907f5a45bcc43693cf39faf1e0ab383b240"},{"id":"func/_provision_worker","name":"_provision_worker","line":52,"end_line":65,"hash":"6ff23fe9bd247d96250d5b3fe70cf2608d4e2b66037d1aa887ee02ee1b25ae32"},{"id":"func/_run_one_site","name":"_run_one_site","line":68,"end_line":116,"hash":"1b6738623625497222969ab7f986c1557af93fe0204b0327d0e0d765f4269418"},{"id":"func/_provision_workers","name":"_provision_workers","line":119,"end_line":127,"hash":"01e586a80be2c797bf3a60fc2d8148469fa497fa11ee73e471be120c0fc76c2e"},{"id":"func/_assign_sites_to_workers","name":"_assign_sites_to_workers","line":130,"end_line":138,"hash":"38182f3ff4d30bc4333538f3b42892b1be3285e6ae0c194917a5ac9075ae763f"},{"id":"func/_summarize_results","name":"_summarize_results","line":141,"end_line":150,"hash":"f13aab7e3a9b5709751bc84562dafffcbba38134093167fac49188a4ba6947e1"},{"id":"func/run_parallel","name":"run_parallel","line":153,"end_line":236,"hash":"2f944eb5d0950cb938315dee859104d8910a44828716683d99863ff80b3b1dd0"}]}
-# mutate4py-manifest-end

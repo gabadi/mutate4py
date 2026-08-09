@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-09T07:16:18Z",
+  "module_hash": "8e3a6461a8b8c2a37dbdac33268650bc3c74ff2db0949641b3e97a94d6b310c8",
+  "source_sha256": "6e5d876f3f072dba98656b479128577f990b9a8d4d4d39994536cb33c6a6bcfe",
+  "functions": [
+    {
+      "id": "func/function_unit_id",
+      "name": "function_unit_id",
+      "line": 6,
+      "end_line": 16,
+      "hash": "cd7db1047a88c7306b9e5d4769090de1665329ead7a6b9449756562491ee73c1"
+    }
+  ]
+}

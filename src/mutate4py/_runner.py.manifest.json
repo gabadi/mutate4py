@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-09T20:06:56Z",
+  "module_hash": "ca2bbb7571208918b99c538ee9e9a46fbdccf2c5675a077ce41802b12a7baf31",
+  "source_sha256": "ce8bfaf97def5192b6339eba7203d4eeeb8d4c3897e58d10a59867c09ee19f66",
+  "functions": [
+    {
+      "id": "func/_baseline_reason",
+      "name": "_baseline_reason",
+      "line": 99,
+      "end_line": 103,
+      "hash": "6037bd527abaf8a495048a7a504e32c167fda984b2204f6f777d58bb0bc94c61"
+    },
+    {
+      "id": "func/run_baseline",
+      "name": "run_baseline",
+      "line": 106,
+      "end_line": 113,
+      "hash": "9c1ef7c2bd0a7a952d9f0e60242e19d1381e4ae12d5fc8d2bfac56334392ebff"
+    },
+    {
+      "id": "func/_print_lines",
+      "name": "_print_lines",
+      "line": 116,
+      "end_line": 119,
+      "hash": "293a679429a50caa6e29b9629d5412338bb3d9541f0affa9c5d5669ac0e09682"
+    },
+    {
+      "id": "func/run_scan",
+      "name": "run_scan",
+      "line": 122,
+      "end_line": 129,
+      "hash": "c0ed174c868783758b15541261f8e81761a8f4ae5c13a1289f13b6038aa87e58"
+    },
+    {
+      "id": "func/update_manifest",
+      "name": "update_manifest",
+      "line": 132,
+      "end_line": 162,
+      "hash": "d25363552434a27b16f1edad7d68c90aab1a8dba9407042dc4a854ed8d59b9d3"
+    },
+    {
+      "id": "func/check_manifest",
+      "name": "check_manifest",
+      "line": 165,
+      "end_line": 183,
+      "hash": "1510d10e45dfd73ddfbe0180da04f82f131ab42cf6cacf14a9fea0d863789d14"
+    },
+    {
+      "id": "func/_select_and_prepare",
+      "name": "_select_and_prepare",
+      "line": 203,
+      "end_line": 296,
+      "hash": "8b36da28b705bc8b780731a4bfb4d09da43c243f0959467630528c5c9957f22c"
+    },
+    {
+      "id": "func/_resolve_baseline_duration",
+      "name": "_resolve_baseline_duration",
+      "line": 299,
+      "end_line": 305,
+      "hash": "9885e555d18e824057b581e30b0d2345e78e9444ef82f6d5289d11977a6dd1c8"
+    },
+    {
+      "id": "func/run_mutations",
+      "name": "run_mutations",
+      "line": 308,
+      "end_line": 360,
+      "hash": "ac36049ae0fa1eda1002ba7f6fe4ebc2141b46f7c30abc4ce6e93d0f0c97066b"
+    }
+  ]
+}

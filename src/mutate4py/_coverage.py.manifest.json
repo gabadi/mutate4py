@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-09T07:41:46Z",
+  "module_hash": "afe4180d342cc7e15d190f6a0025b1bfd6e3399506040c8691ad6714a98a841b",
+  "source_sha256": "49a98b156e7f8087eb0a6f3f1a2c64ccecbf56a394ec077f60b1d5c9d726d941",
+  "functions": [
+    {
+      "id": "func/_paths_match_by_suffix",
+      "name": "_paths_match_by_suffix",
+      "line": 13,
+      "end_line": 17,
+      "hash": "15fea9e47953b787891a65d7ad6dae4adf24c1a8384cdb48787f61481d26fdc9"
+    },
+    {
+      "id": "func/_parse_da_line",
+      "name": "_parse_da_line",
+      "line": 20,
+      "end_line": 30,
+      "hash": "37e090f9c530f8edf6a6764d97e4ad804ab66a804e5d7441e3aa30a56fbb871c"
+    },
+    {
+      "id": "func/_update_lcov_state",
+      "name": "_update_lcov_state",
+      "line": 33,
+      "end_line": 50,
+      "hash": "d60a40320945579c112203e8d5d31145d12dce05e727c07946c15be20fc58a88"
+    },
+    {
+      "id": "func/parse_lcov",
+      "name": "parse_lcov",
+      "line": 53,
+      "end_line": 65,
+      "hash": "b3452e4adeb92f5cddd8b124e5bd56c1c3e9d40595f38f7602355b16cc9eb106"
+    },
+    {
+      "id": "func/_read_lcov_file",
+      "name": "_read_lcov_file",
+      "line": 68,
+      "end_line": 73,
+      "hash": "2f49c4d94fc92a5a6cbb7065ee4c27710533cc57218e2b512d44e4676d039cdd"
+    },
+    {
+      "id": "func/_resolve_lcov_path",
+      "name": "_resolve_lcov_path",
+      "line": 76,
+      "end_line": 98,
+      "hash": "f9f517fe9d7707e41932e04645535a41deb5d77a167b03e02a7986db4b7e2b02"
+    },
+    {
+      "id": "func/acquire_coverage",
+      "name": "acquire_coverage",
+      "line": 101,
+      "end_line": 115,
+      "hash": "ffaa1de780eb6d78a8e4152b688496e82119bdb0e669f721fafe8163bc8c93d5"
+    }
+  ]
+}

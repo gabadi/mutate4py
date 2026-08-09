@@ -47,6 +47,7 @@ dev = [
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "ruff>=0.15.18",
+    "tach>=0.35.0",
 ]
 
 [tool.bumpversion]
@@ -59,3 +60,57 @@ tag_name = "v{new_version}"
 filename = "pyproject.toml"
 search = 'version = "{current_version}"'
 replace = 'version = "{new_version}"'
+
+[tool.ruff]
+# Read by both the linter (E501) and `ruff format`'s wrap width, so the two
+# can never disagree.
+line-length = 120
+
+[tool.ruff.lint]
+# Needed only because too-many-locals (PLR0914) and too-many-positional-
+# arguments (PLR0917) are preview-gated in ruff 0.15. Scoped to [lint] only
+# (not top-level [tool.ruff]) so it doesn't also flip `ruff format` into its
+# preview hug-brackets style. IMPORTANT: use `select` below, not
+# `extend-select` — with preview on, `extend-select` was observed to extend
+# from ruff's full (~900-rule) preview set instead of the E4/E7/E9/F default,
+# silently enabling dozens of unrelated rule families. `select` does not
+# have this problem.
+preview = true
+
+# The current defaults (E4/E7/E9/F), spelled out because `select` replaces
+# rather than adds to them, plus the shape rules below.
+select = [
+    "E4",
+    "E7",
+    "E9",
+    "F",
+    "E501",     # line-too-long
+    "FBT",      # boolean-trap family (FBT001/002/003)
+    "PLR0913",  # too-many-arguments
+    "PLR0914",  # too-many-locals
+    "PLR0917",  # too-many-positional-arguments
+    "T20",      # print family (T201/T203)
+]
+# mccabe complexity (C901), too-many-branches (PLR0912), and too-many-
+# statements (PLR0915) are deliberately NOT selected: measured against this
+# source at ruff's own default thresholds (max-complexity=10, max-
+# branches=12, max-statements=50), all three report zero findings. The
+# per-function CRAP gate (`just check crap`) already keeps every function
+# small, so these would add configuration surface with no signal. Don't
+# re-add them on principle — re-measure first.
+
+[tool.ruff.lint.pylint]
+# Deliberate, not left at ruff's default (which happens to match): measured
+# against this source, non-flagged functions cluster at <=5 arguments; the
+# run-loop entry points that needed argument-bundling started at 6+ (up to
+# 18, before the RunMutationsRequest/MutantExecCtx refactor). 5 is the
+# natural boundary, not an arbitrary pylint number.
+max-args = 5
+max-positional-args = 5
+# Default (15); the one violation (run_mutations, 25 locals) was fixed by
+# splitting it into _prepare_run_setup/_select_and_prepare, not by loosening
+# this threshold.
+max-locals = 15
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["FBT003"]  # idiomatic pytest-style positional bools at call sites, not an API smell
