@@ -117,4 +117,4 @@ max-locals = 15
 # print is this CLI's actual output mechanism, not debug leakage:
 "src/mutate4py/__main__.py" = ["T201"]  # the CLI adapter's job
 "src/mutate4py/_runner.py" = ["T201"]  # render/print seam factored out by ticket 06
-"src/mutate4py/_workspace.py" = ["T201"]  # print-then-exit replaced by a typed error per ticket 05
+"src/mutate4py/_workspace.py" = ["T201"]  # print-then-exit precedent kept deliberately; see _target_resolution.py's module docstring (issue #38 gate 05)
