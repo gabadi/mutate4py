@@ -71,6 +71,7 @@ check *gates:
 [private]
 lint:
     uv run ruff check src/ tests/
+    uv run tach check
 
 [private]
 format-check:
@@ -184,6 +185,7 @@ perf:
         fi
     }
     _run "lint"   uv run ruff check src/ tests/
+    _run "tach"   uv run tach check
     _run "format" uv run ruff format --check src/ tests/
     _run "test"   uv run pytest --cov --cov-context=test \
                       --cov-report=lcov:lcov.info --cov-report=term-missing \
