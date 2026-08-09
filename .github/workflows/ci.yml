@@ -18,7 +18,13 @@ jobs:
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           enable-cache: true
+          version: "0.12.3"
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+        with:
+          just-version: "1.58.0"
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26.5"
       # Gate commands live in the justfile (one source of truth for CI + local
       # `just check`) — see justfile's header comment. Steps stay separate
       # (rather than one `just check` call) so the Actions UI keeps per-gate
@@ -41,8 +47,10 @@ jobs:
       - name: CRAP
         run: just crap
       - name: Install drywall
+        # Pinned to drywall's latest release; bump this tag alongside the SHA
+        # pins on the GitHub Actions above when drywall cuts a new release.
         run: |
-          gh release download --repo gabadi/drywall --pattern 'drywall-linux-x86_64' --output drywall
+          gh release download v0.1.3 --repo gabadi/drywall --pattern 'drywall-linux-x86_64' --output drywall
           chmod +x drywall
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -53,8 +61,18 @@ jobs:
       - name: Mutation manifest
         run: just manifest
       - name: Install gherkin-parser
+        # Pinned to a specific commit SHA, not a "stable release": upstream
+        # has no tags (confirmed via `git ls-remote --tags
+        # https://github.com/unclebob/Acceptance-Pipeline-Specification`
+        # returning nothing), so there is no release tag to pin instead.
+        # This pin governs only CI's build of gherkin-parser here — it does
+        # not and cannot pin any separately, manually installed local
+        # gherkin-parser binary (e.g. a developer's ~/.local/bin/gherkin-parser),
+        # which has no manifest in this repo and stays an unmanaged,
+        # out-of-scope concern.
         run: |
-          git clone --depth 1 https://github.com/unclebob/Acceptance-Pipeline-Specification /tmp/aps
+          git clone https://github.com/unclebob/Acceptance-Pipeline-Specification /tmp/aps
+          cd /tmp/aps && git checkout accaa33d503340c56513ef387258f8da929ba902
           cd /tmp/aps && go build -o /usr/local/bin/gherkin-parser ./cmd/gherkin-parser
       - name: Acceptance tests
         run: just acceptance
