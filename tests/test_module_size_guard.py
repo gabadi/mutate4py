@@ -24,9 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SRC_CAPS = Caps(max_lines=400, max_defs=25)
 TEST_CAPS = Caps(max_lines=1000, max_defs=100)
 
-EXEMPTIONS = {
-    "tests/test_main.py": ExemptionEntry(lines=1700, defs=138),
-}
+EXEMPTIONS: dict[str, ExemptionEntry] = {}
 
 
 def _py_files(directory: Path) -> dict[str, Path]:
