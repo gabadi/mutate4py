@@ -85,6 +85,7 @@ class Context:
         self.test_script: str | None = None
         self.cli_result: subprocess.CompletedProcess | None = None
         self.dir_path: str | None = None
+        self.dir_files: list[str] = []
 
 
 ctx = Context()
@@ -99,6 +100,7 @@ def _reset_ctx():
     ctx.test_script = None
     ctx.cli_result = None
     ctx.dir_path = None
+    ctx.dir_files = []
 
 
 def _ensure_tmpdir() -> str:
@@ -146,9 +148,12 @@ def given_dir_two_files(m, params):
     d = _ensure_tmpdir()
     ctx.dir_path = os.path.join(d, "src")
     os.makedirs(ctx.dir_path, exist_ok=True)
+    ctx.dir_files = []
     for name in (m.group(2), m.group(3)):
-        with open(os.path.join(ctx.dir_path, name), "w") as f:
+        path = os.path.join(ctx.dir_path, name)
+        with open(path, "w") as f:
             f.write("def f(a, b):\n    return a > b\n")
+        ctx.dir_files.append(path)
 
 
 @step(r'a directory "([^"]*)" containing Python files')
@@ -372,8 +377,14 @@ def then_stderr_contains(m, params):
 
 @step(r'the output contains two "Mutation scan:" lines')
 def then_two_scan_lines(m, params):
-    count = ctx.cli_result.stdout.count("Mutation scan:")
-    assert count == 2, f"Expected 2 'Mutation scan:' lines, got {count}:\n{ctx.cli_result.stdout}"
+    stdout = ctx.cli_result.stdout
+    count = stdout.count("Mutation scan:")
+    assert count == 2, f"Expected 2 'Mutation scan:' lines, got {count}:\n{stdout}"
+    assert len(ctx.dir_files) == 2
+    for path in ctx.dir_files:
+        assert f"Mutation scan: {path}" in stdout, (
+            f"Expected a 'Mutation scan:' line naming {path}:\n{stdout}"
+        )
 
 
 @step(r'that mutant\'s test command is "([^"]*)"')
