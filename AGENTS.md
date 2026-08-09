@@ -10,6 +10,9 @@ Navigation and universal invariants for all agents in this project.
 - `just check` — all CI gates, same order as `.github/workflows/ci.yml` (log-per-gate in `check.log`, ✓/✗ printed, tail on failure). `just check <gate> [<gate> ...]` runs a subset; `just --list` shows public recipes.
 - `just mutate <path> [<args>]` — scored mutation run with per-mutant progress captured to a log; only the `Mutation Report` summary is printed. Use this instead of raw `uv run mutate4py <path> --mutate-all` (see `.agents/roles/hardender.md`).
 
+## Code Review
+- Use `/mattpocock-skills:code-review`, never bare `/code-review` (different, heavier skill).
+
 ## Tool Paths (Local Machine)
 - `crap4py`: installed from local sibling `~/workspace/addi/crap4py` via `uv tool install ~/workspace/addi/crap4py` (not PyPI, not GitHub URL)
 - `drywall`: available at `/Users/gabadi/.local/bin/drywall` (not in PyPI under that name)
