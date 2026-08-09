@@ -127,3 +127,5 @@ max-locals = 15
 "src/mutate4py/_workspace.py" = ["T201"]  # print-then-exit precedent kept deliberately; see _target_resolution.py's module docstring (issue #38 gate 05)
 "src/mutate4py/_dispatch.py" = ["T201"]  # moved here verbatim from __main__.py (gate 11); same
 # print-then-exit CLI-output role, just relocated.
+"src/mutate4py/_run_prep.py" = ["T201"]  # _prepare_fork_server's two notes moved here verbatim
+# from _runner.py (gate 13); same best-effort-fallback notice role, just relocated.

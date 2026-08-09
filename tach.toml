@@ -60,12 +60,21 @@
 # `report`, and `manifest_storage`: no cross-deps, called only from the
 # adapter tier above. It sits in its own layer directly above `domain`,
 # alongside those three.
+#
+# Issue #38 gate 13 extracted the run-loop's pre-flight setup (test-context
+# db + fork-server priming) out of `_runner.py` into `_run_prep`. It imports
+# `_fork_server` (`execution_backends`) and `_test_selection` (`domain`), and
+# is depended on only by `run_loop` — nothing in `execution_backends` needs
+# it back. That puts it strictly between `execution` (its only caller's
+# other dependency) and `execution_backends` (its own dependency), so it
+# sits in its own layer right between the two.
 source_roots = ["src"]
 layers = [
     "cli_adapter",
     "dispatch",
     "run_loop",
     "execution",
+    "run_prep",
     "execution_backends",
     "cli_validation",
     "target_resolution",
@@ -144,6 +153,11 @@ depends_on = []
 [[modules]]
 path = "mutate4py._manifest_storage"
 layer = "manifest_storage"
+depends_on = []
+
+[[modules]]
+path = "mutate4py._run_prep"
+layer = "run_prep"
 depends_on = []
 
 [[modules]]
