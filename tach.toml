@@ -20,8 +20,14 @@
 # depended on by `cli_adapter`; nothing in `run_loop` or
 # `execution_backends` needs it, so it sits in its own layer directly above
 # `domain`.
+#
+# Issue #38 gate 08 extracted the run loop's line-returning report/format
+# functions out of `_runner.py` into `_report`. It depends only on `domain`
+# (Site, discovery, coverage) and is depended on by `run_loop`; nothing in
+# `execution_backends` or `target_resolution` needs it, so it sits in its
+# own layer directly above `domain`, alongside `target_resolution`.
 source_roots = ["src"]
-layers = ["cli_adapter", "run_loop", "execution_backends", "target_resolution", "domain", "primitives"]
+layers = ["cli_adapter", "run_loop", "execution_backends", "target_resolution", "report", "domain", "primitives"]
 forbid_circular_dependencies = true
 
 [[modules]]
@@ -72,6 +78,11 @@ depends_on = []
 [[modules]]
 path = "mutate4py._target_resolution"
 layer = "target_resolution"
+depends_on = []
+
+[[modules]]
+path = "mutate4py._report"
+layer = "report"
 depends_on = []
 
 [[modules]]

@@ -11,23 +11,15 @@ from mutate4py._runner import (
     ManifestLocation,
     MutantExecCtx,
     RunMutationsRequest,
-    RunStats,
     _baseline_reason,
     _finalize_source,
     _fork_server_eligible,
     _is_effective_since_last_run,
-    _mutation_report_lines,
-    _on_parallel_result,
-    _parallel_progress_line,
-    _run_header_lines,
     _run_mutation_loop,
     _run_parallel_workers,
     _run_single_mutant,
     _select_sites,
-    _serial_progress_line,
     _should_run_parallel,
-    _uncovered_block_lines,
-    _workers_header_lines,
     check_manifest,
     read_sidecar_manifest,
     run_mutations,
@@ -626,157 +618,6 @@ def test_run_mutations_timeout_counts_as_killed(tmp_path):
     assert "timeout" in output
     assert "Killed: 1" in output  # timeout counts as killed
     assert "Survived: 0" in output
-
-
-# ── _uncovered_block_lines ────────────────────────────────────────────────────
-
-
-def test_uncovered_block_lines_with_uncovered():
-    sites = [
-        _make_site(0, 1, "func/f"),
-        _make_site(1, 2, "func/g"),
-    ]
-    covered_lines = {1}  # line 2 is uncovered
-    lines = _uncovered_block_lines(sites, covered_lines)
-    assert lines[0] == "Uncovered mutations:"
-    assert any("line 2" in ln and "func/g" in ln for ln in lines)
-
-
-def test_uncovered_block_lines_no_uncovered():
-    sites = [_make_site(0, 1, "func/f"), _make_site(1, 2, "func/g")]
-    covered_lines = {1, 2}
-    assert _uncovered_block_lines(sites, covered_lines) == []
-
-
-def test_uncovered_block_lines_no_function_id():
-    site = Site(
-        index=0,
-        line=5,
-        col=0,
-        end_line=5,
-        end_col=3,
-        function_id="",
-        orig_text=">",
-        mutant_text=">=",
-        desc="> -> >=",
-    )
-    lines = _uncovered_block_lines([site], set())
-    assert lines == ["Uncovered mutations:", "  line 5 > -> >="]
-
-
-# ── _run_header_lines ─────────────────────────────────────────────────────────
-
-
-def _make_run_stats(**overrides) -> RunStats:
-    defaults = dict(
-        total=5,
-        covered_count=4,
-        uncovered_count=1,
-        changed_count=5,
-        manifest_exists=False,
-        selected_count=4,
-        warning_threshold=1000,
-    )
-    defaults.update(overrides)
-    return RunStats(**defaults)
-
-
-def test_run_header_lines_field_order_and_content():
-    lines = _run_header_lines("calc.py", _make_run_stats())
-    assert lines == [
-        "Mutation run: calc.py",
-        "Total mutation sites: 5",
-        "Covered mutation sites: 4",
-        "Uncovered mutation sites: 1",
-        "Changed mutation sites: 5",
-        "Manifest exists: false",
-        "Selected mutation sites: 4",
-    ]
-
-
-def test_run_header_lines_manifest_exists_true():
-    lines = _run_header_lines("calc.py", _make_run_stats(manifest_exists=True))
-    assert "Manifest exists: true" in lines
-
-
-def test_run_header_lines_warning_above_threshold():
-    lines = _run_header_lines("calc.py", _make_run_stats(total=2000, warning_threshold=1000))
-    assert lines[-1] == "Warning: 2000 mutation sites exceeds threshold 1000."
-
-
-def test_run_header_lines_no_warning_at_threshold():
-    lines = _run_header_lines("calc.py", _make_run_stats(total=1000, warning_threshold=1000))
-    assert not any(ln.startswith("Warning:") for ln in lines)
-
-
-# ── _workers_header_lines ─────────────────────────────────────────────────────
-
-
-def test_workers_header_lines_zero_workers_is_empty():
-    assert _workers_header_lines(0, use_parallel=False, n_selected=3) == []
-
-
-def test_workers_header_lines_serial():
-    assert _workers_header_lines(1, use_parallel=False, n_selected=3) == ["Mutation workers: 1"]
-
-
-def test_workers_header_lines_parallel_clamped_to_selected():
-    assert _workers_header_lines(8, use_parallel=True, n_selected=3) == ["Mutation workers: 3"]
-
-
-def test_workers_header_lines_parallel_not_clamped():
-    assert _workers_header_lines(2, use_parallel=True, n_selected=5) == ["Mutation workers: 2"]
-
-
-# ── _serial_progress_line ─────────────────────────────────────────────────────
-
-
-def test_serial_progress_line_with_function_id():
-    site = _make_site(0, 7, "func/f")
-    line = _serial_progress_line(2, 5, "survived", site)
-    assert line == "[2/5] survived line 7 > -> >=: func/f"
-
-
-def test_serial_progress_line_without_function_id():
-    site = _make_site(0, 7, "")
-    line = _serial_progress_line(2, 5, "killed", site)
-    assert line == "[2/5] killed line 7 > -> >="
-
-
-# ── _mutation_report_lines ────────────────────────────────────────────────────
-
-
-def test_mutation_report_lines_no_survivors():
-    lines = _mutation_report_lines({"killed": 2, "timeout": 1, "survived": 0}, [], uncovered_count=1)
-    assert lines == [
-        "",
-        "Mutation Report",
-        "===============",
-        "Killed: 3",
-        "Survived: 0",
-        "Uncovered: 1",
-    ]
-
-
-def test_mutation_report_lines_with_survivors():
-    survivor = _make_site(0, 4, "func/f")
-    lines = _mutation_report_lines({"killed": 0, "timeout": 0, "survived": 1}, [survivor], uncovered_count=0)
-    assert lines[-3:] == ["", "Survivors:", "  line 4 > -> >= func/f"]
-
-
-def test_mutation_report_lines_selection_counts_included():
-    lines = _mutation_report_lines(
-        {"killed": 1, "timeout": 0, "survived": 0},
-        [],
-        uncovered_count=0,
-        selection_counts={"narrowed": 3, "static": 1},
-    )
-    assert "Test selection: narrowed 3, static 1" in lines
-
-
-def test_mutation_report_lines_omits_selection_line_without_a_context_db():
-    lines = _mutation_report_lines({"killed": 1, "timeout": 0, "survived": 0}, [], uncovered_count=0)
-    assert not any(ln.startswith("Test selection:") for ln in lines)
 
 
 # ── run_mutations: warning threshold and CoverageError ───────────────────────
@@ -1448,91 +1289,6 @@ def test_is_effective_since_last_run_lines_filter_disables():
         _is_effective_since_last_run(since_last_run=False, manifest_exists=True, mutate_all=False, lines_filter={5})
         is False
     )
-
-
-# ── _parallel_progress_line ───────────────────────────────────────────────────
-
-
-def _make_simple_site(line=42, function_id=""):
-    return Site(
-        index=0,
-        line=line,
-        col=11,
-        end_line=line,
-        end_col=12,
-        function_id=function_id,
-        orig_text=">",
-        mutant_text=">=",
-        desc="> -> >=",
-    )
-
-
-def test_parallel_progress_line_includes_worker_idx():
-    """worker_idx from result dict must appear in the formatted progress line."""
-    result = {
-        "site": _make_simple_site(42),
-        "site_idx": 3,
-        "total": 10,
-        "worker_idx": 7,
-        "status": "survived",
-    }
-    line = _parallel_progress_line(result)
-    assert "worker-7" in line
-    assert "[3/10]" in line
-
-
-def test_parallel_progress_line_different_worker_idx():
-    """A different worker_idx produces a different label — ensures idx is not hardcoded."""
-    result = {
-        "site": _make_simple_site(1),
-        "site_idx": 1,
-        "total": 5,
-        "worker_idx": 2,
-        "status": "killed",
-    }
-    line = _parallel_progress_line(result)
-    assert "worker-2" in line
-    assert "worker-7" not in line
-
-
-def test_parallel_progress_line_fid_suffix_when_empty():
-    """When function_id is empty, no trailing colon-suffix in the line."""
-    result = {
-        "site": _make_simple_site(10, function_id=""),
-        "site_idx": 1,
-        "total": 1,
-        "worker_idx": 1,
-        "status": "killed",
-    }
-    line = _parallel_progress_line(result)
-    assert line.endswith("> -> >="), f"No extra suffix expected, got: {line!r}"
-
-
-def test_parallel_progress_line_fid_suffix_when_present():
-    """When function_id is non-empty, the line ends with ': <function_id>'."""
-    result = {
-        "site": _make_simple_site(10, function_id="func/calc"),
-        "site_idx": 2,
-        "total": 4,
-        "worker_idx": 3,
-        "status": "killed",
-    }
-    line = _parallel_progress_line(result)
-    assert ": func/calc" in line, f"Expected fid suffix, got: {line!r}"
-
-
-def test_on_parallel_result_prints_the_formatted_line(capsys):
-    """The print callback delegates to _parallel_progress_line verbatim."""
-    result = {
-        "site": _make_simple_site(42),
-        "site_idx": 3,
-        "total": 10,
-        "worker_idx": 7,
-        "status": "survived",
-    }
-    _on_parallel_result(result)
-    out = capsys.readouterr().out
-    assert out == _parallel_progress_line(result) + "\n"
 
 
 # ── _run_parallel_workers passes mutant_timeout ───────────────────────────────

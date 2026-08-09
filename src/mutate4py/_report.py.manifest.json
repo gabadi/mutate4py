@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-09T16:33:29Z",
+  "module_hash": "72ad2d847e38986633d910e1afdeeff910c28ea84b524b070c04bfa7396f212f",
+  "source_sha256": "3acd92b1cc69ba7bb20843b9a8fb4992e8d975f7f6cb1a536eb6fbe3fa1a4889",
+  "functions": [
+    {
+      "id": "func/_run_header_lines",
+      "name": "_run_header_lines",
+      "line": 44,
+      "end_line": 57,
+      "hash": "e4616d1a61dae486ae5b01ab48203c7fada48431a16503755a27612e0639627a"
+    },
+    {
+      "id": "func/_uncovered_block_lines",
+      "name": "_uncovered_block_lines",
+      "line": 60,
+      "end_line": 72,
+      "hash": "64a4530d06c53d830a8262004e4e6d7f3e98e114d9b61c48415c115251d55511"
+    },
+    {
+      "id": "func/_serial_progress_line",
+      "name": "_serial_progress_line",
+      "line": 75,
+      "end_line": 77,
+      "hash": "2e7753e489bf25bf53ea50c21227ed4f38b4989ef6eab90150ddcf7d12bc518b"
+    },
+    {
+      "id": "func/_parallel_progress_line",
+      "name": "_parallel_progress_line",
+      "line": 80,
+      "end_line": 87,
+      "hash": "605886fe59ebf5cfd4f034f5ce7006def3b4c2e032d0742d78afe52668c550b8"
+    },
+    {
+      "id": "func/_on_parallel_result",
+      "name": "_on_parallel_result",
+      "line": 90,
+      "end_line": 92,
+      "hash": "46fd0f67fd7eccaba4a223dcf4f3116bbb46eb79472b1c22999a9c7d59b76000"
+    },
+    {
+      "id": "func/_mutation_report_lines",
+      "name": "_mutation_report_lines",
+      "line": 95,
+      "end_line": 118,
+      "hash": "249ce98055d3b67801d38987070c9e2119bab9af02d657f0b661d26b5a8b187a"
+    },
+    {
+      "id": "func/_workers_header_lines",
+      "name": "_workers_header_lines",
+      "line": 121,
+      "end_line": 125,
+      "hash": "45a887b31e2142ea6ee16ac8585dbe9ed7ee256035aa668275994ec504e3bfd8"
+    },
+    {
+      "id": "func/scan_report",
+      "name": "scan_report",
+      "line": 128,
+      "end_line": 141,
+      "hash": "a93f4b1530dfba54505143b85e4c075297dd27837402a4767874bf43ddd9f1fe"
+    },
+    {
+      "id": "func/scan_report_with_coverage",
+      "name": "scan_report_with_coverage",
+      "line": 144,
+      "end_line": 171,
+      "hash": "79c826dea41a0b2c9ce3b32bc1247c0089120f03a682d852fb753b8113f6f36c"
+    }
+  ]
+}
