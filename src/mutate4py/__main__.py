@@ -1,12 +1,9 @@
 """CLI entry point for mutate4py."""
 
 import argparse
-import glob
 import os
 import sys
-from collections.abc import Sequence
 
-from mutate4py._glob_dialect import glob_match
 from mutate4py._runner import (
     CoverageError,
     CoverageSource,
@@ -16,6 +13,14 @@ from mutate4py._runner import (
     run_mutations,
     run_scan,
     update_manifest,
+)
+from mutate4py._target_resolution import (
+    NoFilesToProcessError,
+    TargetResolutionError,
+    _collect_py_files,
+    _dedup_by_realpath,
+    _expand_roots,
+    _is_excluded,
 )
 from mutate4py._workspace import _discover_workspace_roots, _workspace_exclude_dirs
 
@@ -316,131 +321,6 @@ def _run_scan(args: argparse.Namespace, source: str, cwd: str) -> None:
         sys.exit(2)
 
 
-def _is_excluded(path: str, patterns: Sequence[str]) -> bool:
-    """True if path matches any --exclude glob (shared dialect, case-sensitive)."""
-    return any(glob_match(path, pattern) for pattern in patterns)
-
-
-_PRUNED_DIR_NAMES = {"__pycache__", "venv", "node_modules"}
-
-
-def _walkable_dirs(dirs: list[str]) -> list[str]:
-    """Sorted subdirectories to descend into.
-
-    Prunes __pycache__, venv, node_modules, and any dot-directory (e.g.
-    .git, .venv). build/ and dist/ are deliberately left walkable.
-    """
-    return sorted(d for d in dirs if d not in _PRUNED_DIR_NAMES and not d.startswith("."))
-
-
-def _is_target_py_file(path: str, exclude: Sequence[str]) -> bool:
-    """True for a .py file that no --exclude pattern drops."""
-    return path.endswith(".py") and not _is_excluded(path, exclude)
-
-
-def _prune_walk_dirs(root: str, dirs: list[str], pruned_real: set[str]) -> list[str]:
-    """Walkable subdirectories of root, minus any whose realpath is pruned."""
-    return [d for d in _walkable_dirs(dirs) if os.path.realpath(os.path.join(root, d)) not in pruned_real]
-
-
-def _walk_py_files(directory: str, exclude: Sequence[str], pruned_real: set[str]) -> list[str]:
-    result = []
-    for root, dirs, files in os.walk(directory):
-        dirs[:] = _prune_walk_dirs(root, dirs, pruned_real)
-        for f in sorted(files):
-            path = os.path.join(root, f)
-            if _is_target_py_file(path, exclude):
-                result.append(path)
-    return result
-
-
-def _collect_py_files(directory: str, exclude: Sequence[str] = (), prune_dirs: Sequence[str] = ()) -> list[str]:
-    """The .py files under a root, minus --exclude matches and any pruned
-    subtree.
-
-    The root may be a directory (walked recursively) or a single file (kept
-    as-is if it survives the same filter) — the union path (issue #22 item
-    15) calls this uniformly over every resolved root.
-
-    prune_dirs skips whole subtrees by path identity (os.path.realpath),
-    not by glob pattern — used for [tool.uv.workspace].exclude, which names
-    real directories that may themselves contain glob metacharacters (phase
-    B review: a literal "*" in a directory name must not be reinterpreted).
-    """
-    if not os.path.isdir(directory):
-        return [directory] if _is_target_py_file(directory, exclude) else []
-    pruned_real = {os.path.realpath(d) for d in prune_dirs}
-    return _walk_py_files(directory, exclude, pruned_real)
-
-
-_GLOB_CHARS = frozenset("*?[")
-
-
-def _has_glob_chars(pattern: str) -> bool:
-    """True if pattern needs filesystem expansion rather than literal lookup."""
-    return any(c in _GLOB_CHARS for c in pattern)
-
-
-def _exit_pattern_no_match(pattern: str) -> None:
-    print(f"error: pattern {pattern!r} matched no files.", file=sys.stderr)
-    sys.exit(2)
-
-
-def _exit_path_not_found(pattern: str) -> None:
-    print(f"error: [Errno 2] No such file or directory: {pattern!r}", file=sys.stderr)
-    sys.exit(2)
-
-
-def _expand_glob_pattern(pattern: str) -> list[str]:
-    """Resolve a wildcard pattern to its matched dirs/.py files, sorted.
-
-    Other matched files are dropped silently (issue #22 item 6); if nothing
-    survives, exits 2 naming the pattern (item 7).
-    """
-    matches = sorted(glob.glob(pattern, recursive=True))
-    kept = [m for m in matches if os.path.isdir(m) or m.endswith(".py")]
-    if not kept:
-        _exit_pattern_no_match(pattern)
-    return kept
-
-
-def _expand_literal_path(pattern: str) -> str:
-    """Resolve a literal (non-wildcard) path; exits 2 naming it if missing."""
-    if not os.path.exists(pattern):
-        _exit_path_not_found(pattern)
-    return pattern
-
-
-def _expand_roots(patterns: Sequence[str]) -> list[str]:
-    """Resolve positional patterns to root paths, in argument order.
-
-    Every pattern is validated (item 7's fail-fast) before any file is
-    collected: a bad pattern anywhere in the list exits 2 before dispatch,
-    with none of the other patterns' files processed. Feeds both positional
-    expansion (this cycle) and uv workspace `members` (a later cycle).
-    """
-    roots: list[str] = []
-    for pattern in patterns:
-        if _has_glob_chars(pattern):
-            roots.extend(_expand_glob_pattern(pattern))
-        else:
-            roots.append(_expand_literal_path(pattern))
-    return roots
-
-
-def _dedup_by_realpath(files: list[str]) -> list[str]:
-    """Drop later duplicates that resolve to the same real path; keep the
-    first occurrence and the given order (issue #22 item 14)."""
-    seen: set[str] = set()
-    result = []
-    for f in files:
-        real = os.path.realpath(f)
-        if real not in seen:
-            seen.add(real)
-            result.append(f)
-    return result
-
-
 def _run_on_file(
     args: argparse.Namespace,
     py_file: str,
@@ -526,44 +406,39 @@ def _prepare_directory_baseline(args: argparse.Namespace, files: list[str], cwd:
     return baseline_duration
 
 
-def _exit_no_files() -> None:
-    """Exit 2 when nothing is left to process (empty tree, or all excluded)."""
-    print("error: no Python files to process.", file=sys.stderr)
-    sys.exit(2)
-
-
-def _report_excluded(directory: str, kept: list[str]) -> None:
+def _report_excluded(excluded: list[str]) -> None:
     """Print one line per file --exclude dropped from the walk (--verbose only)."""
-    keep = set(kept)
-    for path in _collect_py_files(directory):
-        if path not in keep:
-            print(f"Excluded: {path}")
+    for path in excluded:
+        print(f"Excluded: {path}")
 
 
 def _directory_files(args: argparse.Namespace) -> list[str]:
     """The directory's .py files minus --exclude matches and any pruned
-    subtree; exit 2 if none remain."""
-    files = _collect_py_files(args.file, args.exclude or (), args.prune_dirs)
+    subtree; raises NoFilesToProcessError if none remain."""
+    result = _collect_py_files(args.file, args.exclude or (), args.prune_dirs)
     if args.verbose:
-        _report_excluded(args.file, files)
-    if not files:
-        _exit_no_files()
-    return files
+        _report_excluded(result.excluded)
+    if not result.kept:
+        raise NoFilesToProcessError()
+    return result.kept
 
 
 def _collect_union_files(args: argparse.Namespace, roots: list[str]) -> list[str]:
-    """The union's .py files across all roots: root order, deduped, exit 2 if
-    the whole union is empty (an individual empty root is silent, item 17)."""
-    files: list[str] = []
+    """The union's .py files across all roots: root order, deduped, raises
+    NoFilesToProcessError if the whole union is empty (an individual empty
+    root is silent, item 17)."""
+    kept: list[str] = []
+    excluded: list[str] = []
     for root in roots:
-        files.extend(_collect_py_files(root, args.exclude or (), args.prune_dirs))
-    files = _dedup_by_realpath(files)
+        result = _collect_py_files(root, args.exclude or (), args.prune_dirs)
+        kept.extend(result.kept)
+        excluded.extend(result.excluded)
+    kept = _dedup_by_realpath(kept)
     if args.verbose:
-        for root in roots:
-            _report_excluded(root, files)
-    if not files:
-        _exit_no_files()
-    return files
+        _report_excluded(excluded)
+    if not kept:
+        raise NoFilesToProcessError()
+    return kept
 
 
 def _run_files_and_exit(args: argparse.Namespace, files: list[str]) -> None:
@@ -641,13 +516,14 @@ def _dispatch_single_file(args: argparse.Namespace, source: str, cwd: str) -> No
     )
 
 
-def _exit_if_target_excluded(args: argparse.Namespace) -> None:
-    """Exit 2 when the single-file target itself matches an --exclude pattern."""
+def _raise_if_target_excluded(args: argparse.Namespace) -> None:
+    """Raise NoFilesToProcessError when the single-file target itself
+    matches an --exclude pattern."""
     if not _is_excluded(args.file, args.exclude or ()):
         return
     if args.verbose:
         print(f"Excluded: {args.file}")
-    _exit_no_files()
+    raise NoFilesToProcessError()
 
 
 def _check_test_contexts_file(args: argparse.Namespace) -> None:
@@ -659,18 +535,16 @@ def _check_test_contexts_file(args: argparse.Namespace) -> None:
         sys.exit(2)
 
 
-def _resolve_roots(args: argparse.Namespace) -> list[str]:
+def _resolve_roots(args: argparse.Namespace) -> tuple[list[str], tuple[str, ...]]:
     """Positionals/globs, or uv workspace autodiscovery when none are given
-    (issue #22 item 3). Autodiscovery also sets args.prune_dirs to the real
+    (issue #22 item 3). Autodiscovery also returns the real
     [tool.uv.workspace].exclude directories, so the shared collector skips
     them by path identity in every walk (item 10's second half) — not by
     re-encoding a literal directory path as a glob pattern, which a "*" in
     the directory's own name would misinterpret."""
     if args.files:
-        return _expand_roots(args.files)
-    roots = _discover_workspace_roots()
-    args.prune_dirs = _workspace_exclude_dirs()
-    return roots
+        return _expand_roots(args.files), ()
+    return _discover_workspace_roots(), tuple(_workspace_exclude_dirs())
 
 
 def _dispatch(args: argparse.Namespace) -> None:
@@ -680,7 +554,7 @@ def _dispatch(args: argparse.Namespace) -> None:
     Exactly one resolved path reuses today's single-file/directory dispatch,
     untouched; two or more run as one union batch.
     """
-    roots = _resolve_roots(args)
+    roots, args.prune_dirs = _resolve_roots(args)
     if len(roots) > 1:
         _dispatch_union(args, roots)
         return
@@ -691,7 +565,7 @@ def _dispatch(args: argparse.Namespace) -> None:
         _dispatch_directory(args)
         return
     source = _load_source(args.file)  # a bad path must report itself, not "excluded"
-    _exit_if_target_excluded(args)
+    _raise_if_target_excluded(args)
     try:
         _dispatch_single_file(args, source, os.getcwd())
     except SyntaxError as exc:
@@ -705,7 +579,11 @@ def main() -> None:
     _check_coverage_flags(args)
     _validate_mutual_exclusions(args)
     _check_test_contexts_file(args)
-    _dispatch(args)
+    try:
+        _dispatch(args)
+    except TargetResolutionError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(exc.exit_code)
 
 
 if __name__ == "__main__":

@@ -1861,100 +1861,6 @@ def test_directory_manifest_file_writes_one_sidecar_per_file(tmp_path):
     assert check_result.stdout.count("Manifest current:") == 2
 
 
-def test_collect_py_files_skips_pycache(tmp_path):
-    from mutate4py.__main__ import _collect_py_files
-
-    d = tmp_path / "pkg"
-    d.mkdir()
-    (d / "mod.py").write_text("x = 1\n")
-    cache = d / "__pycache__"
-    cache.mkdir()
-    (cache / "mod.cpython-312.pyc").write_text("")
-    files = _collect_py_files(str(d))
-    assert all("__pycache__" not in f for f in files)
-    assert any("mod.py" in f for f in files)
-
-
-def test_collect_py_files_ignores_non_py_files(tmp_path):
-    from mutate4py.__main__ import _collect_py_files
-
-    d = tmp_path / "pkg"
-    d.mkdir()
-    (d / "mod.py").write_text("x = 1\n")
-    (d / "README.md").write_text("docs")
-    (d / "data.txt").write_text("data")
-    files = _collect_py_files(str(d))
-    assert files == [str(d / "mod.py")]
-
-
-# ── multi-root union (issue #22): _collect_py_files also accepts a file root ──
-
-
-def test_collect_py_files_root_may_be_a_single_py_file(tmp_path):
-    """Issue #22 item 15's union formula calls _collect_py_files uniformly over
-    every resolved root, whether the root is a directory or a single file."""
-    from mutate4py.__main__ import _collect_py_files
-
-    p = tmp_path / "mod.py"
-    p.write_text("x = 1\n")
-    assert _collect_py_files(str(p)) == [str(p)]
-
-
-def test_collect_py_files_file_root_respects_exclude():
-    from mutate4py.__main__ import _collect_py_files
-
-    assert _collect_py_files("pkg/mod.py", ["**/mod.py"]) == []
-
-
-# ── _collect_py_files: prune_dirs (issue #22 phase B review #3) ────────────────
-#
-# [tool.uv.workspace].exclude names real directories, not glob patterns.
-# prune_dirs matches them by path identity (realpath), not by re-encoding
-# the literal path as a glob string — a directory literally named
-# "some*dir" must not accidentally swallow a sibling "someXXXdir" the way
-# a synthesized f"{d}/**" glob pattern would.
-
-
-def test_collect_py_files_prune_dirs_skips_the_whole_subtree(tmp_path):
-    from mutate4py.__main__ import _collect_py_files
-
-    d = tmp_path / "pkg"
-    vendor = d / "vendor"
-    vendor.mkdir(parents=True)
-    (d / "a.py").write_text("x = 1\n")
-    (vendor / "b.py").write_text("x = 2\n")
-    files = _collect_py_files(str(d), prune_dirs=[str(vendor)])
-    assert files == [str(d / "a.py")]
-
-
-def test_collect_py_files_prune_dirs_does_not_use_glob_matching(tmp_path):
-    """A pruned directory containing a glob metacharacter must not affect
-    an unrelated sibling whose name happens to match it as a pattern."""
-    from mutate4py.__main__ import _collect_py_files
-
-    d = tmp_path / "pkg"
-    starred = d / "some*dir"
-    sibling = d / "someXXXdir"
-    starred.mkdir(parents=True)
-    sibling.mkdir(parents=True)
-    (starred / "a.py").write_text("x = 1\n")
-    (sibling / "b.py").write_text("x = 2\n")
-    files = _collect_py_files(str(d), prune_dirs=[str(starred)])
-    assert files == [str(sibling / "b.py")]
-
-
-def test_collect_py_files_prune_dirs_defaults_to_no_pruning(tmp_path):
-    from mutate4py.__main__ import _collect_py_files
-
-    d = tmp_path / "pkg"
-    d.mkdir()
-    (d / "a.py").write_text("x = 1\n")
-    assert _collect_py_files(str(d)) == [str(d / "a.py")]
-
-
-# ── --exclude: collector filtering ────────────────────────────────────────────
-
-
 def _make_pkg_tree(tmp_path) -> str:
     """pkg/{mod.py, __init__.py, sub/{deep.py, __init__.py}}; return pkg path."""
     d = tmp_path / "pkg"
@@ -1965,111 +1871,21 @@ def _make_pkg_tree(tmp_path) -> str:
     return str(d)
 
 
-def test_collect_py_files_exclude_matches_nested_path(tmp_path):
-    from mutate4py.__main__ import _collect_py_files
-
-    d = _make_pkg_tree(tmp_path)
-    files = _collect_py_files(d, ["**/sub/deep.py"])
-    assert os.path.join(d, "sub", "deep.py") not in files
-    assert os.path.join(d, "mod.py") in files
-    assert os.path.join(d, "sub", "__init__.py") in files
-
-
-def test_collect_py_files_exclude_patterns_union_not_intersect(tmp_path):
-    from mutate4py.__main__ import _collect_py_files
-
-    d = _make_pkg_tree(tmp_path)
-    files = _collect_py_files(d, ["**/__init__.py", "**/sub/*.py"])
-    # union: both patterns drop files, and a file matching only one is still dropped
-    assert files == [os.path.join(d, "mod.py")]
-
-
-def test_collect_py_files_exclude_no_match_is_a_no_op(tmp_path):
-    from mutate4py.__main__ import _collect_py_files
-
-    d = _make_pkg_tree(tmp_path)
-    assert _collect_py_files(d, ["*/nothing_here.py"]) == _collect_py_files(d)
-
-
-def test_collect_py_files_exclude_still_skips_pycache(tmp_path):
-    from mutate4py.__main__ import _collect_py_files
-
-    d = tmp_path / "pkg"
-    d.mkdir()
-    (d / "mod.py").write_text("x = 1\n")
-    cache = d / "__pycache__"
-    cache.mkdir()
-    (cache / "mod.cpython-312.py").write_text("x = 1\n")
-    files = _collect_py_files(str(d), ["*/other.py"])
-    assert files == [str(d / "mod.py")]
-
-
-def test_is_excluded_is_case_sensitive(tmp_path):
-    from mutate4py.__main__ import _is_excluded
-
-    assert _is_excluded("src/Mod.py", ["src/Mod.py"])
-    assert not _is_excluded("src/Mod.py", ["src/mod.py"])
-
-
-def test_is_excluded_single_star_does_not_cross_a_slash():
-    """New dialect (issue #22 item 5): '*' matches one segment; '**/' is
-    required to match at arbitrary depth, unlike the old fnmatch behavior."""
-    from mutate4py.__main__ import _is_excluded
-
-    assert not _is_excluded("a/b/tests/mod.py", ["*/tests/*"])
-    assert _is_excluded("a/b/tests/mod.py", ["**/tests/*"])
-
-
-def test_is_target_py_file_requires_a_py_suffix():
-    from mutate4py.__main__ import _is_target_py_file
-
-    assert _is_target_py_file("pkg/mod.py", ())
-    assert not _is_target_py_file("pkg/README.md", ())
-    assert not _is_target_py_file("pkg/mod.py", ["*/mod.py"])
-
-
-def test_walkable_dirs_sorts_and_drops_pycache():
-    from mutate4py.__main__ import _walkable_dirs
-
-    assert _walkable_dirs(["sub", "__pycache__", "abc"]) == ["abc", "sub"]
-
-
-def test_walkable_dirs_prunes_dot_dirs_venv_and_node_modules():
-    """Issue #22 item 13: applies to ALL directory-mode walks, not just
-    autodiscovered ones. build/ and dist/ are deliberately NOT pruned."""
-    from mutate4py.__main__ import _walkable_dirs
-
-    assert _walkable_dirs(["sub", ".git", ".venv", "venv", "node_modules", "build", "dist"]) == ["build", "dist", "sub"]
-
-
 # ── --exclude: dispatch-level reporting and exits ─────────────────────────────
 
 
-def test_report_excluded_prints_only_dropped_files(tmp_path, capsys):
-    from mutate4py.__main__ import _collect_py_files, _report_excluded
+def test_report_excluded_prints_one_line_per_file(capsys):
+    from mutate4py.__main__ import _report_excluded
 
-    d = _make_pkg_tree(tmp_path)
-    kept = _collect_py_files(d, ["**/sub/deep.py"])
-    _report_excluded(d, kept)
-    out = capsys.readouterr().out
-    assert out == f"Excluded: {os.path.join(d, 'sub', 'deep.py')}\n"
+    _report_excluded(["a.py", "b.py"])
+    assert capsys.readouterr().out == "Excluded: a.py\nExcluded: b.py\n"
 
 
-def test_report_excluded_prints_nothing_when_nothing_dropped(tmp_path, capsys):
-    from mutate4py.__main__ import _collect_py_files, _report_excluded
+def test_report_excluded_prints_nothing_for_an_empty_list(capsys):
+    from mutate4py.__main__ import _report_excluded
 
-    d = _make_pkg_tree(tmp_path)
-    _report_excluded(d, _collect_py_files(d))
+    _report_excluded([])
     assert capsys.readouterr().out == ""
-
-
-def test_exit_no_files_exits_2_with_message(capsys):
-    from mutate4py.__main__ import _exit_no_files
-
-    with pytest.raises(SystemExit) as exc:
-        _exit_no_files()
-    assert exc.value.code == 2
-    assert capsys.readouterr().err == "error: no Python files to process.\n"
 
 
 def test_directory_files_returns_survivors(tmp_path):
@@ -2083,49 +1899,50 @@ def test_directory_files_returns_survivors(tmp_path):
     ]
 
 
-def test_directory_files_exits_2_when_all_excluded(tmp_path, capsys):
+def test_directory_files_raises_when_all_excluded(tmp_path):
+    from mutate4py._target_resolution import NoFilesToProcessError
     from mutate4py.__main__ import _directory_files
 
     args = _make_args(file=_make_pkg_tree(tmp_path), exclude=["**/*.py"])
-    with pytest.raises(SystemExit) as exc:
+    with pytest.raises(NoFilesToProcessError):
         _directory_files(args)
-    assert exc.value.code == 2
-    assert "no Python files to process" in capsys.readouterr().err
 
 
-def test_directory_files_verbose_reports_before_exiting(tmp_path, capsys):
+def test_directory_files_verbose_reports_before_raising(tmp_path, capsys):
+    from mutate4py._target_resolution import NoFilesToProcessError
     from mutate4py.__main__ import _directory_files
 
     d = _make_pkg_tree(tmp_path)
     args = _make_args(file=d, exclude=["**/*.py"], verbose=True)
-    with pytest.raises(SystemExit):
+    with pytest.raises(NoFilesToProcessError):
         _directory_files(args)
     assert capsys.readouterr().out.count("Excluded: ") == 4
 
 
-def test_exit_if_target_excluded_returns_when_no_match(tmp_path):
-    from mutate4py.__main__ import _exit_if_target_excluded
+def test_raise_if_target_excluded_returns_when_no_match(tmp_path):
+    from mutate4py.__main__ import _raise_if_target_excluded
 
     args = _make_args(file="pkg/mod.py", exclude=["*/other.py"])
-    _exit_if_target_excluded(args)  # must not raise
+    _raise_if_target_excluded(args)  # must not raise
 
 
-def test_exit_if_target_excluded_exits_2_on_match(capsys):
-    from mutate4py.__main__ import _exit_if_target_excluded
+def test_raise_if_target_excluded_raises_on_match(capsys):
+    from mutate4py._target_resolution import NoFilesToProcessError
+    from mutate4py.__main__ import _raise_if_target_excluded
 
     args = _make_args(file="pkg/mod.py", exclude=["*/mod.py"])
-    with pytest.raises(SystemExit) as exc:
-        _exit_if_target_excluded(args)
-    assert exc.value.code == 2
+    with pytest.raises(NoFilesToProcessError):
+        _raise_if_target_excluded(args)
     assert capsys.readouterr().out == ""
 
 
-def test_exit_if_target_excluded_verbose_names_the_target(capsys):
-    from mutate4py.__main__ import _exit_if_target_excluded
+def test_raise_if_target_excluded_verbose_names_the_target(capsys):
+    from mutate4py._target_resolution import NoFilesToProcessError
+    from mutate4py.__main__ import _raise_if_target_excluded
 
     args = _make_args(file="pkg/mod.py", exclude=["*/mod.py"], verbose=True)
-    with pytest.raises(SystemExit):
-        _exit_if_target_excluded(args)
+    with pytest.raises(NoFilesToProcessError):
+        _raise_if_target_excluded(args)
     assert capsys.readouterr().out == "Excluded: pkg/mod.py\n"
 
 
@@ -2623,111 +2440,6 @@ def test_test_contexts_flag_accepted_with_valid_file(tmp_path):
     assert "--test-contexts file not found" not in result.stderr
 
 
-# ── multi-root positionals (issue #22): _expand_roots ──────────────────────────
-
-
-def test_expand_roots_literal_directory_is_kept_as_is(tmp_path):
-    from mutate4py.__main__ import _expand_roots
-
-    d = tmp_path / "pkg"
-    d.mkdir()
-    assert _expand_roots([str(d)]) == [str(d)]
-
-
-def test_expand_roots_literal_file_is_kept_as_is(tmp_path):
-    from mutate4py.__main__ import _expand_roots
-
-    p = tmp_path / "mod.py"
-    p.write_text("x = 1\n")
-    assert _expand_roots([str(p)]) == [str(p)]
-
-
-def test_expand_roots_literal_missing_path_exits_2_naming_it(capsys):
-    from mutate4py.__main__ import _expand_roots
-
-    with pytest.raises(SystemExit) as exc:
-        _expand_roots(["/no/such/path.py"])
-    assert exc.value.code == 2
-    err = capsys.readouterr().err
-    assert "/no/such/path.py" in err
-    assert "No such file or directory" in err
-
-
-def test_expand_roots_glob_pattern_expands_to_matches(tmp_path):
-    from mutate4py.__main__ import _expand_roots
-
-    d = tmp_path / "pkg"
-    d.mkdir()
-    (d / "a.py").write_text("x = 1\n")
-    (d / "b.py").write_text("x = 2\n")
-    roots = _expand_roots([str(d / "*.py")])
-    assert sorted(roots) == sorted([str(d / "a.py"), str(d / "b.py")])
-
-
-def test_expand_roots_glob_pattern_keeps_directories_and_py_only(tmp_path):
-    """Issue #22 item 6: a directory and .py files matched by a pattern
-    survive; a non-.py file matched by the same pattern is dropped silently."""
-    from mutate4py.__main__ import _expand_roots
-
-    d = tmp_path / "pkg"
-    sub = d / "sub"
-    sub.mkdir(parents=True)
-    (d / "a.py").write_text("x = 1\n")
-    (d / "README.md").write_text("docs\n")
-    roots = _expand_roots([str(d / "*")])
-    assert sorted(roots) == sorted([str(d / "a.py"), str(sub)])
-
-
-def test_expand_roots_glob_pattern_matching_nothing_exits_2_naming_pattern(capsys):
-    from mutate4py.__main__ import _expand_roots
-
-    with pytest.raises(SystemExit) as exc:
-        _expand_roots(["/no/such/dir/*.py"])
-    assert exc.value.code == 2
-    assert "/no/such/dir/*.py" in capsys.readouterr().err
-
-
-def test_expand_roots_pattern_matching_only_non_py_files_exits_2(tmp_path):
-    """Every glob match filtered out (all non-.py, non-dir) counts as no match."""
-    from mutate4py.__main__ import _expand_roots
-
-    d = tmp_path / "pkg"
-    d.mkdir()
-    (d / "README.md").write_text("docs\n")
-    with pytest.raises(SystemExit) as exc:
-        _expand_roots([str(d / "*.md")])
-    assert exc.value.code == 2
-
-
-def test_expand_roots_preserves_argument_order(tmp_path):
-    from mutate4py.__main__ import _expand_roots
-
-    first = tmp_path / "first.py"
-    second = tmp_path / "second.py"
-    first.write_text("x = 1\n")
-    second.write_text("x = 2\n")
-    assert _expand_roots([str(second), str(first)]) == [str(second), str(first)]
-
-
-# ── multi-root positionals (issue #22): dedup by realpath ──────────────────────
-
-
-def test_dedup_by_realpath_drops_a_repeated_path_keeping_the_first():
-    from mutate4py.__main__ import _dedup_by_realpath
-
-    assert _dedup_by_realpath(["a.py", "b.py", "a.py"]) == ["a.py", "b.py"]
-
-
-def test_dedup_by_realpath_collapses_symlink_aliases(tmp_path):
-    from mutate4py.__main__ import _dedup_by_realpath
-
-    real = tmp_path / "real.py"
-    real.write_text("x = 1\n")
-    link = tmp_path / "link.py"
-    link.symlink_to(real)
-    assert _dedup_by_realpath([str(real), str(link)]) == [str(real)]
-
-
 # ── multi-root positionals (issue #22): _collect_union_files (direct unit) ─────
 
 
@@ -2745,7 +2457,8 @@ def test_collect_union_files_unions_and_dedups_across_roots(tmp_path):
     assert files == [str(a_dir / "a.py"), str(b_dir / "b.py")]
 
 
-def test_collect_union_files_exits_2_when_the_whole_union_is_empty(tmp_path, capsys):
+def test_collect_union_files_raises_when_the_whole_union_is_empty(tmp_path):
+    from mutate4py._target_resolution import NoFilesToProcessError
     from mutate4py.__main__ import _collect_union_files
 
     a_dir = tmp_path / "a_pkg"
@@ -2753,10 +2466,8 @@ def test_collect_union_files_exits_2_when_the_whole_union_is_empty(tmp_path, cap
     a_dir.mkdir()
     b_dir.mkdir()
     args = _make_args(exclude=None, verbose=False)
-    with pytest.raises(SystemExit) as exc:
+    with pytest.raises(NoFilesToProcessError):
         _collect_union_files(args, [str(a_dir), str(b_dir)])
-    assert exc.value.code == 2
-    assert "no Python files to process" in capsys.readouterr().err
 
 
 def test_collect_union_files_verbose_reports_excluded_per_root(tmp_path, capsys):

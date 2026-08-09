@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-09T14:53:21Z",
+  "module_hash": "339a2ce69c2e45213435cf8b84b5c87ef49412beac90416b18b02dfe5ddc81a8",
+  "source_sha256": "717c1ea55c7ae4df97e264c493db920def810ededb4295c01ca9a6dbeb88fc8d",
+  "functions": [
+    {
+      "id": "func/TargetResolutionError.__init__",
+      "name": "__init__",
+      "line": 44,
+      "end_line": 46,
+      "hash": "58b7e90ea79aa2e2cf50807fd85bc81fe66cf156098bec683efcad2941abe12b"
+    },
+    {
+      "id": "func/PatternNoMatchError.__init__",
+      "name": "__init__",
+      "line": 52,
+      "end_line": 53,
+      "hash": "3b0817b66cca6a84ff245644c218034186edb3b7c92e31084bba8a4c3a07c4f7"
+    },
+    {
+      "id": "func/PathNotFoundError.__init__",
+      "name": "__init__",
+      "line": 59,
+      "end_line": 60,
+      "hash": "65e8442c3a9cd0c330f600527b5defa3583b6150dbb30c3b7d9c388753e2e3e3"
+    },
+    {
+      "id": "func/NoFilesToProcessError.__init__",
+      "name": "__init__",
+      "line": 66,
+      "end_line": 67,
+      "hash": "7ce0b2fb25f6f939d8e0c1ccc278ae9e19e04398074baabae080a4cbdb283153"
+    },
+    {
+      "id": "func/_is_excluded",
+      "name": "_is_excluded",
+      "line": 78,
+      "end_line": 80,
+      "hash": "008bb3479fed6ab60747c3e91f15586b27714a78f41dcc0a316c1f3fb437333c"
+    },
+    {
+      "id": "func/_walkable_dirs",
+      "name": "_walkable_dirs",
+      "line": 86,
+      "end_line": 92,
+      "hash": "4f22c58112ba0afe1555a5cfcc33620783628b651b8d04334b478761246378c8"
+    },
+    {
+      "id": "func/_is_target_py_file",
+      "name": "_is_target_py_file",
+      "line": 95,
+      "end_line": 97,
+      "hash": "69b7f59a350fc254d4684e754664f855fe5f092751a06d14950ce0f6850dee10"
+    },
+    {
+      "id": "func/_prune_walk_dirs",
+      "name": "_prune_walk_dirs",
+      "line": 100,
+      "end_line": 102,
+      "hash": "812c9647af35d9baf3a55a46fb2fcd2f095347db875c9a7d6b9c460ec65f21a8"
+    },
+    {
+      "id": "func/_walk_py_files",
+      "name": "_walk_py_files",
+      "line": 105,
+      "end_line": 120,
+      "hash": "2c8de1b8404af99027e48486cbdc6683b66c98a96f07a838c9d641eea6447900"
+    },
+    {
+      "id": "func/_collect_py_files",
+      "name": "_collect_py_files",
+      "line": 123,
+      "end_line": 142,
+      "hash": "a9f5533d7dd99ba15b2cfb571c26d2b918d29ddf5cee37ecf6d6ecfe16d8608a"
+    },
+    {
+      "id": "func/_has_glob_chars",
+      "name": "_has_glob_chars",
+      "line": 148,
+      "end_line": 150,
+      "hash": "703845b0b8f13e5b7e1948c1aa1d938ef78417edc414fef146d35eee2f98faf7"
+    },
+    {
+      "id": "func/_expand_glob_pattern",
+      "name": "_expand_glob_pattern",
+      "line": 153,
+      "end_line": 163,
+      "hash": "9ec137e174a7272bcb6958de110ef1d7ee5775232db4eed28424420c66ac8180"
+    },
+    {
+      "id": "func/_expand_literal_path",
+      "name": "_expand_literal_path",
+      "line": 166,
+      "end_line": 170,
+      "hash": "379f35f177f88f26c0e76ae3b955c475268eed80c53b395783437c40f54cfd19"
+    },
+    {
+      "id": "func/_expand_roots",
+      "name": "_expand_roots",
+      "line": 173,
+      "end_line": 187,
+      "hash": "5ab38f029bf7dcea6190c478867fece06ddd1c83a8615de28f56e444b7302a52"
+    },
+    {
+      "id": "func/_dedup_by_realpath",
+      "name": "_dedup_by_realpath",
+      "line": 190,
+      "end_line": 200,
+      "hash": "87e85ddc47d1cf35c9d33e0bb3c385a32fb725c0267e4f35f424cca6e341d296"
+    }
+  ]
+}

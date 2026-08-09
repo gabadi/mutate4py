@@ -15,15 +15,13 @@
 #   run_loop            -> the run-loop orchestration module
 #   cli_adapter         -> the CLI adapter
 #
-# Issue #38 (blocked by this ticket) extracts target/glob resolution out of
-# __main__.py into its own module. It will depend on `domain` (workspace,
-# glob dialect) and be depended on by `cli_adapter`, but nothing in
-# `run_loop` or `execution_backends` needs it — so it gets its own layer
-# directly above `domain`, e.g. `layers = [..., "run_loop",
-# "target_resolution", "domain", "primitives"]`, without disturbing the
-# rest of the order.
+# Issue #38 gate 05 extracted target/glob resolution out of __main__.py into
+# `_target_resolution`. It depends on `domain` (glob dialect) and is
+# depended on by `cli_adapter`; nothing in `run_loop` or
+# `execution_backends` needs it, so it sits in its own layer directly above
+# `domain`.
 source_roots = ["src"]
-layers = ["cli_adapter", "run_loop", "execution_backends", "domain", "primitives"]
+layers = ["cli_adapter", "run_loop", "execution_backends", "target_resolution", "domain", "primitives"]
 forbid_circular_dependencies = true
 
 [[modules]]
@@ -69,6 +67,11 @@ depends_on = []
 [[modules]]
 path = "mutate4py._workspace"
 layer = "domain"
+depends_on = []
+
+[[modules]]
+path = "mutate4py._target_resolution"
+layer = "target_resolution"
 depends_on = []
 
 [[modules]]
