@@ -9,11 +9,13 @@ from mutate4py._manifest import build_manifest, embed_manifest
 from mutate4py._runner import (
     _baseline_reason,
     _finalize_source,
+    _fork_server_eligible,
     _is_effective_since_last_run,
     _on_parallel_result,
     _print_uncovered_block,
     _run_mutation_loop,
     _run_parallel_workers,
+    _run_single_mutant,
     _select_sites,
     _should_run_parallel,
     check_manifest,
@@ -1177,6 +1179,46 @@ def test_disagreement_restores_the_source_and_removes_the_backup(
         final = f.read()
     assert strip_manifest(final).rstrip("\n") == src.rstrip("\n")
     assert not os.path.isfile(src_path + ".bak")
+
+
+# ── _fork_server_eligible ─────────────────────────────────────────────────────
+
+
+def test_fork_server_eligible_true_when_all_conditions_met():
+    assert _fork_server_eligible(True, False, None, [object()]) is True
+
+
+def test_fork_server_eligible_false_when_not_requested():
+    assert _fork_server_eligible(False, False, None, [object()]) is False
+
+
+def test_fork_server_eligible_false_when_parallel():
+    assert _fork_server_eligible(True, True, None, [object()]) is False
+
+
+def test_fork_server_eligible_false_when_test_ctx_db_present():
+    assert _fork_server_eligible(True, False, object(), [object()]) is False
+
+
+def test_fork_server_eligible_false_when_no_selected_sites():
+    assert _fork_server_eligible(True, False, None, []) is False
+
+
+# ── _run_single_mutant ────────────────────────────────────────────────────────
+
+
+def test_run_single_mutant_uses_fork_server_when_given():
+    class FakeForkServer:
+        def run(self, timeout):
+            return "survived", False
+
+    status = _run_single_mutant(FakeForkServer(), "pytest", "/cwd", 5.0)
+    assert status == "survived"
+
+
+def test_run_single_mutant_falls_back_to_subprocess_when_no_fork_server():
+    status = _run_single_mutant(None, "exit 1", "/tmp", 5.0)
+    assert status == "killed"
 
 
 # ── _should_run_parallel boundary conditions ──────────────────────────────────

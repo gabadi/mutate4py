@@ -427,6 +427,7 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
         "baseline_duration": 1.5,
         "test_contexts_path": ".coverage",
         "manifest_file": False,
+        "fork_server_requested": True,
     }
 
 
@@ -982,6 +983,78 @@ def test_build_parser_manifest_file_dest_is_manifest_file():
     assert args.manifest_file is True
 
 
+def test_build_parser_no_fork_server_defaults_false():
+    """Fork-server fast path is on by default: --no-fork-server absent -> False."""
+    from mutate4py.__main__ import _build_parser
+
+    parser = _build_parser()
+    args = parser.parse_args(["f.py"])
+    assert args.no_fork_server is False
+
+
+def test_build_parser_no_fork_server_flag_sets_true():
+    from mutate4py.__main__ import _build_parser
+
+    parser = _build_parser()
+    args = parser.parse_args(["f.py", "--no-fork-server"])
+    assert args.no_fork_server is True
+
+
+def test_run_on_file_fork_server_requested_defaults_true(monkeypatch):
+    """Default (no --no-fork-server): run_mutations is asked to use the fast path."""
+    from mutate4py.__main__ import _run_on_file
+
+    captured = {}
+    monkeypatch.setattr(
+        "mutate4py.__main__.run_mutations",
+        lambda **kwargs: captured.update(kwargs) or 0,
+    )
+    args = _make_args(no_fork_server=False)
+    _run_on_file(args, "f.py", "x = 1\n", "/cwd")
+    assert captured["fork_server_requested"] is True
+
+
+def test_run_on_file_fork_server_requested_false_when_disabled(monkeypatch):
+    from mutate4py.__main__ import _run_on_file
+
+    captured = {}
+    monkeypatch.setattr(
+        "mutate4py.__main__.run_mutations",
+        lambda **kwargs: captured.update(kwargs) or 0,
+    )
+    args = _make_args(no_fork_server=True)
+    _run_on_file(args, "f.py", "x = 1\n", "/cwd")
+    assert captured["fork_server_requested"] is False
+
+
+def test_dispatch_single_file_fork_server_requested_defaults_true(monkeypatch):
+    from mutate4py.__main__ import _dispatch_single_file
+
+    captured = {}
+    monkeypatch.setattr(
+        "mutate4py.__main__.run_mutations",
+        lambda **kwargs: captured.update(kwargs) or 0,
+    )
+    args = _make_args(file="f.py", no_fork_server=False)
+    with pytest.raises(SystemExit):
+        _dispatch_single_file(args, "x = 1\n", "/cwd")
+    assert captured["fork_server_requested"] is True
+
+
+def test_dispatch_single_file_fork_server_requested_false_when_disabled(monkeypatch):
+    from mutate4py.__main__ import _dispatch_single_file
+
+    captured = {}
+    monkeypatch.setattr(
+        "mutate4py.__main__.run_mutations",
+        lambda **kwargs: captured.update(kwargs) or 0,
+    )
+    args = _make_args(file="f.py", no_fork_server=True)
+    with pytest.raises(SystemExit):
+        _dispatch_single_file(args, "x = 1\n", "/cwd")
+    assert captured["fork_server_requested"] is False
+
+
 def test_build_parser_manifest_file_defaults_to_false():
     from mutate4py.__main__ import _build_parser
 
@@ -1268,6 +1341,7 @@ def _make_args(**kwargs):
         verbose=False,
         exclude=None,
         prune_dirs=(),
+        no_fork_server=False,
     )
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
