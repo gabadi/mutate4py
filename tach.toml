@@ -49,6 +49,17 @@
 # adapter-tier module, not a domain module (see its own docstring), so it
 # sits directly below `cli_adapter` rather than alongside the `domain`-tier
 # extractions above.
+#
+# Issue #38 gate 12 extracted the CLI flag-validation cluster (mutual
+# exclusion / incompatibility checks) out of `__main__.py` into
+# `_cli_validation`. Unlike gate 11's `_dispatch`, it imports nothing from
+# this codebase (pure `argparse.Namespace` checks plus `os.path.isfile`) and
+# is depended on only by `__main__.py` — it doesn't call into `_dispatch` or
+# `_target_resolution`, and nothing in `dispatch`/`run_loop`/`execution`
+# needs it. That makes it structurally identical to `target_resolution`,
+# `report`, and `manifest_storage`: no cross-deps, called only from the
+# adapter tier above. It sits in its own layer directly above `domain`,
+# alongside those three.
 source_roots = ["src"]
 layers = [
     "cli_adapter",
@@ -56,6 +67,7 @@ layers = [
     "run_loop",
     "execution",
     "execution_backends",
+    "cli_validation",
     "target_resolution",
     "report",
     "manifest_storage",
@@ -107,6 +119,11 @@ depends_on = []
 [[modules]]
 path = "mutate4py._workspace"
 layer = "domain"
+depends_on = []
+
+[[modules]]
+path = "mutate4py._cli_validation"
+layer = "cli_validation"
 depends_on = []
 
 [[modules]]

@@ -1,9 +1,14 @@
 """CLI entry point for mutate4py."""
 
 import argparse
-import os
 import sys
 
+from mutate4py._cli_validation import (
+    ValidationError,
+    _check_coverage_flags,
+    _check_test_contexts_file,
+    _validate_mutual_exclusions,
+)
 from mutate4py._dispatch import _dispatch
 from mutate4py._target_resolution import TargetResolutionError
 
@@ -162,102 +167,15 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _check_coverage_flags(args: argparse.Namespace) -> None:
-    """Exit with error if more than one coverage flag is supplied (ADR 0008)."""
-    cov_flags = [args.cov_cmd is not None, args.lcov is not None, args.reuse_coverage]
-    if sum(cov_flags) > 1:
-        print(
-            "error: --cov-cmd, --lcov, and --reuse-coverage are mutually exclusive; supply at most one.",
-            file=sys.stderr,
-        )
-        sys.exit(2)
-
-
-def _no_run_flag(args: argparse.Namespace) -> str:
-    """Return the active no-run flag name for error messages."""
-    if args.scan:
-        return "--scan"
-    if args.update_manifest:
-        return "--update-manifest"
-    return "--check-manifest"
-
-
-def _exit_incompatible(flag_a: str, flag_b: str) -> None:
-    print(f"error: {flag_a} cannot be combined with {flag_b}.", file=sys.stderr)
-    sys.exit(2)
-
-
-def _check_no_run_incompatibilities(args: argparse.Namespace) -> None:
-    """Exit if run-mode flags are paired with no-run-mode flags."""
-    flag = _no_run_flag(args)
-    if args.lines is not None:
-        _exit_incompatible(flag, "--lines")
-    if args.since_last_run:
-        _exit_incompatible(flag, "--since-last-run")
-    if args.mutate_all:
-        _exit_incompatible(flag, "--mutate-all")
-    if args.max_workers is not None:
-        _exit_incompatible(flag, "--max-workers")
-    if args.test_contexts is not None:
-        _exit_incompatible(flag, "--test-contexts")
-
-
-def _check_scan_only_incompatibilities(args: argparse.Namespace) -> None:
-    """Exit if scan-only flags are paired with non-scan flags."""
-    if args.timeout_factor != 10:
-        _exit_incompatible("--scan", "--timeout-factor")
-    if args.min_timeout != 1.0:
-        _exit_incompatible("--scan", "--min-timeout")
-    if args.test_command != "pytest":
-        _exit_incompatible("--scan", "--test-command")
-
-
-def _check_selection_exclusivity(args: argparse.Namespace) -> None:
-    """Exit if more than one selection flag is set."""
-    selection_count = sum([args.since_last_run, args.mutate_all, args.lines is not None])
-    if selection_count > 1:
-        print(
-            "error: --since-last-run, --mutate-all, and --lines are pairwise exclusive; supply at most one.",
-            file=sys.stderr,
-        )
-        sys.exit(2)
-
-
-def _validate_mutual_exclusions(args: argparse.Namespace) -> None:
-    """Exit with error on illegal flag combinations (ADR 0008, 0014)."""
-    no_run = [
-        ("--scan", args.scan),
-        ("--update-manifest", args.update_manifest),
-        ("--check-manifest", args.check_manifest),
-    ]
-    active = [name for name, v in no_run if v]
-    if len(active) > 1:
-        _exit_incompatible(active[0], active[1])
-    if active:
-        _check_no_run_incompatibilities(args)
-        if args.scan:
-            _check_scan_only_incompatibilities(args)
-    _check_selection_exclusivity(args)
-
-
-def _check_test_contexts_file(args: argparse.Namespace) -> None:
-    if args.test_contexts is not None and not os.path.isfile(args.test_contexts):
-        print(
-            f"error: --test-contexts file not found: {args.test_contexts}",
-            file=sys.stderr,
-        )
-        sys.exit(2)
-
-
 def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
-    _check_coverage_flags(args)
-    _validate_mutual_exclusions(args)
-    _check_test_contexts_file(args)
     try:
+        _check_coverage_flags(args)
+        _validate_mutual_exclusions(args)
+        _check_test_contexts_file(args)
         _dispatch(args)
-    except TargetResolutionError as exc:
+    except (ValidationError, TargetResolutionError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(exc.exit_code)
 

@@ -327,61 +327,6 @@ def test_scan_report_with_coverage_warning(tmp_path):
     assert any("Warning:" in line for line in lines)
 
 
-def test_check_no_run_incompatibilities_test_contexts_exits_2(capsys):
-    """--test-contexts paired with --scan (a no-run flag) must exit(2)."""
-    from mutate4py.__main__ import _check_no_run_incompatibilities
-
-    args = _make_args(scan=True, test_contexts=".coverage")
-    with pytest.raises(SystemExit) as exc:
-        _check_no_run_incompatibilities(args)
-    assert exc.value.code == 2
-    assert "--test-contexts" in capsys.readouterr().err
-
-
-# ── Mutant-killing gap tests ──────────────────────────────────────────────────
-
-
-def test_check_coverage_flags_single_flag_allowed():
-    # mutant_5: sum(cov_flags) > 1 — with only one flag, sum=1, must NOT exit
-    import argparse
-    from mutate4py.__main__ import _check_coverage_flags
-
-    args = argparse.Namespace(cov_cmd="echo hi", lcov=None, reuse_coverage=False)
-    _check_coverage_flags(args)  # must not raise
-
-
-def test_check_coverage_flags_two_flags_exits_2(capsys):
-    # mutant_2,3,6: sum > 1 → exit(2)
-    import argparse
-    from mutate4py.__main__ import _check_coverage_flags
-
-    args = argparse.Namespace(cov_cmd="echo hi", lcov="/some/path", reuse_coverage=False)
-    with pytest.raises(SystemExit) as exc:
-        _check_coverage_flags(args)
-    assert exc.value.code == 2
-
-
-def test_check_coverage_flags_all_three_exits_2():
-    import argparse
-    from mutate4py.__main__ import _check_coverage_flags
-
-    args = argparse.Namespace(cov_cmd="echo", lcov="/f", reuse_coverage=True)
-    with pytest.raises(SystemExit) as exc:
-        _check_coverage_flags(args)
-    assert exc.value.code == 2
-
-
-def test_check_coverage_flags_stderr_has_error_text(capsys):
-    import argparse
-    from mutate4py.__main__ import _check_coverage_flags
-
-    args = argparse.Namespace(cov_cmd="echo", lcov="/f", reuse_coverage=False)
-    with pytest.raises(SystemExit):
-        _check_coverage_flags(args)
-    err = capsys.readouterr().err
-    assert "error" in err.lower() or "mutually exclusive" in err
-
-
 def test_scan_report_with_coverage_manifest_exists_false(tmp_path):
     # mutant_22,23,24: "Manifest exists: false" must appear in output
     from mutate4py._runner import scan_report_with_coverage
@@ -638,35 +583,10 @@ def test_lines_non_integer_is_usage_error():
 # ── F5: mutual exclusion — --scan / --update-manifest ────────────────────────
 #
 # Coverage for these flag-exclusivity combinations lives with the in-process
-# `_validate_mutual_exclusions` unit tests below (see "direct unit coverage"
-# section) rather than as subprocess CLI invocations here: they exercise pure
-# argparse-namespace validation logic with no filesystem/process dependency,
-# so a subprocess round-trip adds cost without adding coverage.
-
-
-def test_max_workers_with_lines_parse_accepted():
-    from mutate4py.__main__ import _build_parser, _validate_mutual_exclusions
-
-    parser = _build_parser()
-    args = parser.parse_args(["f.py", "--max-workers", "4", "--lines", "7"])
-    # Should not raise
-    _validate_mutual_exclusions(args)
-
-
-def test_max_workers_with_since_last_run_parse_accepted():
-    from mutate4py.__main__ import _build_parser, _validate_mutual_exclusions
-
-    parser = _build_parser()
-    args = parser.parse_args(["f.py", "--max-workers", "4", "--since-last-run"])
-    _validate_mutual_exclusions(args)
-
-
-def test_max_workers_with_mutate_all_parse_accepted():
-    from mutate4py.__main__ import _build_parser, _validate_mutual_exclusions
-
-    parser = _build_parser()
-    args = parser.parse_args(["f.py", "--max-workers", "4", "--mutate-all"])
-    _validate_mutual_exclusions(args)
+# `_validate_mutual_exclusions` unit tests in tests/test_cli_validation.py:
+# they exercise pure argparse-namespace validation logic with no
+# filesystem/process dependency, so a subprocess round-trip adds cost
+# without adding coverage.
 
 
 # ── F5: --help ────────────────────────────────────────────────────────────────
@@ -803,167 +723,6 @@ def test_positive_int_negative_raises():
         assert "positive integer" in str(exc)
 
 
-# ── _validate_mutual_exclusions: direct unit coverage ─────────────────────────
-
-
-def _make_args(**kwargs):
-    """Build a minimal argparse.Namespace for validation tests."""
-    import argparse
-
-    defaults = dict(
-        scan=False,
-        update_manifest=False,
-        check_manifest=False,
-        lines=None,
-        since_last_run=False,
-        mutate_all=False,
-        max_workers=None,
-        timeout_factor=10,
-        min_timeout=1.0,
-        test_command="pytest",
-        test_contexts=None,
-        cov_cmd=None,
-        lcov=None,
-        reuse_coverage=False,
-        warning_threshold=50,
-        manifest_file=False,
-        verbose=False,
-        exclude=None,
-        prune_dirs=(),
-        no_fork_server=False,
-    )
-    defaults.update(kwargs)
-    return argparse.Namespace(**defaults)
-
-
-def test_validate_scan_and_update_manifest_exits(capsys):
-    from mutate4py.__main__ import _validate_mutual_exclusions
-
-    try:
-        _validate_mutual_exclusions(_make_args(scan=True, update_manifest=True))
-        assert False, "expected SystemExit"
-    except SystemExit as exc:
-        assert exc.code == 2
-    assert "--scan" in capsys.readouterr().err
-
-
-@pytest.mark.parametrize(
-    "extra",
-    [
-        {"lines": "7"},
-        {"since_last_run": True},
-        {"mutate_all": True},
-        {"max_workers": 4},
-    ],
-)
-def test_validate_scan_with_run_only_flag_exits(capsys, extra):
-    from mutate4py.__main__ import _validate_mutual_exclusions
-
-    try:
-        _validate_mutual_exclusions(_make_args(scan=True, **extra))
-        assert False, "expected SystemExit"
-    except SystemExit as exc:
-        assert exc.code == 2
-    assert "--scan" in capsys.readouterr().err
-
-
-@pytest.mark.parametrize(
-    "extra",
-    [
-        {"lines": "7"},
-        {"since_last_run": True},
-        {"mutate_all": True},
-        {"max_workers": 4},
-    ],
-)
-def test_validate_check_manifest_with_run_only_flag_exits(capsys, extra):
-    from mutate4py.__main__ import _validate_mutual_exclusions
-
-    try:
-        _validate_mutual_exclusions(_make_args(check_manifest=True, **extra))
-        assert False, "expected SystemExit"
-    except SystemExit as exc:
-        assert exc.code == 2
-    assert "--check-manifest" in capsys.readouterr().err
-
-
-def test_validate_update_manifest_with_lines_exits(capsys):
-    from mutate4py.__main__ import _validate_mutual_exclusions
-
-    try:
-        _validate_mutual_exclusions(_make_args(update_manifest=True, lines="5"))
-        assert False, "expected SystemExit"
-    except SystemExit as exc:
-        assert exc.code == 2
-    assert "--update-manifest" in capsys.readouterr().err
-
-
-@pytest.mark.parametrize(
-    "extra",
-    [
-        {"since_last_run": True},
-        {"mutate_all": True},
-        {"max_workers": 4},
-    ],
-)
-def test_validate_update_manifest_with_run_only_flag_exits(capsys, extra):
-    from mutate4py.__main__ import _validate_mutual_exclusions
-
-    try:
-        _validate_mutual_exclusions(_make_args(update_manifest=True, **extra))
-        assert False, "expected SystemExit"
-    except SystemExit as exc:
-        assert exc.code == 2
-    assert "--update-manifest" in capsys.readouterr().err
-
-
-def test_validate_scan_with_timeout_factor_exits(capsys):
-    from mutate4py.__main__ import _validate_mutual_exclusions
-
-    try:
-        _validate_mutual_exclusions(_make_args(scan=True, timeout_factor=5))
-        assert False, "expected SystemExit"
-    except SystemExit as exc:
-        assert exc.code == 2
-    assert "--timeout-factor" in capsys.readouterr().err
-
-
-def test_validate_scan_with_test_command_exits(capsys):
-    from mutate4py.__main__ import _validate_mutual_exclusions
-
-    try:
-        _validate_mutual_exclusions(_make_args(scan=True, test_command="tox"))
-        assert False, "expected SystemExit"
-    except SystemExit as exc:
-        assert exc.code == 2
-    assert "--test-command" in capsys.readouterr().err
-
-
-@pytest.mark.parametrize(
-    "extra",
-    [
-        {"since_last_run": True, "mutate_all": True},
-        {"since_last_run": True, "lines": "7"},
-        {"mutate_all": True, "lines": "7"},
-    ],
-)
-def test_validate_pairwise_selection_exits(capsys, extra):
-    from mutate4py.__main__ import _validate_mutual_exclusions
-
-    try:
-        _validate_mutual_exclusions(_make_args(**extra))
-        assert False, "expected SystemExit"
-    except SystemExit as exc:
-        assert exc.code == 2
-    assert "pairwise exclusive" in capsys.readouterr().err
-
-
-def test_validate_no_flags_passes():
-    from mutate4py.__main__ import _validate_mutual_exclusions
-
-    _validate_mutual_exclusions(_make_args())  # must not raise
-
-
 # ── --check-manifest: single file ────────────────────────────────────────────
 
 
@@ -1061,28 +820,6 @@ def test_manifest_file_check_missing_sidecar_reports_missing(tmp_path):
 
     assert result.returncode == 1
     assert "Manifest missing:" in result.stdout
-
-
-def test_validate_check_manifest_with_scan_exits(capsys):
-    from mutate4py.__main__ import _validate_mutual_exclusions
-
-    try:
-        _validate_mutual_exclusions(_make_args(check_manifest=True, scan=True))
-        assert False, "expected SystemExit"
-    except SystemExit as exc:
-        assert exc.code == 2
-    assert "--check-manifest" in capsys.readouterr().err
-
-
-def test_validate_check_manifest_with_update_manifest_exits(capsys):
-    from mutate4py.__main__ import _validate_mutual_exclusions
-
-    try:
-        _validate_mutual_exclusions(_make_args(check_manifest=True, update_manifest=True))
-        assert False, "expected SystemExit"
-    except SystemExit as exc:
-        assert exc.code == 2
-    assert "--check-manifest" in capsys.readouterr().err
 
 
 # ── directory support ─────────────────────────────────────────────────────────
