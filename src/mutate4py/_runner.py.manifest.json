@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-08-09T07:41:46Z",
-  "module_hash": "98424ba8c389c4fb84db3d3ac5e0e72e6dfd7f1f0a7d247d8ae9a5d23c53f779",
-  "source_sha256": "b78684067da16b41119c5ff9cd028d1993ee39e5c681402a1d47094723c702c8",
+  "tested_at": "2026-08-09T15:31:03Z",
+  "module_hash": "999b2b019f59469665c08a01e404514845e3ceb63b642a7ee5a11dd88c361659",
+  "source_sha256": "837ee213e4087fae1db82c4a9270f14d81c130a995d1fa8b76590b986765940b",
   "functions": [
     {
       "id": "func/_baseline_reason",
@@ -40,248 +40,269 @@
       "hash": "07a1ea44bf0d2a19a2e1f55de96ff235008d1772dea5ebe04db65736b07278e5"
     },
     {
-      "id": "func/_print_uncovered_block",
-      "name": "_print_uncovered_block",
+      "id": "func/_print_lines",
+      "name": "_print_lines",
       "line": 166,
-      "end_line": 176,
-      "hash": "64af8f5bf37b3fd3381b6d81e93670387bd64de4c897712faeb864afd9321127"
+      "end_line": 169,
+      "hash": "49fa047f0d816641307aa63e499de9d42dd1b231d2ea8928faa39803304d6bb1"
+    },
+    {
+      "id": "func/_uncovered_block_lines",
+      "name": "_uncovered_block_lines",
+      "line": 172,
+      "end_line": 184,
+      "hash": "64a4530d06c53d830a8262004e4e6d7f3e98e114d9b61c48415c115251d55511"
     },
     {
       "id": "func/_restore_from_backup",
       "name": "_restore_from_backup",
-      "line": 179,
-      "end_line": 189,
+      "line": 187,
+      "end_line": 197,
       "hash": "eac2a96184bf954d27a9b87a70232574967423aa03fd629a886f30ca9ffa916b"
     },
     {
       "id": "func/_sidecar_path",
       "name": "_sidecar_path",
-      "line": 192,
-      "end_line": 194,
+      "line": 200,
+      "end_line": 202,
       "hash": "af8f8cfc5561f9534e283daa8fd83073dbdf8b269beef3956138b50c81197dfd"
     },
     {
       "id": "func/read_sidecar_manifest",
       "name": "read_sidecar_manifest",
-      "line": 197,
-      "end_line": 209,
+      "line": 205,
+      "end_line": 217,
       "hash": "3bdb1511b8b328a09f3379df51d4c0379af5cf6ed1b9e52f087c65a7a061113e"
     },
     {
       "id": "func/write_sidecar_manifest",
       "name": "write_sidecar_manifest",
-      "line": 212,
-      "end_line": 215,
+      "line": 220,
+      "end_line": 223,
       "hash": "a1286abc647074d89e0b13b323d1bab95d8ff1268d8a116f1f8aea6a747d775f"
     },
     {
       "id": "func/_read_existing_manifest",
       "name": "_read_existing_manifest",
-      "line": 218,
-      "end_line": 222,
+      "line": 226,
+      "end_line": 230,
       "hash": "a4d1e82820ca86a218477a519c3a08faddae46fca135115787cbff5c3654754b"
     },
     {
       "id": "func/_compute_manifest_diff",
       "name": "_compute_manifest_diff",
-      "line": 225,
-      "end_line": 235,
+      "line": 233,
+      "end_line": 243,
       "hash": "d08433bb0849f205d8858e678ace5c389d3af239003f92fc8fdec3c92f7fa3dd"
     },
     {
-      "id": "func/_print_run_header",
-      "name": "_print_run_header",
-      "line": 238,
-      "end_line": 248,
-      "hash": "1c6e9f144b6c4043aae32563683399beff44cb8712f3ee98a89e5d06d4afa1ab"
+      "id": "func/_run_header_lines",
+      "name": "_run_header_lines",
+      "line": 246,
+      "end_line": 259,
+      "hash": "e4616d1a61dae486ae5b01ab48203c7fada48431a16503755a27612e0639627a"
     },
     {
       "id": "func/_build_mutant_command",
       "name": "_build_mutant_command",
-      "line": 265,
-      "end_line": 284,
+      "line": 276,
+      "end_line": 295,
       "hash": "9dadd97a7e9c7e001d6f773b1776379e86106c9221180797357242d440745237"
     },
     {
       "id": "func/_run_single_mutant",
       "name": "_run_single_mutant",
-      "line": 287,
-      "end_line": 297,
+      "line": 298,
+      "end_line": 308,
       "hash": "69aa6636055bdba948183b5541fd63e214b0a3fa5dfb67550049fac524608d54"
+    },
+    {
+      "id": "func/_serial_progress_line",
+      "name": "_serial_progress_line",
+      "line": 311,
+      "end_line": 313,
+      "hash": "2e7753e489bf25bf53ea50c21227ed4f38b4989ef6eab90150ddcf7d12bc518b"
     },
     {
       "id": "func/_run_mutation_loop",
       "name": "_run_mutation_loop",
-      "line": 300,
-      "end_line": 334,
-      "hash": "504354a3f8bdd20678f9f78b0265d18535486f30c3e8574c3b202675f028ab4b"
+      "line": 316,
+      "end_line": 349,
+      "hash": "94d4b6ae5e22330c55f5e54dfe3d2cadd9e376d2938c516d3de9581e9488ba9a"
+    },
+    {
+      "id": "func/_parallel_progress_line",
+      "name": "_parallel_progress_line",
+      "line": 352,
+      "end_line": 359,
+      "hash": "605886fe59ebf5cfd4f034f5ce7006def3b4c2e032d0742d78afe52668c550b8"
     },
     {
       "id": "func/_on_parallel_result",
       "name": "_on_parallel_result",
-      "line": 337,
-      "end_line": 345,
-      "hash": "4f1c7c1086c1cdebaf9fb79f281ac1fdf96dbd37b1ad5fd4a0eb98fa470ebc86"
+      "line": 362,
+      "end_line": 364,
+      "hash": "46fd0f67fd7eccaba4a223dcf4f3116bbb46eb79472b1c22999a9c7d59b76000"
     },
     {
       "id": "func/_run_parallel_workers",
       "name": "_run_parallel_workers",
-      "line": 348,
-      "end_line": 373,
+      "line": 367,
+      "end_line": 392,
       "hash": "56ec1a217400d8f328b8e65e70a5e615caeef490ce077d449a28fb52a04ffbbc"
     },
     {
-      "id": "func/_print_mutation_report",
-      "name": "_print_mutation_report",
-      "line": 376,
-      "end_line": 396,
-      "hash": "8fbac40a95965db2b883bdf80eb68252eb87579025a420de46697cc2d7466ce0"
+      "id": "func/_mutation_report_lines",
+      "name": "_mutation_report_lines",
+      "line": 395,
+      "end_line": 418,
+      "hash": "249ce98055d3b67801d38987070c9e2119bab9af02d657f0b661d26b5a8b187a"
     },
     {
-      "id": "func/_print_workers_header",
-      "name": "_print_workers_header",
-      "line": 399,
-      "end_line": 402,
-      "hash": "605f68e95c54a015fe4490e77aa4a3fa2946f6b2d8288d6ffc93aaaa63427253"
+      "id": "func/_workers_header_lines",
+      "name": "_workers_header_lines",
+      "line": 421,
+      "end_line": 425,
+      "hash": "45a887b31e2142ea6ee16ac8585dbe9ed7ee256035aa668275994ec504e3bfd8"
     },
     {
       "id": "func/_execute_mutations",
       "name": "_execute_mutations",
-      "line": 405,
-      "end_line": 437,
-      "hash": "47bd3c14c936f38986d36eb34135a18b3b6c7fb03a5e2bd10be49cf79a150579"
+      "line": 428,
+      "end_line": 460,
+      "hash": "4a67f94ffbb6993bc182df1d25555d3116be45caca0268f4e05c136d3bc96f12"
     },
     {
       "id": "func/_acquire_covered_lines",
       "name": "_acquire_covered_lines",
-      "line": 440,
-      "end_line": 461,
+      "line": 463,
+      "end_line": 484,
       "hash": "dc39b28ac5645ee41d8def7716a503f0b6043befeb5fdcb2e75996d6cc33623a"
     },
     {
       "id": "func/_is_effective_since_last_run",
       "name": "_is_effective_since_last_run",
-      "line": 464,
-      "end_line": 471,
+      "line": 487,
+      "end_line": 494,
       "hash": "4ab182b08d24d414c154b7c752f4d97ee36950db02d17626f7a0a8fa213eb4f5"
     },
     {
       "id": "func/_should_run_parallel",
       "name": "_should_run_parallel",
-      "line": 474,
-      "end_line": 475,
+      "line": 497,
+      "end_line": 498,
       "hash": "15249ea2817e81a958e42069ced55937242a9097ca031e88d4843613b8cf330d"
     },
     {
       "id": "func/_print_uncovered_if_needed",
       "name": "_print_uncovered_if_needed",
-      "line": 478,
-      "end_line": 486,
-      "hash": "da0fb8230c2660f0ddd9d7743ad3970d3eee722352d971f72e2c6b8b3ea659d2"
+      "line": 501,
+      "end_line": 509,
+      "hash": "0be3d312b252f45023404bbc8736c25f3ddfe20dafc2d47a32d05587f2eadb47"
     },
     {
       "id": "func/_write_manifest_output",
       "name": "_write_manifest_output",
-      "line": 489,
-      "end_line": 510,
+      "line": 512,
+      "end_line": 533,
       "hash": "76cda4fa5c7542d05495529caa88346f1d2cd57965d84507ec7198157b099de9"
     },
     {
       "id": "func/_finalize_source",
       "name": "_finalize_source",
-      "line": 513,
-      "end_line": 530,
+      "line": 536,
+      "end_line": 553,
       "hash": "82a1a22052c2b8805aee2d4d3d0bd465fbfc9fa17bd32663d45b3e43a83dbbac"
     },
     {
       "id": "func/scan_report",
       "name": "scan_report",
-      "line": 533,
-      "end_line": 546,
+      "line": 556,
+      "end_line": 569,
       "hash": "a93f4b1530dfba54505143b85e4c075297dd27837402a4767874bf43ddd9f1fe"
     },
     {
       "id": "func/scan_report_with_coverage",
       "name": "scan_report_with_coverage",
-      "line": 549,
-      "end_line": 576,
+      "line": 572,
+      "end_line": 599,
       "hash": "79c826dea41a0b2c9ce3b32bc1247c0089120f03a682d852fb753b8113f6f36c"
     },
     {
       "id": "func/run_scan",
       "name": "run_scan",
-      "line": 579,
-      "end_line": 586,
+      "line": 602,
+      "end_line": 609,
       "hash": "f3a1564fcd7689ae4b60e2b4828e0734a209760a226eeb8e6902485d2d2ce99b"
     },
     {
       "id": "func/update_manifest",
       "name": "update_manifest",
-      "line": 589,
-      "end_line": 619,
+      "line": 612,
+      "end_line": 642,
       "hash": "87328050a874d4d3b6fedf624c2c0aff6492b6a164daf8eea712f92569b7214c"
     },
     {
       "id": "func/check_manifest",
       "name": "check_manifest",
-      "line": 622,
-      "end_line": 640,
+      "line": 645,
+      "end_line": 663,
       "hash": "48366787f288080cc6e661d78080d3bc88ef92f20a7681df7f7a248a297974ca"
     },
     {
       "id": "func/_setup_test_context_db",
       "name": "_setup_test_context_db",
-      "line": 643,
-      "end_line": 654,
+      "line": 666,
+      "end_line": 677,
       "hash": "c1eed2316ef608c58b742dca1ff2394c3b15856b4f48788fdf17da0f6f60b8d8"
     },
     {
       "id": "func/_prepare_fork_server",
       "name": "_prepare_fork_server",
-      "line": 657,
-      "end_line": 686,
+      "line": 680,
+      "end_line": 709,
       "hash": "fcadb5aedf1a7501edb1168384dfd440f8dca390c88ef51ee8065e5b9fbb18af"
     },
     {
       "id": "func/_fork_server_eligible",
       "name": "_fork_server_eligible",
-      "line": 689,
-      "end_line": 702,
+      "line": 712,
+      "end_line": 725,
       "hash": "09577049e93c467d65076a491185e7e6d22218571ff5a6ef2ace20d1eb8d25f3"
     },
     {
       "id": "func/_load_clean_source",
       "name": "_load_clean_source",
-      "line": 718,
-      "end_line": 740,
+      "line": 741,
+      "end_line": 763,
       "hash": "3edb8fbb7289e83860ed1df56579b3216cd79d5a9f5c758cfac51bfce3f3cb19"
     },
     {
       "id": "func/_prepare_run_setup",
       "name": "_prepare_run_setup",
-      "line": 752,
-      "end_line": 757,
+      "line": 775,
+      "end_line": 780,
       "hash": "9bf3e51f6d93cc61db2a3a00e13aaaf8e7b9eb0e9867e0eb917076bfaf085f89"
     },
     {
       "id": "func/_select_and_prepare",
       "name": "_select_and_prepare",
-      "line": 777,
-      "end_line": 865,
-      "hash": "2e1ca9019f8335fd08c1fa5b6edf613cdf055c21438d6dcc0e7c548306fd6dd1"
+      "line": 800,
+      "end_line": 886,
+      "hash": "dabe9734edb11bcccaa40b79a8e02ea2bf03995618dae438fce18f268455d071"
     },
     {
       "id": "func/_resolve_baseline_duration",
       "name": "_resolve_baseline_duration",
-      "line": 868,
-      "end_line": 874,
+      "line": 889,
+      "end_line": 895,
       "hash": "9885e555d18e824057b581e30b0d2345e78e9444ef82f6d5289d11977a6dd1c8"
     },
     {
       "id": "func/run_mutations",
       "name": "run_mutations",
-      "line": 877,
-      "end_line": 923,
+      "line": 898,
+      "end_line": 944,
       "hash": "a8a4fb483e51bead83ebb539c3e10ddf326ef653697bbde4e6fe04324843c489"
     }
   ]

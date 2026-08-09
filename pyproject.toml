@@ -116,5 +116,8 @@ max-locals = 15
 "tests/*.py" = ["FBT003"]  # idiomatic pytest-style positional bools at call sites, not an API smell
 # print is this CLI's actual output mechanism, not debug leakage:
 "src/mutate4py/__main__.py" = ["T201"]  # the CLI adapter's job
-"src/mutate4py/_runner.py" = ["T201"]  # render/print seam factored out by ticket 06
+"src/mutate4py/_runner.py" = ["T201"]  # ticket 06 factored the five report blocks' formatting out
+# of their print calls, but the module still legitimately prints ~20 status/error/note messages
+# (manifest state, coverage/baseline/fork-server notices) that are outside that ticket's scope;
+# moving those to __main__.py is a larger, unscoped change for a future ticket, not this one.
 "src/mutate4py/_workspace.py" = ["T201"]  # print-then-exit precedent kept deliberately; see _target_resolution.py's module docstring (issue #38 gate 05)

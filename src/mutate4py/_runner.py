@@ -163,17 +163,25 @@ def _select_sites(
     return covered, covered
 
 
-def _print_uncovered_block(
+def _print_lines(lines: list[str]) -> None:
+    """Print a report block's lines as one call, or nothing when the block is empty."""
+    if lines:
+        print("\n".join(lines))
+
+
+def _uncovered_block_lines(
     all_sites: list[Site],
     covered_lines: set[int],
-) -> None:
+) -> list[str]:
+    """Return the "Uncovered mutations:" block's lines, or [] when nothing is uncovered."""
     uncovered = [s for s in all_sites if s.line not in covered_lines]
     if not uncovered:
-        return
-    print("Uncovered mutations:")
+        return []
+    lines = ["Uncovered mutations:"]
     for s in uncovered:
         fid = f" {s.function_id}" if s.function_id else ""
-        print(f"  line {s.line} {s.desc}{fid}")
+        lines.append(f"  line {s.line} {s.desc}{fid}")
+    return lines
 
 
 def _restore_from_backup(path: str, bak_path: str) -> str | None:
@@ -235,17 +243,20 @@ def _compute_manifest_diff(source: str, loc: ManifestLocation) -> tuple[str, dic
     return clean_source, existing_manifest, manifest_exists, changed_fn_ids, tested_at
 
 
-def _print_run_header(path: str, stats: RunStats) -> None:
+def _run_header_lines(path: str, stats: RunStats) -> list[str]:
     manifest_str = "true" if stats.manifest_exists else "false"
-    print(f"Mutation run: {path}")
-    print(f"Total mutation sites: {stats.total}")
-    print(f"Covered mutation sites: {stats.covered_count}")
-    print(f"Uncovered mutation sites: {stats.uncovered_count}")
-    print(f"Changed mutation sites: {stats.changed_count}")
-    print(f"Manifest exists: {manifest_str}")
-    print(f"Selected mutation sites: {stats.selected_count}")
+    lines = [
+        f"Mutation run: {path}",
+        f"Total mutation sites: {stats.total}",
+        f"Covered mutation sites: {stats.covered_count}",
+        f"Uncovered mutation sites: {stats.uncovered_count}",
+        f"Changed mutation sites: {stats.changed_count}",
+        f"Manifest exists: {manifest_str}",
+        f"Selected mutation sites: {stats.selected_count}",
+    ]
     if stats.total > stats.warning_threshold:
-        print(f"Warning: {stats.total} mutation sites exceeds threshold {stats.warning_threshold}.")
+        lines.append(f"Warning: {stats.total} mutation sites exceeds threshold {stats.warning_threshold}.")
+    return lines
 
 
 class TestSelectionError(Exception):
@@ -297,6 +308,11 @@ def _run_single_mutant(fork_server, cmd: str, cwd: str, mutant_timeout: float) -
     return status
 
 
+def _serial_progress_line(i: int, total_selected: int, status: str, site: Site) -> str:
+    fid_suffix = f": {site.function_id}" if site.function_id else ""
+    return f"[{i}/{total_selected}] {status} line {site.line} {site.desc}{fid_suffix}"
+
+
 def _run_mutation_loop(
     selected_sites: list[Site],
     clean_source: str,
@@ -329,20 +345,23 @@ def _run_mutation_loop(
         counts[status] += 1
         if status == "survived":
             survivors.append(site)
-        fid_suffix = f": {site.function_id}" if site.function_id else ""
-        print(f"[{i}/{total_selected}] {status} line {site.line} {site.desc}{fid_suffix}")
+        print(_serial_progress_line(i, total_selected, status, site))
     return counts, survivors, (selection_counts if ctx.test_ctx_db is not None else None)
 
 
-def _on_parallel_result(result: dict) -> None:
-    """Print a per-mutant progress line in arrival order (called from worker thread)."""
+def _parallel_progress_line(result: dict) -> str:
     site = result["site"]
     site_idx = result["site_idx"]
     total = result["total"]
     worker_idx = result["worker_idx"]
     status = result["status"]
     fid_suffix = f": {site.function_id}" if site.function_id else ""
-    print(f"[{site_idx}/{total}] worker-{worker_idx} {status} line {site.line} {site.desc}{fid_suffix}")
+    return f"[{site_idx}/{total}] worker-{worker_idx} {status} line {site.line} {site.desc}{fid_suffix}"
+
+
+def _on_parallel_result(result: dict) -> None:
+    """Print a per-mutant progress line in arrival order (called from worker thread)."""
+    print(_parallel_progress_line(result))
 
 
 def _run_parallel_workers(
@@ -373,33 +392,37 @@ def _run_parallel_workers(
         return None, None, str(e)
 
 
-def _print_mutation_report(
+def _mutation_report_lines(
     counts: dict[str, int],
     survivors: list[Site],
     uncovered_count: int,
     selection_counts: dict[str, int] | None = None,
-) -> None:
+) -> list[str]:
     killed_total = counts["killed"] + counts["timeout"]
-    print()
-    print("Mutation Report")
-    print("===============")
-    print(f"Killed: {killed_total}")
-    print(f"Survived: {counts['survived']}")
-    print(f"Uncovered: {uncovered_count}")
+    lines = [
+        "",
+        "Mutation Report",
+        "===============",
+        f"Killed: {killed_total}",
+        f"Survived: {counts['survived']}",
+        f"Uncovered: {uncovered_count}",
+    ]
     if selection_counts is not None:
-        print(f"Test selection: narrowed {selection_counts['narrowed']}, static {selection_counts['static']}")
+        lines.append(f"Test selection: narrowed {selection_counts['narrowed']}, static {selection_counts['static']}")
     if survivors:
-        print()
-        print("Survivors:")
+        lines.append("")
+        lines.append("Survivors:")
         for s in survivors:
             fid = f" {s.function_id}" if s.function_id else ""
-            print(f"  line {s.line} {s.desc}{fid}")
+            lines.append(f"  line {s.line} {s.desc}{fid}")
+    return lines
 
 
-def _print_workers_header(max_workers: int, *, use_parallel: bool, n_selected: int) -> None:
-    if max_workers > 0:
-        displayed = min(max_workers, n_selected) if use_parallel else max_workers
-        print(f"Mutation workers: {displayed}")
+def _workers_header_lines(max_workers: int, *, use_parallel: bool, n_selected: int) -> list[str]:
+    if max_workers <= 0:
+        return []
+    displayed = min(max_workers, n_selected) if use_parallel else max_workers
+    return [f"Mutation workers: {displayed}"]
 
 
 def _execute_mutations(
@@ -433,7 +456,7 @@ def _execute_mutations(
     if error_msg is not None:
         print(error_msg)
         return 1
-    _print_mutation_report(counts, survivors, uncovered_count, selection_counts)
+    _print_lines(_mutation_report_lines(counts, survivors, uncovered_count, selection_counts))
     return 0
 
 
@@ -483,7 +506,7 @@ def _print_uncovered_if_needed(
     lines_filter: set[int] | None,
 ) -> None:
     if not effective_since_last_run and lines_filter is None:
-        _print_uncovered_block(all_sites, covered_lines)
+        _print_lines(_uncovered_block_lines(all_sites, covered_lines))
 
 
 def _write_manifest_output(
@@ -809,18 +832,16 @@ def _select_and_prepare(
         lines_filter=request.lines_filter,
     )
 
-    _print_run_header(
-        request.path,
-        RunStats(
-            total=len(loaded.all_sites),
-            covered_count=covered_count,
-            uncovered_count=uncovered_count,
-            changed_count=loaded.changed_count,
-            manifest_exists=loaded.manifest_exists,
-            selected_count=len(selected_sites),
-            warning_threshold=request.warning_threshold,
-        ),
+    run_stats = RunStats(
+        total=len(loaded.all_sites),
+        covered_count=covered_count,
+        uncovered_count=uncovered_count,
+        changed_count=loaded.changed_count,
+        manifest_exists=loaded.manifest_exists,
+        selected_count=len(selected_sites),
+        warning_threshold=request.warning_threshold,
     )
+    _print_lines(_run_header_lines(request.path, run_stats))
     _print_uncovered_if_needed(
         loaded.all_sites,
         covered_lines,
@@ -829,7 +850,7 @@ def _select_and_prepare(
     )
 
     use_parallel = _should_run_parallel(max_workers, len(selected_sites))
-    _print_workers_header(max_workers, use_parallel=use_parallel, n_selected=len(selected_sites))
+    _print_lines(_workers_header_lines(max_workers, use_parallel=use_parallel, n_selected=len(selected_sites)))
 
     baseline_duration, baseline_error = _resolve_baseline_duration(
         request.baseline_duration, request.test_command, request.cwd
