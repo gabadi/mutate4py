@@ -1,5 +1,6 @@
 """Unit tests for manifest embed/extract/diff (F2)."""
 
+import hashlib
 import json
 import pytest
 
@@ -13,6 +14,7 @@ from mutate4py._manifest import (
     extract_manifest,
     parse_sidecar_manifest,
     serialize_sidecar_manifest,
+    source_sha256,
     strip_manifest,
 )
 
@@ -355,6 +357,40 @@ def test_build_manifest_nested_function_not_recorded():
     ids = [fn["id"] for fn in m["functions"]]
     assert "func/outer" in ids
     assert "func/inner" not in ids
+
+
+def test_build_manifest_source_sha256_matches_raw_bytes():
+    src = "def foo():\n    return 1\n"
+    m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
+    assert m["source_sha256"] == hashlib.sha256(src.encode()).hexdigest()
+
+
+def test_build_manifest_source_sha256_changes_for_comment_only_edit():
+    """Byte-level, unlike module_hash/functions[*].hash which are AST-level."""
+    src1 = "def foo():\n    return 1\n"
+    src2 = "def foo():\n    # a comment\n    return 1\n"
+    m1 = build_manifest(src1, tested_at="2026-01-01T00:00:00Z")
+    m2 = build_manifest(src2, tested_at="2026-01-01T00:00:00Z")
+    assert m1["source_sha256"] != m2["source_sha256"]
+
+
+def test_build_manifest_source_sha256_stable_for_identical_bytes():
+    src = "def foo():\n    return 1\n"
+    m1 = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
+    m2 = build_manifest(src, tested_at="2026-06-26T00:00:00Z")
+    assert m1["source_sha256"] == m2["source_sha256"]
+
+
+# ── source_sha256 ─────────────────────────────────────────────────────────────
+
+
+def test_source_sha256_matches_hashlib_directly():
+    src = "x = 1\n"
+    assert source_sha256(src) == hashlib.sha256(src.encode()).hexdigest()
+
+
+def test_source_sha256_differs_for_different_source():
+    assert source_sha256("x = 1\n") != source_sha256("x = 2\n")
 
 
 # ── diff_manifests ────────────────────────────────────────────────────────────
