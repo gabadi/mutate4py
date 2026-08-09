@@ -26,8 +26,23 @@
 # (Site, discovery, coverage) and is depended on by `run_loop`; nothing in
 # `execution_backends` or `target_resolution` needs it, so it sits in its
 # own layer directly above `domain`, alongside `target_resolution`.
+#
+# Issue #38 gate 09 extracted the mutant build/run/tally cluster out of
+# `_runner.py` into `_execution`. It needs both `_report` (per-mutant
+# progress-line formatting) and `_workers` (the parallel dispatch it
+# routes to), so it sits directly above `execution_backends` — one layer
+# below `run_loop`, which is its only caller.
 source_roots = ["src"]
-layers = ["cli_adapter", "run_loop", "execution_backends", "target_resolution", "report", "domain", "primitives"]
+layers = [
+    "cli_adapter",
+    "run_loop",
+    "execution",
+    "execution_backends",
+    "target_resolution",
+    "report",
+    "domain",
+    "primitives",
+]
 forbid_circular_dependencies = true
 
 [[modules]]
@@ -83,6 +98,11 @@ depends_on = []
 [[modules]]
 path = "mutate4py._report"
 layer = "report"
+depends_on = []
+
+[[modules]]
+path = "mutate4py._execution"
+layer = "execution"
 depends_on = []
 
 [[modules]]

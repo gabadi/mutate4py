@@ -8,7 +8,6 @@ import subprocess
 import sys
 import time
 
-from mutate4py._cmd import run_command as _run_command
 from mutate4py._coverage import CoverageError, acquire_coverage
 
 __all__ = [
@@ -24,7 +23,12 @@ __all__ = [
     "scan_report_with_coverage",
     "update_manifest",
 ]
-from mutate4py._discovery import Site, apply_mutant, discover_sites, partition_sites
+from mutate4py._discovery import Site, discover_sites, partition_sites
+from mutate4py._execution import (
+    MutantExecCtx,
+    TestSelectionError,
+    _execute_mutations,
+)
 from mutate4py._manifest import (
     build_manifest,
     diff_manifests,
@@ -41,9 +45,7 @@ from mutate4py._report import (
     CoverageSource,
     RunStats,
     _mutation_report_lines,
-    _on_parallel_result,
     _run_header_lines,
-    _serial_progress_line,
     _uncovered_block_lines,
     _workers_header_lines,
     scan_report,
@@ -57,31 +59,6 @@ class ManifestLocation:
 
     path: str
     manifest_file: bool = False
-
-
-@dataclasses.dataclass
-class MutantExecCtx:
-    """Where and how mutants are executed for one run: paths, command, timeout, and dispatch mode."""
-
-    path: str
-    cwd: str
-    test_command: str
-    mutant_timeout: float
-    max_workers: int = 0
-    use_parallel: bool = False
-    abs_source_path: str = ""
-    test_ctx_db: object = None
-    fork_server: object = None
-
-
-@dataclasses.dataclass
-class FinalizeInputs:
-    """What _finalize_source needs to write the manifest back after a run."""
-
-    tested_at: str
-    bak_path: str
-    loc: ManifestLocation
-    existing_manifest: dict | None = None
 
 
 @dataclasses.dataclass
@@ -215,154 +192,6 @@ def _compute_manifest_diff(source: str, loc: ManifestLocation) -> tuple[str, dic
     current_manifest = build_manifest(clean_source, tested_at=tested_at)
     changed_fn_ids = diff_manifests(existing_manifest, current_manifest)
     return clean_source, existing_manifest, manifest_exists, changed_fn_ids, tested_at
-
-
-class TestSelectionError(Exception):
-    """A selected site the test-context db cannot account for (case 3)."""
-
-
-# The selected sites are LCOV-covered by construction, so a miss is always an
-# input defect, never uncovered code — hence a hard error rather than a fallback.
-_DISAGREEMENT_HINTS = {
-    "line-absent": "line is LCOV-covered but absent from the test-context db "
-    "(stale db: regenerate it with pytest --cov-context=test)",
-    "file-absent": "file is not in the test-context db at all "
-    "(path-format mismatch, or its coverage was recorded in a subprocess)",
-}
-
-
-def _build_mutant_command(test_command: str, test_ctx_db, abs_source_path: str, site: Site) -> tuple[str, str | None]:
-    """Return (command, selection) for site; selection is None without a context db.
-
-    "narrowed" runs only the tests covering site.line; "static" runs the full
-    test_command because the line executes at import time and no test owns it.
-    """
-    if test_ctx_db is None:
-        return test_command, None
-    outcome, node_ids = test_ctx_db.tests_for_line(abs_source_path, site.line)
-    if outcome == "narrowed":
-        return (
-            f"{test_command} {' '.join(shlex.quote(n) for n in node_ids)}",
-            "narrowed",
-        )
-    if outcome == "static":
-        return test_command, "static"
-    # Every other outcome raises, so an unrecognized one can never fall through to
-    # a full-suite run that the report would then miscount as narrowed.
-    hint = _DISAGREEMENT_HINTS.get(outcome, f"unrecognized selection outcome {outcome!r}")
-    raise TestSelectionError(f"{abs_source_path}:{site.line}: {hint}")
-
-
-def _run_single_mutant(fork_server, cmd: str, cwd: str, mutant_timeout: float) -> str:
-    """Execute one already-spliced mutant; return its status.
-
-    Routes through the primed fork server when given, else the existing
-    per-mutant subprocess model.
-    """
-    if fork_server is not None:
-        status, _ = fork_server.run(mutant_timeout)
-    else:
-        status, _ = _run_command(cmd, cwd, mutant_timeout)
-    return status
-
-
-def _run_mutation_loop(
-    selected_sites: list[Site],
-    clean_source: str,
-    ctx: MutantExecCtx,
-) -> tuple[dict, list[Site], dict[str, int] | None]:
-    """Run each selected site; the third return is the narrowed/static tally, or
-    None when no context db is in play. Raises TestSelectionError on a
-    selection disagreement.
-
-    ctx.fork_server, when given (a primed mutate4py._fork_server.ForkServer),
-    replaces the per-mutant subprocess with a fork() of the already-warm
-    pytest process instead. It is only ever set alongside ctx.test_ctx_db=None
-    (--fork-server and --test-contexts are mutually exclusive at the CLI),
-    so _build_mutant_command is still cheap and side-effect-free to call
-    unconditionally: with no context db it just returns (test_command, None).
-    """
-    total_selected = len(selected_sites)
-    counts: dict[str, int] = {"killed": 0, "timeout": 0, "survived": 0}
-    selection_counts: dict[str, int] = {"narrowed": 0, "static": 0}
-    survivors: list[Site] = []
-    for i, site in enumerate(selected_sites, 1):
-        # Built before the splice so a disagreement aborts with the source untouched.
-        cmd, selection = _build_mutant_command(ctx.test_command, ctx.test_ctx_db, ctx.abs_source_path, site)
-        if selection is not None:
-            selection_counts[selection] += 1
-        mutated = apply_mutant(clean_source, site)
-        with open(ctx.path, "w") as f:
-            f.write(mutated)
-        status = _run_single_mutant(ctx.fork_server, cmd, ctx.cwd, ctx.mutant_timeout)
-        counts[status] += 1
-        if status == "survived":
-            survivors.append(site)
-        print(_serial_progress_line(i, total_selected, status, site))
-    return counts, survivors, (selection_counts if ctx.test_ctx_db is not None else None)
-
-
-def _run_parallel_workers(
-    selected_sites: list[Site],
-    clean_source: str,
-    ctx: MutantExecCtx,
-) -> tuple[dict | None, list[Site] | None, str | None]:
-    """Dispatch the parallel engine; return (counts, survivors, error_msg)."""
-    from mutate4py._workers import ParallelRunError, ParallelRunRequest, WorkerFailureError, run_parallel
-
-    try:
-        counts, survivors = run_parallel(
-            ParallelRunRequest(
-                selected_sites=selected_sites,
-                clean_source=clean_source,
-                source_path=ctx.path,
-                cwd=ctx.cwd,
-                test_command=ctx.test_command,
-                mutant_timeout=ctx.mutant_timeout,
-                max_workers=ctx.max_workers,
-                on_result=_on_parallel_result,
-            )
-        )
-        return counts, survivors, None
-    except WorkerFailureError as e:
-        return None, None, f"mutation worker failed: {e}"
-    except ParallelRunError as e:
-        return None, None, str(e)
-
-
-def _execute_mutations(
-    *,
-    selected_sites: list[Site],
-    clean_source: str,
-    ctx: MutantExecCtx,
-    uncovered_count: int,
-    finalize: FinalizeInputs,
-) -> int:
-    """Run serial or parallel mutations, finalize source, print report. Returns exit code.
-
-    A TestSelectionError from the serial loop propagates to run_mutations, after
-    the source has been finalized exactly as a completed run would leave it.
-    """
-    error_msg = None
-    selection_counts = None
-    try:
-        if ctx.use_parallel:
-            counts, survivors, error_msg = _run_parallel_workers(selected_sites, clean_source, ctx)
-        else:
-            counts, survivors, selection_counts = _run_mutation_loop(selected_sites, clean_source, ctx)
-    finally:
-        _finalize_source(
-            clean_source,
-            finalize.tested_at,
-            finalize.bak_path,
-            finalize.loc,
-            existing_manifest=finalize.existing_manifest,
-        )
-    if error_msg is not None:
-        print(error_msg)
-        return 1
-    _print_lines(_mutation_report_lines(counts, survivors, uncovered_count, selection_counts))
-    return 0
 
 
 def _acquire_covered_lines(
@@ -778,20 +607,27 @@ def run_mutations(request: RunMutationsRequest) -> int:
             test_ctx_db=test_ctx_db,
             fork_server=outcome.fork_server,
         )
-        finalize = FinalizeInputs(
-            tested_at=setup.loaded.tested_at,
-            bak_path=setup.bak_path,
-            loc=setup.loc,
-            existing_manifest=setup.loaded.existing_manifest,
+        try:
+            result = _execute_mutations(
+                selected_sites=outcome.selected_sites,
+                clean_source=setup.loaded.clean_source,
+                ctx=ctx,
+            )
+        finally:
+            _finalize_source(
+                setup.loaded.clean_source,
+                setup.loaded.tested_at,
+                setup.bak_path,
+                setup.loc,
+                existing_manifest=setup.loaded.existing_manifest,
+            )
+        if result.error_msg is not None:
+            print(result.error_msg)
+            return 1
+        _print_lines(
+            _mutation_report_lines(result.counts, result.survivors, outcome.uncovered_count, result.selection_counts)
         )
-
-        return _execute_mutations(
-            selected_sites=outcome.selected_sites,
-            clean_source=setup.loaded.clean_source,
-            ctx=ctx,
-            uncovered_count=outcome.uncovered_count,
-            finalize=finalize,
-        )
+        return 0
     except TestSelectionError as exc:
         print(
             f"error: test-context db disagrees with coverage: {exc}",

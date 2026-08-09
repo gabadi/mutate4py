@@ -122,4 +122,6 @@ max-locals = 15
 # moving those to __main__.py is a larger, unscoped change for a future ticket, not this one.
 "src/mutate4py/_report.py" = ["T201"]  # _on_parallel_result is a worker-thread print callback
 # (gate 08); it moved here verbatim with the rest of the report formatters it wraps.
+"src/mutate4py/_execution.py" = ["T201"]  # _run_mutation_loop's one print is per-mutant progress
+# feedback, not a final report (gate 09); it moved here verbatim with the loop it's inside.
 "src/mutate4py/_workspace.py" = ["T201"]  # print-then-exit precedent kept deliberately; see _target_resolution.py's module docstring (issue #38 gate 05)
