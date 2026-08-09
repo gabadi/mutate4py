@@ -39,9 +39,20 @@
 # `run_loop`; nothing in `execution`, `execution_backends`, or
 # `target_resolution` needs it, so it sits in its own layer directly
 # above `domain`, alongside `target_resolution` and `report`.
+#
+# Issue #38 gate 11 extracted the CLI dispatch/execution cluster (root
+# resolution, single-file/batch routing, per-file mode dispatch, worst-code
+# exit aggregation) out of `__main__.py` into `_dispatch`. It calls
+# `_runner` (`run_loop`), `_target_resolution`, and `_workspace`/`_coverage`
+# (`domain`) — the same things `__main__.py` called directly before this
+# gate — and is depended on only by `__main__.py`. It is a second
+# adapter-tier module, not a domain module (see its own docstring), so it
+# sits directly below `cli_adapter` rather than alongside the `domain`-tier
+# extractions above.
 source_roots = ["src"]
 layers = [
     "cli_adapter",
+    "dispatch",
     "run_loop",
     "execution",
     "execution_backends",
@@ -136,4 +147,9 @@ depends_on = []
 [[modules]]
 path = "mutate4py.__main__"
 layer = "cli_adapter"
+depends_on = []
+
+[[modules]]
+path = "mutate4py._dispatch"
+layer = "dispatch"
 depends_on = []
