@@ -302,11 +302,11 @@ def _parse_lines(lines_str: str | None) -> set[int] | None:
     return {_parse_line_token(p) for p in parts}
 
 
-def _run_scan(args: argparse.Namespace, source: str, cwd: str) -> None:
+def _run_scan(args: argparse.Namespace, path: str, source: str, cwd: str) -> None:
     """Execute --scan logic; exits with code 2 on CoverageError."""
     try:
         run_scan(
-            path=args.file,
+            path=path,
             source=source,
             warning_threshold=args.warning_threshold,
             coverage=CoverageSource(
@@ -334,21 +334,7 @@ def _run_on_file(
         update_manifest(path=py_file, source=source, manifest_file=args.manifest_file)
         return 0
     if args.scan:
-        try:
-            run_scan(
-                path=py_file,
-                source=source,
-                warning_threshold=args.warning_threshold,
-                coverage=CoverageSource(
-                    cov_cmd=args.cov_cmd,
-                    lcov_path=args.lcov,
-                    reuse_coverage=args.reuse_coverage,
-                    cwd=cwd,
-                ),
-            )
-        except CoverageError as exc:
-            print(f"error: {exc}", file=sys.stderr)
-            sys.exit(2)
+        _run_scan(args, py_file, source, cwd)
         return 0
     lines_filter = _parse_lines(args.lines)
     max_workers = args.max_workers if args.max_workers is not None else 0
@@ -412,17 +398,6 @@ def _report_excluded(excluded: list[str]) -> None:
         print(f"Excluded: {path}")
 
 
-def _directory_files(args: argparse.Namespace) -> list[str]:
-    """The directory's .py files minus --exclude matches and any pruned
-    subtree; raises NoFilesToProcessError if none remain."""
-    result = _collect_py_files(args.file, args.exclude or (), args.prune_dirs)
-    if args.verbose:
-        _report_excluded(result.excluded)
-    if not result.kept:
-        raise NoFilesToProcessError()
-    return result.kept
-
-
 def _collect_union_files(args: argparse.Namespace, roots: list[str]) -> list[str]:
     """The union's .py files across all roots: root order, deduped, raises
     NoFilesToProcessError if the whole union is empty (an individual empty
@@ -468,52 +443,10 @@ def _run_files_and_exit(args: argparse.Namespace, files: list[str]) -> None:
     sys.exit(exit_code)
 
 
-def _dispatch_directory(args: argparse.Namespace) -> None:
-    _run_files_and_exit(args, _directory_files(args))
-
-
-def _dispatch_union(args: argparse.Namespace, roots: list[str]) -> None:
-    """Two or more resolved roots: one shared baseline, and one exit code — the
-    worst per-file code across the union (item 2)."""
+def _dispatch_batch(args: argparse.Namespace, roots: list[str]) -> None:
+    """One or more resolved roots: one shared baseline, and one exit code — the
+    worst per-file code across the batch (item 2)."""
     _run_files_and_exit(args, _collect_union_files(args, roots))
-
-
-def _dispatch_single_file(args: argparse.Namespace, source: str, cwd: str) -> None:
-    """Route a single-file target by mode; lets SyntaxError propagate to the
-    caller, which reports it (issue #35 — same contract as the batch path)."""
-    if args.check_manifest:
-        sys.exit(check_manifest(path=args.file, source=source, manifest_file=args.manifest_file))
-    if args.scan:
-        _run_scan(args, source, cwd)
-        return
-    if args.update_manifest:
-        update_manifest(path=args.file, source=source, manifest_file=args.manifest_file)
-        return
-    lines_filter = _parse_lines(args.lines)
-    max_workers = args.max_workers if args.max_workers is not None else 0
-    sys.exit(
-        run_mutations(
-            RunMutationsRequest(
-                path=args.file,
-                source=source,
-                cov_cmd=args.cov_cmd,
-                lcov_path=args.lcov,
-                reuse_coverage=args.reuse_coverage,
-                test_command=args.test_command,
-                timeout_factor=args.timeout_factor,
-                min_timeout=args.min_timeout,
-                lines_filter=lines_filter,
-                since_last_run=args.since_last_run,
-                mutate_all=args.mutate_all,
-                warning_threshold=args.warning_threshold,
-                max_workers=max_workers,
-                cwd=cwd,
-                test_contexts_path=args.test_contexts,
-                manifest_file=args.manifest_file,
-                fork_server_requested=not args.no_fork_server,
-            )
-        )
-    )
 
 
 def _raise_if_target_excluded(args: argparse.Namespace) -> None:
@@ -551,23 +484,24 @@ def _dispatch(args: argparse.Namespace) -> None:
     """Resolve positionals (or autodiscover a workspace), then route by
     arity (issue #22 item 2).
 
-    Exactly one resolved path reuses today's single-file/directory dispatch,
-    untouched; two or more run as one union batch.
+    A single resolved path that is a file runs the single-file path below,
+    untouched; a single directory or two or more roots run as one batch.
     """
     roots, args.prune_dirs = _resolve_roots(args)
     if len(roots) > 1:
-        _dispatch_union(args, roots)
+        _dispatch_batch(args, roots)
         return
-    # Populates the args.file scratch field declared in _build_parser; every
-    # legacy single-target function below reads it from here.
+    # Populates the args.file scratch field declared in _build_parser; the
+    # single-file path below and _dispatch_batch's excluded-target check
+    # both read it from here.
     args.file = roots[0]
     if os.path.isdir(args.file):
-        _dispatch_directory(args)
+        _dispatch_batch(args, [args.file])
         return
     source = _load_source(args.file)  # a bad path must report itself, not "excluded"
     _raise_if_target_excluded(args)
     try:
-        _dispatch_single_file(args, source, os.getcwd())
+        sys.exit(_run_on_file(args, args.file, source, os.getcwd()))
     except SyntaxError as exc:
         _report_parse_error(args.file, exc)
         sys.exit(2)

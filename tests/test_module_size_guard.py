@@ -26,8 +26,8 @@ TEST_CAPS = Caps(max_lines=1000, max_defs=100)
 
 EXEMPTIONS = {
     "src/mutate4py/_runner.py": ExemptionEntry(lines=575, defs=28),
-    "src/mutate4py/__main__.py": ExemptionEntry(lines=590, defs=30),
-    "tests/test_main.py": ExemptionEntry(lines=2734, defs=210),
+    "src/mutate4py/__main__.py": ExemptionEntry(lines=524, defs=27),
+    "tests/test_main.py": ExemptionEntry(lines=2720, defs=208),
     "tests/test_runner.py": ExemptionEntry(lines=1681, defs=97),
 }
 

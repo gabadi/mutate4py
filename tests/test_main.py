@@ -149,7 +149,9 @@ def test_main_scan_prints_output(tmp_path, capsys):
     p = tmp_path / "s.py"
     p.write_text("x = a + b\n")
     sys.argv = ["mutate4py", str(p), "--scan"]
-    m.main()
+    with pytest.raises(SystemExit) as exc:
+        m.main()
+    assert exc.value.code == 0
     out = capsys.readouterr().out
     assert "Total mutation sites: 1" in out
 
@@ -277,7 +279,9 @@ def test_main_update_manifest_mode(tmp_path, capsys):
     p = tmp_path / "s.py"
     p.write_text("def foo():\n    return 1\n")
     sys.argv = ["mutate4py", str(p), "--update-manifest"]
-    m.main()
+    with pytest.raises(SystemExit) as exc:
+        m.main()
+    assert exc.value.code == 0
     out = capsys.readouterr().out
     assert "manifest" in out.lower()
     assert "# mutate4py-manifest-begin" in p.read_text()
@@ -339,7 +343,7 @@ def test_run_scan_no_coverage(tmp_path, capsys):
         lcov=None,
         reuse_coverage=False,
     )
-    _run_scan(args, src_file.read_text(), str(tmp_path))
+    _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
     out = capsys.readouterr().out
     assert "Total mutation sites: 1" in out
 
@@ -359,7 +363,7 @@ def test_run_scan_with_lcov(tmp_path, capsys):
         lcov=str(lcov_file),
         reuse_coverage=False,
     )
-    _run_scan(args, src_file.read_text(), str(tmp_path))
+    _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
     out = capsys.readouterr().out
     assert "Covered mutation sites:" in out
 
@@ -620,7 +624,7 @@ def test_run_scan_coverage_error_exits_2(tmp_path):
         reuse_coverage=False,
     )
     with pytest.raises(SystemExit) as exc:
-        _run_scan(args, src_file.read_text(), str(tmp_path))
+        _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
     assert exc.value.code == 2
 
 
@@ -639,7 +643,7 @@ def test_run_scan_coverage_error_goes_to_stderr(tmp_path, capsys):
         reuse_coverage=False,
     )
     with pytest.raises(SystemExit):
-        _run_scan(args, src_file.read_text(), str(tmp_path))
+        _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
     err = capsys.readouterr().err
     assert "error" in err.lower()
 
@@ -658,7 +662,7 @@ def test_run_scan_output_newline_separated(tmp_path, capsys):
         lcov=None,
         reuse_coverage=False,
     )
-    _run_scan(args, src_file.read_text(), str(tmp_path))
+    _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
     out = capsys.readouterr().out
     assert "Mutation scan:" in out
     assert "Total mutation sites:" in out
@@ -760,7 +764,7 @@ def test_run_scan_passes_cov_cmd_to_coverage(tmp_path, capsys):
         lcov=None,
         reuse_coverage=False,
     )
-    _run_scan(args, src_file.read_text(), str(tmp_path))
+    _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
     out = capsys.readouterr().out
     assert "Covered mutation sites:" in out
 
@@ -782,14 +786,14 @@ def test_run_scan_reuse_coverage_with_cwd(tmp_path, capsys):
         lcov=None,
         reuse_coverage=True,
     )
-    _run_scan(args, src_file.read_text(), str(tmp_path))
+    _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
     out = capsys.readouterr().out
     assert "Covered mutation sites:" in out
 
 
 def test_run_scan_passes_args_file_path(tmp_path, capsys):
-    # mutant_28: scan_report(None, ...) vs scan_report(args.file, ...)
-    # Path in header must match args.file
+    # mutant_28: scan_report(None, ...) vs scan_report(path, ...)
+    # Path in header must match the path argument
     import argparse
     from mutate4py.__main__ import _run_scan
 
@@ -802,7 +806,7 @@ def test_run_scan_passes_args_file_path(tmp_path, capsys):
         lcov=None,
         reuse_coverage=False,
     )
-    _run_scan(args, src_file.read_text(), str(tmp_path))
+    _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
     out = capsys.readouterr().out
     assert "mymod.py" in out
 
@@ -821,7 +825,7 @@ def test_run_scan_separator_is_newline_not_other_string(tmp_path, capsys):
         lcov=None,
         reuse_coverage=False,
     )
-    _run_scan(args, src_file.read_text(), str(tmp_path))
+    _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
     out = capsys.readouterr().out
     assert "XX" not in out
     # Output must have each label on its own line
@@ -869,7 +873,8 @@ def test_mutation_warning_threshold_comparison_is_numeric(tmp_path, capsys):
     p = tmp_path / "s.py"
     p.write_text("x = a + b\n")  # 1 site
     sys.argv = ["mutate4py", str(p), "--scan", "--mutation-warning", "2"]
-    m.main()  # must not raise TypeError; threshold=2, 1 site → no warning
+    with pytest.raises(SystemExit):  # must not raise TypeError; threshold=2, 1 site → no warning
+        m.main()
     out = capsys.readouterr().out
     assert "Warning" not in out
 
@@ -1003,34 +1008,6 @@ def test_run_on_file_fork_server_requested_false_when_disabled(monkeypatch):
     )
     args = _make_args(no_fork_server=True)
     _run_on_file(args, "f.py", "x = 1\n", "/cwd")
-    assert captured["request"].fork_server_requested is False
-
-
-def test_dispatch_single_file_fork_server_requested_defaults_true(monkeypatch):
-    from mutate4py.__main__ import _dispatch_single_file
-
-    captured = {}
-    monkeypatch.setattr(
-        "mutate4py.__main__.run_mutations",
-        lambda request: captured.update(request=request) or 0,
-    )
-    args = _make_args(file="f.py", no_fork_server=False)
-    with pytest.raises(SystemExit):
-        _dispatch_single_file(args, "x = 1\n", "/cwd")
-    assert captured["request"].fork_server_requested is True
-
-
-def test_dispatch_single_file_fork_server_requested_false_when_disabled(monkeypatch):
-    from mutate4py.__main__ import _dispatch_single_file
-
-    captured = {}
-    monkeypatch.setattr(
-        "mutate4py.__main__.run_mutations",
-        lambda request: captured.update(request=request) or 0,
-    )
-    args = _make_args(file="f.py", no_fork_server=True)
-    with pytest.raises(SystemExit):
-        _dispatch_single_file(args, "x = 1\n", "/cwd")
     assert captured["request"].fork_server_requested is False
 
 
@@ -1497,7 +1474,8 @@ def test_check_manifest_current_exits_0(tmp_path):
     p = tmp_path / "mod.py"
     p.write_text("def f(a, b):\n    return a > b\n")
     sys.argv = ["mutate4py", str(p), "--update-manifest"]
-    m.main()
+    with pytest.raises(SystemExit):
+        m.main()
     result = _run_cli_path(str(p), "--check-manifest")
     assert result.returncode == 0
     assert "Manifest current:" in result.stdout
@@ -1611,7 +1589,8 @@ def test_directory_check_manifest_all_current_exits_0(tmp_path):
         p = d / name
         p.write_text("def f(): pass\n")
         sys.argv = ["mutate4py", str(p), "--update-manifest"]
-        m.main()
+        with pytest.raises(SystemExit):
+            m.main()
 
     result = _run_cli_path(str(d), "--check-manifest")
     assert result.returncode == 0
@@ -1627,7 +1606,8 @@ def test_directory_check_manifest_one_stale_exits_1(tmp_path):
     p_a = d / "a.py"
     p_a.write_text("def f(): pass\n")
     sys.argv = ["mutate4py", str(p_a), "--update-manifest"]
-    m.main()
+    with pytest.raises(SystemExit):
+        m.main()
 
     p_b = d / "b.py"
     p_b.write_text("def g(): pass\n")
@@ -1647,7 +1627,8 @@ def test_directory_check_manifest_excluded_file_ignored_exits_0(tmp_path):
     p_a = d / "a.py"
     p_a.write_text("def f(): pass\n")
     sys.argv = ["mutate4py", str(p_a), "--update-manifest"]
-    m.main()
+    with pytest.raises(SystemExit):
+        m.main()
 
     (d / "b.py").write_text("def g(): pass\n")
 
@@ -1667,7 +1648,8 @@ def test_directory_check_manifest_stale_survivor_exits_1(tmp_path):
     p_a = d / "a.py"
     p_a.write_text("def f(): pass\n")
     sys.argv = ["mutate4py", str(p_a), "--update-manifest"]
-    m.main()
+    with pytest.raises(SystemExit):
+        m.main()
 
     (d / "b.py").write_text("def g(): pass\n")
     (d / "c.py").write_text("def h(): pass\n")
@@ -1889,11 +1871,11 @@ def test_report_excluded_prints_nothing_for_an_empty_list(capsys):
 
 
 def test_directory_files_returns_survivors(tmp_path):
-    from mutate4py.__main__ import _directory_files
+    from mutate4py.__main__ import _collect_union_files
 
     d = _make_pkg_tree(tmp_path)
     args = _make_args(file=d, exclude=["**/sub/*.py"])
-    assert _directory_files(args) == [
+    assert _collect_union_files(args, [d]) == [
         os.path.join(d, "__init__.py"),
         os.path.join(d, "mod.py"),
     ]
@@ -1901,21 +1883,22 @@ def test_directory_files_returns_survivors(tmp_path):
 
 def test_directory_files_raises_when_all_excluded(tmp_path):
     from mutate4py._target_resolution import NoFilesToProcessError
-    from mutate4py.__main__ import _directory_files
+    from mutate4py.__main__ import _collect_union_files
 
-    args = _make_args(file=_make_pkg_tree(tmp_path), exclude=["**/*.py"])
+    d = _make_pkg_tree(tmp_path)
+    args = _make_args(file=d, exclude=["**/*.py"])
     with pytest.raises(NoFilesToProcessError):
-        _directory_files(args)
+        _collect_union_files(args, [d])
 
 
 def test_directory_files_verbose_reports_before_raising(tmp_path, capsys):
     from mutate4py._target_resolution import NoFilesToProcessError
-    from mutate4py.__main__ import _directory_files
+    from mutate4py.__main__ import _collect_union_files
 
     d = _make_pkg_tree(tmp_path)
     args = _make_args(file=d, exclude=["**/*.py"], verbose=True)
     with pytest.raises(NoFilesToProcessError):
-        _directory_files(args)
+        _collect_union_files(args, [d])
     assert capsys.readouterr().out.count("Excluded: ") == 4
 
 
@@ -1982,7 +1965,8 @@ def test_main_directory_check_manifest_current_exits_0(tmp_path, capsys):
     p = d / "a.py"
     p.write_text("def f(): pass\n")
     sys.argv = ["mutate4py", str(p), "--update-manifest"]
-    m.main()
+    with pytest.raises(SystemExit):
+        m.main()
     capsys.readouterr()
 
     sys.argv = ["mutate4py", str(d), "--check-manifest"]
@@ -2118,7 +2102,8 @@ def test_main_directory_check_manifest_continues_past_syntax_error(tmp_path, cap
     bad = d / "bad.py"
     bad.write_text("def f(): pass\n")
     sys.argv = ["mutate4py", str(bad), "--update-manifest"]
-    m.main()
+    with pytest.raises(SystemExit):
+        m.main()
     capsys.readouterr()
     bad.write_text(bad.read_text().replace("def f(): pass\n", "def f(:\n    pass\n", 1))
 
@@ -2153,7 +2138,7 @@ def test_main_single_file_syntax_error_exits_nonzero_no_traceback(tmp_path, caps
 
 def test_main_two_positionals_dispatches_the_union_path_in_process(tmp_path, capsys):
     """Direct (non-subprocess) exercise of the arity>=2 branch through main(),
-    so _dispatch/_dispatch_union/_collect_union_files get real coverage."""
+    so _dispatch/_dispatch_batch/_collect_union_files get real coverage."""
     import mutate4py.__main__ as m
 
     a_dir = tmp_path / "a_pkg"
@@ -2185,7 +2170,8 @@ def test_main_union_batch_continues_past_syntax_error_in_one_root(tmp_path, caps
     bad.write_text("def h(): pass\n")
     (b_dir / "b.py").write_text("def g(): pass\n")
     sys.argv = ["mutate4py", str(bad), "--update-manifest"]
-    m.main()
+    with pytest.raises(SystemExit):
+        m.main()
     capsys.readouterr()
     # a manifest already exists on bad.py; the body is then hand-corrupted so
     # check_manifest actually reaches ast.parse (issue #35: a file with no
@@ -2376,10 +2362,10 @@ def test_run_files_and_exit_syntax_error_worst_code_wins_either_order(
         assert exc.value.code == 2
 
 
-def test_dispatch_single_file_propagates_syntax_error(monkeypatch):
-    """_dispatch_single_file itself lets SyntaxError propagate — it's _dispatch
-    (its sole caller) that catches and reports it (issue #35), so this stays a
-    one-branch function instead of duplicating the catch at every mode."""
+def test_run_on_file_propagates_syntax_error(monkeypatch):
+    """_run_on_file itself lets SyntaxError propagate — it's _dispatch (one of
+    its callers) that catches and reports it (issue #35), so this stays a
+    plain mode dispatch instead of duplicating the catch at every mode."""
     import mutate4py.__main__ as m
 
     def fake_run_mutations(request):
@@ -2389,7 +2375,7 @@ def test_dispatch_single_file_propagates_syntax_error(monkeypatch):
     args = _make_args(file="mod.py")
 
     with pytest.raises(SyntaxError):
-        m._dispatch_single_file(args, "def f(:\n", os.getcwd())
+        m._run_on_file(args, "mod.py", "def f(:\n", os.getcwd())
 
 
 # ── --test-contexts ───────────────────────────────────────────────────────────
