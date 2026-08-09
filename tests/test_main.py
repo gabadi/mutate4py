@@ -2228,6 +2228,141 @@ def test_main_directory_scan_exits_0(tmp_path, capsys):
     assert "Mutation scan:" in capsys.readouterr().out
 
 
+# ── unparseable file in a directory batch (issue #35) ──────────────────────────
+
+
+def test_main_directory_scan_continues_past_syntax_error(tmp_path, capsys):
+    """Reproduction from issue #35: good.py / bad.py / zlast.py, bad.py has
+    invalid syntax. Every other file must still be scanned; the batch reports
+    exit 2 and a trailing parse-failure count, not a traceback."""
+    import mutate4py.__main__ as m
+
+    d = tmp_path / "src"
+    d.mkdir()
+    (d / "good.py").write_text("x = a > b\n")
+    (d / "bad.py").write_text("def broken(:\n    pass\n")
+    (d / "zlast.py").write_text("y = c > d\n")
+    sys.argv = ["mutate4py", str(d), "--scan"]
+    with pytest.raises(SystemExit) as exc:
+        m.main()
+    assert exc.value.code == 2
+    captured = capsys.readouterr()
+    out, err = captured.out, captured.err
+    assert f"Mutation scan: {d / 'good.py'}" in out
+    assert f"Mutation scan: {d / 'zlast.py'}" in out
+    assert f"error: cannot parse {d / 'bad.py'}:" in err
+    assert "error: 1 files could not be parsed" in err
+    assert "Traceback" not in err
+
+
+def test_main_directory_run_mode_continues_past_syntax_error(tmp_path, capsys):
+    """The default mutation Run loop (no --scan/--update-manifest/--check-manifest)
+    must apply the same continue-the-batch contract as the other three modes
+    (issue #35 acceptance: "Applies to ... the Run loop")."""
+    import mutate4py.__main__ as m
+
+    d = tmp_path / "src"
+    d.mkdir()
+    good = d / "good.py"
+    bad = d / "bad.py"
+    zlast = d / "zlast.py"
+    good.write_text("def f(a, b):\n    return a > b\n")
+    bad.write_text("def broken(:\n    pass\n")
+    zlast.write_text("def g(c, d):\n    return c > d\n")
+
+    lcov = tmp_path / "lcov.info"
+    lcov.write_text(
+        f"SF:{good}\nDA:2,1\nend_of_record\nSF:{zlast}\nDA:2,1\nend_of_record\n"
+    )
+
+    sys.argv = [
+        "mutate4py",
+        str(d),
+        "--lcov",
+        str(lcov),
+        "--test-command",
+        "true",
+    ]
+    with pytest.raises(SystemExit) as exc:
+        m.main()
+    assert exc.value.code == 2
+    captured = capsys.readouterr()
+    out, err = captured.out, captured.err
+    assert f"Mutation run: {good}" in out
+    assert f"Mutation run: {zlast}" in out
+    assert f"error: cannot parse {bad}:" in err
+    assert "error: 1 files could not be parsed" in err
+    assert "Traceback" not in err
+
+
+def test_main_directory_update_manifest_continues_past_syntax_error(tmp_path, capsys):
+    import mutate4py.__main__ as m
+
+    d = tmp_path / "src"
+    d.mkdir()
+    (d / "good.py").write_text("x = a > b\n")
+    (d / "bad.py").write_text("def broken(:\n    pass\n")
+    (d / "zlast.py").write_text("y = c > d\n")
+    sys.argv = ["mutate4py", str(d), "--update-manifest"]
+    with pytest.raises(SystemExit) as exc:
+        m.main()
+    assert exc.value.code == 2
+    err = capsys.readouterr().err
+    assert "mutate4py-manifest-begin" in (d / "good.py").read_text()
+    assert "mutate4py-manifest-begin" in (d / "zlast.py").read_text()
+    assert (d / "bad.py").read_text() == "def broken(:\n    pass\n"
+    assert f"error: cannot parse {d / 'bad.py'}:" in err
+    assert "error: 1 files could not be parsed" in err
+    assert "Traceback" not in err
+
+
+def test_main_directory_check_manifest_continues_past_syntax_error(tmp_path, capsys):
+    """The manifest-exists case from issue #35: bad.py already has a manifest
+    footer embedded, but its body was hand-edited into invalid syntax — this is
+    the case that actually triggers ast.parse (a file with no manifest at all
+    short-circuits check_manifest before ever parsing)."""
+    import mutate4py.__main__ as m
+
+    d = tmp_path / "src"
+    d.mkdir()
+    (d / "good.py").write_text("def f(): pass\n")
+    (d / "zlast.py").write_text("def g(): pass\n")
+    bad = d / "bad.py"
+    bad.write_text("def f(): pass\n")
+    sys.argv = ["mutate4py", str(bad), "--update-manifest"]
+    m.main()
+    capsys.readouterr()
+    bad.write_text(bad.read_text().replace("def f(): pass\n", "def f(:\n    pass\n", 1))
+
+    sys.argv = ["mutate4py", str(d), "--check-manifest"]
+    with pytest.raises(SystemExit) as exc:
+        m.main()
+    assert exc.value.code == 2
+    captured = capsys.readouterr()
+    out, err = captured.out, captured.err
+    assert f"Manifest missing: {d / 'good.py'}" in out
+    assert f"Manifest missing: {d / 'zlast.py'}" in out
+    assert f"error: cannot parse {bad}:" in err
+    assert "error: 1 files could not be parsed" in err
+    assert "Traceback" not in err
+
+
+def test_main_single_file_syntax_error_exits_nonzero_no_traceback(tmp_path, capsys):
+    """A single-file target with invalid syntax exits non-zero with the same
+    message and no traceback (issue #35 acceptance)."""
+    import mutate4py.__main__ as m
+
+    p = tmp_path / "bad.py"
+    p.write_text("def broken(:\n    pass\n")
+    sys.argv = ["mutate4py", str(p), "--scan"]
+    with pytest.raises(SystemExit) as exc:
+        m.main()
+    assert exc.value.code == 2
+    err = capsys.readouterr().err
+    assert f"error: cannot parse {p}:" in err
+    assert "Traceback" not in err
+
+
 def test_main_two_positionals_dispatches_the_union_path_in_process(tmp_path, capsys):
     """Direct (non-subprocess) exercise of the arity>=2 branch through main(),
     so _dispatch/_dispatch_union/_collect_union_files get real coverage."""
@@ -2246,6 +2381,40 @@ def test_main_two_positionals_dispatches_the_union_path_in_process(tmp_path, cap
     out = capsys.readouterr().out
     assert f"Manifest missing: {a_dir / 'a.py'}" in out
     assert f"Manifest missing: {b_dir / 'b.py'}" in out
+
+
+def test_main_union_batch_continues_past_syntax_error_in_one_root(tmp_path, capsys):
+    """A union batch (two or more resolved roots) must apply the same
+    continue-the-batch/worst-code contract as a single directory (issue #35)."""
+    import mutate4py.__main__ as m
+
+    a_dir = tmp_path / "a_pkg"
+    b_dir = tmp_path / "b_pkg"
+    a_dir.mkdir()
+    b_dir.mkdir()
+    (a_dir / "a.py").write_text("def f(): pass\n")
+    bad = a_dir / "bad.py"
+    bad.write_text("def h(): pass\n")
+    (b_dir / "b.py").write_text("def g(): pass\n")
+    sys.argv = ["mutate4py", str(bad), "--update-manifest"]
+    m.main()
+    capsys.readouterr()
+    # a manifest already exists on bad.py; the body is then hand-corrupted so
+    # check_manifest actually reaches ast.parse (issue #35: a file with no
+    # manifest at all short-circuits before ever parsing).
+    bad.write_text(bad.read_text().replace("def h(): pass\n", "def h(:\n    pass\n", 1))
+
+    sys.argv = ["mutate4py", str(a_dir), str(b_dir), "--check-manifest"]
+    with pytest.raises(SystemExit) as exc:
+        m.main()
+    assert exc.value.code == 2
+    captured = capsys.readouterr()
+    out, err = captured.out, captured.err
+    assert f"Manifest missing: {a_dir / 'a.py'}" in out
+    assert f"Manifest missing: {b_dir / 'b.py'}" in out
+    assert f"error: cannot parse {bad}:" in err
+    assert "error: 1 files could not be parsed" in err
+    assert "Traceback" not in err
 
 
 def test_main_zero_positionals_dispatches_autodiscovery_in_process(
@@ -2308,6 +2477,135 @@ def test_run_files_and_exit_reports_worst_code(monkeypatch, codes, expected):
     """The batch exit code is the highest-severity per-file code (2 > 1 > 0),
     not a boolean collapse, and is order-independent."""
     assert _run_batch(monkeypatch, codes) == expected
+
+
+# ── unparseable files never stop the batch (issue #35) ────────────────────────
+
+
+def test_syntax_error_reason_includes_line_number():
+    import mutate4py.__main__ as m
+
+    exc = SyntaxError("invalid syntax", ("bad.py", 3, 5, "def f(:\n", 3, 6))
+    assert m._syntax_error_reason(exc) == "invalid syntax (line 3)"
+
+
+def test_syntax_error_reason_without_line_number_omits_it():
+    import mutate4py.__main__ as m
+
+    exc = SyntaxError("invalid syntax")
+    exc.lineno = None
+    assert m._syntax_error_reason(exc) == "invalid syntax"
+
+
+def test_run_files_and_exit_continues_past_syntax_error(monkeypatch, capsys):
+    """A SyntaxError on one file must not stop the rest of the batch from running."""
+    import mutate4py.__main__ as m
+
+    files = ["good1.py", "bad.py", "good2.py"]
+    seen = []
+
+    def fake_run_on_file(args, py_file, source, cwd, baseline_duration=None):
+        seen.append(py_file)
+        if py_file == "bad.py":
+            raise SyntaxError("invalid syntax", ("bad.py", 3, 5, "def f(:\n", 3, 6))
+        return 0
+
+    monkeypatch.setattr(m, "_load_source", lambda path: "x = 1\n")
+    monkeypatch.setattr(m, "_run_on_file", fake_run_on_file)
+
+    with pytest.raises(SystemExit) as exc:
+        m._run_files_and_exit(_make_args(scan=True), files)
+
+    assert seen == files, "a parse failure must not stop the batch"
+    assert exc.value.code == 2
+
+
+def test_run_files_and_exit_syntax_error_message_on_stderr(monkeypatch, capsys):
+    import mutate4py.__main__ as m
+
+    def fake_run_on_file(args, py_file, source, cwd, baseline_duration=None):
+        raise SyntaxError("invalid syntax", ("bad.py", 3, 5, "def f(:\n", 3, 6))
+
+    monkeypatch.setattr(m, "_load_source", lambda path: "x = 1\n")
+    monkeypatch.setattr(m, "_run_on_file", fake_run_on_file)
+
+    with pytest.raises(SystemExit):
+        m._run_files_and_exit(_make_args(scan=True), ["bad.py"])
+
+    err = capsys.readouterr().err
+    assert "error: cannot parse bad.py: invalid syntax (line 3)" in err
+    assert "Traceback" not in err
+
+
+def test_run_files_and_exit_reports_parse_failure_count(monkeypatch, capsys):
+    import mutate4py.__main__ as m
+
+    def fake_run_on_file(args, py_file, source, cwd, baseline_duration=None):
+        if py_file in ("bad1.py", "bad2.py"):
+            raise SyntaxError("invalid syntax", (py_file, 1, 1, "?\n", 1, 2))
+        return 0
+
+    monkeypatch.setattr(m, "_load_source", lambda path: "x = 1\n")
+    monkeypatch.setattr(m, "_run_on_file", fake_run_on_file)
+
+    with pytest.raises(SystemExit) as exc:
+        m._run_files_and_exit(_make_args(scan=True), ["bad1.py", "good.py", "bad2.py"])
+
+    assert exc.value.code == 2
+    assert "error: 2 files could not be parsed" in capsys.readouterr().err
+
+
+def test_run_files_and_exit_no_parse_failure_summary_when_all_parse(
+    monkeypatch, capsys
+):
+    import mutate4py.__main__ as m
+
+    monkeypatch.setattr(m, "_load_source", lambda path: "x = 1\n")
+    monkeypatch.setattr(m, "_run_on_file", lambda *a, **k: 0)
+
+    with pytest.raises(SystemExit) as exc:
+        m._run_files_and_exit(_make_args(scan=True), ["a.py", "b.py"])
+
+    assert exc.value.code == 0
+    assert "could not be parsed" not in capsys.readouterr().err
+
+
+def test_run_files_and_exit_syntax_error_worst_code_wins_either_order(
+    monkeypatch,
+):
+    """A run failure (1) elsewhere in the batch neither masks nor is masked by
+    a parse failure (2) — worst code always wins, regardless of which file the
+    loop reaches first."""
+    import mutate4py.__main__ as m
+
+    def fake_run_on_file(args, py_file, source, cwd, baseline_duration=None):
+        if py_file == "bad.py":
+            raise SyntaxError("invalid syntax", ("bad.py", 1, 1, "?\n", 1, 2))
+        return 1
+
+    monkeypatch.setattr(m, "_load_source", lambda path: "x = 1\n")
+    monkeypatch.setattr(m, "_run_on_file", fake_run_on_file)
+
+    for files in (["fails.py", "bad.py"], ["bad.py", "fails.py"]):
+        with pytest.raises(SystemExit) as exc:
+            m._run_files_and_exit(_make_args(scan=True), files)
+        assert exc.value.code == 2
+
+
+def test_dispatch_single_file_propagates_syntax_error(monkeypatch):
+    """_dispatch_single_file itself lets SyntaxError propagate — it's _dispatch
+    (its sole caller) that catches and reports it (issue #35), so this stays a
+    one-branch function instead of duplicating the catch at every mode."""
+    import mutate4py.__main__ as m
+
+    def fake_run_mutations(**kwargs):
+        raise SyntaxError("invalid syntax", ("mod.py", 2, 1, "def f(:\n", 2, 2))
+
+    monkeypatch.setattr(m, "run_mutations", fake_run_mutations)
+    args = _make_args(file="mod.py")
+
+    with pytest.raises(SyntaxError):
+        m._dispatch_single_file(args, "def f(:\n", os.getcwd())
 
 
 # ── --test-contexts ───────────────────────────────────────────────────────────

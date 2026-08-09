@@ -21,6 +21,7 @@ from mutate4py._runner import (
     check_manifest,
     read_sidecar_manifest,
     run_mutations,
+    run_scan,
     update_manifest,
     write_sidecar_manifest,
 )
@@ -1689,6 +1690,73 @@ def test_check_manifest_comment_only_edit_still_current_via_slow_path(tmp_path, 
 
     assert rc == 0
     assert "Manifest current:" in capsys.readouterr().out
+
+
+# ── unparseable source propagates SyntaxError (issue #35) ─────────────────────
+#
+# check_manifest/update_manifest/run_scan/run_mutations must let a SyntaxError
+# from ast.parse propagate uncaught — the CLI's per-file dispatch (__main__.py)
+# is the layer responsible for catching it and keeping the batch going.
+
+
+def test_check_manifest_propagates_syntax_error_when_body_corrupted(tmp_path):
+    """A manifest exists but the body underneath is unparseable (e.g. hand-edited
+    after embedding) — this is the exact case that hid the bug (issue #35): with
+    no manifest at all, check_manifest short-circuits before ever parsing."""
+    src = "def f(a, b):\n    return a > b\n"
+    path, source_with_manifest = _source_with_current_manifest(tmp_path, src)
+    broken_source = source_with_manifest.replace(
+        "def f(a, b):\n    return a > b\n", "def f(a, b:\n    return a > b\n"
+    )
+    with pytest.raises(SyntaxError):
+        check_manifest(path=path, source=broken_source)
+
+
+def test_update_manifest_propagates_syntax_error(tmp_path):
+    p = tmp_path / "mod.py"
+    src = "def f(a, b:\n    return a > b\n"
+    p.write_text(src)
+    with pytest.raises(SyntaxError):
+        update_manifest(path=str(p), source=src)
+
+
+def test_run_scan_propagates_syntax_error(tmp_path):
+    p = tmp_path / "mod.py"
+    src = "def f(a, b:\n    return a > b\n"
+    p.write_text(src)
+    with pytest.raises(SyntaxError):
+        run_scan(
+            path=str(p),
+            source=src,
+            warning_threshold=50,
+            cov_cmd=None,
+            lcov_path=None,
+            reuse_coverage=False,
+            cwd=str(tmp_path),
+        )
+
+
+def test_run_mutations_propagates_syntax_error(tmp_path):
+    src = "def broken(:\n    pass\n"
+    src_path = str(tmp_path / "bad.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+
+    with pytest.raises(SyntaxError):
+        run_mutations(
+            path=src_path,
+            source=src,
+            cov_cmd=None,
+            lcov_path=None,
+            reuse_coverage=False,
+            test_command="true",
+            timeout_factor=10,
+            lines_filter=None,
+            since_last_run=False,
+            mutate_all=False,
+            warning_threshold=1000,
+            cwd=str(tmp_path),
+        )
 
 
 # ── read_sidecar_manifest / write_sidecar_manifest (sidecar file IO) ──────────
