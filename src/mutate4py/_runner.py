@@ -32,14 +32,15 @@ from mutate4py._execution import (
 from mutate4py._manifest import (
     build_manifest,
     diff_manifests,
-    embed_manifest,
-    extract_manifest,
     manifests_structurally_equal,
-    parse_sidecar_manifest,
     reconcile_manifest,
-    serialize_sidecar_manifest,
     source_sha256,
     strip_manifest,
+)
+from mutate4py._manifest_storage import (
+    ManifestLocation,
+    _read_existing_manifest,
+    _write_manifest_output,
 )
 from mutate4py._report import (
     CoverageSource,
@@ -51,14 +52,6 @@ from mutate4py._report import (
     scan_report,
     scan_report_with_coverage,
 )
-
-
-@dataclasses.dataclass(frozen=True)
-class ManifestLocation:
-    """Where a source file's manifest lives: sidecar JSON alongside it, or an embedded footer."""
-
-    path: str
-    manifest_file: bool = False
 
 
 @dataclasses.dataclass
@@ -148,39 +141,6 @@ def _restore_from_backup(path: str, bak_path: str) -> str | None:
         return f.read()
 
 
-def _sidecar_path(source_path: str) -> str:
-    """Return the sidecar manifest path for a source file: <source_path>.manifest.json."""
-    return source_path + ".manifest.json"
-
-
-def read_sidecar_manifest(source_path: str) -> tuple[dict | None, bool]:
-    """Read source_path's manifest from its own sidecar JSON file.
-
-    Missing sidecar, parse failure, or valid-but-non-dict JSON => (None, False),
-    never an error (mirrors extract_manifest).
-    """
-    sidecar_path = _sidecar_path(source_path)
-    if not os.path.isfile(sidecar_path):
-        return None, False
-    with open(sidecar_path) as f:
-        text = f.read()
-    parsed, ok = parse_sidecar_manifest(text)
-    return (parsed, True) if ok and isinstance(parsed, dict) else (None, False)
-
-
-def write_sidecar_manifest(source_path: str, manifest: dict) -> None:
-    """Write source_path's manifest to its own sidecar JSON file."""
-    with open(_sidecar_path(source_path), "w") as f:
-        f.write(serialize_sidecar_manifest(manifest))
-
-
-def _read_existing_manifest(source: str, loc: ManifestLocation) -> tuple[dict | None, bool]:
-    """Read the prior manifest from its configured storage (sidecar or in-source footer)."""
-    if loc.manifest_file:
-        return read_sidecar_manifest(loc.path)
-    return extract_manifest(source)
-
-
 def _compute_manifest_diff(source: str, loc: ManifestLocation) -> tuple[str, dict | None, bool, set[str], str]:
     """Strip manifest, discover sites, diff.
 
@@ -241,30 +201,6 @@ def _print_uncovered_if_needed(
 ) -> None:
     if not effective_since_last_run and lines_filter is None:
         _print_lines(_uncovered_block_lines(all_sites, covered_lines))
-
-
-def _write_manifest_output(
-    clean_source: str,
-    manifest: dict,
-    loc: ManifestLocation,
-    *,
-    write_source: bool = True,
-    write_manifest: bool = True,
-) -> None:
-    """Write clean_source/manifest to their configured storage (sidecar or in-source footer).
-
-    In embed mode (loc.manifest_file is False) source and footer are always written
-    together as one file, so write_source/write_manifest are ignored there.
-    """
-    if loc.manifest_file:
-        if write_source:
-            with open(loc.path, "w") as f:
-                f.write(clean_source)
-        if write_manifest:
-            write_sidecar_manifest(loc.path, manifest)
-    else:
-        with open(loc.path, "w") as f:
-            f.write(embed_manifest(clean_source, manifest))
 
 
 def _finalize_source(

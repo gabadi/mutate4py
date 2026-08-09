@@ -32,6 +32,13 @@
 # progress-line formatting) and `_workers` (the parallel dispatch it
 # routes to), so it sits directly above `execution_backends` — one layer
 # below `run_loop`, which is its only caller.
+#
+# Issue #38 gate 10 extracted the two manifest-storage adapters (sidecar
+# JSON vs. embedded footer) out of `_runner.py` into `_manifest_storage`.
+# It depends only on `_manifest` (domain layer) and is depended on by
+# `run_loop`; nothing in `execution`, `execution_backends`, or
+# `target_resolution` needs it, so it sits in its own layer directly
+# above `domain`, alongside `target_resolution` and `report`.
 source_roots = ["src"]
 layers = [
     "cli_adapter",
@@ -40,6 +47,7 @@ layers = [
     "execution_backends",
     "target_resolution",
     "report",
+    "manifest_storage",
     "domain",
     "primitives",
 ]
@@ -103,6 +111,11 @@ depends_on = []
 [[modules]]
 path = "mutate4py._execution"
 layer = "execution"
+depends_on = []
+
+[[modules]]
+path = "mutate4py._manifest_storage"
+layer = "manifest_storage"
 depends_on = []
 
 [[modules]]

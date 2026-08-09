@@ -17,11 +17,9 @@ from mutate4py._runner import (
     _select_sites,
     _should_run_parallel,
     check_manifest,
-    read_sidecar_manifest,
     run_mutations,
     run_scan,
     update_manifest,
-    write_sidecar_manifest,
 )
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -1473,85 +1471,6 @@ def test_run_mutations_propagates_syntax_error(tmp_path):
                 cwd=str(tmp_path),
             )
         )
-
-
-# ── read_sidecar_manifest / write_sidecar_manifest (sidecar file IO) ──────────
-
-
-def test_read_sidecar_manifest_missing_file_returns_none_false(tmp_path):
-    p = tmp_path / "mod.py"
-    assert read_sidecar_manifest(str(p)) == (None, False)
-
-
-def test_read_sidecar_manifest_invalid_json_returns_none_false(tmp_path):
-    p = tmp_path / "mod.py"
-    (tmp_path / "mod.py.manifest.json").write_text("not-json")
-    assert read_sidecar_manifest(str(p)) == (None, False)
-
-
-def test_read_sidecar_manifest_non_dict_json_returns_none_false(tmp_path):
-    """Valid JSON that isn't an object (e.g. a hand-corrupted sidecar) must not
-    be treated as a real manifest — it should read as missing so the next
-    --update-manifest overwrites it with a fresh one."""
-    p = tmp_path / "mod.py"
-    (tmp_path / "mod.py.manifest.json").write_text("[1, 2, 3]")
-    assert read_sidecar_manifest(str(p)) == (None, False)
-
-
-def test_write_sidecar_manifest_round_trips_through_read(tmp_path):
-    p = tmp_path / "mod.py"
-    m = {
-        "version": 1,
-        "tested_at": "2026-01-01T00:00:00Z",
-        "module_hash": "abc",
-        "functions": [],
-    }
-    write_sidecar_manifest(str(p), m)
-    result, ok = read_sidecar_manifest(str(p))
-    assert ok is True
-    assert result == m
-
-
-def test_write_sidecar_manifest_overwrites_previous_content(tmp_path):
-    p = tmp_path / "mod.py"
-    write_sidecar_manifest(
-        str(p),
-        {"version": 1, "tested_at": "x", "module_hash": "old", "functions": []},
-    )
-    write_sidecar_manifest(
-        str(p),
-        {"version": 1, "tested_at": "x", "module_hash": "new", "functions": []},
-    )
-    result, _ = read_sidecar_manifest(str(p))
-    assert result["module_hash"] == "new"
-
-
-def test_write_sidecar_manifest_uses_source_path_plus_suffix(tmp_path):
-    p = tmp_path / "mod.py"
-    write_sidecar_manifest(
-        str(p),
-        {"version": 1, "tested_at": "x", "module_hash": "abc", "functions": []},
-    )
-    assert (tmp_path / "mod.py.manifest.json").is_file()
-
-
-def test_write_sidecar_manifest_does_not_touch_other_files_sidecars(tmp_path):
-    p_a = tmp_path / "a.py"
-    p_b = tmp_path / "b.py"
-    write_sidecar_manifest(
-        str(p_a),
-        {"version": 1, "tested_at": "x", "module_hash": "a-hash", "functions": []},
-    )
-    write_sidecar_manifest(
-        str(p_b),
-        {"version": 1, "tested_at": "x", "module_hash": "b-hash", "functions": []},
-    )
-    result_a, ok_a = read_sidecar_manifest(str(p_a))
-    result_b, ok_b = read_sidecar_manifest(str(p_b))
-    assert ok_a is True
-    assert ok_b is True
-    assert result_a["module_hash"] == "a-hash"
-    assert result_b["module_hash"] == "b-hash"
 
 
 # ── update_manifest / check_manifest: sidecar mode (--manifest-file) ──────────
