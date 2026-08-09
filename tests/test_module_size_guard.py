@@ -26,7 +26,6 @@ TEST_CAPS = Caps(max_lines=1000, max_defs=100)
 
 EXEMPTIONS = {
     "tests/test_main.py": ExemptionEntry(lines=1700, defs=138),
-    "tests/test_runner.py": ExemptionEntry(lines=1390, defs=71),
 }
 
 

@@ -431,3 +431,40 @@ def test_mutate_constant_true_returns_true_to_false():
     node = ast.parse("x = True").body[0].value
     result = _mutate_constant(node)
     assert result == ("True", "False")
+
+
+# ── apply_mutant ────────────────────────────────────────────────────────────
+
+
+def test_apply_mutant_replaces_operator():
+    src = "def f(a, b):\n    return a > b\n"
+    sites = discover_sites(src)
+    assert len(sites) == 1
+    mutated = apply_mutant(src, sites[0])
+    assert "a >= b" in mutated
+    assert "a > b" not in mutated
+
+
+def test_apply_mutant_restores_via_orig_text():
+    src = "def f(a, b):\n    return a + b\n"
+    sites = discover_sites(src)
+    mutated = apply_mutant(src, sites[0])
+    # Restoring: apply the inverse (orig_text back)
+    assert mutated != src
+    assert sites[0].orig_text in src
+    assert sites[0].mutant_text in mutated
+
+
+def test_apply_mutant_constant_true_to_false():
+    src = "x = True\n"
+    sites = discover_sites(src)
+    assert len(sites) == 1
+    mutated = apply_mutant(src, sites[0])
+    assert mutated.strip() == "x = False"
+
+
+def test_apply_mutant_integer_0_to_1():
+    src = "x = 0\n"
+    sites = discover_sites(src)
+    mutated = apply_mutant(src, sites[0])
+    assert mutated.strip() == "x = 1"
