@@ -25,29 +25,23 @@ SRC_CAPS = Caps(max_lines=400, max_defs=25)
 TEST_CAPS = Caps(max_lines=1000, max_defs=100)
 
 EXEMPTIONS = {
-    "src/mutate4py/_runner.py": ExemptionEntry(lines=903, defs=39),
-    "src/mutate4py/__main__.py": ExemptionEntry(lines=739, defs=44),
-    "tests/test_main.py": ExemptionEntry(lines=3062, defs=237),
-    "tests/test_runner.py": ExemptionEntry(lines=2048, defs=128),
+    "src/mutate4py/_runner.py": ExemptionEntry(lines=923, defs=50),
+    "src/mutate4py/__main__.py": ExemptionEntry(lines=712, defs=44),
+    "tests/test_main.py": ExemptionEntry(lines=3023, defs=237),
+    "tests/test_runner.py": ExemptionEntry(lines=2094, defs=128),
 }
 
 
 def _py_files(directory: Path) -> dict[str, Path]:
-    return {
-        p.relative_to(REPO_ROOT).as_posix(): p for p in sorted(directory.glob("*.py"))
-    }
+    return {p.relative_to(REPO_ROOT).as_posix(): p for p in sorted(directory.glob("*.py"))}
 
 
 def test_no_module_exceeds_its_size_cap_or_exemption_entry():
-    violations = check_files(
-        _py_files(REPO_ROOT / "src" / "mutate4py"), SRC_CAPS, EXEMPTIONS
-    )
+    violations = check_files(_py_files(REPO_ROOT / "src" / "mutate4py"), SRC_CAPS, EXEMPTIONS)
     for test_dir in (REPO_ROOT / "tests", REPO_ROOT / "acceptance" / "steps"):
         violations += check_files(_py_files(test_dir), TEST_CAPS, EXEMPTIONS)
 
-    assert not violations, "Module size guard violations:\n" + "\n".join(
-        f"  {v}" for v in violations
-    )
+    assert not violations, "Module size guard violations:\n" + "\n".join(f"  {v}" for v in violations)
 
 
 # --- Guard unit tests (issue #38 AC) ---------------------------------------

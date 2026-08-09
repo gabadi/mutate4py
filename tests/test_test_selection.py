@@ -64,9 +64,7 @@ def _make_coverage_db(db_path: str, files: dict[str, dict[str, set[int]]]) -> No
     conn.close()
 
 
-def _make_coverage_db_arcs(
-    db_path: str, files: dict[str, dict[str, list[tuple[int, int]]]]
-) -> None:
+def _make_coverage_db_arcs(db_path: str, files: dict[str, dict[str, list[tuple[int, int]]]]) -> None:
     """Create a minimal .coverage SQLite db in branch-coverage mode (has_arcs=1).
 
     files: {source_path: {context_str: list_of_(fromno, tono)_arcs}}
@@ -147,16 +145,11 @@ def test_strip_context_no_pipe():
 
 
 def test_strip_context_run_suffix():
-    assert (
-        _strip_context_suffix("tests/foo.py::test_bar|run") == "tests/foo.py::test_bar"
-    )
+    assert _strip_context_suffix("tests/foo.py::test_bar|run") == "tests/foo.py::test_bar"
 
 
 def test_strip_context_other_suffix():
-    assert (
-        _strip_context_suffix("tests/foo.py::test_bar|something")
-        == "tests/foo.py::test_bar"
-    )
+    assert _strip_context_suffix("tests/foo.py::test_bar|something") == "tests/foo.py::test_bar"
 
 
 # ── TestContextDB queries ──────────────────────────────────────────────────────
@@ -195,9 +188,7 @@ def test_tests_for_line_returns_multiple_tests(tmp_path):
     ctx_db = TestContextDB(str(db))
     outcome, tests = ctx_db.tests_for_line("/src/foo.py", 10)
     assert outcome == "narrowed"
-    assert sorted(tests) == sorted(
-        ["tests/test_foo.py::test_bar", "tests/test_foo.py::test_baz"]
-    )
+    assert sorted(tests) == sorted(["tests/test_foo.py::test_bar", "tests/test_foo.py::test_baz"])
     ctx_db.close()
 
 
@@ -318,9 +309,7 @@ def test_tests_for_line_arc_mode_returns_multiple_tests(tmp_path):
     ctx_db = TestContextDB(str(db))
     outcome, tests = ctx_db.tests_for_line("/src/foo.py", 10)
     assert outcome == "narrowed"
-    assert sorted(tests) == sorted(
-        ["tests/test_foo.py::test_bar", "tests/test_foo.py::test_baz"]
-    )
+    assert sorted(tests) == sorted(["tests/test_foo.py::test_bar", "tests/test_foo.py::test_baz"])
     ctx_db.close()
 
 

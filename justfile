@@ -103,7 +103,7 @@ dry:
 
 [private]
 manifest:
-    uv run mutate4py src/ --check-manifest
+    uv run mutate4py src/ --check-manifest --manifest-file
 
 [private]
 acceptance:

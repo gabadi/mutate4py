@@ -161,30 +161,22 @@ def test_substitute_qa_cmd_token():
 
 
 def test_substitute_qa_that_command_token():
-    result = substitute_qa_cmd_placeholders(
-        "--cov-cmd '<that command>'", "/tmp/d", "/run.sh", None
-    )
+    result = substitute_qa_cmd_placeholders("--cov-cmd '<that command>'", "/tmp/d", "/run.sh", None)
     assert "--cov-cmd /run.sh" in result
 
 
 def test_substitute_qa_abspath_calc():
-    result = substitute_qa_cmd_placeholders(
-        "<abspath>/calc.py --scan", "/tmp/d", None, "/abs/calc.py"
-    )
+    result = substitute_qa_cmd_placeholders("<abspath>/calc.py --scan", "/tmp/d", None, "/abs/calc.py")
     assert result.startswith("/abs/calc.py")
 
 
 def test_substitute_qa_bare_calc():
-    result = substitute_qa_cmd_placeholders(
-        "calc.py --scan", "/tmp/d", None, "/abs/calc.py"
-    )
+    result = substitute_qa_cmd_placeholders("calc.py --scan", "/tmp/d", None, "/abs/calc.py")
     assert result.startswith("/abs/calc.py")
 
 
 def test_substitute_qa_lcov_path():
-    result = substitute_qa_cmd_placeholders(
-        "calc.py --lcov cov.info", "/tmp/d", None, "/abs/calc.py"
-    )
+    result = substitute_qa_cmd_placeholders("calc.py --lcov cov.info", "/tmp/d", None, "/abs/calc.py")
     assert f"--lcov {os.path.join('/tmp/d', 'cov.info')}" in result
 
 
@@ -213,9 +205,7 @@ from acceptance.steps.coverage_helpers import (  # noqa: E402
 
 
 def test_assert_stdout_contains_passes():
-    assert_stdout_contains(
-        _FakeResult("Total mutation sites: 5"), "Total mutation sites: 5"
-    )
+    assert_stdout_contains(_FakeResult("Total mutation sites: 5"), "Total mutation sites: 5")
 
 
 def test_assert_stdout_contains_fails():
@@ -229,9 +219,7 @@ def test_assert_stdout_not_contains_passes():
 
 def test_assert_stdout_not_contains_fails():
     with pytest.raises(AssertionError):
-        assert_stdout_not_contains(
-            _FakeResult("Covered mutation sites: 3"), "Covered mutation sites:"
-        )
+        assert_stdout_not_contains(_FakeResult("Covered mutation sites: 3"), "Covered mutation sites:")
 
 
 def test_assert_exit_zero_passes():

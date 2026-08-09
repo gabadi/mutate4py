@@ -35,10 +35,7 @@ def _spawns_interpreter(call: ast.Call) -> bool:
     is_subprocess_spawn = isinstance(func, ast.Attribute) and func.attr in SPAWN_FUNCS
     if not is_subprocess_spawn:
         return False
-    return any(
-        isinstance(arg, ast.Attribute) and arg.attr == "executable"
-        for arg in ast.walk(call)
-    )
+    return any(isinstance(arg, ast.Attribute) and arg.attr == "executable" for arg in ast.walk(call))
 
 
 def _find_unmarked_interpreter_spawning_tests(path: str) -> list[str]:
@@ -51,9 +48,7 @@ def _find_unmarked_interpreter_spawning_tests(path: str) -> list[str]:
             continue
         if _has_integration_marker(node):
             continue
-        spawns = any(
-            isinstance(n, ast.Call) and _spawns_interpreter(n) for n in ast.walk(node)
-        )
+        spawns = any(isinstance(n, ast.Call) and _spawns_interpreter(n) for n in ast.walk(node))
         if spawns:
             violations.append(node.name)
     return violations
@@ -73,6 +68,5 @@ def test_no_unmarked_interpreter_spawning_tests():
         "Test(s) spawn a fresh Python interpreter (subprocess.run/Popen/... "
         "with sys.executable, or _run_cli_path/_run_cli_in) without "
         "@pytest.mark.integration, which will silently re-enter the "
-        "mutation run's test command:\n"
-        + "\n".join(f"  {f}: {names}" for f, names in violations.items())
+        "mutation run's test command:\n" + "\n".join(f"  {f}: {names}" for f, names in violations.items())
     )

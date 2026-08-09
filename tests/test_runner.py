@@ -7,6 +7,10 @@ import pytest
 from mutate4py._discovery import Site, apply_mutant, discover_sites
 from mutate4py._manifest import build_manifest, embed_manifest
 from mutate4py._runner import (
+    CoverageSource,
+    ManifestLocation,
+    MutantExecCtx,
+    RunMutationsRequest,
     _baseline_reason,
     _finalize_source,
     _fork_server_eligible,
@@ -85,7 +89,7 @@ def _make_site(index, line, fid="func/f") -> Site:
 def test_select_sites_all_covered_non_differential():
     sites = [_make_site(0, 1, "func/f"), _make_site(1, 2, "func/g")]
     covered = {1, 2}
-    _, selected = _select_sites(sites, covered, set(), False, None)
+    _, selected = _select_sites(sites, covered, set(), effective_since_last_run=False, lines_filter=None)
     assert len(selected) == 2
 
 
@@ -93,7 +97,7 @@ def test_select_sites_differential_filters_unchanged():
     sites = [_make_site(0, 1, "func/f"), _make_site(1, 2, "func/g")]
     covered = {1, 2}
     changed = {"func/f"}
-    _, selected = _select_sites(sites, covered, changed, True, None)
+    _, selected = _select_sites(sites, covered, changed, effective_since_last_run=True, lines_filter=None)
     assert len(selected) == 1
     assert selected[0].function_id == "func/f"
 
@@ -101,7 +105,7 @@ def test_select_sites_differential_filters_unchanged():
 def test_select_sites_lines_filter():
     sites = [_make_site(0, 1, "func/f"), _make_site(1, 2, "func/g")]
     covered = {1, 2}
-    _, selected = _select_sites(sites, covered, set(), False, {1})
+    _, selected = _select_sites(sites, covered, set(), effective_since_last_run=False, lines_filter={1})
     assert len(selected) == 1
     assert selected[0].line == 1
 
@@ -109,7 +113,7 @@ def test_select_sites_lines_filter():
 def test_select_sites_uncovered_excluded():
     sites = [_make_site(0, 1, "func/f"), _make_site(1, 2, "func/g")]
     covered = {1}  # line 2 uncovered
-    _, selected = _select_sites(sites, covered, set(), False, None)
+    _, selected = _select_sites(sites, covered, set(), effective_since_last_run=False, lines_filter=None)
     assert len(selected) == 1
     assert selected[0].line == 1
 
@@ -145,10 +149,7 @@ def _make_fail_script(path: str) -> str:
 def _make_kill_if_mutated_script(path: str, source_path: str, mutant_text: str) -> str:
     """Write a test script that fails when the source contains mutant_text."""
     escaped = mutant_text.replace("'", "'\\''")
-    script = (
-        f"#!/bin/sh\n"
-        f"if grep -qF '{escaped}' '{source_path}'; then exit 1; else exit 0; fi\n"
-    )
+    script = f"#!/bin/sh\nif grep -qF '{escaped}' '{source_path}'; then exit 1; else exit 0; fi\n"
     with open(path, "w") as f:
         f.write(script)
     os.chmod(path, 0o755)
@@ -174,18 +175,20 @@ def test_run_mutations_killed_mutant(tmp_path):
     buf = io.StringIO()
     with redirect_stdout(buf):
         rc = run_mutations(
-            path=src_path,
-            source=src,
-            cov_cmd=None,
-            lcov_path=lcov_path,
-            reuse_coverage=False,
-            test_command=f"sh {script_path}",
-            timeout_factor=10,
-            lines_filter=None,
-            since_last_run=False,
-            mutate_all=False,
-            warning_threshold=1000,
-            cwd=str(tmp_path),
+            RunMutationsRequest(
+                path=src_path,
+                source=src,
+                cov_cmd=None,
+                lcov_path=lcov_path,
+                reuse_coverage=False,
+                test_command=f"sh {script_path}",
+                timeout_factor=10,
+                lines_filter=None,
+                since_last_run=False,
+                mutate_all=False,
+                warning_threshold=1000,
+                cwd=str(tmp_path),
+            )
         )
     output = buf.getvalue()
     assert rc == 0
@@ -213,18 +216,20 @@ def test_run_mutations_survived_mutant(tmp_path):
     buf = io.StringIO()
     with redirect_stdout(buf):
         rc = run_mutations(
-            path=src_path,
-            source=src,
-            cov_cmd=None,
-            lcov_path=lcov_path,
-            reuse_coverage=False,
-            test_command=f"sh {script_path}",
-            timeout_factor=10,
-            lines_filter=None,
-            since_last_run=False,
-            mutate_all=False,
-            warning_threshold=1000,
-            cwd=str(tmp_path),
+            RunMutationsRequest(
+                path=src_path,
+                source=src,
+                cov_cmd=None,
+                lcov_path=lcov_path,
+                reuse_coverage=False,
+                test_command=f"sh {script_path}",
+                timeout_factor=10,
+                lines_filter=None,
+                since_last_run=False,
+                mutate_all=False,
+                warning_threshold=1000,
+                cwd=str(tmp_path),
+            )
         )
     output = buf.getvalue()
     n_sites = len(sites)
@@ -258,19 +263,21 @@ def test_run_mutations_sidecar_writes_manifest_file_and_footer_free_source(tmp_p
     buf = io.StringIO()
     with redirect_stdout(buf):
         rc = run_mutations(
-            path=src_path,
-            source=src,
-            cov_cmd=None,
-            lcov_path=lcov_path,
-            reuse_coverage=False,
-            test_command=f"sh {script_path}",
-            timeout_factor=10,
-            lines_filter=None,
-            since_last_run=False,
-            mutate_all=False,
-            warning_threshold=1000,
-            cwd=str(tmp_path),
-            manifest_file=True,
+            RunMutationsRequest(
+                path=src_path,
+                source=src,
+                cov_cmd=None,
+                lcov_path=lcov_path,
+                reuse_coverage=False,
+                test_command=f"sh {script_path}",
+                timeout_factor=10,
+                lines_filter=None,
+                since_last_run=False,
+                mutate_all=False,
+                warning_threshold=1000,
+                cwd=str(tmp_path),
+                manifest_file=True,
+            )
         )
 
     assert rc == 0
@@ -303,18 +310,20 @@ def test_run_mutations_baseline_failure_exits_1(tmp_path):
     buf = io.StringIO()
     with redirect_stdout(buf):
         rc = run_mutations(
-            path=src_path,
-            source=src,
-            cov_cmd=None,
-            lcov_path=lcov_path,
-            reuse_coverage=False,
-            test_command=f"sh {script_path}",
-            timeout_factor=10,
-            lines_filter=None,
-            since_last_run=False,
-            mutate_all=False,
-            warning_threshold=1000,
-            cwd=str(tmp_path),
+            RunMutationsRequest(
+                path=src_path,
+                source=src,
+                cov_cmd=None,
+                lcov_path=lcov_path,
+                reuse_coverage=False,
+                test_command=f"sh {script_path}",
+                timeout_factor=10,
+                lines_filter=None,
+                since_last_run=False,
+                mutate_all=False,
+                warning_threshold=1000,
+                cwd=str(tmp_path),
+            )
         )
     output = buf.getvalue()
     assert rc == 1
@@ -327,9 +336,7 @@ def test_run_mutations_baseline_failure_exits_1(tmp_path):
 def test_baseline_reason_uses_stderr_first():
     import subprocess
 
-    result = subprocess.CompletedProcess(
-        args=[], returncode=1, stderr=b"test suite crashed\nsecond line"
-    )
+    result = subprocess.CompletedProcess(args=[], returncode=1, stderr=b"test suite crashed\nsecond line")
     assert _baseline_reason(result) == "test suite crashed"
 
 
@@ -359,18 +366,20 @@ def test_run_mutations_restores_source_after_run(tmp_path):
     buf = io.StringIO()
     with redirect_stdout(buf):
         run_mutations(
-            path=src_path,
-            source=src,
-            cov_cmd=None,
-            lcov_path=lcov_path,
-            reuse_coverage=False,
-            test_command=f"sh {script_path}",
-            timeout_factor=10,
-            lines_filter=None,
-            since_last_run=False,
-            mutate_all=False,
-            warning_threshold=1000,
-            cwd=str(tmp_path),
+            RunMutationsRequest(
+                path=src_path,
+                source=src,
+                cov_cmd=None,
+                lcov_path=lcov_path,
+                reuse_coverage=False,
+                test_command=f"sh {script_path}",
+                timeout_factor=10,
+                lines_filter=None,
+                since_last_run=False,
+                mutate_all=False,
+                warning_threshold=1000,
+                cwd=str(tmp_path),
+            )
         )
 
     # Source should have no mutant; bak should be gone
@@ -404,18 +413,20 @@ def test_run_mutations_crash_safety_restores_bak(tmp_path):
     buf = io.StringIO()
     with redirect_stdout(buf):
         run_mutations(
-            path=src_path,
-            source=src,
-            cov_cmd=None,
-            lcov_path=lcov_path,
-            reuse_coverage=False,
-            test_command=f"sh {script_path}",
-            timeout_factor=10,
-            lines_filter=None,
-            since_last_run=False,
-            mutate_all=False,
-            warning_threshold=1000,
-            cwd=str(tmp_path),
+            RunMutationsRequest(
+                path=src_path,
+                source=src,
+                cov_cmd=None,
+                lcov_path=lcov_path,
+                reuse_coverage=False,
+                test_command=f"sh {script_path}",
+                timeout_factor=10,
+                lines_filter=None,
+                since_last_run=False,
+                mutate_all=False,
+                warning_threshold=1000,
+                cwd=str(tmp_path),
+            )
         )
     output = buf.getvalue()
     assert "Restored source from backup" in output
@@ -453,18 +464,20 @@ def test_run_mutations_preserves_tested_at_when_manifest_already_current(tmp_pat
     buf = io.StringIO()
     with redirect_stdout(buf):
         run_mutations(
-            path=src_path,
-            source=source_with_manifest,
-            cov_cmd=None,
-            lcov_path=lcov_path,
-            reuse_coverage=False,
-            test_command=f"sh {script_path}",
-            timeout_factor=10,
-            lines_filter=None,
-            since_last_run=False,
-            mutate_all=True,
-            warning_threshold=1000,
-            cwd=str(tmp_path),
+            RunMutationsRequest(
+                path=src_path,
+                source=source_with_manifest,
+                cov_cmd=None,
+                lcov_path=lcov_path,
+                reuse_coverage=False,
+                test_command=f"sh {script_path}",
+                timeout_factor=10,
+                lines_filter=None,
+                since_last_run=False,
+                mutate_all=True,
+                warning_threshold=1000,
+                cwd=str(tmp_path),
+            )
         )
 
     with open(src_path) as f:
@@ -495,18 +508,20 @@ def test_run_mutations_reuse_coverage_warns(tmp_path):
     buf = io.StringIO()
     with redirect_stdout(buf):
         run_mutations(
-            path=src_path,
-            source=src,
-            cov_cmd=None,
-            lcov_path=None,
-            reuse_coverage=True,
-            test_command=f"sh {script_path}",
-            timeout_factor=10,
-            lines_filter=None,
-            since_last_run=False,
-            mutate_all=False,
-            warning_threshold=1000,
-            cwd=str(tmp_path),
+            RunMutationsRequest(
+                path=src_path,
+                source=src,
+                cov_cmd=None,
+                lcov_path=None,
+                reuse_coverage=True,
+                test_command=f"sh {script_path}",
+                timeout_factor=10,
+                lines_filter=None,
+                since_last_run=False,
+                mutate_all=False,
+                warning_threshold=1000,
+                cwd=str(tmp_path),
+            )
         )
     output = buf.getvalue()
     assert "Reusing existing coverage" in output
@@ -535,18 +550,20 @@ def test_run_mutations_header_counts(tmp_path):
     buf = io.StringIO()
     with redirect_stdout(buf):
         run_mutations(
-            path=src_path,
-            source=src,
-            cov_cmd=None,
-            lcov_path=lcov_path,
-            reuse_coverage=False,
-            test_command=f"sh {script_path}",
-            timeout_factor=10,
-            lines_filter=None,
-            since_last_run=False,
-            mutate_all=False,
-            warning_threshold=1000,
-            cwd=str(tmp_path),
+            RunMutationsRequest(
+                path=src_path,
+                source=src,
+                cov_cmd=None,
+                lcov_path=lcov_path,
+                reuse_coverage=False,
+                test_command=f"sh {script_path}",
+                timeout_factor=10,
+                lines_filter=None,
+                since_last_run=False,
+                mutate_all=False,
+                warning_threshold=1000,
+                cwd=str(tmp_path),
+            )
         )
     output = buf.getvalue()
     assert "Mutation run:" in output
@@ -573,9 +590,7 @@ def test_run_mutations_timeout_counts_as_killed(tmp_path):
     baseline_script = str(tmp_path / "baseline.sh")
     with open(baseline_script, "w") as f:
         f.write("#!/bin/sh\n")
-        f.write(
-            f"if grep -qF '{sites[0].mutant_text}' '{src_path}'; then sleep 5; fi\n"
-        )
+        f.write(f"if grep -qF '{sites[0].mutant_text}' '{src_path}'; then sleep 5; fi\n")
         f.write("exit 0\n")
     os.chmod(baseline_script, 0o755)
 
@@ -585,19 +600,21 @@ def test_run_mutations_timeout_counts_as_killed(tmp_path):
     buf = io.StringIO()
     with redirect_stdout(buf):
         run_mutations(
-            path=src_path,
-            source=src,
-            cov_cmd=None,
-            lcov_path=lcov_path,
-            reuse_coverage=False,
-            test_command=f"sh {baseline_script}",
-            timeout_factor=1,
-            min_timeout=0.1,
-            lines_filter=None,
-            since_last_run=False,
-            mutate_all=False,
-            warning_threshold=1000,
-            cwd=str(tmp_path),
+            RunMutationsRequest(
+                path=src_path,
+                source=src,
+                cov_cmd=None,
+                lcov_path=lcov_path,
+                reuse_coverage=False,
+                test_command=f"sh {baseline_script}",
+                timeout_factor=1,
+                min_timeout=0.1,
+                lines_filter=None,
+                since_last_run=False,
+                mutate_all=False,
+                warning_threshold=1000,
+                cwd=str(tmp_path),
+            )
         )
     output = buf.getvalue()
     assert "timeout" in output
@@ -669,18 +686,20 @@ def test_run_mutations_warning_threshold_exceeded(tmp_path):
     buf = io.StringIO()
     with redirect_stdout(buf):
         rc = run_mutations(
-            path=src_path,
-            source=src,
-            cov_cmd=None,
-            lcov_path=lcov_path,
-            reuse_coverage=False,
-            test_command=f"sh {script_path}",
-            timeout_factor=10,
-            lines_filter=None,
-            since_last_run=False,
-            mutate_all=False,
-            warning_threshold=0,  # any sites exceed this
-            cwd=str(tmp_path),
+            RunMutationsRequest(
+                path=src_path,
+                source=src,
+                cov_cmd=None,
+                lcov_path=lcov_path,
+                reuse_coverage=False,
+                test_command=f"sh {script_path}",
+                timeout_factor=10,
+                lines_filter=None,
+                since_last_run=False,
+                mutate_all=False,
+                warning_threshold=0,  # any sites exceed this
+                cwd=str(tmp_path),
+            )
         )
     output = buf.getvalue()
     assert rc == 0
@@ -708,18 +727,20 @@ def test_run_mutations_coverage_error_returns_1(tmp_path, monkeypatch):
     buf = io.StringIO()
     with redirect_stdout(buf):
         rc = run_mutations(
-            path=src_path,
-            source=src,
-            cov_cmd=None,
-            lcov_path=None,
-            reuse_coverage=False,
-            test_command="exit 0",
-            timeout_factor=10,
-            lines_filter=None,
-            since_last_run=False,
-            mutate_all=False,
-            warning_threshold=1000,
-            cwd=str(tmp_path),
+            RunMutationsRequest(
+                path=src_path,
+                source=src,
+                cov_cmd=None,
+                lcov_path=None,
+                reuse_coverage=False,
+                test_command="exit 0",
+                timeout_factor=10,
+                lines_filter=None,
+                since_last_run=False,
+                mutate_all=False,
+                warning_threshold=1000,
+                cwd=str(tmp_path),
+            )
         )
     output = buf.getvalue()
     assert rc == 1
@@ -754,19 +775,21 @@ def _run_with_capture(tmp_path, src_path, src, *, max_workers, test_cmd="exit 0"
     buf = io.StringIO()
     with redirect_stdout(buf):
         rc = run_mutations(
-            path=src_path,
-            source=src,
-            cov_cmd=None,
-            lcov_path=lcov_path,
-            reuse_coverage=False,
-            test_command=test_cmd,
-            timeout_factor=10,
-            lines_filter=None,
-            since_last_run=False,
-            mutate_all=False,
-            warning_threshold=1000,
-            max_workers=max_workers,
-            cwd=str(tmp_path),
+            RunMutationsRequest(
+                path=src_path,
+                source=src,
+                cov_cmd=None,
+                lcov_path=lcov_path,
+                reuse_coverage=False,
+                test_command=test_cmd,
+                timeout_factor=10,
+                lines_filter=None,
+                since_last_run=False,
+                mutate_all=False,
+                warning_threshold=1000,
+                max_workers=max_workers,
+                cwd=str(tmp_path),
+            )
         )
     return rc, buf.getvalue()
 
@@ -874,19 +897,21 @@ def test_parallel_path_target_outside_cwd_error(tmp_path, monkeypatch):
         buf = io.StringIO()
         with redirect_stdout(buf):
             rc = run_mutations(
-                path=src_path,
-                source=src,
-                cov_cmd=None,
-                lcov_path=lcov_path,
-                reuse_coverage=False,
-                test_command="exit 0",
-                timeout_factor=10,
-                lines_filter=None,
-                since_last_run=False,
-                mutate_all=False,
-                warning_threshold=1000,
-                max_workers=4,
-                cwd=str(tmp_path),
+                RunMutationsRequest(
+                    path=src_path,
+                    source=src,
+                    cov_cmd=None,
+                    lcov_path=lcov_path,
+                    reuse_coverage=False,
+                    test_command="exit 0",
+                    timeout_factor=10,
+                    lines_filter=None,
+                    since_last_run=False,
+                    mutate_all=False,
+                    warning_threshold=1000,
+                    max_workers=4,
+                    cwd=str(tmp_path),
+                )
             )
         output = buf.getvalue()
         assert rc == 1
@@ -1021,10 +1046,12 @@ def test_run_mutation_loop_empty_sites_returns_zero_counts(tmp_path):
     counts, survivors, selection_counts = _run_mutation_loop(
         selected_sites=[],
         clean_source="x = 1\n",
-        path=str(src_file),
-        cwd=str(tmp_path),
-        test_command="exit 0",
-        mutant_timeout=5.0,
+        ctx=MutantExecCtx(
+            path=str(src_file),
+            cwd=str(tmp_path),
+            test_command="exit 0",
+            mutant_timeout=5.0,
+        ),
     )
     assert counts == {"killed": 0, "timeout": 0, "survived": 0}
     assert survivors == []
@@ -1038,12 +1065,14 @@ def _loop_over_two_sites(tmp_path, ctx_db):
     return _run_mutation_loop(
         selected_sites=discover_sites(src),
         clean_source=src,
-        path=str(src_file),
-        cwd=str(tmp_path),
-        test_command="exit 1",
-        mutant_timeout=5.0,
-        test_ctx_db=ctx_db,
-        abs_source_path=str(src_file),
+        ctx=MutantExecCtx(
+            path=str(src_file),
+            cwd=str(tmp_path),
+            test_command="exit 1",
+            mutant_timeout=5.0,
+            test_ctx_db=ctx_db,
+            abs_source_path=str(src_file),
+        ),
     )
 
 
@@ -1055,9 +1084,7 @@ def test_run_mutation_loop_tallies_narrowed_selections(tmp_path):
 
 
 def test_run_mutation_loop_tallies_static_selections(tmp_path):
-    _, _, selection_counts = _loop_over_two_sites(
-        tmp_path, _FakeTestContextDB("static")
-    )
+    _, _, selection_counts = _loop_over_two_sites(tmp_path, _FakeTestContextDB("static"))
     assert selection_counts == {"narrowed": 0, "static": 2}
 
 
@@ -1071,12 +1098,14 @@ def test_run_mutation_loop_disagreement_aborts_before_applying_the_mutant(tmp_pa
         _run_mutation_loop(
             selected_sites=discover_sites(src),
             clean_source=src,
-            path=str(src_file),
-            cwd=str(tmp_path),
-            test_command="exit 1",
-            mutant_timeout=5.0,
-            test_ctx_db=_FakeTestContextDB("line-absent"),
-            abs_source_path=str(src_file),
+            ctx=MutantExecCtx(
+                path=str(src_file),
+                cwd=str(tmp_path),
+                test_command="exit 1",
+                mutant_timeout=5.0,
+                test_ctx_db=_FakeTestContextDB("line-absent"),
+                abs_source_path=str(src_file),
+            ),
         )
     assert src_file.read_text() == src
 
@@ -1084,9 +1113,7 @@ def test_run_mutation_loop_disagreement_aborts_before_applying_the_mutant(tmp_pa
 # ── --test-contexts end-to-end: report line and the case-3 abort ──────────────
 
 
-def _run_with_stub_ctx_db(
-    tmp_path, monkeypatch, outcome, node_ids=(), *, test_contexts=".coverage"
-):
+def _run_with_stub_ctx_db(tmp_path, monkeypatch, outcome, node_ids=(), *, test_contexts=".coverage"):
     import mutate4py._test_selection as ts
 
     class _StubDB:
@@ -1107,27 +1134,27 @@ def _run_with_stub_ctx_db(
     lcov_path = str(tmp_path / "cov.lcov")
     _write_lcov_for_source(lcov_path, src_path, src)
     rc = run_mutations(
-        path=src_path,
-        source=src,
-        cov_cmd=None,
-        lcov_path=lcov_path,
-        reuse_coverage=False,
-        test_command="exit 0",
-        timeout_factor=10,
-        lines_filter=None,
-        since_last_run=False,
-        mutate_all=False,
-        warning_threshold=1000,
-        cwd=str(tmp_path),
-        test_contexts_path=test_contexts,
+        RunMutationsRequest(
+            path=src_path,
+            source=src,
+            cov_cmd=None,
+            lcov_path=lcov_path,
+            reuse_coverage=False,
+            test_command="exit 0",
+            timeout_factor=10,
+            lines_filter=None,
+            since_last_run=False,
+            mutate_all=False,
+            warning_threshold=1000,
+            cwd=str(tmp_path),
+            test_contexts_path=test_contexts,
+        )
     )
     return rc, src_path, src
 
 
 def test_report_counts_narrowed_selections(tmp_path, monkeypatch, capsys):
-    rc, _, _ = _run_with_stub_ctx_db(
-        tmp_path, monkeypatch, "narrowed", ["tests/test_calc.py::test_f"]
-    )
+    rc, _, _ = _run_with_stub_ctx_db(tmp_path, monkeypatch, "narrowed", ["tests/test_calc.py::test_f"])
     assert rc == 0
     assert "Test selection: narrowed 3, static 0" in capsys.readouterr().out
 
@@ -1138,19 +1165,13 @@ def test_report_counts_static_selections(tmp_path, monkeypatch, capsys):
     assert "Test selection: narrowed 0, static 3" in capsys.readouterr().out
 
 
-def test_report_omits_test_selection_line_without_a_context_db(
-    tmp_path, monkeypatch, capsys
-):
-    rc, _, _ = _run_with_stub_ctx_db(
-        tmp_path, monkeypatch, "narrowed", test_contexts=None
-    )
+def test_report_omits_test_selection_line_without_a_context_db(tmp_path, monkeypatch, capsys):
+    rc, _, _ = _run_with_stub_ctx_db(tmp_path, monkeypatch, "narrowed", test_contexts=None)
     assert rc == 0
     assert "Test selection:" not in capsys.readouterr().out
 
 
-def test_test_selection_line_sits_after_uncovered_in_the_report(
-    tmp_path, monkeypatch, capsys
-):
+def test_test_selection_line_sits_after_uncovered_in_the_report(tmp_path, monkeypatch, capsys):
     _run_with_stub_ctx_db(tmp_path, monkeypatch, "static")
     lines = capsys.readouterr().out.splitlines()
     report = lines[lines.index("Mutation Report") :]
@@ -1168,9 +1189,7 @@ def test_disagreement_exits_2_with_no_report(tmp_path, monkeypatch, capsys, outc
     assert f"{src_path}:2" in captured.err
 
 
-def test_disagreement_restores_the_source_and_removes_the_backup(
-    tmp_path, monkeypatch, capsys
-):
+def test_disagreement_restores_the_source_and_removes_the_backup(tmp_path, monkeypatch, capsys):
     from mutate4py._manifest import strip_manifest
 
     rc, src_path, src = _run_with_stub_ctx_db(tmp_path, monkeypatch, "line-absent")
@@ -1186,23 +1205,46 @@ def test_disagreement_restores_the_source_and_removes_the_backup(
 
 
 def test_fork_server_eligible_true_when_all_conditions_met():
-    assert _fork_server_eligible(True, False, None, [object()]) is True
+    assert (
+        _fork_server_eligible(
+            fork_server_requested=True, use_parallel=False, test_ctx_db=None, selected_sites=[object()]
+        )
+        is True
+    )
 
 
 def test_fork_server_eligible_false_when_not_requested():
-    assert _fork_server_eligible(False, False, None, [object()]) is False
+    assert (
+        _fork_server_eligible(
+            fork_server_requested=False, use_parallel=False, test_ctx_db=None, selected_sites=[object()]
+        )
+        is False
+    )
 
 
 def test_fork_server_eligible_false_when_parallel():
-    assert _fork_server_eligible(True, True, None, [object()]) is False
+    assert (
+        _fork_server_eligible(
+            fork_server_requested=True, use_parallel=True, test_ctx_db=None, selected_sites=[object()]
+        )
+        is False
+    )
 
 
 def test_fork_server_eligible_false_when_test_ctx_db_present():
-    assert _fork_server_eligible(True, False, object(), [object()]) is False
+    assert (
+        _fork_server_eligible(
+            fork_server_requested=True, use_parallel=False, test_ctx_db=object(), selected_sites=[object()]
+        )
+        is False
+    )
 
 
 def test_fork_server_eligible_false_when_no_selected_sites():
-    assert _fork_server_eligible(True, False, None, []) is False
+    assert (
+        _fork_server_eligible(fork_server_requested=True, use_parallel=False, test_ctx_db=None, selected_sites=[])
+        is False
+    )
 
 
 # ── _run_single_mutant ────────────────────────────────────────────────────────
@@ -1255,27 +1297,42 @@ def test_should_run_parallel_three_workers():
 
 def test_is_effective_since_last_run_explicit():
     """since_last_run=True -> effective regardless of other flags."""
-    assert _is_effective_since_last_run(True, False, True, {1, 2}) is True
+    assert (
+        _is_effective_since_last_run(since_last_run=True, manifest_exists=False, mutate_all=True, lines_filter={1, 2})
+        is True
+    )
 
 
 def test_is_effective_since_last_run_implicit_all_conditions():
     """manifest exists, mutate_all=False, no lines_filter -> effective."""
-    assert _is_effective_since_last_run(False, True, False, None) is True
+    assert (
+        _is_effective_since_last_run(since_last_run=False, manifest_exists=True, mutate_all=False, lines_filter=None)
+        is True
+    )
 
 
 def test_is_effective_since_last_run_no_manifest():
     """No manifest -> not effective via implicit path."""
-    assert _is_effective_since_last_run(False, False, False, None) is False
+    assert (
+        _is_effective_since_last_run(since_last_run=False, manifest_exists=False, mutate_all=False, lines_filter=None)
+        is False
+    )
 
 
 def test_is_effective_since_last_run_mutate_all_disables():
     """mutate_all=True -> not effective via implicit path."""
-    assert _is_effective_since_last_run(False, True, True, None) is False
+    assert (
+        _is_effective_since_last_run(since_last_run=False, manifest_exists=True, mutate_all=True, lines_filter=None)
+        is False
+    )
 
 
 def test_is_effective_since_last_run_lines_filter_disables():
     """lines_filter present -> not effective via implicit path."""
-    assert _is_effective_since_last_run(False, True, False, {5}) is False
+    assert (
+        _is_effective_since_last_run(since_last_run=False, manifest_exists=True, mutate_all=False, lines_filter={5})
+        is False
+    )
 
 
 # ── _on_parallel_result output ────────────────────────────────────────────────
@@ -1336,9 +1393,7 @@ def test_on_parallel_result_fid_suffix_when_empty(capsys):
     }
     _on_parallel_result(result)
     out = capsys.readouterr().out
-    assert out.rstrip("\n").endswith("> -> >="), (
-        f"No extra suffix expected, got: {out!r}"
-    )
+    assert out.rstrip("\n").endswith("> -> >="), f"No extra suffix expected, got: {out!r}"
 
 
 def test_on_parallel_result_fid_suffix_when_present(capsys):
@@ -1364,8 +1419,8 @@ def test_run_parallel_workers_passes_timeout(tmp_path, monkeypatch):
 
     captured = {}
 
-    def fake_run_parallel(*, mutant_timeout, **_kw):
-        captured["mutant_timeout"] = mutant_timeout
+    def fake_run_parallel(request):
+        captured["mutant_timeout"] = request.mutant_timeout
         return ({"killed": 0, "survived": 0, "timeout": 0}, [])
 
     monkeypatch.setattr(workers_mod, "run_parallel", fake_run_parallel)
@@ -1383,11 +1438,13 @@ def test_run_parallel_workers_passes_timeout(tmp_path, monkeypatch):
     _run_parallel_workers(
         selected_sites=sites,
         clean_source=src,
-        path=src_path,
-        cwd=str(tmp_path),
-        test_command="exit 0",
-        mutant_timeout=42.0,
-        max_workers=2,
+        ctx=MutantExecCtx(
+            path=src_path,
+            cwd=str(tmp_path),
+            test_command="exit 0",
+            mutant_timeout=42.0,
+            max_workers=2,
+        ),
     )
     assert captured["mutant_timeout"] == 42.0
 
@@ -1406,7 +1463,7 @@ def test_finalize_source_embeds_manifest_with_tested_at(tmp_path):
         f.write(src)
 
     tested_at = "2026-01-01T00:00:00Z"
-    _finalize_source(src_path, src, tested_at, bak_path)
+    _finalize_source(src, tested_at, bak_path, ManifestLocation(path=src_path))
 
     with open(src_path) as f:
         content = f.read()
@@ -1427,7 +1484,7 @@ def test_finalize_source_removes_bak_when_present(tmp_path):
     with open(bak_path, "w") as f:
         f.write(src)
 
-    _finalize_source(src_path, src, "2026-01-01T00:00:00Z", bak_path)
+    _finalize_source(src, "2026-01-01T00:00:00Z", bak_path, ManifestLocation(path=src_path))
 
     assert not os.path.isfile(bak_path)
 
@@ -1442,7 +1499,7 @@ def test_finalize_source_manifest_is_valid_dict(tmp_path):
     with open(src_path, "w") as f:
         f.write(src)
 
-    _finalize_source(src_path, src, "2026-01-01T00:00:00Z", bak_path)
+    _finalize_source(src, "2026-01-01T00:00:00Z", bak_path, ManifestLocation(path=src_path))
 
     with open(src_path) as f:
         content = f.read()
@@ -1464,9 +1521,7 @@ def test_finalize_source_sidecar_writes_manifest_file_not_footer(tmp_path):
         f.write(src)
     sidecar_path = src_path + ".manifest.json"
 
-    _finalize_source(
-        src_path, src, "2026-01-01T00:00:00Z", bak_path, manifest_file=True
-    )
+    _finalize_source(src, "2026-01-01T00:00:00Z", bak_path, ManifestLocation(path=src_path, manifest_file=True))
 
     with open(src_path) as f:
         content = f.read()
@@ -1488,9 +1543,7 @@ def test_finalize_source_sidecar_removes_bak_when_present(tmp_path):
     with open(bak_path, "w") as f:
         f.write(src)
 
-    _finalize_source(
-        src_path, src, "2026-01-01T00:00:00Z", bak_path, manifest_file=True
-    )
+    _finalize_source(src, "2026-01-01T00:00:00Z", bak_path, ManifestLocation(path=src_path, manifest_file=True))
 
     assert not os.path.isfile(bak_path)
 
@@ -1512,10 +1565,10 @@ def test_finalize_source_retains_existing_manifest_when_structurally_equal(tmp_p
     existing_manifest = build_manifest(src, tested_at=old_tested_at)
 
     _finalize_source(
-        src_path,
         src,
         "2026-01-01T00:00:00Z",
         bak_path,
+        ManifestLocation(path=src_path),
         existing_manifest=existing_manifest,
     )
 
@@ -1545,10 +1598,10 @@ def test_finalize_source_bumps_tested_at_when_existing_manifest_differs(tmp_path
     new_tested_at = "2026-01-01T00:00:00Z"
 
     _finalize_source(
-        src_path,
         new_src,
         new_tested_at,
         bak_path,
+        ManifestLocation(path=src_path),
         existing_manifest=existing_manifest,
     )
 
@@ -1682,9 +1735,7 @@ def test_check_manifest_comment_only_edit_still_current_via_slow_path(tmp_path, 
     src = "def f(a, b):\n    return a > b\n"
     path, source_with_manifest = _source_with_current_manifest(tmp_path, src)
     capsys.readouterr()
-    commented_source = source_with_manifest.replace(
-        "def f(a, b):", "def f(a, b):\n    # a comment"
-    )
+    commented_source = source_with_manifest.replace("def f(a, b):", "def f(a, b):\n    # a comment")
 
     rc = check_manifest(path=path, source=commented_source)
 
@@ -1705,9 +1756,7 @@ def test_check_manifest_propagates_syntax_error_when_body_corrupted(tmp_path):
     no manifest at all, check_manifest short-circuits before ever parsing."""
     src = "def f(a, b):\n    return a > b\n"
     path, source_with_manifest = _source_with_current_manifest(tmp_path, src)
-    broken_source = source_with_manifest.replace(
-        "def f(a, b):\n    return a > b\n", "def f(a, b:\n    return a > b\n"
-    )
+    broken_source = source_with_manifest.replace("def f(a, b):\n    return a > b\n", "def f(a, b:\n    return a > b\n")
     with pytest.raises(SyntaxError):
         check_manifest(path=path, source=broken_source)
 
@@ -1729,10 +1778,7 @@ def test_run_scan_propagates_syntax_error(tmp_path):
             path=str(p),
             source=src,
             warning_threshold=50,
-            cov_cmd=None,
-            lcov_path=None,
-            reuse_coverage=False,
-            cwd=str(tmp_path),
+            coverage=CoverageSource(cov_cmd=None, lcov_path=None, reuse_coverage=False, cwd=str(tmp_path)),
         )
 
 
@@ -1744,18 +1790,20 @@ def test_run_mutations_propagates_syntax_error(tmp_path):
 
     with pytest.raises(SyntaxError):
         run_mutations(
-            path=src_path,
-            source=src,
-            cov_cmd=None,
-            lcov_path=None,
-            reuse_coverage=False,
-            test_command="true",
-            timeout_factor=10,
-            lines_filter=None,
-            since_last_run=False,
-            mutate_all=False,
-            warning_threshold=1000,
-            cwd=str(tmp_path),
+            RunMutationsRequest(
+                path=src_path,
+                source=src,
+                cov_cmd=None,
+                lcov_path=None,
+                reuse_coverage=False,
+                test_command="true",
+                timeout_factor=10,
+                lines_filter=None,
+                since_last_run=False,
+                mutate_all=False,
+                warning_threshold=1000,
+                cwd=str(tmp_path),
+            )
         )
 
 
@@ -1951,9 +1999,7 @@ def test_update_manifest_sidecar_strips_stale_footer_even_when_sidecar_current(
     update_manifest(path=str(p), source=src, manifest_file=True)
     # ...but the file on disk somehow still carries a stale embedded footer
     # (e.g. left over from switching a file from embedded to sidecar storage).
-    stale_embedded_source = embed_manifest(
-        src, {"version": 1, "tested_at": "x", "module_hash": "old", "functions": []}
-    )
+    stale_embedded_source = embed_manifest(src, {"version": 1, "tested_at": "x", "module_hash": "old", "functions": []})
     p.write_text(stale_embedded_source)
 
     update_manifest(path=str(p), source=stale_embedded_source, manifest_file=True)

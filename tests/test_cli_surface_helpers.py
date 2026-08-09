@@ -152,9 +152,7 @@ def test_accepted_flags_coverage():
 
 
 def test_accepted_flags_max_workers():
-    args, target, workers = accepted_flags_args(
-        "--max-workers 4 (a coverage flag)", "s.py", "cov.lcov"
-    )
+    args, target, workers = accepted_flags_args("--max-workers 4 (a coverage flag)", "s.py", "cov.lcov")
     assert "--max-workers" in args
     assert target == "run loop"
     assert workers == 4
@@ -368,20 +366,13 @@ def test_exclude_run_args_appends_pattern_after_mode_flag():
 
 def test_reported_manifest_files_collects_basenames_in_order():
     stdout = (
-        "Manifest missing: /tmp/pkg/keep.py\n"
-        "Manifest current: /tmp/pkg/other.py\n"
-        "Manifest stale: /tmp/pkg/third.py\n"
+        "Manifest missing: /tmp/pkg/keep.py\nManifest current: /tmp/pkg/other.py\nManifest stale: /tmp/pkg/third.py\n"
     )
     assert reported_manifest_files(stdout) == ["keep.py", "other.py", "third.py"]
 
 
 def test_reported_manifest_files_ignores_unrelated_lines():
-    assert (
-        reported_manifest_files(
-            "Mutation scan: /tmp/pkg/keep.py\nManifest exists: false\n"
-        )
-        == []
-    )
+    assert reported_manifest_files("Mutation scan: /tmp/pkg/keep.py\nManifest exists: false\n") == []
 
 
 def test_assert_only_reported_passes_for_a_single_match():

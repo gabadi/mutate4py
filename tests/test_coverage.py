@@ -135,9 +135,7 @@ def test_acquire_from_lcov_path():
             f.write("x = a + b\n")
         with open(lcov_path, "w") as f:
             f.write(f"SF:{src}\nDA:1,5\nend_of_record\n")
-        result = acquire_coverage(
-            cov_cmd=None, lcov_path=lcov_path, reuse=False, cwd=d, source_path=src
-        )
+        result = acquire_coverage(cov_cmd=None, lcov_path=lcov_path, reuse=False, cwd=d, source_path=src)
         assert 1 in result
 
 
@@ -161,18 +159,14 @@ def test_acquire_reuse_reads_coverage_lcov():
             f.write("x = a + b\n")
         with open(default_lcov, "w") as f:
             f.write(f"SF:{src}\nDA:1,1\nend_of_record\n")
-        result = acquire_coverage(
-            cov_cmd=None, lcov_path=None, reuse=True, cwd=d, source_path=src
-        )
+        result = acquire_coverage(cov_cmd=None, lcov_path=None, reuse=True, cwd=d, source_path=src)
         assert 1 in result
 
 
 def test_acquire_reuse_missing_default_raises():
     with tempfile.TemporaryDirectory() as d:
         with pytest.raises(CoverageError):
-            acquire_coverage(
-                cov_cmd=None, lcov_path=None, reuse=True, cwd=d, source_path="foo.py"
-            )
+            acquire_coverage(cov_cmd=None, lcov_path=None, reuse=True, cwd=d, source_path="foo.py")
 
 
 def test_acquire_cov_cmd_runs_and_reads_coverage_lcov():
@@ -183,9 +177,7 @@ def test_acquire_cov_cmd_runs_and_reads_coverage_lcov():
             f.write("x = a + b\n")
         # Command writes coverage.lcov into cwd
         cmd = f"echo 'SF:{src}\\nDA:1,1\\nend_of_record' > {lcov_path}"
-        result = acquire_coverage(
-            cov_cmd=cmd, lcov_path=None, reuse=False, cwd=d, source_path=src
-        )
+        result = acquire_coverage(cov_cmd=cmd, lcov_path=None, reuse=False, cwd=d, source_path=src)
         assert 1 in result
 
 
@@ -197,9 +189,7 @@ def test_acquire_cov_cmd_runs_exactly_once():
         with open(src, "w") as f:
             f.write("x = a + b\n")
         cmd = f"printf 'x' >> {counter} && echo 'SF:{src}\\nDA:1,1\\nend_of_record' > {lcov_path}"
-        acquire_coverage(
-            cov_cmd=cmd, lcov_path=None, reuse=False, cwd=d, source_path=src
-        )
+        acquire_coverage(cov_cmd=cmd, lcov_path=None, reuse=False, cwd=d, source_path=src)
         with open(counter) as f:
             assert f.read() == "x"
 
@@ -216,21 +206,21 @@ def test_update_lcov_state_sf_strips_sf_prefix_not_extra_char():
     # SF:afile.py, source=bfile.py: line[3:]="afile.py" → no match (correct)
     # line[4:]="file.py" → "bfile.py".endswith("file.py") = True → WRONG match (mutant)
     covered: set[int] = set()
-    result = _update_lcov_state("SF:afile.py", False, "bfile.py", covered)
+    result = _update_lcov_state("SF:afile.py", in_matching_file=False, source_path="bfile.py", covered=covered)
     assert result is False, "SF:afile.py must not match source_path=bfile.py"
 
 
 def test_update_lcov_state_sf_absolute_path_suffix_match():
     covered: set[int] = set()
-    result = _update_lcov_state("SF:/abs/foo.py", False, "foo.py", covered)
+    result = _update_lcov_state("SF:/abs/foo.py", in_matching_file=False, source_path="foo.py", covered=covered)
     assert result is True
 
 
 def test_update_lcov_state_end_of_record_resets_to_false():
     # end_of_record always returns False regardless of in_matching_file
     covered: set[int] = set()
-    assert _update_lcov_state("end_of_record", True, "foo.py", covered) is False
-    assert _update_lcov_state("end_of_record", False, "foo.py", covered) is False
+    assert _update_lcov_state("end_of_record", in_matching_file=True, source_path="foo.py", covered=covered) is False
+    assert _update_lcov_state("end_of_record", in_matching_file=False, source_path="foo.py", covered=covered) is False
 
 
 def test_parse_lcov_da_before_first_sf_not_collected():
@@ -273,9 +263,7 @@ def test_resolve_lcov_path_cov_cmd_uses_cwd_for_default():
 
 def test_resolve_lcov_path_reuse_uses_cwd():
     # reuse path joins cwd with DEFAULT_LCOV_PATH
-    result = _resolve_lcov_path(
-        cov_cmd=None, lcov_path=None, reuse=True, cwd="/some/dir"
-    )
+    result = _resolve_lcov_path(cov_cmd=None, lcov_path=None, reuse=True, cwd="/some/dir")
     assert result == "/some/dir/coverage.lcov"
 
 

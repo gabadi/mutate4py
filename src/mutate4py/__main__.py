@@ -9,6 +9,8 @@ from collections.abc import Sequence
 from mutate4py._glob_dialect import glob_match
 from mutate4py._runner import (
     CoverageError,
+    CoverageSource,
+    RunMutationsRequest,
     check_manifest,
     run_baseline,
     run_mutations,
@@ -46,9 +48,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "Omit entirely to autodiscover a uv workspace from the current "
         "directory upward (the workspace root plus its member packages).",
     )
-    parser.add_argument(
-        "--scan", action="store_true", help="Count mutation sites; no test run"
-    )
+    parser.add_argument("--scan", action="store_true", help="Count mutation sites; no test run")
     parser.add_argument(
         "--mutation-warning",
         type=_positive_int,
@@ -88,9 +88,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Shell command to run once to generate LCOV coverage",
     )
-    parser.add_argument(
-        "--lcov", dest="lcov", default=None, help="Path to a pre-generated LCOV file"
-    )
+    parser.add_argument("--lcov", dest="lcov", default=None, help="Path to a pre-generated LCOV file")
     parser.add_argument(
         "--reuse-coverage",
         action="store_true",
@@ -181,8 +179,7 @@ def _check_coverage_flags(args: argparse.Namespace) -> None:
     cov_flags = [args.cov_cmd is not None, args.lcov is not None, args.reuse_coverage]
     if sum(cov_flags) > 1:
         print(
-            "error: --cov-cmd, --lcov, and --reuse-coverage are mutually exclusive; "
-            "supply at most one.",
+            "error: --cov-cmd, --lcov, and --reuse-coverage are mutually exclusive; supply at most one.",
             file=sys.stderr,
         )
         sys.exit(2)
@@ -229,13 +226,10 @@ def _check_scan_only_incompatibilities(args: argparse.Namespace) -> None:
 
 def _check_selection_exclusivity(args: argparse.Namespace) -> None:
     """Exit if more than one selection flag is set."""
-    selection_count = sum(
-        [args.since_last_run, args.mutate_all, args.lines is not None]
-    )
+    selection_count = sum([args.since_last_run, args.mutate_all, args.lines is not None])
     if selection_count > 1:
         print(
-            "error: --since-last-run, --mutate-all, and --lines are pairwise exclusive; "
-            "supply at most one.",
+            "error: --since-last-run, --mutate-all, and --lines are pairwise exclusive; supply at most one.",
             file=sys.stderr,
         )
         sys.exit(2)
@@ -284,9 +278,7 @@ def _parse_line_token(token: str) -> int:
     try:
         n = int(token)
     except ValueError:
-        print(
-            f"error: --lines value {token!r} is not a valid integer.", file=sys.stderr
-        )
+        print(f"error: --lines value {token!r} is not a valid integer.", file=sys.stderr)
         sys.exit(2)
     if n < 1:
         print(
@@ -312,10 +304,12 @@ def _run_scan(args: argparse.Namespace, source: str, cwd: str) -> None:
             path=args.file,
             source=source,
             warning_threshold=args.warning_threshold,
-            cov_cmd=args.cov_cmd,
-            lcov_path=args.lcov,
-            reuse_coverage=args.reuse_coverage,
-            cwd=cwd,
+            coverage=CoverageSource(
+                cov_cmd=args.cov_cmd,
+                lcov_path=args.lcov,
+                reuse_coverage=args.reuse_coverage,
+                cwd=cwd,
+            ),
         )
     except CoverageError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -336,9 +330,7 @@ def _walkable_dirs(dirs: list[str]) -> list[str]:
     Prunes __pycache__, venv, node_modules, and any dot-directory (e.g.
     .git, .venv). build/ and dist/ are deliberately left walkable.
     """
-    return sorted(
-        d for d in dirs if d not in _PRUNED_DIR_NAMES and not d.startswith(".")
-    )
+    return sorted(d for d in dirs if d not in _PRUNED_DIR_NAMES and not d.startswith("."))
 
 
 def _is_target_py_file(path: str, exclude: Sequence[str]) -> bool:
@@ -348,16 +340,10 @@ def _is_target_py_file(path: str, exclude: Sequence[str]) -> bool:
 
 def _prune_walk_dirs(root: str, dirs: list[str], pruned_real: set[str]) -> list[str]:
     """Walkable subdirectories of root, minus any whose realpath is pruned."""
-    return [
-        d
-        for d in _walkable_dirs(dirs)
-        if os.path.realpath(os.path.join(root, d)) not in pruned_real
-    ]
+    return [d for d in _walkable_dirs(dirs) if os.path.realpath(os.path.join(root, d)) not in pruned_real]
 
 
-def _walk_py_files(
-    directory: str, exclude: Sequence[str], pruned_real: set[str]
-) -> list[str]:
+def _walk_py_files(directory: str, exclude: Sequence[str], pruned_real: set[str]) -> list[str]:
     result = []
     for root, dirs, files in os.walk(directory):
         dirs[:] = _prune_walk_dirs(root, dirs, pruned_real)
@@ -368,9 +354,7 @@ def _walk_py_files(
     return result
 
 
-def _collect_py_files(
-    directory: str, exclude: Sequence[str] = (), prune_dirs: Sequence[str] = ()
-) -> list[str]:
+def _collect_py_files(directory: str, exclude: Sequence[str] = (), prune_dirs: Sequence[str] = ()) -> list[str]:
     """The .py files under a root, minus --exclude matches and any pruned
     subtree.
 
@@ -465,9 +449,7 @@ def _run_on_file(
     baseline_duration: float | None = None,
 ) -> int:
     if args.check_manifest:
-        return check_manifest(
-            path=py_file, source=source, manifest_file=args.manifest_file
-        )
+        return check_manifest(path=py_file, source=source, manifest_file=args.manifest_file)
     if args.update_manifest:
         update_manifest(path=py_file, source=source, manifest_file=args.manifest_file)
         return 0
@@ -477,10 +459,12 @@ def _run_on_file(
                 path=py_file,
                 source=source,
                 warning_threshold=args.warning_threshold,
-                cov_cmd=args.cov_cmd,
-                lcov_path=args.lcov,
-                reuse_coverage=args.reuse_coverage,
-                cwd=cwd,
+                coverage=CoverageSource(
+                    cov_cmd=args.cov_cmd,
+                    lcov_path=args.lcov,
+                    reuse_coverage=args.reuse_coverage,
+                    cwd=cwd,
+                ),
             )
         except CoverageError as exc:
             print(f"error: {exc}", file=sys.stderr)
@@ -489,37 +473,35 @@ def _run_on_file(
     lines_filter = _parse_lines(args.lines)
     max_workers = args.max_workers if args.max_workers is not None else 0
     return run_mutations(
-        path=py_file,
-        source=source,
-        cov_cmd=args.cov_cmd,
-        lcov_path=args.lcov,
-        reuse_coverage=args.reuse_coverage,
-        test_command=args.test_command,
-        timeout_factor=args.timeout_factor,
-        min_timeout=args.min_timeout,
-        lines_filter=lines_filter,
-        since_last_run=args.since_last_run,
-        mutate_all=args.mutate_all,
-        warning_threshold=args.warning_threshold,
-        max_workers=max_workers,
-        cwd=cwd,
-        baseline_duration=baseline_duration,
-        test_contexts_path=args.test_contexts,
-        manifest_file=args.manifest_file,
-        fork_server_requested=not args.no_fork_server,
+        RunMutationsRequest(
+            path=py_file,
+            source=source,
+            cov_cmd=args.cov_cmd,
+            lcov_path=args.lcov,
+            reuse_coverage=args.reuse_coverage,
+            test_command=args.test_command,
+            timeout_factor=args.timeout_factor,
+            min_timeout=args.min_timeout,
+            lines_filter=lines_filter,
+            since_last_run=args.since_last_run,
+            mutate_all=args.mutate_all,
+            warning_threshold=args.warning_threshold,
+            max_workers=max_workers,
+            cwd=cwd,
+            baseline_duration=baseline_duration,
+            test_contexts_path=args.test_contexts,
+            manifest_file=args.manifest_file,
+            fork_server_requested=not args.no_fork_server,
+        )
     )
 
 
 def _needs_directory_baseline(files: list[str], args: argparse.Namespace) -> bool:
     """A shared baseline is only needed when the run will actually execute mutants."""
-    return bool(files) and not (
-        args.scan or args.update_manifest or args.check_manifest
-    )
+    return bool(files) and not (args.scan or args.update_manifest or args.check_manifest)
 
 
-def _prepare_directory_baseline(
-    args: argparse.Namespace, files: list[str], cwd: str
-) -> float:
+def _prepare_directory_baseline(args: argparse.Namespace, files: list[str], cwd: str) -> float:
     """Acquire coverage once and time the baseline for a directory run.
 
     Exits the process on failure, matching the single-file dispatch behavior.
@@ -600,9 +582,7 @@ def _run_files_and_exit(args: argparse.Namespace, files: list[str]) -> None:
         try:
             exit_code = max(
                 exit_code,
-                _run_on_file(
-                    args, py_file, _load_source(py_file), cwd, baseline_duration
-                ),
+                _run_on_file(args, py_file, _load_source(py_file), cwd, baseline_duration),
             )
         except SyntaxError as exc:
             _report_parse_error(py_file, exc)
@@ -627,11 +607,7 @@ def _dispatch_single_file(args: argparse.Namespace, source: str, cwd: str) -> No
     """Route a single-file target by mode; lets SyntaxError propagate to the
     caller, which reports it (issue #35 — same contract as the batch path)."""
     if args.check_manifest:
-        sys.exit(
-            check_manifest(
-                path=args.file, source=source, manifest_file=args.manifest_file
-            )
-        )
+        sys.exit(check_manifest(path=args.file, source=source, manifest_file=args.manifest_file))
     if args.scan:
         _run_scan(args, source, cwd)
         return
@@ -642,23 +618,25 @@ def _dispatch_single_file(args: argparse.Namespace, source: str, cwd: str) -> No
     max_workers = args.max_workers if args.max_workers is not None else 0
     sys.exit(
         run_mutations(
-            path=args.file,
-            source=source,
-            cov_cmd=args.cov_cmd,
-            lcov_path=args.lcov,
-            reuse_coverage=args.reuse_coverage,
-            test_command=args.test_command,
-            timeout_factor=args.timeout_factor,
-            min_timeout=args.min_timeout,
-            lines_filter=lines_filter,
-            since_last_run=args.since_last_run,
-            mutate_all=args.mutate_all,
-            warning_threshold=args.warning_threshold,
-            max_workers=max_workers,
-            cwd=cwd,
-            test_contexts_path=args.test_contexts,
-            manifest_file=args.manifest_file,
-            fork_server_requested=not args.no_fork_server,
+            RunMutationsRequest(
+                path=args.file,
+                source=source,
+                cov_cmd=args.cov_cmd,
+                lcov_path=args.lcov,
+                reuse_coverage=args.reuse_coverage,
+                test_command=args.test_command,
+                timeout_factor=args.timeout_factor,
+                min_timeout=args.min_timeout,
+                lines_filter=lines_filter,
+                since_last_run=args.since_last_run,
+                mutate_all=args.mutate_all,
+                warning_threshold=args.warning_threshold,
+                max_workers=max_workers,
+                cwd=cwd,
+                test_contexts_path=args.test_contexts,
+                manifest_file=args.manifest_file,
+                fork_server_requested=not args.no_fork_server,
+            )
         )
     )
 
@@ -732,8 +710,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-
-# mutate4py-manifest-begin
-# {"version":1,"tested_at":"2026-08-09T05:16:16Z","module_hash":"68fcd9f4f2fbcf6a7e8326756aedcc907dbd68931167ae4ddb8a59e65f62be82","source_sha256":"ffd7d01db60d4fde6cdd59e2aed6c841935bfbe0ee43d53f03a18d3e4481bbce","functions":[{"id":"func/_positive_int","name":"_positive_int","line":23,"end_line":31,"hash":"06de4d3f74cf39cb40383657b49523cefc38cdf8566d5f8125553f3fd3c195d3"},{"id":"func/_build_parser","name":"_build_parser","line":34,"end_line":176,"hash":"d8fbd164ec57ea66af572b4fc5606648162d243b21c7a0004d8b1becd3beda05"},{"id":"func/_check_coverage_flags","name":"_check_coverage_flags","line":179,"end_line":188,"hash":"42edc6617a1e291bd93d3578d7e32e708f713f9084ccba6be2331ad9b0ec9f87"},{"id":"func/_no_run_flag","name":"_no_run_flag","line":191,"end_line":197,"hash":"59aa486011c3e3158e11848b3f49b3182be927b8b3fc1c89b7b93890a7470ba9"},{"id":"func/_exit_incompatible","name":"_exit_incompatible","line":200,"end_line":202,"hash":"db2fe36913cbe87d3616570466315a8988310564ec93851dc7290d8065b8cee0"},{"id":"func/_check_no_run_incompatibilities","name":"_check_no_run_incompatibilities","line":205,"end_line":217,"hash":"53d50c7e588b2c2c608132917c7e016812ad25cb7f5f8fa6780e4a91ace9431b"},{"id":"func/_check_scan_only_incompatibilities","name":"_check_scan_only_incompatibilities","line":220,"end_line":227,"hash":"77d8a7f28df92300239bc3881b089c51438d9dafd77dd134a1e01964e4d24ada"},{"id":"func/_check_selection_exclusivity","name":"_check_selection_exclusivity","line":230,"end_line":241,"hash":"6ff1d994acd05c8dac1f9d7c4467a6fc74aa37899720361f85876e0f79a40e26"},{"id":"func/_validate_mutual_exclusions","name":"_validate_mutual_exclusions","line":244,"end_line":258,"hash":"6155e6243361768bcdfd18a457def365adbf180f8e41ac3f9e6497e59fe6790b"},{"id":"func/_load_source","name":"_load_source","line":261,"end_line":268,"hash":"b5c0322beb2e960c86d48fc3d00b8e1a910b64d4cfcadc414911fbcac6c7cc04"},{"id":"func/_syntax_error_reason","name":"_syntax_error_reason","line":271,"end_line":275,"hash":"66d175abf37bd7a66161af674cd50079266b5080be57639f87c805079b4397c4"},{"id":"func/_report_parse_error","name":"_report_parse_error","line":278,"end_line":279,"hash":"38f3ee295105f883d4e669dd3be825aab569527d0aa76fe888468cb93f14648d"},{"id":"func/_parse_line_token","name":"_parse_line_token","line":282,"end_line":297,"hash":"3ede4fa8f423d5d27e97f3e7c6aec920c3e2e308159c05b42643d0c474b7fb86"},{"id":"func/_parse_lines","name":"_parse_lines","line":300,"end_line":305,"hash":"4febad296c3c5be36594a0188127548ab4edcba48a3bd946848e9c583b398ac4"},{"id":"func/_run_scan","name":"_run_scan","line":308,"end_line":322,"hash":"8075b51b362f0442df434fb5830df8d0de03eeb295e4bd0b1354700c6c9e29df"},{"id":"func/_is_excluded","name":"_is_excluded","line":325,"end_line":327,"hash":"008bb3479fed6ab60747c3e91f15586b27714a78f41dcc0a316c1f3fb437333c"},{"id":"func/_walkable_dirs","name":"_walkable_dirs","line":333,"end_line":341,"hash":"4f22c58112ba0afe1555a5cfcc33620783628b651b8d04334b478761246378c8"},{"id":"func/_is_target_py_file","name":"_is_target_py_file","line":344,"end_line":346,"hash":"69b7f59a350fc254d4684e754664f855fe5f092751a06d14950ce0f6850dee10"},{"id":"func/_prune_walk_dirs","name":"_prune_walk_dirs","line":349,"end_line":355,"hash":"812c9647af35d9baf3a55a46fb2fcd2f095347db875c9a7d6b9c460ec65f21a8"},{"id":"func/_walk_py_files","name":"_walk_py_files","line":358,"end_line":368,"hash":"35963ff55f9df8d6ba50e02faef1b51791b9ea21b4d2b8f9c8af5a1a34dc5cea"},{"id":"func/_collect_py_files","name":"_collect_py_files","line":371,"end_line":389,"hash":"554ee9ad6935b5320993cc60e363e7dd1c6bd17d4d1180e72ccf24aea1c2acee"},{"id":"func/_has_glob_chars","name":"_has_glob_chars","line":395,"end_line":397,"hash":"703845b0b8f13e5b7e1948c1aa1d938ef78417edc414fef146d35eee2f98faf7"},{"id":"func/_exit_pattern_no_match","name":"_exit_pattern_no_match","line":400,"end_line":402,"hash":"84641a5d71225a0607c582d53b4fff00526dc2e17110aa0c2f294b86c567e2b6"},{"id":"func/_exit_path_not_found","name":"_exit_path_not_found","line":405,"end_line":407,"hash":"5ee48ed55bb3bd40b55bd69648587841818f4b1bb5f18b74713e1d6955ef93f2"},{"id":"func/_expand_glob_pattern","name":"_expand_glob_pattern","line":410,"end_line":420,"hash":"62eac99b3fbea8b706b263de66ddf3e0ee2c0e8b0e25eac89693e3f903ce6667"},{"id":"func/_expand_literal_path","name":"_expand_literal_path","line":423,"end_line":427,"hash":"7579eec406753238a65caee97bf99108058e86d23482ef1d89bedd5cd125ddc8"},{"id":"func/_expand_roots","name":"_expand_roots","line":430,"end_line":444,"hash":"ba5c6bdaedd5f79a4bffc00336ee81773b92a588f409ec9578f5bfbbcbdbbb5a"},{"id":"func/_dedup_by_realpath","name":"_dedup_by_realpath","line":447,"end_line":457,"hash":"87e85ddc47d1cf35c9d33e0bb3c385a32fb725c0267e4f35f424cca6e341d296"},{"id":"func/_run_on_file","name":"_run_on_file","line":460,"end_line":510,"hash":"3dbce7212c14d64b6af7fbe6b9ee46edf69465875af44128dbd2f6eaf55a9da7"},{"id":"func/_needs_directory_baseline","name":"_needs_directory_baseline","line":513,"end_line":517,"hash":"5d52f1c4f16dafb723d1963e0b2dc0e8aa625d0c3fe72a339d9c711bffe48a51"},{"id":"func/_prepare_directory_baseline","name":"_prepare_directory_baseline","line":520,"end_line":544,"hash":"811f2e34fd3d23c47aafd1c0e685a6ded294a940ea0873332b5411777396df3a"},{"id":"func/_exit_no_files","name":"_exit_no_files","line":547,"end_line":550,"hash":"9ca598450062e7d4708f9e70853456519e11ffb6217fd5644e3f5a76b342a17d"},{"id":"func/_report_excluded","name":"_report_excluded","line":553,"end_line":558,"hash":"d39d12cabc42914121f14c1bdaa74b750cafa3e89b9bc0699a6bf216387027c1"},{"id":"func/_directory_files","name":"_directory_files","line":561,"end_line":569,"hash":"fecb9eeeca87f27d4228ed8247a8e739e1565cca2f93cdc687b45db1a4e3cca7"},{"id":"func/_collect_union_files","name":"_collect_union_files","line":572,"end_line":584,"hash":"91c16790229d03431f96dd2d995578492e6ccb52f2db2b0b24131897735244f8"},{"id":"func/_run_files_and_exit","name":"_run_files_and_exit","line":587,"end_line":613,"hash":"f37e948e2b895acc62fd847153ce5e7875daa250c624dc4126f7684b12880c07"},{"id":"func/_dispatch_directory","name":"_dispatch_directory","line":616,"end_line":617,"hash":"cd9fe0a07f1d93d8209a32a143d3bf72bb71ddac2087c73a27879e0a4f352c5e"},{"id":"func/_dispatch_union","name":"_dispatch_union","line":620,"end_line":623,"hash":"62005c044ca948e10d36bedb9e1d8d0ad70943b7900cd92d6b3fdd7f54bc3117"},{"id":"func/_dispatch_single_file","name":"_dispatch_single_file","line":626,"end_line":663,"hash":"2677a681f89467296fc4c4d93380f24e4b10c894f66c7a168f4e7d9fa2101dc5"},{"id":"func/_exit_if_target_excluded","name":"_exit_if_target_excluded","line":666,"end_line":672,"hash":"dc1547a78ec13ffde683fff66f28f0ddc0186e8ff601f2c743b04ddc3f62442d"},{"id":"func/_check_test_contexts_file","name":"_check_test_contexts_file","line":675,"end_line":681,"hash":"01d041e6fd839104df12dd20d9ca31c1081c13c694afab66bcdee3bcccd90cf0"},{"id":"func/_resolve_roots","name":"_resolve_roots","line":684,"end_line":695,"hash":"eb11fea6d157f30045cb2022c852218c6439d54efcfa77272ef7deae2fb175ef"},{"id":"func/_dispatch","name":"_dispatch","line":698,"end_line":721,"hash":"bf340b1124b284ea5e326956d38c06f3cd766cee3bfcadbde00eff8ab6d21a4d"},{"id":"func/main","name":"main","line":724,"end_line":730,"hash":"06593c291a934abb9e592ac30b9f1fbd24e6cb66dd970e9a4f0ab56925cf68b6"}]}
-# mutate4py-manifest-end

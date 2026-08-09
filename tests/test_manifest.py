@@ -84,11 +84,7 @@ def test_embed_json_line_starts_with_hash_space():
 
 def test_embed_json_is_compact_no_spaces():
     src = "x = 1\n"
-    m = _make_manifest(
-        functions=[
-            {"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "x"}
-        ]
-    )
+    m = _make_manifest(functions=[{"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "x"}])
     result = embed_manifest(src, m)
     lines = result.splitlines()
     begin_idx = lines.index("# mutate4py-manifest-begin")
@@ -227,11 +223,7 @@ def test_extract_valid_returns_manifest_true():
 
 def test_extract_is_inverse_of_embed():
     src = "def foo():\n    return 1\n"
-    m = _make_manifest(
-        functions=[
-            {"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "abc"}
-        ]
-    )
+    m = _make_manifest(functions=[{"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "abc"}])
     embedded = embed_manifest(src, m)
     result, ok = extract_manifest(embedded)
     assert ok is True
@@ -462,11 +454,7 @@ def test_strip_source_with_double_trailing_newline_before_marker():
 def test_embed_compact_json_no_space_after_colon():
     # mutant_8,_10: json.dumps with separators=(",",":") means no space after colon or comma
     src = "x = 1\n"
-    m = _make_manifest(
-        functions=[
-            {"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "abc"}
-        ]
-    )
+    m = _make_manifest(functions=[{"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "abc"}])
     result = embed_manifest(src, m)
     lines = result.splitlines()
     begin_idx = lines.index("# mutate4py-manifest-begin")
@@ -588,13 +576,7 @@ def test_extract_manifest_multiline_json_space_join():
     # Build a manifest where the JSON object spans two comment lines:
     # "# {\"version\":" on one line and "# 1}" on the next.
     # " ".join gives '{"version": 1}' (valid); "XX XX".join gives '{"version":XX XX1}' (invalid).
-    src = (
-        "x = 1\n"
-        "# mutate4py-manifest-begin\n"
-        '# {"version":\n'
-        "# 1}\n"
-        "# mutate4py-manifest-end\n"
-    )
+    src = 'x = 1\n# mutate4py-manifest-begin\n# {"version":\n# 1}\n# mutate4py-manifest-end\n'
     result, ok = extract_manifest(src)
     assert ok is True
     assert result == {"version": 1}
@@ -642,22 +624,14 @@ def test_find_manifest_block_find_vs_rfind_double_markers():
 
 
 def test_serialize_sidecar_manifest_is_pretty_printed():
-    m = _make_manifest(
-        functions=[
-            {"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "abc"}
-        ]
-    )
+    m = _make_manifest(functions=[{"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "abc"}])
     text = serialize_sidecar_manifest(m)
     assert "\n" in text.strip()  # indent=2 spreads keys across lines
     assert text.endswith("\n")
 
 
 def test_serialize_sidecar_manifest_round_trips_through_parse():
-    m = _make_manifest(
-        functions=[
-            {"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "abc"}
-        ]
-    )
+    m = _make_manifest(functions=[{"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "abc"}])
     result, ok = parse_sidecar_manifest(serialize_sidecar_manifest(m))
     assert ok is True
     assert result == m

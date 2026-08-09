@@ -25,9 +25,7 @@ def test_run_command_uses_cwd(tmp_path):
     """cwd is actually used: command that lists a sentinel file only present in tmp_path."""
     sentinel = tmp_path / "sentinel_file.txt"
     sentinel.write_text("present")
-    status, timed_out = run_command(
-        "test -f sentinel_file.txt", str(tmp_path), timeout=5.0
-    )
+    status, timed_out = run_command("test -f sentinel_file.txt", str(tmp_path), timeout=5.0)
     assert status == "survived", "Command should find the sentinel in cwd"
     status2, _ = run_command("test -f sentinel_file.txt", "/tmp", timeout=5.0)
     assert status2 == "killed", "Command should NOT find the sentinel outside cwd"

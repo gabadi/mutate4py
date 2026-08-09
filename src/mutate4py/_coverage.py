@@ -32,6 +32,7 @@ def _parse_da_line(line: str) -> int | None:
 
 def _update_lcov_state(
     line: str,
+    *,
     in_matching_file: bool,
     source_path: str,
     covered: set[int],
@@ -59,7 +60,7 @@ def parse_lcov(lcov_text: str, source_path: str) -> set[int]:
     in_matching_file = False
     for raw_line in lcov_text.splitlines():
         in_matching_file = _update_lcov_state(
-            raw_line.strip(), in_matching_file, source_path, covered
+            raw_line.strip(), in_matching_file=in_matching_file, source_path=source_path, covered=covered
         )
     return covered
 
@@ -67,10 +68,7 @@ def parse_lcov(lcov_text: str, source_path: str) -> set[int]:
 def _read_lcov_file(path: str, source_path: str) -> set[int]:
     """Read and parse an LCOV file; raise CoverageError if missing."""
     if not os.path.isfile(path):
-        raise CoverageError(
-            f"LCOV file not found: {path}. "
-            "Generate coverage first then supply the path."
-        )
+        raise CoverageError(f"LCOV file not found: {path}. Generate coverage first then supply the path.")
     with open(path) as f:
         return parse_lcov(f.read(), source_path)
 
@@ -78,6 +76,7 @@ def _read_lcov_file(path: str, source_path: str) -> set[int]:
 def _resolve_lcov_path(
     cov_cmd: str | None,
     lcov_path: str | None,
+    *,
     reuse: bool,
     cwd: str,
 ) -> str:
@@ -85,9 +84,7 @@ def _resolve_lcov_path(
     if cov_cmd is not None:
         result = subprocess.run(cov_cmd, shell=True, cwd=cwd)
         if result.returncode != 0:
-            raise CoverageError(
-                f"Coverage command failed (exit {result.returncode}): {cov_cmd}"
-            )
+            raise CoverageError(f"Coverage command failed (exit {result.returncode}): {cov_cmd}")
         default = os.path.join(cwd, DEFAULT_LCOV_PATH)
         if not os.path.isfile(default):
             raise CoverageError(
@@ -114,10 +111,5 @@ def acquire_coverage(
     Exactly one of cov_cmd, lcov_path, or reuse must be active.
     Raises CoverageError if the coverage source is missing or unusable.
     """
-    path = _resolve_lcov_path(cov_cmd, lcov_path, reuse, cwd)
+    path = _resolve_lcov_path(cov_cmd, lcov_path, reuse=reuse, cwd=cwd)
     return _read_lcov_file(path, source_path)
-
-
-# mutate4py-manifest-begin
-# {"version":1,"tested_at":"2026-07-02T02:02:51Z","module_hash":"f3f88f6d978910a03dfc170d13ca4075d2e3239db28fc7d4c2b4f56389734f33","functions":[{"id":"func/_paths_match_by_suffix","name":"_paths_match_by_suffix","line":13,"end_line":17,"hash":"15fea9e47953b787891a65d7ad6dae4adf24c1a8384cdb48787f61481d26fdc9"},{"id":"func/_parse_da_line","name":"_parse_da_line","line":20,"end_line":30,"hash":"37e090f9c530f8edf6a6764d97e4ad804ab66a804e5d7441e3aa30a56fbb871c"},{"id":"func/_update_lcov_state","name":"_update_lcov_state","line":33,"end_line":49,"hash":"7f0b7fabbad37cd8ecb2fcd093c17f1745e81bde9a99debbfc14c79c0b985b88"},{"id":"func/parse_lcov","name":"parse_lcov","line":52,"end_line":64,"hash":"bc0086fddb957a0eb29e4b78e39eb5c0c7c08bd1290ee596384f96243272861c"},{"id":"func/_read_lcov_file","name":"_read_lcov_file","line":67,"end_line":75,"hash":"2f49c4d94fc92a5a6cbb7065ee4c27710533cc57218e2b512d44e4676d039cdd"},{"id":"func/_resolve_lcov_path","name":"_resolve_lcov_path","line":78,"end_line":101,"hash":"cdea7e1f11c5c0d4f722c8b02ae2f14b7ea622cb3ce06873500b0887991215a9"},{"id":"func/acquire_coverage","name":"acquire_coverage","line":104,"end_line":118,"hash":"5d7e94cc123fdf440dcc9cd4812750b692f1f95f0a357927dc9444943dbfccf3"}]}
-# mutate4py-manifest-end

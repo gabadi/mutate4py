@@ -1,0 +1,288 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-09T07:41:46Z",
+  "module_hash": "98424ba8c389c4fb84db3d3ac5e0e72e6dfd7f1f0a7d247d8ae9a5d23c53f779",
+  "source_sha256": "b78684067da16b41119c5ff9cd028d1993ee39e5c681402a1d47094723c702c8",
+  "functions": [
+    {
+      "id": "func/_baseline_reason",
+      "name": "_baseline_reason",
+      "line": 124,
+      "end_line": 128,
+      "hash": "6037bd527abaf8a495048a7a504e32c167fda984b2204f6f777d58bb0bc94c61"
+    },
+    {
+      "id": "func/run_baseline",
+      "name": "run_baseline",
+      "line": 131,
+      "end_line": 138,
+      "hash": "9c1ef7c2bd0a7a952d9f0e60242e19d1381e4ae12d5fc8d2bfac56334392ebff"
+    },
+    {
+      "id": "func/_filter_by_lines",
+      "name": "_filter_by_lines",
+      "line": 141,
+      "end_line": 142,
+      "hash": "1e7c8b1b8930f0fc810c32e6cf5844f1d0f054da3a90b748c972c9db0f5cad1e"
+    },
+    {
+      "id": "func/_filter_by_fn",
+      "name": "_filter_by_fn",
+      "line": 145,
+      "end_line": 146,
+      "hash": "7bde9d2b50f085b8aec9909193a5391e7967834e9797b3cf6069210bee7df73c"
+    },
+    {
+      "id": "func/_select_sites",
+      "name": "_select_sites",
+      "line": 149,
+      "end_line": 163,
+      "hash": "07a1ea44bf0d2a19a2e1f55de96ff235008d1772dea5ebe04db65736b07278e5"
+    },
+    {
+      "id": "func/_print_uncovered_block",
+      "name": "_print_uncovered_block",
+      "line": 166,
+      "end_line": 176,
+      "hash": "64af8f5bf37b3fd3381b6d81e93670387bd64de4c897712faeb864afd9321127"
+    },
+    {
+      "id": "func/_restore_from_backup",
+      "name": "_restore_from_backup",
+      "line": 179,
+      "end_line": 189,
+      "hash": "eac2a96184bf954d27a9b87a70232574967423aa03fd629a886f30ca9ffa916b"
+    },
+    {
+      "id": "func/_sidecar_path",
+      "name": "_sidecar_path",
+      "line": 192,
+      "end_line": 194,
+      "hash": "af8f8cfc5561f9534e283daa8fd83073dbdf8b269beef3956138b50c81197dfd"
+    },
+    {
+      "id": "func/read_sidecar_manifest",
+      "name": "read_sidecar_manifest",
+      "line": 197,
+      "end_line": 209,
+      "hash": "3bdb1511b8b328a09f3379df51d4c0379af5cf6ed1b9e52f087c65a7a061113e"
+    },
+    {
+      "id": "func/write_sidecar_manifest",
+      "name": "write_sidecar_manifest",
+      "line": 212,
+      "end_line": 215,
+      "hash": "a1286abc647074d89e0b13b323d1bab95d8ff1268d8a116f1f8aea6a747d775f"
+    },
+    {
+      "id": "func/_read_existing_manifest",
+      "name": "_read_existing_manifest",
+      "line": 218,
+      "end_line": 222,
+      "hash": "a4d1e82820ca86a218477a519c3a08faddae46fca135115787cbff5c3654754b"
+    },
+    {
+      "id": "func/_compute_manifest_diff",
+      "name": "_compute_manifest_diff",
+      "line": 225,
+      "end_line": 235,
+      "hash": "d08433bb0849f205d8858e678ace5c389d3af239003f92fc8fdec3c92f7fa3dd"
+    },
+    {
+      "id": "func/_print_run_header",
+      "name": "_print_run_header",
+      "line": 238,
+      "end_line": 248,
+      "hash": "1c6e9f144b6c4043aae32563683399beff44cb8712f3ee98a89e5d06d4afa1ab"
+    },
+    {
+      "id": "func/_build_mutant_command",
+      "name": "_build_mutant_command",
+      "line": 265,
+      "end_line": 284,
+      "hash": "9dadd97a7e9c7e001d6f773b1776379e86106c9221180797357242d440745237"
+    },
+    {
+      "id": "func/_run_single_mutant",
+      "name": "_run_single_mutant",
+      "line": 287,
+      "end_line": 297,
+      "hash": "69aa6636055bdba948183b5541fd63e214b0a3fa5dfb67550049fac524608d54"
+    },
+    {
+      "id": "func/_run_mutation_loop",
+      "name": "_run_mutation_loop",
+      "line": 300,
+      "end_line": 334,
+      "hash": "504354a3f8bdd20678f9f78b0265d18535486f30c3e8574c3b202675f028ab4b"
+    },
+    {
+      "id": "func/_on_parallel_result",
+      "name": "_on_parallel_result",
+      "line": 337,
+      "end_line": 345,
+      "hash": "4f1c7c1086c1cdebaf9fb79f281ac1fdf96dbd37b1ad5fd4a0eb98fa470ebc86"
+    },
+    {
+      "id": "func/_run_parallel_workers",
+      "name": "_run_parallel_workers",
+      "line": 348,
+      "end_line": 373,
+      "hash": "56ec1a217400d8f328b8e65e70a5e615caeef490ce077d449a28fb52a04ffbbc"
+    },
+    {
+      "id": "func/_print_mutation_report",
+      "name": "_print_mutation_report",
+      "line": 376,
+      "end_line": 396,
+      "hash": "8fbac40a95965db2b883bdf80eb68252eb87579025a420de46697cc2d7466ce0"
+    },
+    {
+      "id": "func/_print_workers_header",
+      "name": "_print_workers_header",
+      "line": 399,
+      "end_line": 402,
+      "hash": "605f68e95c54a015fe4490e77aa4a3fa2946f6b2d8288d6ffc93aaaa63427253"
+    },
+    {
+      "id": "func/_execute_mutations",
+      "name": "_execute_mutations",
+      "line": 405,
+      "end_line": 437,
+      "hash": "47bd3c14c936f38986d36eb34135a18b3b6c7fb03a5e2bd10be49cf79a150579"
+    },
+    {
+      "id": "func/_acquire_covered_lines",
+      "name": "_acquire_covered_lines",
+      "line": 440,
+      "end_line": 461,
+      "hash": "dc39b28ac5645ee41d8def7716a503f0b6043befeb5fdcb2e75996d6cc33623a"
+    },
+    {
+      "id": "func/_is_effective_since_last_run",
+      "name": "_is_effective_since_last_run",
+      "line": 464,
+      "end_line": 471,
+      "hash": "4ab182b08d24d414c154b7c752f4d97ee36950db02d17626f7a0a8fa213eb4f5"
+    },
+    {
+      "id": "func/_should_run_parallel",
+      "name": "_should_run_parallel",
+      "line": 474,
+      "end_line": 475,
+      "hash": "15249ea2817e81a958e42069ced55937242a9097ca031e88d4843613b8cf330d"
+    },
+    {
+      "id": "func/_print_uncovered_if_needed",
+      "name": "_print_uncovered_if_needed",
+      "line": 478,
+      "end_line": 486,
+      "hash": "da0fb8230c2660f0ddd9d7743ad3970d3eee722352d971f72e2c6b8b3ea659d2"
+    },
+    {
+      "id": "func/_write_manifest_output",
+      "name": "_write_manifest_output",
+      "line": 489,
+      "end_line": 510,
+      "hash": "76cda4fa5c7542d05495529caa88346f1d2cd57965d84507ec7198157b099de9"
+    },
+    {
+      "id": "func/_finalize_source",
+      "name": "_finalize_source",
+      "line": 513,
+      "end_line": 530,
+      "hash": "82a1a22052c2b8805aee2d4d3d0bd465fbfc9fa17bd32663d45b3e43a83dbbac"
+    },
+    {
+      "id": "func/scan_report",
+      "name": "scan_report",
+      "line": 533,
+      "end_line": 546,
+      "hash": "a93f4b1530dfba54505143b85e4c075297dd27837402a4767874bf43ddd9f1fe"
+    },
+    {
+      "id": "func/scan_report_with_coverage",
+      "name": "scan_report_with_coverage",
+      "line": 549,
+      "end_line": 576,
+      "hash": "79c826dea41a0b2c9ce3b32bc1247c0089120f03a682d852fb753b8113f6f36c"
+    },
+    {
+      "id": "func/run_scan",
+      "name": "run_scan",
+      "line": 579,
+      "end_line": 586,
+      "hash": "f3a1564fcd7689ae4b60e2b4828e0734a209760a226eeb8e6902485d2d2ce99b"
+    },
+    {
+      "id": "func/update_manifest",
+      "name": "update_manifest",
+      "line": 589,
+      "end_line": 619,
+      "hash": "87328050a874d4d3b6fedf624c2c0aff6492b6a164daf8eea712f92569b7214c"
+    },
+    {
+      "id": "func/check_manifest",
+      "name": "check_manifest",
+      "line": 622,
+      "end_line": 640,
+      "hash": "48366787f288080cc6e661d78080d3bc88ef92f20a7681df7f7a248a297974ca"
+    },
+    {
+      "id": "func/_setup_test_context_db",
+      "name": "_setup_test_context_db",
+      "line": 643,
+      "end_line": 654,
+      "hash": "c1eed2316ef608c58b742dca1ff2394c3b15856b4f48788fdf17da0f6f60b8d8"
+    },
+    {
+      "id": "func/_prepare_fork_server",
+      "name": "_prepare_fork_server",
+      "line": 657,
+      "end_line": 686,
+      "hash": "fcadb5aedf1a7501edb1168384dfd440f8dca390c88ef51ee8065e5b9fbb18af"
+    },
+    {
+      "id": "func/_fork_server_eligible",
+      "name": "_fork_server_eligible",
+      "line": 689,
+      "end_line": 702,
+      "hash": "09577049e93c467d65076a491185e7e6d22218571ff5a6ef2ace20d1eb8d25f3"
+    },
+    {
+      "id": "func/_load_clean_source",
+      "name": "_load_clean_source",
+      "line": 718,
+      "end_line": 740,
+      "hash": "3edb8fbb7289e83860ed1df56579b3216cd79d5a9f5c758cfac51bfce3f3cb19"
+    },
+    {
+      "id": "func/_prepare_run_setup",
+      "name": "_prepare_run_setup",
+      "line": 752,
+      "end_line": 757,
+      "hash": "9bf3e51f6d93cc61db2a3a00e13aaaf8e7b9eb0e9867e0eb917076bfaf085f89"
+    },
+    {
+      "id": "func/_select_and_prepare",
+      "name": "_select_and_prepare",
+      "line": 777,
+      "end_line": 865,
+      "hash": "2e1ca9019f8335fd08c1fa5b6edf613cdf055c21438d6dcc0e7c548306fd6dd1"
+    },
+    {
+      "id": "func/_resolve_baseline_duration",
+      "name": "_resolve_baseline_duration",
+      "line": 868,
+      "end_line": 874,
+      "hash": "9885e555d18e824057b581e30b0d2345e78e9444ef82f6d5289d11977a6dd1c8"
+    },
+    {
+      "id": "func/run_mutations",
+      "name": "run_mutations",
+      "line": 877,
+      "end_line": 923,
+      "hash": "a8a4fb483e51bead83ebb539c3e10ddf326ef653697bbde4e6fe04324843c489"
+    }
+  ]
+}

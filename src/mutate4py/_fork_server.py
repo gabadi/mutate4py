@@ -112,9 +112,7 @@ class ForkServer:
         try:
             import pytest
         except ImportError as exc:
-            raise ForkServerUnavailable(
-                f"pytest is not importable in this process: {exc}"
-            ) from exc
+            raise ForkServerUnavailable(f"pytest is not importable in this process: {exc}") from exc
 
         # Must live inside cwd (not system tmp): pytest's conftest.py
         # discovery walks from rootdir down to each collected path, so an
@@ -123,12 +121,8 @@ class ForkServer:
         # — defeating the whole point of priming.
         scratch_root = os.path.join(self._cwd, ".mutate4py", "forkserver")
         os.makedirs(scratch_root, exist_ok=True)
-        with tempfile.TemporaryDirectory(
-            dir=scratch_root, prefix="prime-"
-        ) as empty_dir:
-            _run_pytest_output_suppressed(
-                pytest, ["--collect-only", "-q", empty_dir], self._cwd
-            )
+        with tempfile.TemporaryDirectory(dir=scratch_root, prefix="prime-") as empty_dir:
+            _run_pytest_output_suppressed(pytest, ["--collect-only", "-q", empty_dir], self._cwd)
 
         assert_source_clean(self._guarded_path)
         self._primed = True
@@ -159,9 +153,7 @@ class ForkServer:
         _invalidate_bytecode_cache(self._guarded_path)
         sys.dont_write_bytecode = True
         try:
-            exit_code = _run_pytest_output_suppressed(
-                pytest, self._extra_args, self._cwd
-            )
+            exit_code = _run_pytest_output_suppressed(pytest, self._extra_args, self._cwd)
         except BaseException:
             os._exit(3)
         os._exit(exit_code if isinstance(exit_code, int) else int(exit_code))
@@ -214,8 +206,3 @@ def _wait_for_child(pid: int, timeout: float) -> tuple[str, bool]:
         return "killed", False
     exit_code = os.WEXITSTATUS(status)
     return ("survived" if exit_code == 0 else "killed"), False
-
-
-# mutate4py-manifest-begin
-# {"version":1,"tested_at":"2026-08-09T05:07:28Z","module_hash":"4a85444577fb464b8cfb24f5ac466fdc7846a849b9b2768d8cf3b8902679e56a","source_sha256":"24167bd07a0363ef37a9f48b9c6de37f477d884eac6feca168c364a4f45b15e7","functions":[{"id":"func/is_available","name":"is_available","line":49,"end_line":64,"hash":"14c78fc9d89344c8ce07fedfcd636402632ebbd69ba5bb75c56692f5499406c9"},{"id":"func/_leaked_modules","name":"_leaked_modules","line":67,"end_line":74,"hash":"adfe44856e110fd86da612fb594d943266512ada8559050952f1ad49241b87d5"},{"id":"func/assert_source_clean","name":"assert_source_clean","line":77,"end_line":92,"hash":"4eda7df8e2e6e0f5aa48d59428d53838c424a734d82c540d258fdc4e167ddba2"},{"id":"func/ForkServer.__init__","name":"__init__","line":105,"end_line":109,"hash":"fea4df5d6ca74c4c332c1c6b72768fa0756c027b633c2a57f02b55a291313caa"},{"id":"func/ForkServer.prime","name":"prime","line":111,"end_line":134,"hash":"10d8aab1c5d37c054f212fb3fab2877cbd814e8cb0bb64c0b2d0a221a0f9faa9"},{"id":"func/ForkServer.run","name":"run","line":136,"end_line":148,"hash":"3a898879021e2449dc913f44b9003086c0c6f5b3ebd6834350acfade1ceccfec"},{"id":"func/ForkServer._run_child","name":"_run_child","line":150,"end_line":167,"hash":"bed8c95db4bfc4d6687320cb8fc837668a47546aa6bccae87e1e73415a16944b"},{"id":"func/_invalidate_bytecode_cache","name":"_invalidate_bytecode_cache","line":170,"end_line":179,"hash":"0b5f0320a53d6eba74f70a54f72bf5cd84054b5a2458f4b19f2e78f309c1dbcd"},{"id":"func/_run_pytest_output_suppressed","name":"_run_pytest_output_suppressed","line":182,"end_line":199,"hash":"5007a98bfd18d00aa9c3c839e65884581a9da2adb41eb1c313561a24434fbaec"},{"id":"func/_wait_for_child","name":"_wait_for_child","line":202,"end_line":216,"hash":"a3b7a3d1f20bed57bcd4aa3dd6f1bde9ebaa33d76832a4288addd7c27cd39e22"}]}
-# mutate4py-manifest-end
