@@ -5,7 +5,7 @@ import os
 import pytest
 
 from mutate4py._discovery import Site, apply_mutant, discover_sites
-from mutate4py._manifest import embed_manifest
+from mutate4py._manifest import build_manifest, embed_manifest
 from mutate4py._runner import (
     _baseline_reason,
     _finalize_source,
@@ -1586,6 +1586,69 @@ def test_check_manifest_does_not_modify_file(tmp_path):
     assert p.read_text() == before
 
 
+# ── check_manifest: fast path (source_sha256) ─────────────────────────────────
+
+
+def test_check_manifest_fast_path_does_not_parse(tmp_path, monkeypatch):
+    """Matching source_sha256 must short-circuit before any AST parse."""
+    import ast
+
+    src = "def f(a, b):\n    return a > b\n"
+    path, source_with_manifest = _source_with_current_manifest(tmp_path, src)
+
+    def _forbidden_parse(*args, **kwargs):
+        raise AssertionError("ast.parse must not run on the check_manifest fast path")
+
+    monkeypatch.setattr(ast, "parse", _forbidden_parse)
+
+    rc = check_manifest(path=path, source=source_with_manifest)
+    assert rc == 0
+
+
+def test_check_manifest_fast_path_current_returns_0(tmp_path, capsys):
+    src = "def f(a, b):\n    return a > b\n"
+    path, source_with_manifest = _source_with_current_manifest(tmp_path, src)
+    capsys.readouterr()
+
+    rc = check_manifest(path=path, source=source_with_manifest)
+
+    assert rc == 0
+    assert f"Manifest current: {path}" in capsys.readouterr().out
+
+
+def test_check_manifest_missing_source_sha256_falls_back_to_slow_path(tmp_path, capsys):
+    """A manifest without source_sha256 (pre-existing, additive) still works via
+    the full parse-and-compare path."""
+    src = "def f(a, b):\n    return a > b\n"
+    p = tmp_path / "mod.py"
+    p.write_text(src)
+    manifest = build_manifest(src, tested_at="2020-01-01T00:00:00Z")
+    del manifest["source_sha256"]
+    p.write_text(embed_manifest(src, manifest))
+    source_with_manifest = p.read_text()
+
+    rc = check_manifest(path=str(p), source=source_with_manifest)
+
+    assert rc == 0
+    assert "Manifest current:" in capsys.readouterr().out
+
+
+def test_check_manifest_comment_only_edit_still_current_via_slow_path(tmp_path, capsys):
+    """A byte-level source_sha256 mismatch (comment-only edit) must fall through
+    to the structural (AST) comparison rather than reporting stale."""
+    src = "def f(a, b):\n    return a > b\n"
+    path, source_with_manifest = _source_with_current_manifest(tmp_path, src)
+    capsys.readouterr()
+    commented_source = source_with_manifest.replace(
+        "def f(a, b):", "def f(a, b):\n    # a comment"
+    )
+
+    rc = check_manifest(path=path, source=commented_source)
+
+    assert rc == 0
+    assert "Manifest current:" in capsys.readouterr().out
+
+
 # ── read_sidecar_manifest / write_sidecar_manifest (sidecar file IO) ──────────
 
 
@@ -1826,6 +1889,25 @@ def test_check_manifest_sidecar_current_returns_0(tmp_path, capsys):
 
     assert rc == 0
     assert "Manifest current:" in capsys.readouterr().out
+
+
+def test_check_manifest_sidecar_fast_path_does_not_parse(tmp_path, monkeypatch):
+    """The source_sha256 fast path applies to sidecar storage too, not just the
+    embedded footer — matching bytes must short-circuit before any AST parse."""
+    import ast
+
+    src = "def f(a, b):\n    return a > b\n"
+    p = tmp_path / "mod.py"
+    p.write_text(src)
+    update_manifest(path=str(p), source=src, manifest_file=True)
+
+    def _forbidden_parse(*args, **kwargs):
+        raise AssertionError("ast.parse must not run on the check_manifest fast path")
+
+    monkeypatch.setattr(ast, "parse", _forbidden_parse)
+
+    rc = check_manifest(path=str(p), source=p.read_text(), manifest_file=True)
+    assert rc == 0
 
 
 def test_check_manifest_sidecar_stale_returns_1(tmp_path, capsys):

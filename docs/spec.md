@@ -250,7 +250,7 @@ Single JSON object embedded in the file footer between `#`-comment markers:
 
 ```python
 # mutate4py-manifest-begin
-# {"version":1,"tested_at":"2026-06-24T...","module_hash":"<sha256>","functions":[{"id":"func/foo","name":"foo","line":5,"end_line":25,"hash":"<sha256>"}]}
+# {"version":1,"tested_at":"2026-06-24T...","module_hash":"<sha256>","source_sha256":"<sha256>","functions":[{"id":"func/foo","name":"foo","line":5,"end_line":25,"hash":"<sha256>"}]}
 # mutate4py-manifest-end
 ```
 
@@ -264,6 +264,14 @@ Single JSON object embedded in the file footer between `#`-comment markers:
   divergence from mutate4go's "any textual edit re-tests" contract, accepted for
   Python correctness.
 - `module_hash` = SHA-256 of `ast.dump()` of the whole manifest-stripped module.
+- `source_sha256` = SHA-256 of the raw manifest-stripped source bytes (not the AST).
+  A cheap level-1 fingerprint `--check-manifest` compares before parsing: matching
+  bytes prove the AST — and every unit hash — is unchanged, so the parse (level 2)
+  is skipped entirely. A byte mismatch proves nothing (a comment edit changes
+  bytes but not structure) and always falls through to the real parse. Additive:
+  a manifest without this field simply has no fast path. Not part of
+  `manifests_structurally_equal` — it is a fingerprint, not structure, and is
+  never used to decide staleness on its own.
 - Per function: `id, name, line, end_line, hash`.
 - `tested_at` = full RFC3339 timestamp.
 - **Embed:** strip any existing manifest, trim trailing newlines, append
