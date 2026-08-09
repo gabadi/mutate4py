@@ -129,3 +129,5 @@ max-locals = 15
 # print-then-exit CLI-output role, just relocated.
 "src/mutate4py/_run_prep.py" = ["T201"]  # _prepare_fork_server's two notes moved here verbatim
 # from _runner.py (gate 13); same best-effort-fallback notice role, just relocated.
+"src/mutate4py/_site_selection.py" = ["T201"]  # _acquire_covered_lines' reuse-coverage note moved
+# here verbatim from _runner.py (gate 14); same status-notice role, just relocated.

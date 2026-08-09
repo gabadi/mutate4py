@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-09T18:56:07Z",
+  "module_hash": "bcd8f668b6361673bb02e117c46f5d4d0990f6089c9b2c3fbfb15b3138537fa0",
+  "source_sha256": "208ede1e7ca4cfb132eda115ea87d547e86e4de47a8a81a667fb449968d90da0",
+  "functions": [
+    {
+      "id": "func/_filter_by_lines",
+      "name": "_filter_by_lines",
+      "line": 10,
+      "end_line": 11,
+      "hash": "1e7c8b1b8930f0fc810c32e6cf5844f1d0f054da3a90b748c972c9db0f5cad1e"
+    },
+    {
+      "id": "func/_filter_by_fn",
+      "name": "_filter_by_fn",
+      "line": 14,
+      "end_line": 15,
+      "hash": "7bde9d2b50f085b8aec9909193a5391e7967834e9797b3cf6069210bee7df73c"
+    },
+    {
+      "id": "func/_select_sites",
+      "name": "_select_sites",
+      "line": 18,
+      "end_line": 32,
+      "hash": "07a1ea44bf0d2a19a2e1f55de96ff235008d1772dea5ebe04db65736b07278e5"
+    },
+    {
+      "id": "func/_acquire_covered_lines",
+      "name": "_acquire_covered_lines",
+      "line": 35,
+      "end_line": 56,
+      "hash": "dc39b28ac5645ee41d8def7716a503f0b6043befeb5fdcb2e75996d6cc33623a"
+    },
+    {
+      "id": "func/_is_effective_since_last_run",
+      "name": "_is_effective_since_last_run",
+      "line": 59,
+      "end_line": 66,
+      "hash": "4ab182b08d24d414c154b7c752f4d97ee36950db02d17626f7a0a8fa213eb4f5"
+    },
+    {
+      "id": "func/_should_run_parallel",
+      "name": "_should_run_parallel",
+      "line": 69,
+      "end_line": 70,
+      "hash": "15249ea2817e81a958e42069ced55937242a9097ca031e88d4843613b8cf330d"
+    },
+    {
+      "id": "func/_uncovered_lines_if_needed",
+      "name": "_uncovered_lines_if_needed",
+      "line": 73,
+      "end_line": 88,
+      "hash": "aede366f281f1725e2cbbaa2eda1949749e40b1bae0d61cb8c71cec08cc6d724"
+    }
+  ]
+}

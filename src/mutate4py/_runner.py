@@ -7,7 +7,7 @@ import subprocess
 import sys
 import time
 
-from mutate4py._coverage import CoverageError, acquire_coverage
+from mutate4py._coverage import CoverageError
 
 __all__ = [
     "CoverageError",
@@ -46,7 +46,6 @@ from mutate4py._report import (
     RunStats,
     _mutation_report_lines,
     _run_header_lines,
-    _uncovered_block_lines,
     _workers_header_lines,
     scan_report,
     scan_report_with_coverage,
@@ -55,6 +54,13 @@ from mutate4py._run_prep import (
     _fork_server_eligible,
     _prepare_fork_server,
     _setup_test_context_db,
+)
+from mutate4py._site_selection import (
+    _acquire_covered_lines,
+    _is_effective_since_last_run,
+    _select_sites,
+    _should_run_parallel,
+    _uncovered_lines_if_needed,
 )
 
 
@@ -101,31 +107,6 @@ def run_baseline(cmd: str, cwd: str) -> tuple[float, str | None]:
     return elapsed, None
 
 
-def _filter_by_lines(covered: list[Site], lines_filter: set[int]) -> list[Site]:
-    return [s for s in covered if s.line in lines_filter]
-
-
-def _filter_by_fn(covered: list[Site], changed_fn_ids: set[str]) -> list[Site]:
-    return [s for s in covered if s.function_id in changed_fn_ids]
-
-
-def _select_sites(
-    all_sites: list[Site],
-    covered_lines: set[int],
-    changed_fn_ids: set[str],
-    *,
-    effective_since_last_run: bool,
-    lines_filter: set[int] | None,
-) -> tuple[list[Site], list[Site]]:
-    """Return (covered_sites, selected_sites)."""
-    covered = [s for s in all_sites if s.line in covered_lines]
-    if lines_filter is not None:
-        return covered, _filter_by_lines(covered, lines_filter)
-    if effective_since_last_run:
-        return covered, _filter_by_fn(covered, changed_fn_ids)
-    return covered, covered
-
-
 def _print_lines(lines: list[str]) -> None:
     """Print a report block's lines as one call, or nothing when the block is empty."""
     if lines:
@@ -156,55 +137,6 @@ def _compute_manifest_diff(source: str, loc: ManifestLocation) -> tuple[str, dic
     current_manifest = build_manifest(clean_source, tested_at=tested_at)
     changed_fn_ids = diff_manifests(existing_manifest, current_manifest)
     return clean_source, existing_manifest, manifest_exists, changed_fn_ids, tested_at
-
-
-def _acquire_covered_lines(
-    cov_cmd: str | None,
-    lcov_path: str | None,
-    *,
-    reuse_coverage: bool,
-    cwd: str,
-    abs_source: str,
-) -> tuple[set[int] | None, str | None]:
-    """Acquire coverage; return (covered_lines, error_message_or_None)."""
-    if reuse_coverage:
-        print("Reusing existing coverage; covered/uncovered classification may be stale.")
-    try:
-        covered_lines = acquire_coverage(
-            cov_cmd=cov_cmd,
-            lcov_path=lcov_path,
-            reuse=reuse_coverage,
-            cwd=cwd,
-            source_path=abs_source,
-        )
-        return covered_lines, None
-    except CoverageError as exc:
-        return None, str(exc)
-
-
-def _is_effective_since_last_run(
-    *,
-    since_last_run: bool,
-    manifest_exists: bool,
-    mutate_all: bool,
-    lines_filter: set[int] | None,
-) -> bool:
-    return since_last_run or (manifest_exists and not mutate_all and lines_filter is None)
-
-
-def _should_run_parallel(max_workers: int, n_selected: int) -> bool:
-    return max_workers >= 2 and n_selected >= 2
-
-
-def _print_uncovered_if_needed(
-    all_sites: list[Site],
-    covered_lines: set[int],
-    *,
-    effective_since_last_run: bool,
-    lines_filter: set[int] | None,
-) -> None:
-    if not effective_since_last_run and lines_filter is None:
-        _print_lines(_uncovered_block_lines(all_sites, covered_lines))
 
 
 def _finalize_source(
@@ -408,11 +340,13 @@ def _select_and_prepare(
         warning_threshold=request.warning_threshold,
     )
     _print_lines(_run_header_lines(request.path, run_stats))
-    _print_uncovered_if_needed(
-        loaded.all_sites,
-        covered_lines,
-        effective_since_last_run=effective_since_last_run,
-        lines_filter=request.lines_filter,
+    _print_lines(
+        _uncovered_lines_if_needed(
+            loaded.all_sites,
+            covered_lines,
+            effective_since_last_run=effective_since_last_run,
+            lines_filter=request.lines_filter,
+        )
     )
 
     use_parallel = _should_run_parallel(max_workers, len(selected_sites))

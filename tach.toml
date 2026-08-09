@@ -68,6 +68,18 @@
 # it back. That puts it strictly between `execution` (its only caller's
 # other dependency) and `execution_backends` (its own dependency), so it
 # sits in its own layer right between the two.
+#
+# Issue #38 gate 14 extracted the run loop's site-selection cluster
+# (coverage acquisition, since-last-run/lines-filter narrowing, and the
+# serial/parallel switch) out of `_runner.py` into `_site_selection`. It
+# imports `_report` (`_uncovered_block_lines`, for the uncovered-sites
+# report block it now returns rather than prints) alongside `domain`
+# (`Site`, `CoverageError`, `acquire_coverage`); nothing in
+# `execution_backends` is needed, so — unlike `run_prep` — it doesn't have
+# to sit above that layer. It's depended on only by `run_loop`, with no
+# cross-deps against `cli_validation` or `target_resolution`, so it sits in
+# its own layer alongside them, directly above `report` (its one non-domain
+# dependency).
 source_roots = ["src"]
 layers = [
     "cli_adapter",
@@ -77,6 +89,7 @@ layers = [
     "run_prep",
     "execution_backends",
     "cli_validation",
+    "site_selection",
     "target_resolution",
     "report",
     "manifest_storage",
@@ -133,6 +146,11 @@ depends_on = []
 [[modules]]
 path = "mutate4py._cli_validation"
 layer = "cli_validation"
+depends_on = []
+
+[[modules]]
+path = "mutate4py._site_selection"
+layer = "site_selection"
 depends_on = []
 
 [[modules]]

@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from mutate4py._discovery import Site, apply_mutant, discover_sites
+from mutate4py._discovery import apply_mutant, discover_sites
 from mutate4py._manifest import build_manifest, embed_manifest
 from mutate4py._runner import (
     CoverageSource,
@@ -12,9 +12,6 @@ from mutate4py._runner import (
     RunMutationsRequest,
     _baseline_reason,
     _finalize_source,
-    _is_effective_since_last_run,
-    _select_sites,
-    _should_run_parallel,
     check_manifest,
     run_mutations,
     run_scan,
@@ -58,55 +55,6 @@ def test_apply_mutant_integer_0_to_1():
     sites = discover_sites(src)
     mutated = apply_mutant(src, sites[0])
     assert mutated.strip() == "x = 1"
-
-
-# ── _select_sites ─────────────────────────────────────────────────────────────
-
-
-def _make_site(index, line, fid="func/f") -> Site:
-    return Site(
-        index=index,
-        line=line,
-        col=0,
-        end_line=line,
-        end_col=5,
-        function_id=fid,
-        orig_text=">",
-        mutant_text=">=",
-        desc="> -> >=",
-    )
-
-
-def test_select_sites_all_covered_non_differential():
-    sites = [_make_site(0, 1, "func/f"), _make_site(1, 2, "func/g")]
-    covered = {1, 2}
-    _, selected = _select_sites(sites, covered, set(), effective_since_last_run=False, lines_filter=None)
-    assert len(selected) == 2
-
-
-def test_select_sites_differential_filters_unchanged():
-    sites = [_make_site(0, 1, "func/f"), _make_site(1, 2, "func/g")]
-    covered = {1, 2}
-    changed = {"func/f"}
-    _, selected = _select_sites(sites, covered, changed, effective_since_last_run=True, lines_filter=None)
-    assert len(selected) == 1
-    assert selected[0].function_id == "func/f"
-
-
-def test_select_sites_lines_filter():
-    sites = [_make_site(0, 1, "func/f"), _make_site(1, 2, "func/g")]
-    covered = {1, 2}
-    _, selected = _select_sites(sites, covered, set(), effective_since_last_run=False, lines_filter={1})
-    assert len(selected) == 1
-    assert selected[0].line == 1
-
-
-def test_select_sites_uncovered_excluded():
-    sites = [_make_site(0, 1, "func/f"), _make_site(1, 2, "func/g")]
-    covered = {1}  # line 2 uncovered
-    _, selected = _select_sites(sites, covered, set(), effective_since_last_run=False, lines_filter=None)
-    assert len(selected) == 1
-    assert selected[0].line == 1
 
 
 # ── run_mutations integration ─────────────────────────────────────────────────
@@ -567,6 +515,50 @@ def test_run_mutations_header_counts(tmp_path):
     assert "Mutation workers:" not in output
 
 
+def test_run_mutations_prints_uncovered_block_for_uncovered_sites(tmp_path):
+    """Pins the exact "Uncovered mutations:" block text through run_mutations —
+    gate 14 turned its production (_uncovered_lines_if_needed) from a print into
+    a return, and _select_and_prepare's _print_lines(...) wrapping must still
+    produce byte-for-byte the same output as before that change.
+    """
+    src = "def f(a, b):\n    return a > b\n\n\ndef g(a, b):\n    return a < b\n"
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+
+    sites = discover_sites(src)
+    lcov_path = str(tmp_path / "cov.lcov")
+    _write_lcov(lcov_path, src_path, [sites[0].line])  # only the first site is covered
+
+    script_path = str(tmp_path / "test.sh")
+    _make_pass_script(script_path)
+
+    import io
+    from contextlib import redirect_stdout
+
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        run_mutations(
+            RunMutationsRequest(
+                path=src_path,
+                source=src,
+                cov_cmd=None,
+                lcov_path=lcov_path,
+                reuse_coverage=False,
+                test_command=f"sh {script_path}",
+                timeout_factor=10,
+                lines_filter=None,
+                since_last_run=False,
+                mutate_all=False,
+                warning_threshold=1000,
+                cwd=str(tmp_path),
+            )
+        )
+    output = buf.getvalue()
+    assert "Uncovered mutations:" in output
+    assert f"  line {sites[1].line} {sites[1].desc} {sites[1].function_id}" in output
+
+
 def test_run_mutations_timeout_counts_as_killed(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "calc.py")
@@ -657,7 +649,7 @@ def test_run_mutations_warning_threshold_exceeded(tmp_path):
 
 def test_run_mutations_coverage_error_returns_1(tmp_path, monkeypatch):
     from mutate4py._coverage import CoverageError
-    import mutate4py._runner as runner_mod
+    import mutate4py._site_selection as site_selection_mod
 
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "calc.py")
@@ -665,7 +657,7 @@ def test_run_mutations_coverage_error_returns_1(tmp_path, monkeypatch):
         f.write(src)
 
     monkeypatch.setattr(
-        runner_mod,
+        site_selection_mod,
         "acquire_coverage",
         lambda **_kw: (_ for _ in ()).throw(CoverageError("no coverage")),
     )
@@ -995,77 +987,6 @@ def test_disagreement_restores_the_source_and_removes_the_backup(tmp_path, monke
         final = f.read()
     assert strip_manifest(final).rstrip("\n") == src.rstrip("\n")
     assert not os.path.isfile(src_path + ".bak")
-
-
-# ── _should_run_parallel boundary conditions ──────────────────────────────────
-
-
-def test_should_run_parallel_exact_boundary():
-    """max_workers=2, n_selected=2 -> parallel (inclusive on both)."""
-    assert _should_run_parallel(max_workers=2, n_selected=2) is True
-
-
-def test_should_run_parallel_one_worker():
-    """max_workers=1 -> serial even with many sites."""
-    assert _should_run_parallel(max_workers=1, n_selected=10) is False
-
-
-def test_should_run_parallel_one_site():
-    """n_selected=1 -> serial even with many workers."""
-    assert _should_run_parallel(max_workers=8, n_selected=1) is False
-
-
-def test_should_run_parallel_two_workers_one_site():
-    """max_workers=2, n_selected=1 -> serial."""
-    assert _should_run_parallel(max_workers=2, n_selected=1) is False
-
-
-def test_should_run_parallel_three_workers():
-    """max_workers=3, n_selected=2 -> parallel."""
-    assert _should_run_parallel(max_workers=3, n_selected=2) is True
-
-
-# ── _is_effective_since_last_run logic ───────────────────────────────────────
-
-
-def test_is_effective_since_last_run_explicit():
-    """since_last_run=True -> effective regardless of other flags."""
-    assert (
-        _is_effective_since_last_run(since_last_run=True, manifest_exists=False, mutate_all=True, lines_filter={1, 2})
-        is True
-    )
-
-
-def test_is_effective_since_last_run_implicit_all_conditions():
-    """manifest exists, mutate_all=False, no lines_filter -> effective."""
-    assert (
-        _is_effective_since_last_run(since_last_run=False, manifest_exists=True, mutate_all=False, lines_filter=None)
-        is True
-    )
-
-
-def test_is_effective_since_last_run_no_manifest():
-    """No manifest -> not effective via implicit path."""
-    assert (
-        _is_effective_since_last_run(since_last_run=False, manifest_exists=False, mutate_all=False, lines_filter=None)
-        is False
-    )
-
-
-def test_is_effective_since_last_run_mutate_all_disables():
-    """mutate_all=True -> not effective via implicit path."""
-    assert (
-        _is_effective_since_last_run(since_last_run=False, manifest_exists=True, mutate_all=True, lines_filter=None)
-        is False
-    )
-
-
-def test_is_effective_since_last_run_lines_filter_disables():
-    """lines_filter present -> not effective via implicit path."""
-    assert (
-        _is_effective_since_last_run(since_last_run=False, manifest_exists=True, mutate_all=False, lines_filter={5})
-        is False
-    )
 
 
 # ── _finalize_source manifest content ────────────────────────────────────────
