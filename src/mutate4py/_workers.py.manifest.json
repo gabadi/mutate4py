@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-08-10T13:42:28Z",
-  "module_hash": "02cfe3cfca86420da73372469f2b5f1951532003435f6ef45687a5afb38ff064",
-  "source_sha256": "38b9da627c1ae4992e22447fc71af31e8f0a767dff4033bca8f7da083bbad744",
+  "tested_at": "2026-08-10T16:25:02Z",
+  "module_hash": "86420ea313ca06301b15028b3e1cbb426091163f241e7f0b33bec620f96b41fc",
+  "source_sha256": "9b156d3a62d889c95faff0606d8833f919174f1d3672ed4624679e86ff2a2333",
   "functions": [
     {
       "id": "func/_copy_tree",
@@ -22,56 +22,56 @@
       "id": "func/_provision_worker_executors",
       "name": "_provision_worker_executors",
       "line": 138,
-      "end_line": 156,
-      "hash": "507262f7835d18120f2ed117cb6caee019f4b6dd0048021ba29d583ac1444fc0"
+      "end_line": 165,
+      "hash": "8717de25a7f9814e3de030587136f2e0f5318523f77321ab0c5bd368519e626b"
     },
     {
       "id": "func/_run_one_site",
       "name": "_run_one_site",
-      "line": 159,
-      "end_line": 198,
+      "line": 168,
+      "end_line": 207,
       "hash": "33ae5c21cd855a3576b9ea2eba40a661bd81a28a50fbafe24da13b48ad606bdf"
     },
     {
       "id": "func/_provision_workers",
       "name": "_provision_workers",
-      "line": 201,
-      "end_line": 209,
+      "line": 210,
+      "end_line": 218,
       "hash": "01e586a80be2c797bf3a60fc2d8148469fa497fa11ee73e471be120c0fc76c2e"
     },
     {
       "id": "func/_assign_sites_to_workers",
       "name": "_assign_sites_to_workers",
-      "line": 212,
-      "end_line": 218,
+      "line": 221,
+      "end_line": 227,
       "hash": "38182f3ff4d30bc4333538f3b42892b1be3285e6ae0c194917a5ac9075ae763f"
     },
     {
       "id": "func/_summarize_results",
       "name": "_summarize_results",
-      "line": 221,
-      "end_line": 230,
+      "line": 230,
+      "end_line": 239,
       "hash": "f13aab7e3a9b5709751bc84562dafffcbba38134093167fac49188a4ba6947e1"
     },
     {
       "id": "func/_summarize_selection",
       "name": "_summarize_selection",
-      "line": 233,
-      "end_line": 240,
+      "line": 242,
+      "end_line": 249,
       "hash": "f6f2a670384ec5358b5f0be84f9b77b503897335b9363bf8eefb63b67c93c4f8"
     },
     {
       "id": "func/_dispatch_worker_groups",
       "name": "_dispatch_worker_groups",
-      "line": 243,
-      "end_line": 290,
+      "line": 252,
+      "end_line": 299,
       "hash": "1915b7676bf8fbd1e708c9b8f84033f38c2c83f053385666c40a037cbe2b96b9"
     },
     {
       "id": "func/run_parallel",
       "name": "run_parallel",
-      "line": 293,
-      "end_line": 355,
+      "line": 302,
+      "end_line": 364,
       "hash": "ba1a85e27446b35e495f858fe10d4b99fe2526e70f50b031100894eb969b61f5"
     }
   ]

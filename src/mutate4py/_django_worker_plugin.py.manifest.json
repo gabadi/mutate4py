@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-10T16:25:04Z",
+  "module_hash": "862ec6ae65d0706d18c165bd04f79bb620c1485b48f7ad6bfdea5fbcb4f96f3a",
+  "source_sha256": "92d44f0bd858a034c0a58c8768b20f319b1401a9fb6c3768ae6abf664fd1d8e8",
+  "functions": [
+    {
+      "id": "func/pytest_configure",
+      "name": "pytest_configure",
+      "line": 25,
+      "end_line": 33,
+      "hash": "7e12d343239e2c9309e4615d6e1af9d37a2f20c3d38298e717b26a8ee61566d9"
+    }
+  ]
+}

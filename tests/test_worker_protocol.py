@@ -64,6 +64,63 @@ def test_worker_process_executor_subprocess_forced(tmp_path):
         executor.close()
 
 
+# --- per-Worker identity reaches pytest-django's expected attribute (issue 05) -
+
+
+def _write_workerinput_probe_project(tmp_path):
+    (tmp_path / "conftest.py").write_text("")
+    target = tmp_path / "calc.py"
+    target.write_text("def add(a, b):\n    return a + b\n")
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "test_worker_id.py").write_text(
+        "from calc import add\n"
+        "def test_workerinput_matches(request):\n"
+        "    assert request.config.workerinput == {'workerid': 'gw3'}\n"
+        "    assert add(2, 2) == 4\n"
+    )
+    return target
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("forking_requested", [True, False])
+def test_worker_process_executor_supplies_worker_id(tmp_path, forking_requested):
+    """A Worker constructed with worker_id="gw3" makes config.workerinput
+    visible to every dispatched pytest run, whether the Worker lands on the
+    forking or the subprocess executor — the same mechanism (env var +
+    `-p` module plugin) has to cross both boundaries identically."""
+    target = _write_workerinput_probe_project(tmp_path)
+    executor = WorkerProcessExecutor(
+        worker_root=str(tmp_path), guarded_path=str(target), forking_requested=forking_requested, worker_id="gw3"
+    )
+    executor.prime()
+    try:
+        assert executor.run(["-q", "tests/test_worker_id.py"], timeout=30.0) == "survived"
+    finally:
+        executor.close()
+
+
+@pytest.mark.integration
+def test_worker_process_executor_without_worker_id_leaves_workerinput_unset(tmp_path):
+    (tmp_path / "conftest.py").write_text("")
+    target = tmp_path / "calc.py"
+    target.write_text("def add(a, b):\n    return a + b\n")
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "test_no_worker_id.py").write_text(
+        "from calc import add\n"
+        "def test_no_workerinput(request):\n"
+        "    assert not hasattr(request.config, 'workerinput')\n"
+        "    assert add(2, 2) == 4\n"
+    )
+    executor = WorkerProcessExecutor(worker_root=str(tmp_path), guarded_path=str(target), forking_requested=True)
+    executor.prime()
+    try:
+        assert executor.run(["-q", "tests/test_no_worker_id.py"], timeout=30.0) == "survived"
+    finally:
+        executor.close()
+
+
 # --- forking vs. subprocess parity within a Worker -----------------------------
 
 

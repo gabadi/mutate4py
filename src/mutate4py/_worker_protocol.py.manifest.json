@@ -1,35 +1,35 @@
 {
   "version": 1,
-  "tested_at": "2026-08-10T13:42:28Z",
-  "module_hash": "5c70c614ef64b0260f057eda60977de745c2807e19458d04397b4191995c60b6",
-  "source_sha256": "bc60fc20a0785e5934b03a8c71af387d1781d6aa9d0e7802322a40c0b3891062",
+  "tested_at": "2026-08-10T16:08:42Z",
+  "module_hash": "32377ab11c94bfb7c554601f0b6cdc911806fc341e9c6ade3eb7a4692d0cdb3e",
+  "source_sha256": "3a2dbb5de979879ed17cc1f6d869988dcdfb22223cb2fce4d4c32166450a6268",
   "functions": [
     {
       "id": "func/WorkerProcessExecutor.__init__",
       "name": "__init__",
       "line": 22,
-      "end_line": 26,
-      "hash": "6388c12f6fd8a6ca5a604b0f4b282023520852acc931a3eac3463319ef2c53cb"
+      "end_line": 29,
+      "hash": "888898daeee5caeafd033214c7de28b03bd63c083e4f4ba2a6f33a94279d856f"
     },
     {
       "id": "func/WorkerProcessExecutor.prime",
       "name": "prime",
-      "line": 28,
-      "end_line": 47,
-      "hash": "141761b987a6713b03f2808992913438252635c1981d5a83f165fb16d853a084"
+      "line": 31,
+      "end_line": 51,
+      "hash": "2c7b5ec9f939d18076945e41448faf2c476532584195138bd8015621c40a7916"
     },
     {
       "id": "func/WorkerProcessExecutor.run",
       "name": "run",
-      "line": 49,
-      "end_line": 57,
+      "line": 53,
+      "end_line": 61,
       "hash": "c86c856202c9dfccce5da71223520e68d40c98ec56d533fad8c06fe5393ce11f"
     },
     {
       "id": "func/WorkerProcessExecutor.close",
       "name": "close",
-      "line": 59,
-      "end_line": 67,
+      "line": 63,
+      "end_line": 71,
       "hash": "de169e7d9ab045984381514d9afbc1bf5706528f6b3ecf0867e97f01b8490180"
     }
   ]

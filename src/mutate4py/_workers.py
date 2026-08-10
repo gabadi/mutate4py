@@ -143,7 +143,15 @@ def _provision_worker_executors(
     injected_executor: Executor | None,
 ) -> list[Executor]:
     """One Executor per worker root: the shared injected fake when supplied
-    (tests), a real per-Worker subprocess proxy otherwise."""
+    (tests), a real per-Worker subprocess proxy otherwise.
+
+    Each real proxy gets a distinct worker_id ("gw1", "gw2", ...) so
+    pytest-django gives every Worker its own test database instead of
+    colliding (issue 05). Numbered from 1, matching `worker_roots`' own
+    "worker-1", "worker-2", ... naming (`_provision_workers`) and the CLI
+    progress line's `worker-{worker_idx}` — not pytest-xdist's 0-based "gw0"
+    convention, which would leave the two identifiers for one Worker off by
+    one and defeat the point of a human-readable suffix on disk."""
     if injected_executor is not None:
         return [injected_executor for _ in worker_roots]
     return [
@@ -151,8 +159,9 @@ def _provision_worker_executors(
             worker_root=root,
             guarded_path=os.path.join(root, source_rel),
             forking_requested=forking_requested,
+            worker_id=f"gw{i}",
         )
-        for root in worker_roots
+        for i, root in enumerate(worker_roots, start=1)
     ]
 
 

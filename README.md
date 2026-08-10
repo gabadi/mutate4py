@@ -130,6 +130,38 @@ files at all — the command prints `error: no Python files to process.` and exi
 **2**, rather than passing vacuously. `--exclude` also applies to a single-file
 target: a target that matches is not analysed, and exits 2 the same way.
 
+## Django projects
+
+Parallel Workers (`--max-workers`) each get their own test database automatically:
+mutate4py supplies pytest-django with the per-Worker identity it normally only gets
+from pytest-xdist, so no `conftest.py` change is required and Workers never collide
+on one test database during migration.
+
+Pass pytest-django's own `--reuse-db` through `--pytest-args` if you want it —
+mutate4py can't turn it on for you, because it changes what's on disk between runs
+(a kept-around test database) in a way only you can judge safe for your project and
+environment:
+
+```bash
+mutate4py polls/models.py --max-workers 4 --pytest-args="-q --reuse-db" --lcov lcov.info
+```
+
+A migration-signal count in your terminal is not evidence that `--reuse-db` skipped
+migrations: pytest-django still runs migrations to create (or verify) each test
+database, reused or not. The saving from reuse is skipping the *teardown and
+recreation* at the end of the run, not the migration step itself.
+
+Framework bootstrap (`django.setup()`) runs once per Worker, before any Mutant, and
+imports every `INSTALLED_APPS` model module as a side effect. That has one
+consequence worth predicting rather than discovering: a Mutant in an app-loaded
+module (e.g. `models.py`) is already in `sys.modules` by the time its Worker primes,
+so it degrades to the subprocess executor — one fresh `pytest` process per Mutant,
+same as `--no-fork` — instead of the warm forking path. The Mutant is still killed
+correctly; only the speed of getting there changes. A Mutant in a module outside app
+loading (a plain utility module Django never imports through `INSTALLED_APPS`) keeps
+the warm path. Net effect: Django projects get the warm path least on the modules
+mutation testing cares about most (your models), which is correct, not a defect.
+
 ## How it differs from mutate4go (`[PY]`)
 
 - **`--max-workers` uses clone-per-worker, not tree-copy+`cwd`** — mutate4go's

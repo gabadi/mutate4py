@@ -1,22 +1,22 @@
 {
   "version": 1,
-  "tested_at": "2026-08-10T13:42:28Z",
-  "module_hash": "1cadda4055a5651540b5b7cedba8782f5c692f7cd2ceb6c6bd4a2bad4fb08d76",
-  "source_sha256": "3373497a88e5ad756c65b4cf14c6dee767c95c560fb864ca18b643bb75f4d9d7",
+  "tested_at": "2026-08-10T16:08:42Z",
+  "module_hash": "2ca61fc979b551195347792c4202962afc35836e13ea4ad37ca408affee0ba44",
+  "source_sha256": "f69ce5e47aa0f8bd9233d52543003d41a8e02da63d53d970ec19ff8509a938f0",
   "functions": [
     {
       "id": "func/_serve",
       "name": "_serve",
-      "line": 29,
-      "end_line": 38,
-      "hash": "2fc9598c7b268f65627800a4cdc123bbbca672e34d88384fb4b95548e2b65ce3"
+      "line": 41,
+      "end_line": 53,
+      "hash": "4e13843cc9be5d4e8549f614d7515ccab4ad45013be116331e90eee81e8b4f6a"
     },
     {
       "id": "func/main",
       "name": "main",
-      "line": 41,
-      "end_line": 52,
-      "hash": "213c0905a19447223f61a3088b6a666809cebd6c8c4e4e79181fe55df4d7e868"
+      "line": 56,
+      "end_line": 70,
+      "hash": "b285d72cbd5f3d6a3b04c26262b8f8ca819102d62d8a8312655d8f069f01946a"
     }
   ]
 }

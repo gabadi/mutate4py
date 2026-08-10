@@ -167,6 +167,40 @@ def test_assign_sites_round_robins():
     assert total == 4
 
 
+# ── _provision_worker_executors ───────────────────────────────────────────────
+
+
+def test_provision_worker_executors_assigns_distinct_worker_ids():
+    """Each real WorkerProcessExecutor gets its own worker_id (issue 05) —
+    the identity pytest-django needs to keep per-Worker test databases from
+    colliding — so worker roots must never share one. Numbered from 1 to
+    match worker_roots' own "worker-1", "worker-2", ... naming and the CLI
+    progress line's worker_idx, not pytest-xdist's 0-based convention."""
+    from mutate4py._workers import _provision_worker_executors
+
+    executors = _provision_worker_executors(
+        ["/tmp/worker-1", "/tmp/worker-2", "/tmp/worker-3"],
+        "calc.py",
+        forking_requested=True,
+        injected_executor=None,
+    )
+    assert [e._worker_id for e in executors] == ["gw1", "gw2", "gw3"]
+    assert len({e._worker_id for e in executors}) == 3
+
+
+def test_provision_worker_executors_injected_fake_ignores_worker_id():
+    from mutate4py._workers import _provision_worker_executors
+
+    fake = _FakeExecutor("survived")
+    executors = _provision_worker_executors(
+        ["/tmp/worker-1", "/tmp/worker-2"],
+        "calc.py",
+        forking_requested=True,
+        injected_executor=fake,
+    )
+    assert executors == [fake, fake]
+
+
 # ── _summarize_results ────────────────────────────────────────────────────────
 
 

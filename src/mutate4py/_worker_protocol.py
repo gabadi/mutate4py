@@ -19,10 +19,13 @@ class WorkerProcessError(Exception):
 class WorkerProcessExecutor:
     """One persistent Worker subprocess, primed once, dispatched by line."""
 
-    def __init__(self, *, worker_root: str, guarded_path: str, forking_requested: bool) -> None:
+    def __init__(
+        self, *, worker_root: str, guarded_path: str, forking_requested: bool, worker_id: str | None = None
+    ) -> None:
         self._worker_root = worker_root
         self._guarded_path = guarded_path
         self._forking_requested = forking_requested
+        self._worker_id = worker_id
         self._proc: subprocess.Popen | None = None
 
     def prime(self) -> None:
@@ -34,6 +37,7 @@ class WorkerProcessExecutor:
                 self._worker_root,
                 self._guarded_path,
                 "1" if self._forking_requested else "0",
+                self._worker_id or "",
             ],
             cwd=self._worker_root,
             stdin=subprocess.PIPE,
