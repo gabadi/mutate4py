@@ -1,5 +1,5 @@
 """Mutant execution engine for the run loop: builds each mutant's test
-command, runs it (serial loop, fork server, or parallel workers), and tallies
+command, runs it (serial loop, forking executor, or parallel workers), and tallies
 counts/survivors. Nothing here writes the manifest or logs a final report —
 callers own both; the one log call left is per-mutant progress feedback,
 using line formatters `_report` already owns.
@@ -7,9 +7,9 @@ using line formatters `_report` already owns.
 
 import dataclasses
 import logging
-import shlex
 
 from mutate4py._discovery import Site, apply_mutant
+from mutate4py._executor import Executor
 from mutate4py._report import _on_parallel_result, _serial_progress_line
 
 __all__ = ["MutantExecCtx", "TestSelectionError"]
@@ -19,17 +19,17 @@ _logger = logging.getLogger(__name__)
 
 @dataclasses.dataclass
 class MutantExecCtx:
-    """Where and how mutants are executed for one run: paths, command, timeout, and dispatch mode."""
+    """Where and how mutants are executed for one run: paths, executor, timeout, and dispatch mode."""
 
     path: str
     cwd: str
-    test_command: str
+    pytest_args: list[str]
+    executor: Executor
     mutant_timeout: float
     max_workers: int = 0
     use_parallel: bool = False
     abs_source_path: str = ""
     test_ctx_db: object = None
-    fork_server: object = None
 
 
 class TestSelectionError(Exception):
@@ -46,46 +46,25 @@ _DISAGREEMENT_HINTS = {
 }
 
 
-def _build_mutant_command(test_command: str, test_ctx_db, abs_source_path: str, site: Site) -> tuple[str, str | None]:
-    """Return (command, selection) for site; selection is None without a context db.
+def _build_mutant_args(
+    pytest_args: list[str], test_ctx_db, abs_source_path: str, site: Site
+) -> tuple[list[str], str | None]:
+    """Return (args, selection) for site; selection is None without a context db.
 
     "narrowed" runs only the tests covering site.line; "static" runs the full
-    test_command because the line executes at import time and no test owns it.
+    pytest_args because the line executes at import time and no test owns it.
     """
     if test_ctx_db is None:
-        return test_command, None
+        return pytest_args, None
     outcome, node_ids = test_ctx_db.tests_for_line(abs_source_path, site.line)
     if outcome == "narrowed":
-        return (
-            f"{test_command} {' '.join(shlex.quote(n) for n in node_ids)}",
-            "narrowed",
-        )
+        return [*pytest_args, *node_ids], "narrowed"
     if outcome == "static":
-        return test_command, "static"
+        return pytest_args, "static"
     # Every other outcome raises, so an unrecognized one can never fall through to
     # a full-suite run that the report would then miscount as narrowed.
     hint = _DISAGREEMENT_HINTS.get(outcome, f"unrecognized selection outcome {outcome!r}")
     raise TestSelectionError(f"{abs_source_path}:{site.line}: {hint}")
-
-
-def _run_single_mutant(fork_server, cmd: str, cwd: str, mutant_timeout: float) -> str:
-    """Execute one already-spliced mutant; return its status.
-
-    Routes through the primed fork server when given, else the existing
-    per-mutant subprocess model. `_cmd` is imported here (a no-op once
-    `_run_mutation_loop` has already warmed it up ahead of the first
-    splice), not at module scope: an eager import at module scope would put
-    `mutate4py._cmd` in sys.modules before the run loop even starts —
-    poisoning the fork server's leak check whenever the scan target is
-    `_cmd.py` itself, forcing a fallback it never actually needed.
-    """
-    if fork_server is not None:
-        status, _ = fork_server.run(mutant_timeout)
-    else:
-        from mutate4py._cmd import run_command
-
-        status, _ = run_command(cmd, cwd, mutant_timeout)
-    return status
 
 
 def _run_mutation_loop(
@@ -93,39 +72,27 @@ def _run_mutation_loop(
     clean_source: str,
     ctx: MutantExecCtx,
 ) -> tuple[dict, list[Site], dict[str, int] | None]:
-    """Run each selected site; the third return is the narrowed/static tally, or
-    None when no context db is in play. Raises TestSelectionError on a
-    selection disagreement.
+    """Run each selected site through ctx.executor; the third return is the
+    narrowed/static tally, or None when no context db is in play. Raises
+    TestSelectionError on a selection disagreement.
 
-    ctx.fork_server, when given (a primed mutate4py._fork_server.ForkServer),
-    replaces the per-mutant subprocess with a fork() of the already-warm
-    pytest process instead. It is only ever set alongside ctx.test_ctx_db=None
-    (--fork-server and --test-contexts are mutually exclusive at the CLI),
-    so _build_mutant_command is still cheap and side-effect-free to call
-    unconditionally: with no context db it just returns (test_command, None).
-
-    When ctx.fork_server is None, `mutate4py._cmd` is imported here, before
-    the first mutant is ever spliced onto disk. Without this warm-up, a
-    self-scan of `_cmd.py` would import it lazily inside the loop — by then
-    already mutated on disk — so the orchestrator's own copy of
-    run_command, the very function interpreting each subprocess's exit
-    code, would silently run mutated logic instead of the real thing.
+    ctx.executor is always primed by the time this loop starts (whichever
+    implementation _prepare_executor chose), so this loop never branches on
+    which one it has — it only ever calls executor.run(args, timeout).
     """
-    if ctx.fork_server is None:
-        import mutate4py._cmd  # noqa: F401 — warms sys.modules before any splice
     total_selected = len(selected_sites)
     counts: dict[str, int] = {"killed": 0, "timeout": 0, "survived": 0}
     selection_counts: dict[str, int] = {"narrowed": 0, "static": 0}
     survivors: list[Site] = []
     for i, site in enumerate(selected_sites, 1):
         # Built before the splice so a disagreement aborts with the source untouched.
-        cmd, selection = _build_mutant_command(ctx.test_command, ctx.test_ctx_db, ctx.abs_source_path, site)
+        args, selection = _build_mutant_args(ctx.pytest_args, ctx.test_ctx_db, ctx.abs_source_path, site)
         if selection is not None:
             selection_counts[selection] += 1
         mutated = apply_mutant(clean_source, site)
         with open(ctx.path, "w") as f:
             f.write(mutated)
-        status = _run_single_mutant(ctx.fork_server, cmd, ctx.cwd, ctx.mutant_timeout)
+        status = ctx.executor.run(args, ctx.mutant_timeout)
         counts[status] += 1
         if status == "survived":
             survivors.append(site)
@@ -148,7 +115,7 @@ def _run_parallel_workers(
                 clean_source=clean_source,
                 source_path=ctx.path,
                 cwd=ctx.cwd,
-                test_command=ctx.test_command,
+                pytest_args=ctx.pytest_args,
                 mutant_timeout=ctx.mutant_timeout,
                 max_workers=ctx.max_workers,
                 on_result=_on_parallel_result,

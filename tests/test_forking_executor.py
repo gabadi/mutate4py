@@ -1,4 +1,4 @@
-"""Unit/integration tests for _fork_server (issue #25 fork-server model)."""
+"""Unit/integration tests for _forking_executor (issue #25 forking executor)."""
 
 import itertools
 import os
@@ -10,45 +10,25 @@ import types
 
 import pytest
 
-from mutate4py._fork_server import (
-    ForkServer,
-    ForkServerUnavailable,
+from mutate4py._forking_executor import (
+    ForkingExecutor,
+    ForkingExecutorUnavailable,
     ModuleLeakError,
     assert_source_clean,
     is_available,
 )
-from mutate4py._fork_server import _wait_for_child
+from mutate4py._forking_executor import _wait_for_child
 
-# --- is_available ----------------------------------------------------------
-
-
-def test_is_available_true_for_plain_pytest():
-    assert is_available("pytest") is True
+# --- is_available ------------------------------------------------------------
 
 
-def test_is_available_true_for_pytest_with_args():
-    assert is_available("pytest -x -q") is True
-
-
-def test_is_available_false_for_other_runner():
-    assert is_available("tox -e py311") is False
-
-
-def test_is_available_false_for_shell_pipeline():
-    assert is_available("pytest && echo done") is False
-
-
-def test_is_available_false_for_unclosed_quote():
-    assert is_available("pytest 'unclosed") is False
-
-
-def test_is_available_false_for_empty_command():
-    assert is_available("") is False
+def test_is_available_true_on_posix():
+    assert is_available() is True
 
 
 def test_is_available_false_without_os_fork(monkeypatch):
     monkeypatch.delattr(os, "fork", raising=False)
-    assert is_available("pytest") is False
+    assert is_available() is False
 
 
 # --- assert_source_clean / _leaked_modules ----------------------------------
@@ -87,7 +67,7 @@ def test_assert_source_clean_ignores_unrelated_modules(tmp_path):
     assert_source_clean(str(target))
 
 
-# --- ForkServer.prime / run --------------------------------------------------
+# --- ForkingExecutor.prime / run ---------------------------------------------
 
 
 _module_name_counter = itertools.count()
@@ -116,6 +96,7 @@ def _write_fixture_project(tmp_path, *, target_body: str, test_body: str, confte
 
 
 _ADD_TEST_BODY = "from {mod} import add\ndef test_add():\n    assert add(2, 2) == 4\n"
+_ARGS = ["-q", "tests"]
 
 
 @pytest.mark.integration
@@ -125,8 +106,8 @@ def test_prime_succeeds_when_target_not_pre_imported(tmp_path):
         target_body="def add(a, b):\n    return a + b\n",
         test_body=_ADD_TEST_BODY,
     )
-    server = ForkServer(cwd=cwd, extra_args=["-q", "tests"], guarded_path=target)
-    server.prime()  # must not raise
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor.prime()  # must not raise
 
 
 @pytest.mark.integration
@@ -137,9 +118,9 @@ def test_prime_raises_module_leak_when_conftest_imports_target(tmp_path):
         test_body=_ADD_TEST_BODY,
         conftest_body="import {mod}\n",
     )
-    server = ForkServer(cwd=cwd, extra_args=["-q", "tests"], guarded_path=target)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
     with pytest.raises(ModuleLeakError):
-        server.prime()
+        executor.prime()
 
 
 @pytest.mark.integration
@@ -155,9 +136,9 @@ def test_prime_leak_does_not_poison_a_later_same_named_file(tmp_path):
         test_body=_ADD_TEST_BODY,
         conftest_body="import {mod}\n",
     )
-    server_a = ForkServer(cwd=cwd_a, extra_args=["-q", "tests"], guarded_path=target_a)
+    executor_a = ForkingExecutor(cwd=cwd_a, guarded_path=target_a)
     with pytest.raises(ModuleLeakError):
-        server_a.prime()
+        executor_a.prime()
 
     # A second, unrelated file that happens to reuse the same module name.
     mod_name = os.path.splitext(os.path.basename(target_a))[0]
@@ -170,8 +151,8 @@ def test_prime_leak_does_not_poison_a_later_same_named_file(tmp_path):
     tests_b.mkdir()
     (tests_b / f"test_{mod_name}.py").write_text(_ADD_TEST_BODY.format(mod=mod_name))
 
-    server_b = ForkServer(cwd=str(dir_b), extra_args=["-q", "tests"], guarded_path=str(target_b))
-    server_b.prime()  # must not raise: file a's leak must not have persisted
+    executor_b = ForkingExecutor(cwd=str(dir_b), guarded_path=str(target_b))
+    executor_b.prime()  # must not raise: file a's leak must not have persisted
 
 
 @pytest.mark.integration
@@ -181,11 +162,10 @@ def test_run_survives_when_tests_pass(tmp_path):
         target_body="def add(a, b):\n    return a + b\n",
         test_body=_ADD_TEST_BODY,
     )
-    server = ForkServer(cwd=cwd, extra_args=["-q", "tests"], guarded_path=target)
-    server.prime()
-    status, timed_out = server.run(timeout=30.0)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor.prime()
+    status = executor.run(_ARGS, timeout=30.0)
     assert status == "survived"
-    assert timed_out is False
 
 
 @pytest.mark.integration
@@ -195,11 +175,10 @@ def test_run_killed_when_tests_fail(tmp_path):
         target_body="def add(a, b):\n    return a - b\n",  # mutated: - instead of +
         test_body=_ADD_TEST_BODY,
     )
-    server = ForkServer(cwd=cwd, extra_args=["-q", "tests"], guarded_path=target)
-    server.prime()
-    status, timed_out = server.run(timeout=30.0)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor.prime()
+    status = executor.run(_ARGS, timeout=30.0)
     assert status == "killed"
-    assert timed_out is False
 
 
 @pytest.mark.integration
@@ -211,17 +190,17 @@ def test_run_picks_up_post_prime_mutation_from_disk(tmp_path):
         target_body="def add(a, b):\n    return a + b\n",
         test_body=_ADD_TEST_BODY,
     )
-    server = ForkServer(cwd=cwd, extra_args=["-q", "tests"], guarded_path=target)
-    server.prime()
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor.prime()
 
     # First mutant: correct code, unmutated -> tests pass -> survived.
-    status, _ = server.run(timeout=30.0)
+    status = executor.run(_ARGS, timeout=30.0)
     assert status == "survived"
 
     # Apply a mutation on disk, as _run_mutation_loop would between mutants.
     with open(target, "w") as f:
         f.write("def add(a, b):\n    return a - b\n")
-    status, _ = server.run(timeout=30.0)
+    status = executor.run(_ARGS, timeout=30.0)
     assert status == "killed", (
         "child re-used a stale pre-mutation module instead of re-reading the file from disk after fork"
     )
@@ -230,7 +209,7 @@ def test_run_picks_up_post_prime_mutation_from_disk(tmp_path):
     # fresh rather than caching the previous child's result.
     with open(target, "w") as f:
         f.write("def add(a, b):\n    return a + b\n")
-    status, _ = server.run(timeout=30.0)
+    status = executor.run(_ARGS, timeout=30.0)
     assert status == "survived"
 
 
@@ -243,18 +222,17 @@ def test_run_reports_timeout_and_kills_child(tmp_path):
             "import time\nfrom {mod} import add\ndef test_add():\n    time.sleep(5)\n    assert add(2, 2) == 4\n"
         ),
     )
-    server = ForkServer(cwd=cwd, extra_args=["-q", "tests"], guarded_path=target)
-    server.prime()
-    status, timed_out = server.run(timeout=0.5)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor.prime()
+    status = executor.run(_ARGS, timeout=0.5)
     assert status == "timeout"
-    assert timed_out is True
 
 
 @pytest.mark.integration
 def test_run_before_prime_raises():
-    server = ForkServer(cwd="/tmp", extra_args=["-q"], guarded_path="/tmp/x.py")
-    with pytest.raises(ForkServerUnavailable):
-        server.run(timeout=1.0)
+    executor = ForkingExecutor(cwd="/tmp", guarded_path="/tmp/x.py")
+    with pytest.raises(ForkingExecutorUnavailable):
+        executor.run(["-q"], timeout=1.0)
 
 
 @pytest.mark.integration
@@ -266,9 +244,9 @@ def test_run_does_not_leak_child_stdout(tmp_path, capsys):
             "from {mod} import add\ndef test_add():\n    print('SHOULD_NOT_APPEAR')\n    assert add(2, 2) == 4\n"
         ),
     )
-    server = ForkServer(cwd=cwd, extra_args=["-q", "tests"], guarded_path=target)
-    server.prime()
-    server.run(timeout=30.0)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor.prime()
+    executor.run(_ARGS, timeout=30.0)
     captured = capsys.readouterr()
     assert "SHOULD_NOT_APPEAR" not in captured.out
     assert "SHOULD_NOT_APPEAR" not in captured.err
@@ -288,6 +266,5 @@ def test_wait_for_child_reports_killed_when_child_dies_by_signal():
         os._exit(0)  # pragma: no cover - only reached if the signal below fails
     time.sleep(0.05)
     os.kill(pid, signal.SIGTERM)
-    status, timed_out = _wait_for_child(pid, timeout=5.0)
+    status = _wait_for_child(pid, timeout=5.0)
     assert status == "killed"
-    assert timed_out is False

@@ -30,7 +30,7 @@ def _make_args(**kwargs):
         max_workers=None,
         timeout_factor=10,
         min_timeout=1.0,
-        test_command="pytest",
+        pytest_args=None,
         test_contexts=None,
         cov_cmd=None,
         lcov=None,
@@ -40,7 +40,7 @@ def _make_args(**kwargs):
         verbose=False,
         exclude=None,
         prune_dirs=(),
-        no_fork_server=False,
+        no_fork=False,
     )
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -182,11 +182,11 @@ def test_validate_scan_with_timeout_factor_raises():
     assert "--timeout-factor" in str(exc.value)
 
 
-def test_validate_scan_with_test_command_raises():
+def test_validate_scan_with_pytest_args_raises():
     with pytest.raises(ValidationError) as exc:
-        _validate_mutual_exclusions(_make_args(scan=True, test_command="tox"))
+        _validate_mutual_exclusions(_make_args(scan=True, pytest_args="-k foo"))
     assert exc.value.exit_code == 2
-    assert "--test-command" in str(exc.value)
+    assert "--pytest-args" in str(exc.value)
 
 
 @pytest.mark.parametrize(

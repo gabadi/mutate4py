@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-08-09T18:18:28Z",
-  "module_hash": "cc3ae4d3f184b65dbf2659ef5682f5efd56bcee29c789cc9c7db8af7b8f657b9",
-  "source_sha256": "1b3e00f928093c3842b384d4c6fe60e9562d7ad68662a531aa4d066b38544b44",
+  "tested_at": "2026-08-10T04:58:12Z",
+  "module_hash": "e249343b8e5262568317c611e1ec776a31c5d5c69bab0780f41c9ea97b6b57b6",
+  "source_sha256": "8610fc77c45b4a3f17bb6b42dae13e7ad6fcdb5e6b76ba31c4e8947afc04a8b0",
   "functions": [
     {
       "id": "func/ValidationError.__init__",
@@ -15,56 +15,56 @@
       "id": "func/_check_coverage_flags",
       "name": "_check_coverage_flags",
       "line": 21,
-      "end_line": 27,
+      "end_line": 25,
       "hash": "6dba055fafc941f034499e3acb52ccf1d0b1bca8099d2aadf9f4cfa7275246da"
     },
     {
       "id": "func/_no_run_flag",
       "name": "_no_run_flag",
-      "line": 30,
-      "end_line": 36,
+      "line": 28,
+      "end_line": 34,
       "hash": "59aa486011c3e3158e11848b3f49b3182be927b8b3fc1c89b7b93890a7470ba9"
     },
     {
       "id": "func/_exit_incompatible",
       "name": "_exit_incompatible",
-      "line": 39,
-      "end_line": 40,
+      "line": 37,
+      "end_line": 38,
       "hash": "235efa5765062bda3712911d8fc253b9495c6b6a3ca7520319ce60e3333ed27d"
     },
     {
       "id": "func/_check_no_run_incompatibilities",
       "name": "_check_no_run_incompatibilities",
-      "line": 43,
-      "end_line": 55,
+      "line": 41,
+      "end_line": 53,
       "hash": "511a4918b982ad8e6f20c609ed979a229e0eddb12df1de6daa382c29a551a301"
     },
     {
       "id": "func/_check_scan_only_incompatibilities",
       "name": "_check_scan_only_incompatibilities",
-      "line": 58,
-      "end_line": 65,
-      "hash": "1b8e7f48ef85160f3f2151518414e3d349a811912e1509e20f3426fc5c45bc74"
+      "line": 56,
+      "end_line": 63,
+      "hash": "c9ffb2cc156517a0b5936e68fe161ab99569ed9ca041f24cd03d1e06b5b000f6"
     },
     {
       "id": "func/_check_selection_exclusivity",
       "name": "_check_selection_exclusivity",
-      "line": 68,
-      "end_line": 74,
+      "line": 66,
+      "end_line": 70,
       "hash": "f6f0fe3366fa14ccfe8b8b627665682a2ab7d078d99dae5b74fc383a2522ac52"
     },
     {
       "id": "func/_validate_mutual_exclusions",
       "name": "_validate_mutual_exclusions",
-      "line": 77,
-      "end_line": 91,
+      "line": 73,
+      "end_line": 87,
       "hash": "81892628f68ecdd239a699de75c1cc9905cecb9d1d192733a10a078da3334eea"
     },
     {
       "id": "func/_check_test_contexts_file",
       "name": "_check_test_contexts_file",
-      "line": 94,
-      "end_line": 96,
+      "line": 90,
+      "end_line": 92,
       "hash": "88768fdb1bba5a33e64dca30493cbf9087c87bc931be8a9bea284902f0edd910"
     }
   ]

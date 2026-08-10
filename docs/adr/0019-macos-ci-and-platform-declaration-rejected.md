@@ -33,9 +33,10 @@ the CI gate set's runtime and adding OS-conditional plumbing (lcov via
 apt-vs-brew, an arch-specific `drywall` asset, etc.) to guard against a hazard
 that has never actually been observed in this project was not judged worth the
 ongoing cost. The forking executor already gates on `hasattr(os, "fork")`
-(`_fork_server.py::is_available`) and falls back to the always-correct subprocess
-model wherever forking isn't safe or available — POSIX support is already true by
-construction, not something dedicated CI is required to prove.
+(`_forking_executor.py::is_available`, renamed from `_fork_server.py` by issue 03)
+and falls back to the always-correct subprocess model wherever forking isn't safe
+or available — POSIX support is already true by construction, not something
+dedicated CI is required to prove.
 
 **Considered and rejected further:**
 

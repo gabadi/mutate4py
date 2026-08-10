@@ -1,21 +1,31 @@
 """Unit tests for the mutant execution engine (_execution.py)."""
 
-import sys
-
 import pytest
 
-import mutate4py._execution as _execution_mod
 from mutate4py._discovery import discover_sites
 from mutate4py._execution import (
     MutantExecCtx,
     TestSelectionError,
-    _build_mutant_command,
+    _build_mutant_args,
     _run_mutation_loop,
     _run_parallel_workers,
-    _run_single_mutant,
 )
 
-# ── _build_mutant_command ───────────────────────────────────────────────────────
+
+class _FakeExecutor:
+    def __init__(self, status="survived"):
+        self._status = status
+        self.calls = []
+
+    def prime(self):
+        pass
+
+    def run(self, args, timeout):
+        self.calls.append((list(args), timeout))
+        return self._status
+
+
+# ── _build_mutant_args ───────────────────────────────────────────────────────
 
 
 class _FakeTestContextDB:
@@ -30,33 +40,21 @@ def _one_site(src="def f(a, b):\n    return a > b\n"):
     return discover_sites(src)[0]
 
 
-def test_build_mutant_command_no_ctx_db_returns_full_command():
-    assert _build_mutant_command("pytest", None, "/src/calc.py", _one_site()) == (
-        "pytest",
-        None,
-    )
+def test_build_mutant_args_no_ctx_db_returns_full_args():
+    assert _build_mutant_args(["-q"], None, "/src/calc.py", _one_site()) == (["-q"], None)
 
 
-def test_build_mutant_command_narrows_to_covering_tests():
+def test_build_mutant_args_narrows_to_covering_tests():
     ctx_db = _FakeTestContextDB("narrowed", ["tests/test_calc.py::test_gt"])
-    assert _build_mutant_command("pytest", ctx_db, "/src/calc.py", _one_site()) == (
-        "pytest tests/test_calc.py::test_gt",
+    assert _build_mutant_args(["-q"], ctx_db, "/src/calc.py", _one_site()) == (
+        ["-q", "tests/test_calc.py::test_gt"],
         "narrowed",
     )
 
 
-def test_build_mutant_command_quotes_node_ids():
-    ctx_db = _FakeTestContextDB("narrowed", ["tests/t.py::test_a[x y]"])
-    cmd, _ = _build_mutant_command("pytest", ctx_db, "/src/calc.py", _one_site())
-    assert cmd == "pytest 'tests/t.py::test_a[x y]'"
-
-
-def test_build_mutant_command_static_line_runs_full_command():
+def test_build_mutant_args_static_line_runs_full_args():
     ctx_db = _FakeTestContextDB("static")
-    assert _build_mutant_command("pytest", ctx_db, "/src/calc.py", _one_site()) == (
-        "pytest",
-        "static",
-    )
+    assert _build_mutant_args(["-q"], ctx_db, "/src/calc.py", _one_site()) == (["-q"], "static")
 
 
 @pytest.mark.parametrize(
@@ -66,20 +64,20 @@ def test_build_mutant_command_static_line_runs_full_command():
         ("file-absent", "not in the test-context db"),
     ],
 )
-def test_build_mutant_command_disagreement_raises(outcome, hint):
+def test_build_mutant_args_disagreement_raises(outcome, hint):
     ctx_db = _FakeTestContextDB(outcome)
     with pytest.raises(TestSelectionError) as excinfo:
-        _build_mutant_command("pytest", ctx_db, "/src/calc.py", _one_site())
+        _build_mutant_args([], ctx_db, "/src/calc.py", _one_site())
     message = str(excinfo.value)
     assert "/src/calc.py:2" in message
     assert hint in message
 
 
-def test_build_mutant_command_unrecognized_outcome_raises():
+def test_build_mutant_args_unrecognized_outcome_raises():
     """No outcome may fall through to a full-suite run counted as narrowed."""
     ctx_db = _FakeTestContextDB("something-new")
     with pytest.raises(TestSelectionError, match="unrecognized selection outcome"):
-        _build_mutant_command("pytest", ctx_db, "/src/calc.py", _one_site())
+        _build_mutant_args([], ctx_db, "/src/calc.py", _one_site())
 
 
 # ── _run_mutation_loop ────────────────────────────────────────────────────────
@@ -95,7 +93,8 @@ def test_run_mutation_loop_empty_sites_returns_zero_counts(tmp_path):
         ctx=MutantExecCtx(
             path=str(src_file),
             cwd=str(tmp_path),
-            test_command="exit 0",
+            pytest_args=[],
+            executor=_FakeExecutor(),
             mutant_timeout=5.0,
         ),
     )
@@ -114,7 +113,8 @@ def _loop_over_two_sites(tmp_path, ctx_db):
         ctx=MutantExecCtx(
             path=str(src_file),
             cwd=str(tmp_path),
-            test_command="exit 1",
+            pytest_args=[],
+            executor=_FakeExecutor(status="killed"),
             mutant_timeout=5.0,
             test_ctx_db=ctx_db,
             abs_source_path=str(src_file),
@@ -134,66 +134,26 @@ def test_run_mutation_loop_tallies_static_selections(tmp_path):
     assert selection_counts == {"narrowed": 0, "static": 2}
 
 
-def test_run_mutation_loop_imports_cmd_before_first_splice_when_no_fork_server(tmp_path, monkeypatch):
-    """Regression: a self-scan of _cmd.py must not let the orchestrator's own
-    run_command reflect the mutant it is about to test against. Without the
-    pre-loop warm-up, the lazy import inside _run_single_mutant would only
-    happen after the first splice — reading back a mutated copy when the
-    scan target is _cmd.py itself, and silently inverting kill/survive.
-    """
-    monkeypatch.delitem(sys.modules, "mutate4py._cmd", raising=False)
+def test_run_mutation_loop_calls_executor_with_built_args_and_timeout(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_file = tmp_path / "calc.py"
     src_file.write_text(src)
+    executor = _FakeExecutor(status="survived")
 
-    seen_before_first_splice = {}
-    original_apply_mutant = _execution_mod.apply_mutant
-
-    def spying_apply_mutant(source, site):
-        seen_before_first_splice.setdefault("cmd_imported", "mutate4py._cmd" in sys.modules)
-        return original_apply_mutant(source, site)
-
-    monkeypatch.setattr(_execution_mod, "apply_mutant", spying_apply_mutant)
-
-    _run_mutation_loop(
+    counts, survivors, _ = _run_mutation_loop(
         selected_sites=discover_sites(src),
         clean_source=src,
         ctx=MutantExecCtx(
             path=str(src_file),
             cwd=str(tmp_path),
-            test_command="exit 0",
-            mutant_timeout=5.0,
+            pytest_args=["-q"],
+            executor=executor,
+            mutant_timeout=7.5,
         ),
     )
-    assert seen_before_first_splice["cmd_imported"] is True
-
-
-def test_run_mutation_loop_skips_cmd_warmup_when_fork_server_given(tmp_path, monkeypatch):
-    """The warm-up only applies to the subprocess fallback: when a fork server
-    is active, _cmd must stay out of sys.modules so a self-scan of _cmd.py
-    keeps the fork server's warm path instead of being forced to fall back.
-    """
-    monkeypatch.delitem(sys.modules, "mutate4py._cmd", raising=False)
-    src = "def f(a, b):\n    return a > b\n"
-    src_file = tmp_path / "calc.py"
-    src_file.write_text(src)
-
-    class FakeForkServer:
-        def run(self, timeout):
-            return "survived", False
-
-    _run_mutation_loop(
-        selected_sites=discover_sites(src),
-        clean_source=src,
-        ctx=MutantExecCtx(
-            path=str(src_file),
-            cwd=str(tmp_path),
-            test_command="exit 0",
-            mutant_timeout=5.0,
-            fork_server=FakeForkServer(),
-        ),
-    )
-    assert "mutate4py._cmd" not in sys.modules
+    assert counts == {"killed": 0, "timeout": 0, "survived": 1}
+    assert survivors == discover_sites(src)
+    assert executor.calls == [(["-q"], 7.5)]
 
 
 def test_run_mutation_loop_disagreement_aborts_before_applying_the_mutant(tmp_path):
@@ -207,30 +167,14 @@ def test_run_mutation_loop_disagreement_aborts_before_applying_the_mutant(tmp_pa
             ctx=MutantExecCtx(
                 path=str(src_file),
                 cwd=str(tmp_path),
-                test_command="exit 1",
+                pytest_args=[],
+                executor=_FakeExecutor(),
                 mutant_timeout=5.0,
                 test_ctx_db=_FakeTestContextDB("line-absent"),
                 abs_source_path=str(src_file),
             ),
         )
     assert src_file.read_text() == src
-
-
-# ── _run_single_mutant ────────────────────────────────────────────────────────
-
-
-def test_run_single_mutant_uses_fork_server_when_given():
-    class FakeForkServer:
-        def run(self, timeout):
-            return "survived", False
-
-    status = _run_single_mutant(FakeForkServer(), "pytest", "/cwd", 5.0)
-    assert status == "survived"
-
-
-def test_run_single_mutant_falls_back_to_subprocess_when_no_fork_server():
-    status = _run_single_mutant(None, "exit 1", "/tmp", 5.0)
-    assert status == "killed"
 
 
 # ── _run_parallel_workers passes mutant_timeout ───────────────────────────────
@@ -262,7 +206,8 @@ def test_run_parallel_workers_passes_timeout(tmp_path, monkeypatch):
         ctx=MutantExecCtx(
             path=src_path,
             cwd=str(tmp_path),
-            test_command="exit 0",
+            pytest_args=[],
+            executor=_FakeExecutor(),
             mutant_timeout=42.0,
             max_workers=2,
         ),

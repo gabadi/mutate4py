@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-10T04:58:12Z",
+  "module_hash": "f0ba53b899c27ebc46f8dbd38b0b101184f245d4aa1ac8edc58e8f03c9713a37",
+  "source_sha256": "037ad9d0478fa798738f8932204d1641f3b18cfe2517ec2bbc05469da3ae899f",
+  "functions": [
+    {
+      "id": "func/is_available",
+      "name": "is_available",
+      "line": 48,
+      "end_line": 50,
+      "hash": "5de088524027f935fa5a9c9c536d318f189bcc175a56f57f0bb575ae0cf0a1d2"
+    },
+    {
+      "id": "func/_leaked_modules",
+      "name": "_leaked_modules",
+      "line": 53,
+      "end_line": 60,
+      "hash": "adfe44856e110fd86da612fb594d943266512ada8559050952f1ad49241b87d5"
+    },
+    {
+      "id": "func/assert_source_clean",
+      "name": "assert_source_clean",
+      "line": 63,
+      "end_line": 78,
+      "hash": "1b8138e155ba290ffc32e211b86df20c56a32627b39dc601fdcce0c4df24f90f"
+    },
+    {
+      "id": "func/ForkingExecutor.__init__",
+      "name": "__init__",
+      "line": 91,
+      "end_line": 94,
+      "hash": "aa81716cee82c82302f38ed191009326cc7e66504513cb67a8b8a898e55897a6"
+    },
+    {
+      "id": "func/ForkingExecutor.prime",
+      "name": "prime",
+      "line": 96,
+      "end_line": 113,
+      "hash": "9b2ade7b800890fa3e9f5657ec00ece5342018389f28375fe6181d34717f1f2c"
+    },
+    {
+      "id": "func/ForkingExecutor.run",
+      "name": "run",
+      "line": 115,
+      "end_line": 123,
+      "hash": "b5d58f3d2c030f4224365e4971b1ea09d99f6b570f54dd21726ea338d80ecbb4"
+    },
+    {
+      "id": "func/ForkingExecutor._run_child",
+      "name": "_run_child",
+      "line": 125,
+      "end_line": 140,
+      "hash": "2ded7a9e7b3900b05eb8f5fd92a0b33d520295073506ae19e6fd830bc81ab466"
+    },
+    {
+      "id": "func/_invalidate_bytecode_cache",
+      "name": "_invalidate_bytecode_cache",
+      "line": 143,
+      "end_line": 152,
+      "hash": "0b5f0320a53d6eba74f70a54f72bf5cd84054b5a2458f4b19f2e78f309c1dbcd"
+    },
+    {
+      "id": "func/_run_pytest_output_suppressed",
+      "name": "_run_pytest_output_suppressed",
+      "line": 155,
+      "end_line": 172,
+      "hash": "5007a98bfd18d00aa9c3c839e65884581a9da2adb41eb1c313561a24434fbaec"
+    },
+    {
+      "id": "func/_wait_for_child",
+      "name": "_wait_for_child",
+      "line": 175,
+      "end_line": 189,
+      "hash": "b16e0dd06bd67e4656448a1d3e0caf528684309fe7574da8805c79e8ea8fa217"
+    }
+  ]
+}

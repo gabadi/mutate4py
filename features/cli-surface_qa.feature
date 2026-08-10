@@ -11,27 +11,28 @@ Feature: QA — the CLI surface is observable end-to-end through the command
   #   No project API — QA never imports mutate4py or calls the parser directly.
   #   The QA agent writes: a real Python source fixture with at least one mutation
   #   site, and (for accept cases that dispatch to the run loop) a minimal LCOV
-  #   fixture + a fast fake --test-command, so an accepted invocation can complete
-  #   cheaply. QA asserts on exit code (zero vs non-zero), and on the presence/absence
-  #   of marker strings in the printed output.
+  #   fixture + a fast fake pytest test selected via --pytest-args, so an accepted
+  #   invocation can complete cheaply. QA asserts on exit code (zero vs non-zero),
+  #   and on the presence/absence of marker strings in the printed output.
   #
   # CONSTRAINTS:
   #   - QA distinguishes ACCEPT from REJECT by exit code: a usage error exits NON-ZERO
   #     and prints no run output; an accepted no-run mode (--scan/--update-manifest) or
   #     a completed run exits zero.
   #   - For accept cases QA always supplies an otherwise-valid invocation (a real file,
-  #     and a coverage flag + fake test command when the run loop is reached) so the only
+  #     and a coverage flag + fake pytest test when the run loop is reached) so the only
   #     variable under test is the flag/combination being validated.
   #   - QA asserts a usage error does NO work: for a reject case it confirms the source
   #     file is byte-identical afterwards (no manifest re-embedded, no mutant spliced) and
   #     no .mutate4py.bak appears — proving validation fired before any dispatch.
   #   - --help is asserted to exit zero, print the usage summary, and that the summary
   #     text contains "--max-workers".
-  #   - QA controls the fake --test-command end to end (a small script it writes), the
-  #     same affordance a real user has; it does not scrape internal state.
+  #   - QA controls the fake pytest test end to end (a small test file it writes,
+  #     selected via --pytest-args, never a shell), the same affordance a real user
+  #     has; it does not scrape internal state.
   #
   # SEQUENCING:
-  #   - Each case: write the source fixture (and LCOV + fake test command when the
+  #   - Each case: write the source fixture (and LCOV + fake pytest test when the
   #     invocation should reach the run loop), run the CLI once, assert exit code +
   #     output markers + on-disk effects, tear down the temp dir.
   #   - The --help case is run with deliberately-invalid companion args to prove --help
@@ -105,13 +106,13 @@ Feature: QA — the CLI surface is observable end-to-end through the command
 
   # cli-surface-qa-4: an accepted run-loop invocation with --max-workers is accepted and completes
   Scenario: --max-workers alongside a coverage flag is accepted and runs
-    Given a minimal LCOV fixture covering the site and a fast fake test command
-    When I invoke "mutate4py <file> --lcov cov.info --max-workers 4 --test-command <fake>"
+    Given a minimal LCOV fixture covering the site and a fast fake pytest test
+    When I invoke "mutate4py <file> --lcov cov.info --max-workers 4 --pytest-args <fake>"
     Then the command exits zero
     And the printed output contains "Mutation run:"
 
   # cli-surface-qa-5: --max-workers combines with a selection flag without error
   Scenario: --max-workers and a selection flag are accepted together
-    Given a minimal LCOV fixture covering the site and a fast fake test command
-    When I invoke "mutate4py <file> --lcov cov.info --max-workers 4 --mutate-all --test-command <fake>"
+    Given a minimal LCOV fixture covering the site and a fast fake pytest test
+    When I invoke "mutate4py <file> --lcov cov.info --max-workers 4 --mutate-all --pytest-args <fake>"
     Then the command exits zero

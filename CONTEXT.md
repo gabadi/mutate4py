@@ -107,13 +107,22 @@ term. This is the single canonical glossary for the project.
   block] → baseline → per-site apply/test/classify/restore → restore → report →
   re-embed manifest (idempotent under structural equality, ADR 0016) →
   cleanup (ADR 0010).
-- **Baseline** — one run of `--test-command` (default `pytest`) on the **unmutated**
-  source; it must pass, and its duration sets the mutant timeout.
+- **Baseline** — one run of pytest with `--pytest-args` (default none) on the
+  **unmutated** source; it must pass, and its duration sets the mutant timeout.
 - **Mutant timeout** — `max(1s, timeout-factor × baseline-duration)`; the `1s` floor
   is fixed.
 - **Classification** — the per-site verdict: **killed** (non-zero exit), **timeout**
   (exceeded the mutant timeout, folds into Killed in the report), **survived** (zero
   exit) (ADR 0011).
+- **Executor** — the interface the serial run loop's two execution paths both
+  implement (issue 03): prime once, then run a given pytest argument list under
+  a timeout and return a classification. The **forking executor**
+  (`ForkingExecutor`) forks a primed pytest process per mutant, on by default
+  on POSIX (`--no-fork` forces the fallback); the **subprocess executor**
+  (`SubprocessExecutor`) runs `sys.executable -m pytest` fresh per mutant,
+  always available. The serial loop only ever holds an `Executor` and never
+  branches on which one it has. The parallel path (F6) does not go through
+  `Executor` yet — issue 04 unifies the two.
 - **Selected sites** — the covered sites actually mutated, after dropping those not
   in `--lines` and, when differential, those whose FunctionID is unchanged.
   `selected ⊆ covered ⊆ total`.
@@ -150,7 +159,7 @@ term. This is the single canonical glossary for the project.
 - **Selection outcome** — the per-site verdict `TestContextDB.tests_for_line`
   returns, one of four, covering three declared cases (ADR 0018; **no silent
   fallback**): **`narrowed`** (case 1 — named tests cover the line, so only those
-  run), **`static`** (case 2 — empty context only, so the full `--test-command` runs
+  run), **`static`** (case 2 — empty context only, so `--pytest-args` runs
   verbatim, as the stated rule), **`line-absent`** / **`file-absent`** (case 3 — the
   db cannot account for an LCOV-covered line, so the run aborts).
 - **Selection disagreement** — case 3: the context db and the LCOV coverage gate
@@ -170,7 +179,7 @@ term. This is the single canonical glossary for the project.
 
 - **Flag matrix** — the full §2 option set F5 parses and validates: `--scan`,
   `--update-manifest`, `--lines`, `--since-last-run`, `--mutate-all`,
-  `--mutation-warning N`, `--timeout-factor N`, `--test-command CMD`,
+  `--mutation-warning N`, `--timeout-factor N`, `--pytest-args ARGS`,
   `--max-workers N`, `--exclude PATTERN`, the three coverage flags, `--verbose`,
   `--help`.
 - **Target resolution** — the phase between flag validation and dispatch (ADR
@@ -248,8 +257,9 @@ term. This is the single canonical glossary for the project.
 - **Worker (clone-per-worker)** — an isolated **tree copy** of the working directory
   with its own `uv`-provisioned venv (`uv venv`/`uv sync`); it mutates its **own** file
   copy, so editable installs resolve to it — the reason mutate4go's tree-copy+`cwd`
-  model is replaced. The worker runs the user's `--test-command` **verbatim** with
-  `cwd = worker-root` (no `uv pip install -e`, no `uv run` wrapping). Copies live under
+  model is replaced. The worker runs pytest with the run's `--pytest-args`
+  **verbatim**, no shell, with `cwd = worker-root` (no `uv pip install -e`, no `uv run`
+  wrapping). Copies live under
   `.mutate4py/workers/run-<pid>-<nanos>/worker-<k>/`, skipping `.git`, `__pycache__`,
   `.venv`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, and the worker dir itself; the
   whole run-root is removed when the run ends (ADR 0015).

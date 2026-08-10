@@ -5,6 +5,7 @@ import datetime
 import logging
 import os
 import subprocess
+import sys
 import time
 
 from mutate4py._coverage import CoverageError
@@ -50,8 +51,8 @@ from mutate4py._report import (
     scan_report_with_coverage,
 )
 from mutate4py._run_prep import (
-    _fork_server_eligible,
-    _prepare_fork_server,
+    _forking_eligible,
+    _prepare_executor,
     _setup_test_context_db,
 )
 from mutate4py._site_selection import (
@@ -81,7 +82,7 @@ class RunMutationsRequest:
     cov_cmd: str | None
     lcov_path: str | None
     reuse_coverage: bool
-    test_command: str
+    pytest_args: list[str]
     timeout_factor: int
     lines_filter: set[int] | None
     since_last_run: bool
@@ -93,7 +94,7 @@ class RunMutationsRequest:
     baseline_duration: float | None = None
     test_contexts_path: str | None = None
     manifest_file: bool = False
-    fork_server_requested: bool = True
+    forking_requested: bool = True
 
 
 def _baseline_reason(result: subprocess.CompletedProcess) -> str:
@@ -103,10 +104,21 @@ def _baseline_reason(result: subprocess.CompletedProcess) -> str:
     return f"exit code {result.returncode}"
 
 
-def run_baseline(cmd: str, cwd: str) -> tuple[float, str | None]:
-    """Run baseline; return (duration_seconds, error_reason_or_None)."""
+def run_baseline(pytest_args: list[str], cwd: str) -> tuple[float, str | None]:
+    """Run baseline; return (duration_seconds, error_reason_or_None).
+
+    Runs `sys.executable -m pytest`, no shell — the same interpreter's
+    pytest the executors run mutants against, so the timed baseline matches
+    what actually classifies each mutant. Builds the argv inline rather than
+    importing mutate4py._subprocess_executor's helper: baseline always runs
+    before executor preparation, so any import here would run unconditionally
+    on every mutation run — poisoning the forking executor's module-leak
+    check whenever the scan target is _cmd.py or _subprocess_executor.py
+    itself, exactly the hazard the lazy imports elsewhere in this codebase
+    (see _run_prep.py) exist to avoid.
+    """
     start = time.monotonic()
-    result = subprocess.run(cmd, shell=True, cwd=cwd, capture_output=True)
+    result = subprocess.run([sys.executable, "-m", "pytest", *pytest_args], cwd=cwd, capture_output=True)
     elapsed = time.monotonic() - start
     if result.returncode != 0:
         return elapsed, _baseline_reason(result)
@@ -197,13 +209,13 @@ class SelectionOutcome:
     use_parallel: bool = False
     max_workers: int = 0
     mutant_timeout: float = 0.0
-    fork_server: object = None
+    executor: object = None
 
 
 def _select_and_prepare(
     request: RunMutationsRequest, setup: RunSetup, test_ctx_db, max_workers: int
 ) -> SelectionOutcome:
-    """Acquire coverage, select sites, print the header, and prime the fork server.
+    """Acquire coverage, select sites, print the header, and prepare the executor.
 
     Returns a SelectionOutcome with error_code set if coverage acquisition or the
     baseline run fails — the caller must check that before using any other field.
@@ -262,7 +274,7 @@ def _select_and_prepare(
     _print_lines(_workers_header_lines(max_workers, use_parallel=use_parallel, n_selected=len(selected_sites)))
 
     baseline_duration, baseline_error = _resolve_baseline_duration(
-        request.baseline_duration, request.test_command, request.cwd
+        request.baseline_duration, request.pytest_args, request.cwd
     )
     if baseline_error is not None:
         # .info, not .error: see the matching note on the cov_error branch above.
@@ -274,14 +286,13 @@ def _select_and_prepare(
 
     mutant_timeout = max(request.min_timeout, request.timeout_factor * baseline_duration)
 
-    fork_server = _prepare_fork_server(
-        requested=_fork_server_eligible(
-            fork_server_requested=request.fork_server_requested,
+    executor = _prepare_executor(
+        requested=_forking_eligible(
+            forking_requested=request.forking_requested,
             use_parallel=use_parallel,
             test_ctx_db=test_ctx_db,
             selected_sites=selected_sites,
         ),
-        test_command=request.test_command,
         cwd=request.cwd,
         guarded_path=os.path.abspath(request.path),
     )
@@ -292,17 +303,17 @@ def _select_and_prepare(
         use_parallel=use_parallel,
         max_workers=max_workers,
         mutant_timeout=mutant_timeout,
-        fork_server=fork_server,
+        executor=executor,
     )
 
 
 def _resolve_baseline_duration(
-    baseline_duration: float | None, test_command: str, cwd: str
+    baseline_duration: float | None, pytest_args: list[str], cwd: str
 ) -> tuple[float | None, str | None]:
     """Return (duration, error). A pre-supplied duration is passed through untouched."""
     if baseline_duration is not None:
         return baseline_duration, None
-    return run_baseline(test_command, cwd)
+    return run_baseline(pytest_args, cwd)
 
 
 def run_mutations(request: RunMutationsRequest) -> int:
@@ -321,13 +332,13 @@ def run_mutations(request: RunMutationsRequest) -> int:
         ctx = MutantExecCtx(
             path=request.path,
             cwd=request.cwd,
-            test_command=request.test_command,
+            pytest_args=request.pytest_args,
+            executor=outcome.executor,
             mutant_timeout=outcome.mutant_timeout,
             max_workers=outcome.max_workers,
             use_parallel=outcome.use_parallel,
             abs_source_path=os.path.abspath(request.path),
             test_ctx_db=test_ctx_db,
-            fork_server=outcome.fork_server,
         )
         try:
             result = _execute_mutations(

@@ -11,6 +11,7 @@ import os
 
 import pytest
 
+from ._pytest_project_helpers import write_always_passing_pytest_project
 from mutate4py._discovery import discover_sites
 from mutate4py._runner import RunMutationsRequest, run_mutations
 
@@ -20,15 +21,6 @@ def _write_lcov(path: str, source_abs: str, covered_lines: list[int]) -> None:
     content = f"SF:{source_abs}\n{da_lines}\nend_of_record\n"
     with open(path, "w") as f:
         f.write(content)
-
-
-def _make_pass_script(path: str) -> str:
-    """Write a test script that always passes."""
-    script = "#!/bin/sh\nexit 0\n"
-    with open(path, "w") as f:
-        f.write(script)
-    os.chmod(path, 0o755)
-    return path
 
 
 # ── run_mutations: warning threshold and CoverageError ───────────────────────
@@ -44,8 +36,7 @@ def test_run_mutations_warning_threshold_exceeded(tmp_path):
     lcov_path = str(tmp_path / "cov.lcov")
     _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
-    script_path = str(tmp_path / "test.sh")
-    _make_pass_script(script_path)
+    pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
     import io
     from contextlib import redirect_stdout
@@ -59,7 +50,7 @@ def test_run_mutations_warning_threshold_exceeded(tmp_path):
                 cov_cmd=None,
                 lcov_path=lcov_path,
                 reuse_coverage=False,
-                test_command=f"sh {script_path}",
+                pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
                 since_last_run=False,
@@ -100,7 +91,7 @@ def test_run_mutations_coverage_error_returns_1(tmp_path, monkeypatch):
                 cov_cmd=None,
                 lcov_path=None,
                 reuse_coverage=False,
-                test_command="exit 0",
+                pytest_args=[],
                 timeout_factor=10,
                 lines_filter=None,
                 since_last_run=False,
@@ -133,9 +124,11 @@ def _write_lcov_for_source(lcov_path: str, src_path: str, source: str) -> None:
     _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
 
-def _run_with_capture(tmp_path, src_path, src, *, max_workers, test_cmd="exit 0"):
+def _run_with_capture(tmp_path, src_path, src, *, max_workers, pytest_args=None):
     lcov_path = str(tmp_path / "cov.lcov")
     _write_lcov_for_source(lcov_path, src_path, src)
+    if pytest_args is None:
+        pytest_args = write_always_passing_pytest_project(str(tmp_path))
     import io
     from contextlib import redirect_stdout
 
@@ -148,7 +141,7 @@ def _run_with_capture(tmp_path, src_path, src, *, max_workers, test_cmd="exit 0"
                 cov_cmd=None,
                 lcov_path=lcov_path,
                 reuse_coverage=False,
-                test_command=test_cmd,
+                pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
                 since_last_run=False,
@@ -257,6 +250,7 @@ def test_parallel_path_target_outside_cwd_error(tmp_path, monkeypatch):
 
         lcov_path = str(tmp_path / "cov.lcov")
         _write_lcov_for_source(lcov_path, src_path, src)
+        pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
         import io
         from contextlib import redirect_stdout
@@ -270,7 +264,7 @@ def test_parallel_path_target_outside_cwd_error(tmp_path, monkeypatch):
                     cov_cmd=None,
                     lcov_path=lcov_path,
                     reuse_coverage=False,
-                    test_command="exit 0",
+                    pytest_args=pytest_args,
                     timeout_factor=10,
                     lines_filter=None,
                     since_last_run=False,
@@ -347,6 +341,7 @@ def _run_with_stub_ctx_db(tmp_path, monkeypatch, outcome, node_ids=(), *, test_c
         f.write(src)
     lcov_path = str(tmp_path / "cov.lcov")
     _write_lcov_for_source(lcov_path, src_path, src)
+    pytest_args = write_always_passing_pytest_project(str(tmp_path))
     rc = run_mutations(
         RunMutationsRequest(
             path=src_path,
@@ -354,7 +349,7 @@ def _run_with_stub_ctx_db(tmp_path, monkeypatch, outcome, node_ids=(), *, test_c
             cov_cmd=None,
             lcov_path=lcov_path,
             reuse_coverage=False,
-            test_command="exit 0",
+            pytest_args=pytest_args,
             timeout_factor=10,
             lines_filter=None,
             since_last_run=False,

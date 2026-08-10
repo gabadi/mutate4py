@@ -15,12 +15,14 @@ Feature: The mutation run loop and report
   #           (Mutate, runMutationsSerial, runMutant, summarize, printHeader).
   #
   # CONTRACT:
-  #   command: mutate4py <file> [--test-command CMD] [--timeout-factor N]
+  #   command: mutate4py <file> [--pytest-args ARGS] [--timeout-factor N]
   #            [--lines L,...] [--since-last-run] [--mutate-all] [--mutation-warning N]
   #            <one coverage flag: --cov-cmd CMD | --lcov PATH | --reuse-coverage>
   #   request:
   #     <file> — path, required; a Python source file with discovered mutation sites (F1).
-  #     --test-command CMD — string, default "pytest"; the suite run for baseline and per mutant.
+  #     --pytest-args ARGS — one shell-quoted string of extra pytest arguments,
+  #       default none; reaches pytest directly (no shell) for the baseline and
+  #       per-mutant runs.
   #     --timeout-factor N — positive int, default 10; mutant timeout = max(1s, N × baseline).
   #     selection flags (--lines / --since-last-run / --mutate-all) — already parsed (F5 validates).
   #   run order (observable): strip manifest -> discover -> build+diff manifest ->
@@ -105,7 +107,7 @@ Feature: The mutation run loop and report
   #     workers" line in the F4 default case (--max-workers unset/0); the workers line
   #     for --max-workers > 0 and the parallel engine are F6 (§9 reopened, ADR 0013/0015).
   #     Parsing --max-workers is F5.
-  #   - ASSUMED: the injected exec seam runs --test-command via the shell and reports exit
+  #   - ASSUMED: the injected exec seam runs pytest directly (no shell) and reports exit
   #     status and timeout; the exact subprocess mechanism is the coder's to pin.
   #   - ASSUMED: a coverage source is supplied (F3); a run with no coverage flag is an F5
   #     validation concern, not specified here.

@@ -8,10 +8,12 @@
 # neither lists the other, so tach rejects it the moment someone adds it.
 #
 # Layers, lowest first (mirrors AGENTS.md and issue 02's own ordering):
-#   primitives          -> id derivation, glob dialect, command execution
+#   primitives          -> id derivation, glob dialect, argv execution, the
+#                          executor interface
 #   domain              -> site discovery, manifest, coverage, test
 #                          selection, workspace
-#   execution_backends  -> parallel workers, fork server
+#   execution_backends  -> parallel workers, the forking and subprocess
+#                          executors
 #   run_loop            -> the run-loop orchestration module
 #   cli_adapter         -> the CLI adapter
 #
@@ -62,8 +64,8 @@
 # alongside those three.
 #
 # Issue #38 gate 13 extracted the run-loop's pre-flight setup (test-context
-# db + fork-server priming) out of `_runner.py` into `_run_prep`. It imports
-# `_fork_server` (`execution_backends`) and `_test_selection` (`domain`), and
+# db + executor priming) out of `_runner.py` into `_run_prep`. It imports
+# `_forking_executor` (`execution_backends`) and `_test_selection` (`domain`), and
 # is depended on only by `run_loop` — nothing in `execution_backends` needs
 # it back. That puts it strictly between `execution` (its only caller's
 # other dependency) and `execution_backends` (its own dependency), so it
@@ -195,12 +197,22 @@ layer = "run_prep"
 depends_on = []
 
 [[modules]]
+path = "mutate4py._executor"
+layer = "primitives"
+depends_on = []
+
+[[modules]]
 path = "mutate4py._workers"
 layer = "execution_backends"
 depends_on = []
 
 [[modules]]
-path = "mutate4py._fork_server"
+path = "mutate4py._forking_executor"
+layer = "execution_backends"
+depends_on = []
+
+[[modules]]
+path = "mutate4py._subprocess_executor"
 layer = "execution_backends"
 depends_on = []
 

@@ -55,10 +55,15 @@ def _make_lcov(source_abs: str, covered_lines: list[int]) -> str:
     return f"SF:{source_abs}\n{da}\nend_of_record\n"
 
 
-def _write_script(path: str, content: str) -> None:
+def _write_test(path: str, body: str) -> None:
     with open(path, "w") as f:
-        f.write(content)
-    os.chmod(path, 0o755)
+        f.write(body)
+
+
+def _tests_dir(d: str) -> str:
+    tests_dir = os.path.join(d, "tests")
+    os.makedirs(tests_dir, exist_ok=True)
+    return tests_dir
 
 
 def _make_project_dir() -> str:
@@ -92,35 +97,6 @@ def _make_n_site_source(n: int) -> tuple[str, list[int]]:
     return "\n".join(lines) + "\n", site_lines
 
 
-def _run_mutate4py(
-    project_dir: str,
-    src_path: str,
-    lcov_path: str,
-    test_script: str,
-    extra_args: list[str],
-) -> subprocess.CompletedProcess:
-    cmd = [
-        "uv",
-        "run",
-        "--project",
-        REPO_ROOT,
-        "python",
-        "-m",
-        "mutate4py",
-        src_path,
-        "--lcov",
-        lcov_path,
-        "--test-command",
-        f"sh {test_script}",
-    ] + extra_args
-    return subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        cwd=project_dir,
-    )
-
-
 # ── Background ────────────────────────────────────────────────────────────────
 
 
@@ -142,8 +118,8 @@ def given_source_with_covered_sites(m, params):
 @step(r"a baseline test command that passes")
 def given_baseline_passes(m, params):
     d = ctx.project_dir or tempfile.mkdtemp()
-    ctx.test_script = os.path.join(d, "test.sh")
-    _write_script(ctx.test_script, "#!/bin/sh\nexit 0\n")
+    ctx.test_script = os.path.join(_tests_dir(d), "test_qa.py")
+    _write_test(ctx.test_script, "def test_qa():\n    pass\n")
 
 
 # ── Given steps ───────────────────────────────────────────────────────────────
@@ -167,8 +143,8 @@ def given_n_sites(m, params):
     with open(ctx.lcov_path, "w") as f:
         f.write(_make_lcov(ctx.src_path, site_lines))
     if ctx.test_script is None:
-        ctx.test_script = os.path.join(d, "test.sh")
-        _write_script(ctx.test_script, "#!/bin/sh\nexit 0\n")
+        ctx.test_script = os.path.join(_tests_dir(d), "test_qa.py")
+        _write_test(ctx.test_script, "def test_qa():\n    pass\n")
 
 
 @step(r'the flag supplied is "(--max-workers \d+)"')
@@ -229,12 +205,13 @@ def given_specific_site(m, params):
 @step(r'that mutant is run by worker "(\d+)" and exits nonzero')
 def given_worker_kills(m, params):
     src_rel = os.path.relpath(ctx.src_path, ctx.project_dir)
-    script = (
-        "#!/bin/sh\n"
-        f"if grep -qF '>=' './{src_rel}' 2>/dev/null; then exit 1; fi\n"
-        "exit 0\n"
+    body = (
+        "def test_qa():\n"
+        f"    with open({src_rel!r}) as f:\n"
+        "        content = f.read()\n"
+        "    assert '>=' not in content\n"
     )
-    _write_script(ctx.test_script, script)
+    _write_test(ctx.test_script, body)
 
 
 @step(r'a selected site whose mutated test run will "([^"]*)"')
@@ -275,23 +252,27 @@ def given_site_outcome(m, params):
 
     src_rel = os.path.relpath(src_path, d)
     if outcome == "exit nonzero":
-        script = (
-            "#!/bin/sh\n"
-            f"if grep -qF '>=' './{src_rel}' 2>/dev/null; then exit 1; fi\n"
-            "exit 0\n"
+        body = (
+            "def test_qa():\n"
+            f"    with open({src_rel!r}) as f:\n"
+            "        content = f.read()\n"
+            "    assert '>=' not in content\n"
         )
     elif outcome == "exit zero":
-        script = "#!/bin/sh\nexit 0\n"
+        body = "def test_qa():\n    pass\n"
     elif outcome == "exceed timeout":
-        script = (
-            "#!/bin/sh\n"
-            f"if grep -qF '>=' './{src_rel}' 2>/dev/null; then sleep 60; fi\n"
-            "exit 0\n"
+        body = (
+            "import time\n\n"
+            "def test_qa():\n"
+            f"    with open({src_rel!r}) as f:\n"
+            "        content = f.read()\n"
+            "    if '>=' in content:\n"
+            "        time.sleep(60)\n"
         )
         ctx.extra_cli_args = list(ctx.extra_cli_args) + ["--min-timeout", "0.1"]
     else:
         raise ValueError(f"Unknown outcome: {outcome}")
-    _write_script(ctx.test_script, script)
+    _write_test(ctx.test_script, body)
 
 
 @step(
@@ -361,8 +342,8 @@ def given_target_outside_cwd(m, params):
         f.write(_make_lcov(outside_src, site_lines))
     ctx.sites_count = 4
     if ctx.test_script is None:
-        ctx.test_script = os.path.join(ctx.project_dir, "test.sh")
-        _write_script(ctx.test_script, "#!/bin/sh\nexit 0\n")
+        ctx.test_script = os.path.join(_tests_dir(ctx.project_dir), "test_qa.py")
+        _write_test(ctx.test_script, "def test_qa():\n    pass\n")
 
 
 @step(r'"([^"]*)" occurs during the parallel run')
@@ -400,8 +381,8 @@ def when_run_mutate4py(m, params):
             ctx.src_path,
             "--lcov",
             ctx.lcov_path,
-            "--test-command",
-            f"sh {ctx.test_script}",
+            "--pytest-args",
+            "tests",
         ]
         + extra,
         capture_output=True,

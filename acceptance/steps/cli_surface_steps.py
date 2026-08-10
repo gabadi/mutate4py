@@ -86,6 +86,15 @@ class Context:
                 f.write(lcov_content(src))
         return self.lcov_path
 
+    def ensure_passing_tests(self) -> None:
+        """Write a trivial always-passing pytest test into tmpdir/tests, so
+        the flag/two-flag/accepted-flags helpers below can reach the real
+        run loop with --pytest-args "-q tests" instead of a shell stand-in."""
+        tests_dir = os.path.join(self.ensure_tmpdir(), "tests")
+        os.makedirs(tests_dir, exist_ok=True)
+        with open(os.path.join(tests_dir, "test_ok.py"), "w") as f:
+            f.write("def test_ok():\n    pass\n")
+
     def make_dir_with(self, *names: str) -> str:
         d = os.path.join(self.ensure_tmpdir(), "pkg")
         os.makedirs(d, exist_ok=True)
@@ -143,6 +152,7 @@ def given_two_files(m, params):
 
 @step(r'I run mutate4py with the flag "(.*)"')
 def when_run_with_flag(m, params):
+    ctx.ensure_passing_tests()
     args = single_flag_args(m.group(1), ctx.ensure_src(), ctx.ensure_lcov())
     ctx.cli_result = _run_mutate4py(*args, cwd=ctx.ensure_tmpdir())
 
@@ -156,6 +166,7 @@ def when_run_with_trailing_flag(m, params):
 
 @step(r'I run mutate4py with "(.*)" and "(.*)"')
 def when_run_with_two_flags(m, params):
+    ctx.ensure_passing_tests()
     args = two_flag_args(
         m.group(1).strip(), m.group(2).strip(), ctx.ensure_src(), ctx.ensure_lcov()
     )
@@ -183,6 +194,7 @@ def when_run_described(m, params):
 
 @step(r'I run mutate4py with the accepted flags "(.*)"')
 def when_run_with_accepted_flags(m, params):
+    ctx.ensure_passing_tests()
     args, _target, workers = accepted_flags_args(
         m.group(1).strip(), ctx.ensure_src(), ctx.ensure_lcov()
     )

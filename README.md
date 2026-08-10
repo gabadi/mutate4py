@@ -21,8 +21,12 @@ uv tool install mutate4py
 ## Usage
 
 ```bash
-mutate4py path/to/file.py --test-command "pytest" --lcov lcov.info
+mutate4py path/to/file.py --lcov lcov.info
 ```
+
+pytest is the only supported test runner, invoked directly (never through a
+shell). Pass extra pytest arguments with `--pytest-args "ARGS"`, e.g.
+`--pytest-args "-x -k calc"`.
 
 Generate `lcov.info` with [coverage.py](https://coverage.readthedocs.io/):
 

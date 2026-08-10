@@ -1,12 +1,14 @@
 """Run-loop pre-flight setup: opening the test-context db (which forces
-serial execution when active) and priming a `ForkServer` as a best-effort
-accelerator ahead of the per-mutant loop. Neither step ever raises on its
-own account — an unavailable fork server falls back to the per-mutant
-subprocess model instead of failing the run.
+serial execution when active) and preparing this run's executor — the
+forking fast path when eligible and available, the subprocess executor
+otherwise. Executor preparation never raises on its own account — an
+unavailable or failed-priming forking executor falls back to the
+subprocess executor instead of failing the run.
 """
 
 import logging
-import shlex
+
+from mutate4py._executor import Executor
 
 _logger = logging.getLogger(__name__)
 
@@ -25,49 +27,49 @@ def _setup_test_context_db(test_contexts_path: str | None, max_workers: int):
     return test_ctx_db, effective_max_workers
 
 
-def _prepare_fork_server(*, requested: bool, test_command: str, cwd: str, guarded_path: str):
-    """Build and prime a ForkServer for the serial loop, or None to keep the
-    existing per-mutant subprocess model.
+def _prepare_executor(*, requested: bool, cwd: str, guarded_path: str) -> Executor:
+    """Return a primed Executor for the serial loop: the forking executor when
+    requested and eligible, the subprocess executor otherwise.
 
     Never raises: any unavailability or priming failure (wrong platform,
-    test_command isn't a plain `pytest` invocation, pytest not importable in
-    this process, or the target leaking into sys.modules during priming) is
-    reported and treated as "fall back", never as a hard error — the fork
-    server is a best-effort accelerator, on by default, not a
-    correctness-affecting choice, so it degrades silently to the slower but
-    always-correct subprocess model wherever it isn't safe or applicable.
+    pytest not importable in this process, or the target leaking into
+    sys.modules during priming) is reported and treated as "fall back",
+    never as a hard error — the forking executor is a best-effort
+    accelerator, on by default, not a correctness-affecting choice, so it
+    degrades silently to the slower but always-correct subprocess executor
+    wherever it isn't safe or applicable.
     """
-    if not requested:
-        return None
-    from mutate4py._fork_server import ForkServer, ForkServerUnavailable, is_available
+    if requested:
+        from mutate4py._forking_executor import ForkingExecutor, ForkingExecutorUnavailable, is_available
 
-    if not is_available(test_command):
-        _logger.info(
-            "note: fork-server fast path needs a plain `pytest` --test-command "
-            "on a POSIX platform; using the per-mutant subprocess model instead."
-        )
-        return None
-    extra_args = shlex.split(test_command)[1:]
-    server = ForkServer(cwd=cwd, extra_args=extra_args, guarded_path=guarded_path)
-    try:
-        server.prime()
-    except ForkServerUnavailable as exc:
-        _logger.info(f"note: fork-server fast path unavailable ({exc}); using the per-mutant subprocess model instead.")
-        return None
-    return server
+        if not is_available():
+            _logger.info("note: the forking executor needs a POSIX platform; using the subprocess executor instead.")
+        else:
+            executor = ForkingExecutor(cwd=cwd, guarded_path=guarded_path)
+            try:
+                executor.prime()
+                return executor
+            except ForkingExecutorUnavailable as exc:
+                _logger.info(f"note: forking executor unavailable ({exc}); using the subprocess executor instead.")
+
+    from mutate4py._subprocess_executor import SubprocessExecutor
+
+    executor = SubprocessExecutor(cwd=cwd)
+    executor.prime()
+    return executor
 
 
-def _fork_server_eligible(
+def _forking_eligible(
     *,
-    fork_server_requested: bool,
+    forking_requested: bool,
     use_parallel: bool,
     test_ctx_db,
     selected_sites: list,
 ) -> bool:
-    """Whether the fork-server fast path may be attempted for this run.
+    """Whether the forking executor may be attempted for this run.
 
     Mutually exclusive with parallel workers and per-mutant test-context
-    narrowing: ForkServer.run always executes the full test_command with no
-    per-site command variation, so it cannot honor either.
+    narrowing: the forking executor always runs pytest against one fixed
+    argument list per mutant, so it cannot honor per-site narrowing here.
     """
-    return fork_server_requested and not use_parallel and test_ctx_db is None and bool(selected_sites)
+    return forking_requested and not use_parallel and test_ctx_db is None and bool(selected_sites)

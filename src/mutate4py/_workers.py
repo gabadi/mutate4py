@@ -1,7 +1,8 @@
 """Parallel worker engine for F6 (--max-workers >= 2, sites >= 2).
 
 Each worker is an isolated tree copy of the working directory, provisioned with
-its own uv venv. Workers run test commands verbatim with cwd = worker root.
+its own uv venv. Workers run pytest with the run's pytest arguments, no shell,
+with cwd = worker root.
 """
 
 import dataclasses
@@ -13,7 +14,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable
 
-from mutate4py._cmd import run_command as _run_command
+from mutate4py._cmd import run_argv
 from mutate4py._discovery import Site, apply_mutant
 
 __all__ = ["ParallelRunError", "ParallelRunRequest", "WorkerFailureError", "run_parallel"]
@@ -36,7 +37,7 @@ class WorkerRunSettings:
     """Shared across every mutant run within one parallel dispatch."""
 
     clean_source: str
-    test_command: str
+    pytest_args: list[str]
     mutant_timeout: float
     on_result: Callable
 
@@ -47,7 +48,7 @@ class ParallelRunRequest:
     clean_source: str
     source_path: str
     cwd: str
-    test_command: str
+    pytest_args: list[str]
     mutant_timeout: float
     max_workers: int
     on_result: Callable
@@ -116,7 +117,7 @@ def _run_one_site(assignment: SiteAssignment, settings: WorkerRunSettings) -> di
         raise WorkerFailureError(f"worker-{assignment.worker_idx} could not write file copy: {e}") from e
 
     try:
-        status, _ = _run_command(settings.test_command, assignment.worker_root, settings.mutant_timeout)
+        status = run_argv(["pytest", *settings.pytest_args], assignment.worker_root, settings.mutant_timeout)
     finally:
         try:
             with open(assignment.worker_file_path, "w") as f:
@@ -192,7 +193,7 @@ def run_parallel(request: ParallelRunRequest) -> tuple[dict, list[Site]]:
 
     settings = WorkerRunSettings(
         clean_source=request.clean_source,
-        test_command=request.test_command,
+        pytest_args=request.pytest_args,
         mutant_timeout=request.mutant_timeout,
         on_result=request.on_result,
     )

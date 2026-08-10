@@ -11,7 +11,6 @@ from mutate4py._workers import (
     WorkerRunSettings,
     _assign_sites_to_workers,
     _copy_tree,
-    _run_command,
     _run_one_site,
     _summarize_results,
     run_parallel,
@@ -30,27 +29,6 @@ def _make_site(index: int, line: int, fid: str = "func/f") -> Site:
         mutant_text=">=",
         desc="> -> >=",
     )
-
-
-# ── _run_command ──────────────────────────────────────────────────────────────
-
-
-def test_worker_run_command_zero_is_survived():
-    status, timed_out = _run_command("exit 0", "/tmp", timeout=5.0)
-    assert status == "survived"
-    assert not timed_out
-
-
-def test_worker_run_command_nonzero_is_killed():
-    status, timed_out = _run_command("exit 1", "/tmp", timeout=5.0)
-    assert status == "killed"
-    assert not timed_out
-
-
-def test_worker_run_command_timeout():
-    status, timed_out = _run_command("sleep 10", "/tmp", timeout=0.1)
-    assert status == "timeout"
-    assert timed_out
 
 
 # ── _copy_tree ────────────────────────────────────────────────────────────────
@@ -218,6 +196,9 @@ def _noop_on_result(result: dict) -> None:
 
 
 def test_run_one_site_survived(tmp_path, monkeypatch):
+    import mutate4py._workers as workers_mod
+
+    monkeypatch.setattr(workers_mod, "run_argv", lambda argv, cwd, timeout: "survived")
     src = "def f(a, b):\n    return a > b\n"
     sites = discover_sites(src)
     site = sites[0]
@@ -236,7 +217,7 @@ def test_run_one_site_survived(tmp_path, monkeypatch):
         ),
         WorkerRunSettings(
             clean_source=src,
-            test_command="exit 0",
+            pytest_args=[],
             mutant_timeout=5.0,
             on_result=_noop_on_result,
         ),
@@ -246,6 +227,9 @@ def test_run_one_site_survived(tmp_path, monkeypatch):
 
 
 def test_run_one_site_killed(tmp_path, monkeypatch):
+    import mutate4py._workers as workers_mod
+
+    monkeypatch.setattr(workers_mod, "run_argv", lambda argv, cwd, timeout: "killed")
     src = "def f(a, b):\n    return a > b\n"
     sites = discover_sites(src)
     site = sites[0]
@@ -264,7 +248,7 @@ def test_run_one_site_killed(tmp_path, monkeypatch):
         ),
         WorkerRunSettings(
             clean_source=src,
-            test_command="exit 1",
+            pytest_args=[],
             mutant_timeout=5.0,
             on_result=_noop_on_result,
         ),
@@ -292,7 +276,7 @@ def test_run_one_site_write_fail_env_hook(tmp_path, monkeypatch):
             ),
             WorkerRunSettings(
                 clean_source=src,
-                test_command="exit 0",
+                pytest_args=[],
                 mutant_timeout=5.0,
                 on_result=_noop_on_result,
             ),
@@ -332,7 +316,7 @@ def test_run_one_site_write_oserror(tmp_path, monkeypatch):
             ),
             WorkerRunSettings(
                 clean_source=src,
-                test_command="exit 0",
+                pytest_args=[],
                 mutant_timeout=5.0,
                 on_result=_noop_on_result,
             ),
@@ -347,6 +331,7 @@ def test_run_parallel_short_result_raises(tmp_path, monkeypatch):
     import mutate4py._workers as workers_mod
 
     monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+    monkeypatch.setattr(workers_mod, "run_argv", lambda argv, cwd, timeout: "survived")
     monkeypatch.setenv("_MUTATE4PY_TEST_WORKER_SHORT_RESULT", "1")
 
     src = "def f(a, b):\n    return a > b\ndef g(a, b):\n    return a < b\n"
@@ -361,7 +346,7 @@ def test_run_parallel_short_result_raises(tmp_path, monkeypatch):
                 clean_source=src,
                 source_path=str(src_file),
                 cwd=str(tmp_path),
-                test_command="exit 0",
+                pytest_args=[],
                 mutant_timeout=5.0,
                 max_workers=2,
                 on_result=_noop_on_result,

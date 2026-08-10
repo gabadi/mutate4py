@@ -98,10 +98,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Read LCOV from coverage.lcov (default path)",
     )
     parser.add_argument(
-        "--test-command",
-        dest="test_command",
-        default="pytest",
-        help="Command to run tests (default: pytest)",
+        "--pytest-args",
+        dest="pytest_args",
+        default=None,
+        metavar="ARGS",
+        help="Extra arguments to pass to pytest, as one shell-quoted string "
+        "(e.g. --pytest-args '-x -k foo'); pytest is the only supported "
+        "runner and is invoked directly, never through a shell",
     )
     parser.add_argument(
         "--timeout-factor",
@@ -155,14 +158,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Path to a .coverage SQLite db (pytest --cov-context=test); enables per-mutant test selection",
     )
     parser.add_argument(
-        "--no-fork-server",
+        "--no-fork",
         action="store_true",
-        dest="no_fork_server",
-        help="Disable the fork-server fast path (on by default for serial runs "
-        "with a plain `pytest` --test-command on a POSIX platform; it falls "
-        "back to a fresh subprocess per mutant automatically wherever it "
-        "isn't safe or applicable, so this is only needed to force the old "
-        "behavior, e.g. for debugging)",
+        dest="no_fork",
+        help="Force the subprocess executor, skipping the forking executor "
+        "fast path (on by default for serial runs on a POSIX platform; it "
+        "falls back to a fresh subprocess per mutant automatically wherever "
+        "it isn't safe or applicable, so this is only needed to force the "
+        "old behavior, e.g. for debugging)",
     )
     # `file` (singular) is not a flag: it's the resolved single-root scratch
     # field the legacy single-target dispatch functions read. Declaring it

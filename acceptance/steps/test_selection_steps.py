@@ -31,10 +31,9 @@ def _make_lcov(entries: dict[str, list[int]]) -> str:
     return "".join(blocks)
 
 
-def _write_script(path: str, content: str) -> None:
+def _write_test(path: str, body: str) -> None:
     with open(path, "w") as f:
-        f.write(content)
-    os.chmod(path, 0o755)
+        f.write(body)
 
 
 def _write_context_db(db_path: str, files: dict[str, dict[str, set[int]]]) -> None:
@@ -82,7 +81,6 @@ class Context:
         self.lcov_path: str | None = None
         self.db_path: str | None = None
         self.log_path: str | None = None
-        self.test_script: str | None = None
         self.cli_result: subprocess.CompletedProcess | None = None
         self.dir_path: str | None = None
         self.dir_files: list[str] = []
@@ -97,7 +95,6 @@ def _reset_ctx():
     ctx.lcov_path = None
     ctx.db_path = None
     ctx.log_path = None
-    ctx.test_script = None
     ctx.cli_result = None
     ctx.dir_path = None
     ctx.dir_files = []
@@ -114,9 +111,20 @@ def _default_source() -> str:
     return "def calc(a, b):\n    return a > b\n"
 
 
-def _write_logging_script(path: str, log_path: str) -> None:
-    """A test command that always passes and records its own argv."""
-    _write_script(path, f'#!/bin/sh\necho "ARGS:[$*]" >> "{log_path}"\nexit 0\n')
+def _write_arg_logging_fixture(cwd: str, log_path: str) -> None:
+    """A real pytest project that always passes when invoked with no extra
+    args, and logs the exact args pytest received (mirrors the old shell
+    stand-in's `echo "ARGS:[$*]"`) via a pytest_configure hook — this fires
+    even when a given node ID doesn't exist, since --pytest-args can no
+    longer swap out the runner itself the way --test-command once did."""
+    conftest_body = (
+        "def pytest_configure(config):\n"
+        "    import sys\n"
+        f"    with open({log_path!r}, 'a') as f:\n"
+        "        f.write('ARGS:[' + ' '.join(sys.argv[1:]) + ']\\n')\n"
+    )
+    _write_test(os.path.join(cwd, "conftest.py"), conftest_body)
+    _write_test(os.path.join(cwd, "test_dummy.py"), "def test_dummy():\n    pass\n")
 
 
 def _logged_args() -> str:
@@ -173,8 +181,9 @@ def given_dir_files(m, params):
     ctx.lcov_path = os.path.join(d, "cov.lcov")
     with open(ctx.lcov_path, "w") as f:
         f.write(_make_lcov({good: []}))
-    ctx.test_script = os.path.join(d, "test.sh")
-    _write_script(ctx.test_script, "#!/bin/sh\nexit 0\n")
+    tests_dir = os.path.join(d, "tests")
+    os.makedirs(tests_dir, exist_ok=True)
+    _write_test(os.path.join(tests_dir, "test_qa.py"), "def test_qa():\n    pass\n")
 
 
 @step(r"a \.coverage db naming \"([^\"]*)\" as covering the mutated line")
@@ -191,8 +200,7 @@ def given_db_naming_test(m, params):
     ctx.db_path = os.path.join(d, ".coverage")
     _write_context_db(ctx.db_path, {ctx.src_path: {node_id: {2}}})
     ctx.log_path = os.path.join(d, "invocations.log")
-    ctx.test_script = os.path.join(d, "test.sh")
-    _write_logging_script(ctx.test_script, ctx.log_path)
+    _write_arg_logging_fixture(d, ctx.log_path)
 
 
 @step(r"a \.coverage db showing the mutated line only under the empty context")
@@ -208,8 +216,7 @@ def given_db_static_line(m, params):
     ctx.db_path = os.path.join(d, ".coverage")
     _write_context_db(ctx.db_path, {ctx.src_path: {"": {2}}})
     ctx.log_path = os.path.join(d, "invocations.log")
-    ctx.test_script = os.path.join(d, "test.sh")
-    _write_logging_script(ctx.test_script, ctx.log_path)
+    _write_arg_logging_fixture(d, ctx.log_path)
 
 
 @step(r'a \.coverage db in which the mutated line "([^"]*)"')
@@ -232,8 +239,7 @@ def given_db_disagreement(m, params):
         other = os.path.join(d, "other.py")
         _write_context_db(ctx.db_path, {other: {"tests/test_x.py::test_a": {1}}})
     ctx.log_path = os.path.join(d, "invocations.log")
-    ctx.test_script = os.path.join(d, "test.sh")
-    _write_logging_script(ctx.test_script, ctx.log_path)
+    _write_arg_logging_fixture(d, ctx.log_path)
 
 
 @step(r"a Python source file with covered mutation sites")
@@ -247,8 +253,7 @@ def given_source_with_covered_sites(m, params):
     with open(ctx.lcov_path, "w") as f:
         f.write(_make_lcov({ctx.src_path: [2]}))
     ctx.log_path = os.path.join(d, "invocations.log")
-    ctx.test_script = os.path.join(d, "test.sh")
-    _write_logging_script(ctx.test_script, ctx.log_path)
+    _write_arg_logging_fixture(d, ctx.log_path)
 
 
 @step(r"a Python source file with mutation sites covered by known tests")
@@ -269,8 +274,7 @@ def given_source_two_sites(m, params):
     with open(ctx.lcov_path, "w") as f:
         f.write(_make_lcov({ctx.src_path: [2, 6]}))
     ctx.log_path = os.path.join(d, "invocations.log")
-    ctx.test_script = os.path.join(d, "test.sh")
-    _write_logging_script(ctx.test_script, ctx.log_path)
+    _write_arg_logging_fixture(d, ctx.log_path)
 
 
 @step(r"a \.coverage db with per-test context data")
@@ -304,7 +308,7 @@ def when_run_dir_scan(m, params):
 def when_run_dir_run(m, params):
     d = os.path.dirname(ctx.dir_path)
     ctx.cli_result = _run_mutate4py(
-        d, ctx.dir_path, "--lcov", ctx.lcov_path, "--test-command", ctx.test_script
+        d, ctx.dir_path, "--lcov", ctx.lcov_path, "--pytest-args", "tests"
     )
 
 
@@ -316,8 +320,8 @@ def when_run_with_contexts(m, params):
         ctx.src_path,
         "--lcov",
         ctx.lcov_path,
-        "--test-command",
-        ctx.test_script,
+        "--pytest-args",
+        "",
         "--test-contexts",
         ctx.db_path,
     )
@@ -327,7 +331,7 @@ def when_run_with_contexts(m, params):
 def when_run_without_contexts(m, params):
     d = _ensure_tmpdir()
     ctx.cli_result = _run_mutate4py(
-        d, ctx.src_path, "--lcov", ctx.lcov_path, "--test-command", ctx.test_script
+        d, ctx.src_path, "--lcov", ctx.lcov_path, "--pytest-args", ""
     )
 
 
@@ -339,8 +343,8 @@ def when_run_with_contexts_and_workers(m, params):
         ctx.src_path,
         "--lcov",
         ctx.lcov_path,
-        "--test-command",
-        ctx.test_script,
+        "--pytest-args",
+        "",
         "--test-contexts",
         ctx.db_path,
         "--max-workers",
@@ -397,7 +401,7 @@ def then_test_command_is(m, params):
     )
 
 
-@step(r'that mutant\'s test command is the full "--test-command" verbatim')
+@step(r'that mutant\'s test command is the full "--pytest-args" verbatim')
 def then_test_command_is_verbatim(m, params):
     assert _logged_args() == "ARGS:[]", (
         f"Expected no appended args, got: {_logged_args()!r}\nstdout:\n{ctx.cli_result.stdout}"

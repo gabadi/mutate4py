@@ -29,7 +29,10 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #     --mutate-all          — selection: all covered sites despite manifest.
   #     --mutation-warning N  — positive int, default 50.
   #     --timeout-factor N    — positive int, default 10.
-  #     --test-command CMD    — string, default "pytest" ([PY] §2).
+  #     --pytest-args ARGS    — one shell-quoted string of extra pytest arguments,
+  #                             default none; reaches pytest directly, never
+  #                             through a shell — pytest is the only supported
+  #                             runner by contract ([PY] §2).
   #     --max-workers N       — positive int, default 0/unset = serial (ADR 0013).
   #     --cov-cmd CMD | --lcov PATH | --reuse-coverage — the three coverage flags.
   #     --exclude PATTERN     — repeatable; skip files whose walked path matches the
@@ -56,7 +59,7 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #   - Mutual exclusion (fail-loud, never silent-precedence; ADR 0008, 0014):
   #       * --scan and --update-manifest: exclusive of each other AND of every execution
   #         option (--lines, --since-last-run, --mutate-all, non-default --timeout-factor,
-  #         non-default --test-command, --max-workers).
+  #         a non-empty --pytest-args, --max-workers).
   #       * --since-last-run / --mutate-all / --lines: PAIRWISE exclusive.
   #       * --cov-cmd / --lcov / --reuse-coverage: PAIRWISE exclusive (F3 ADR 0008).
   #   - --max-workers joins ONLY the scan/update-manifest exclusion; it MAY combine with
@@ -66,7 +69,7 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #     it triggers uv workspace autodiscovery; that only errors (exit 2) if no
   #     [tool.uv.workspace] is discoverable climbing from cwd (ADR 0017).
   #   - Defaults when unset: --mutation-warning 50, --timeout-factor 10,
-  #     --test-command "pytest", --max-workers serial.
+  #     --pytest-args (none), --max-workers serial.
   #
   # SEQUENCING:
   #   - --help is honoured BEFORE any validation: it prints usage and exits 0 even
@@ -111,15 +114,15 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
     And the invocation is accepted
 
     Examples:
-      | flag                  | option           | value     |
-      | --mutation-warning 25 | mutation-warning | 25        |
-      | --timeout-factor 4    | timeout-factor   | 4         |
-      | --test-command "tox"  | test-command     | tox       |
-      | --max-workers 4       | max-workers      | 4         |
-      | (none)                | mutation-warning | 50        |
-      | (none)                | timeout-factor   | 10        |
-      | (none)                | test-command     | pytest    |
-      | (none)                | max-workers      | serial    |
+      | flag                    | option           | value     |
+      | --mutation-warning 25   | mutation-warning | 25        |
+      | --timeout-factor 4      | timeout-factor   | 4         |
+      | --pytest-args "-x -k foo" | pytest-args   | -x -k foo |
+      | --max-workers 4         | max-workers      | 4         |
+      | (none)                  | mutation-warning | 50        |
+      | (none)                  | timeout-factor   | 10        |
+      | (none)                  | pytest-args      | (none)    |
+      | (none)                  | max-workers      | serial    |
 
   # cli-surface-2: positive-int flags reject non-integer and non-positive values
   Scenario Outline: a numeric flag rejects values that are not positive integers
@@ -152,7 +155,7 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
       | flag             |
       | --mutation-warning |
       | --timeout-factor   |
-      | --test-command     |
+      | --pytest-args      |
       | --max-workers      |
       | --lines            |
 
@@ -169,7 +172,7 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
       | --scan            | --since-last-run  |
       | --scan            | --mutate-all      |
       | --scan            | --timeout-factor 5 |
-      | --scan            | --test-command "tox" |
+      | --scan            | --pytest-args "-k foo" |
       | --scan            | --max-workers 4   |
       | --update-manifest | --scan            |
       | --update-manifest | --lines 7         |
@@ -200,7 +203,10 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
       | --since-last-run |
       | --mutate-all     |
 
-  # cli-surface-7: an unknown flag or a missing source file is a usage error
+  # cli-surface-7: an unknown flag or a missing source file is a usage error.
+  # --test-command is deliberately unrecognized here: it was retired in favor
+  # of --pytest-args (issue 03), so it must reject exactly like any other
+  # unknown flag, with no special-case handling.
   Scenario Outline: an unknown flag or missing source file is rejected
     When I run mutate4py described by "<invocation>"
     Then the invocation is a usage error
@@ -209,6 +215,7 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
     Examples:
       | invocation                        |
       | a valid file with --bogus-flag    |
+      | a valid file with --test-command  |
       | no positional source file         |
       | a source path that does not exist |
 

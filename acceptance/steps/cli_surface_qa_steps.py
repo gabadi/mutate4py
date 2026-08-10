@@ -29,12 +29,6 @@ def _run(args: list[str], cwd: str) -> subprocess.CompletedProcess:
     )
 
 
-def _write_script(path: str, content: str) -> None:
-    with open(path, "w") as f:
-        f.write(content)
-    os.chmod(path, 0o755)
-
-
 class QACtx:
     def __init__(self):
         self.tmpdir: str | None = None
@@ -99,9 +93,11 @@ def _resolve_invocation(
         return [src, "--scan", "--timeout-factor", "1.5"]
 
     if d == "--lines 7,x":
-        # --lines is incompatible with --scan; pair with a coverage invocation
+        # --lines is incompatible with --scan; pair with a coverage invocation.
+        # Rejected on the bad --lines value before any pytest run, so the
+        # pytest args themselves are never exercised.
         lc = lcov or _lcov(src)
-        return [src, "--lcov", lc, "--test-command", "true", "--lines", "7,x"]
+        return [src, "--lcov", lc, "--pytest-args", "", "--lines", "7,x"]
 
     if d == "--scan --max-workers 4":
         return [src, "--scan", "--max-workers", "4"]
@@ -118,15 +114,15 @@ def _resolve_invocation(
             src,
             "--lcov",
             lc,
-            "--test-command",
-            "true",
+            "--pytest-args",
+            "",
             "--since-last-run",
             "--mutate-all",
         ]
 
     if d == "--lcov cov.info --reuse-coverage":
         lc = lcov or _lcov(src)
-        return [src, "--lcov", lc, "--reuse-coverage", "--test-command", "true"]
+        return [src, "--lcov", lc, "--reuse-coverage", "--pytest-args", ""]
 
     if d == "--bogus-flag":
         return [src, "--bogus-flag"]
@@ -157,14 +153,16 @@ def given_temp_project(m, params):
 # ── Given: LCOV + fake command ────────────────────────────────────────────────
 
 
-@step(r"a minimal LCOV fixture covering the site and a fast fake test command")
+@step(r"a minimal LCOV fixture covering the site and a fast fake pytest test")
 def given_lcov_and_fake_cmd(m, params):
     src = _src()
     lc = _lcov(src)
     d = _tmpdir()
-    fake = os.path.join(d, "runtests.sh")
-    _write_script(fake, "#!/bin/sh\nexit 0\n")
-    ctx.fake_cmd = fake
+    tests_dir = os.path.join(d, "tests")
+    os.makedirs(tests_dir, exist_ok=True)
+    with open(os.path.join(tests_dir, "test_ok.py"), "w") as f:
+        f.write("def test_ok():\n    pass\n")
+    ctx.fake_cmd = "-q tests"
     ctx.lcov_path = lc
 
 
@@ -198,7 +196,7 @@ def when_invoke_literal(m, params):
         elif part == "cov.info":
             resolved.append(lcov or os.path.join(d, "cov.info"))
         elif part == "<fake>":
-            resolved.append(fake or "true")
+            resolved.append(fake or "")
         else:
             resolved.append(part)
     ctx.cli_result = _run(resolved, cwd=d)

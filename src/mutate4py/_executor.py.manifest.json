@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-10T04:58:12Z",
+  "module_hash": "86ad77d982098683efc97fcc349206c6e356fbe05b2a7372b5cd50cc30fb2b11",
+  "source_sha256": "22b8b1abe49977dd159723f48db3007401561928e61a89cbc21b75da1505f599",
+  "functions": [
+    {
+      "id": "func/Executor.prime",
+      "name": "prime",
+      "line": 17,
+      "end_line": 17,
+      "hash": "6dd59eba402b866c99be277b0eb83b8c0f9142f8957107355d1e3f2639c1cbd9"
+    },
+    {
+      "id": "func/Executor.run",
+      "name": "run",
+      "line": 19,
+      "end_line": 19,
+      "hash": "136668bb775e0999ce0ec40db6df7a15b676027df6f36d3bd541011e56424ab7"
+    }
+  ]
+}

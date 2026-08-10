@@ -34,10 +34,9 @@ def _make_lcov(source_abs: str, covered_lines: list[int]) -> str:
     return f"SF:{source_abs}\n{da}\nend_of_record\n"
 
 
-def _write_script(path: str, content: str) -> None:
+def _write_test(path: str, body: str) -> None:
     with open(path, "w") as f:
-        f.write(content)
-    os.chmod(path, 0o755)
+        f.write(body)
 
 
 def _run_cmd(cmd: list[str], cwd: str) -> subprocess.CompletedProcess:
@@ -105,65 +104,80 @@ def given_lcov_fixture(m, params):
         f.write(_make_lcov(ctx.calc_path, covered))
 
 
-@step(r'a fake test command "runtests\.sh" the QA agent scripts per outcome')
+@step(r"a fake pytest test the QA agent scripts per outcome")
 def given_test_script(m, params):
     d = _tmpdir()
-    ctx.test_script = os.path.join(d, "runtests.sh")
+    tests_dir = os.path.join(d, "tests")
+    os.makedirs(tests_dir, exist_ok=True)
+    ctx.test_script = os.path.join(tests_dir, "test_qa.py")
     # Default: always pass; individual scenario Given steps will override
-    _write_script(ctx.test_script, "#!/bin/sh\nexit 0\n")
+    _write_test(ctx.test_script, "def test_qa():\n    pass\n")
 
 
 # ── Scenario-specific Given steps ────────────────────────────────────────────
 
 
-@step(r'"runtests\.sh" makes the mutated run "([^"]*)" while the baseline passes')
+@step(r'the fake pytest test makes the mutated run "([^"]*)" while the baseline passes')
 def given_mutated_outcome(m, params):
     outcome = params.get("outcome") or m.group(1)
     calc_path = ctx.calc_path
     if outcome == "exit nonzero":
         # Passes on unmutated source; fails when any mutant is present
-        script = (
-            f"#!/bin/sh\nif grep -qE '>=|<=' '{calc_path}'; then exit 1; fi\nexit 0\n"
+        body = (
+            "import re\n\n"
+            "def test_qa():\n"
+            f"    with open({calc_path!r}) as f:\n"
+            "        content = f.read()\n"
+            "    assert not re.search(r'>=|<=', content)\n"
         )
     elif outcome == "exit zero":
         # Always passes
-        script = "#!/bin/sh\nexit 0\n"
+        body = "def test_qa():\n    pass\n"
     elif outcome == "sleep past timeout":
         # Baseline passes quickly; mutant causes sleep past timeout
-        script = (
-            f"#!/bin/sh\nif grep -qE '>=|<=' '{calc_path}'; then sleep 30; fi\nexit 0\n"
+        body = (
+            "import re\n"
+            "import time\n\n"
+            "def test_qa():\n"
+            f"    with open({calc_path!r}) as f:\n"
+            "        content = f.read()\n"
+            "    if re.search(r'>=|<=', content):\n"
+            "        time.sleep(30)\n"
         )
     else:
         raise ValueError(f"Unknown outcome: {outcome}")
-    _write_script(ctx.test_script, script)
+    _write_test(ctx.test_script, body)
 
 
 @step(
-    r'"runtests\.sh" makes one mutant sleep past the timeout and the rest exit nonzero'
+    r"the fake pytest test makes one mutant sleep past the timeout and the rest exit nonzero"
 )
 def given_one_timeout_rest_killed(m, params):
     d = _tmpdir()
-    calc_path = ctx.calc_path
     # Counter to track mutant number; first mutant times out, rest are killed
     counter_path = os.path.join(d, "mutant_counter.txt")
     with open(counter_path, "w") as f:
         f.write("0")
-    script = (
-        "#!/bin/sh\n"
-        f"COUNT=$(cat '{counter_path}' 2>/dev/null || echo 0)\n"
-        f"echo $((COUNT + 1)) > '{counter_path}'\n"
-        "# Call 0 is baseline, always pass\n"
-        "if [ $COUNT -eq 0 ]; then exit 0; fi\n"
-        "# First mutant: timeout\n"
-        "if [ $COUNT -eq 1 ]; then sleep 30; fi\n"
-        "# Rest: killed\n"
-        "exit 1\n"
+    body = (
+        "import time\n\n"
+        "def test_qa():\n"
+        f"    counter_path = {counter_path!r}\n"
+        "    with open(counter_path) as f:\n"
+        "        count = int(f.read())\n"
+        "    with open(counter_path, 'w') as f:\n"
+        "        f.write(str(count + 1))\n"
+        "    if count == 0:\n"  # baseline: always pass
+        "        return\n"
+        "    if count == 1:\n"  # first mutant: timeout
+        "        time.sleep(30)\n"
+        "        return\n"
+        "    assert False\n"  # rest: killed
     )
-    _write_script(ctx.test_script, script)
+    _write_test(ctx.test_script, body)
 
 
 @step(
-    r'"runtests\.sh" makes "(\d+)" of the 2 mutants exit zero and the rest exit nonzero'
+    r'the fake pytest test makes "(\d+)" of the 2 mutants exit zero and the rest exit nonzero'
 )
 def given_n_survivors(m, params):
     survived_count = params.get("survivedCount") or m.group(1)
@@ -172,42 +186,44 @@ def given_n_survivors(m, params):
     counter_path = os.path.join(d, "mutant_counter.txt")
     with open(counter_path, "w") as f:
         f.write("0")
-    script = (
-        "#!/bin/sh\n"
-        f"COUNT=$(cat '{counter_path}' 2>/dev/null || echo 0)\n"
-        f"echo $((COUNT + 1)) > '{counter_path}'\n"
-        "# Call 0 is baseline, always pass\n"
-        "if [ $COUNT -eq 0 ]; then exit 0; fi\n"
-        f"# First {n} mutant(s): survive\n"
-        f"if [ $COUNT -le {n} ]; then exit 0; fi\n"
-        "# Rest: killed\n"
-        "exit 1\n"
+    body = (
+        "def test_qa():\n"
+        f"    counter_path = {counter_path!r}\n"
+        "    with open(counter_path) as f:\n"
+        "        count = int(f.read())\n"
+        "    with open(counter_path, 'w') as f:\n"
+        "        f.write(str(count + 1))\n"
+        "    if count == 0:\n"  # baseline: always pass
+        "        return\n"
+        f"    assert count <= {n}\n"  # first n mutant(s) survive; rest killed
     )
-    _write_script(ctx.test_script, script)
+    _write_test(ctx.test_script, body)
 
 
-@step(r'"runtests\.sh" exits nonzero on the unmutated baseline run')
+@step(r"the fake pytest test exits nonzero on the unmutated baseline run")
 def given_baseline_fails(m, params):
     # Always fails, including the baseline
-    _write_script(ctx.test_script, "#!/bin/sh\nexit 1\n")
+    _write_test(ctx.test_script, "def test_qa():\n    assert False\n")
 
 
-@step(r'"runtests\.sh" exits nonzero for every mutant')
+@step(r"the fake pytest test exits nonzero for every mutant")
 def given_all_killed(m, params):
     d = _tmpdir()
     counter_path = os.path.join(d, "mutant_counter.txt")
     with open(counter_path, "w") as f:
         f.write("0")
-    script = (
-        "#!/bin/sh\n"
-        f"COUNT=$(cat '{counter_path}' 2>/dev/null || echo 0)\n"
-        f"echo $((COUNT + 1)) > '{counter_path}'\n"
-        "# Call 0 is baseline, always pass\n"
-        "if [ $COUNT -eq 0 ]; then exit 0; fi\n"
-        "# All mutants: killed\n"
-        "exit 1\n"
+    body = (
+        "def test_qa():\n"
+        f"    counter_path = {counter_path!r}\n"
+        "    with open(counter_path) as f:\n"
+        "        count = int(f.read())\n"
+        "    with open(counter_path, 'w') as f:\n"
+        "        f.write(str(count + 1))\n"
+        "    if count == 0:\n"  # baseline: always pass
+        "        return\n"
+        "    assert False\n"  # all mutants: killed
     )
-    _write_script(ctx.test_script, script)
+    _write_test(ctx.test_script, body)
 
 
 @step(r'the bytes of "calc\.py" before any manifest footer are recorded')
@@ -258,18 +274,7 @@ def when_qa_runs(m, params):
     # Parse the command string keeping relative paths as-is (run from tmpdir)
     parts = cmd_str.split()
     d = _tmpdir()
-    resolved = []
-    for part in parts:
-        if part == "mutate4py":
-            continue  # handled via uv run
-        elif part == "cov.info":
-            # Use relative path from tmpdir
-            resolved.append("cov.info")
-        elif part == "./runtests.sh":
-            # Use relative path from tmpdir
-            resolved.append("./runtests.sh")
-        else:
-            resolved.append(part)
+    resolved = [part for part in parts if part != "mutate4py"]  # handled via uv run
     ctx.cli_result = subprocess.run(
         ["uv", "run", "mutate4py"] + resolved,
         capture_output=True,
