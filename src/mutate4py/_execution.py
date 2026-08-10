@@ -9,7 +9,6 @@ import dataclasses
 import logging
 import shlex
 
-from mutate4py._cmd import run_command as _run_command
 from mutate4py._discovery import Site, apply_mutant
 from mutate4py._report import _on_parallel_result, _serial_progress_line
 
@@ -73,12 +72,19 @@ def _run_single_mutant(fork_server, cmd: str, cwd: str, mutant_timeout: float) -
     """Execute one already-spliced mutant; return its status.
 
     Routes through the primed fork server when given, else the existing
-    per-mutant subprocess model.
+    per-mutant subprocess model. `_cmd` is imported here (a no-op once
+    `_run_mutation_loop` has already warmed it up ahead of the first
+    splice), not at module scope: an eager import at module scope would put
+    `mutate4py._cmd` in sys.modules before the run loop even starts —
+    poisoning the fork server's leak check whenever the scan target is
+    `_cmd.py` itself, forcing a fallback it never actually needed.
     """
     if fork_server is not None:
         status, _ = fork_server.run(mutant_timeout)
     else:
-        status, _ = _run_command(cmd, cwd, mutant_timeout)
+        from mutate4py._cmd import run_command
+
+        status, _ = run_command(cmd, cwd, mutant_timeout)
     return status
 
 
@@ -97,7 +103,16 @@ def _run_mutation_loop(
     (--fork-server and --test-contexts are mutually exclusive at the CLI),
     so _build_mutant_command is still cheap and side-effect-free to call
     unconditionally: with no context db it just returns (test_command, None).
+
+    When ctx.fork_server is None, `mutate4py._cmd` is imported here, before
+    the first mutant is ever spliced onto disk. Without this warm-up, a
+    self-scan of `_cmd.py` would import it lazily inside the loop — by then
+    already mutated on disk — so the orchestrator's own copy of
+    run_command, the very function interpreting each subprocess's exit
+    code, would silently run mutated logic instead of the real thing.
     """
+    if ctx.fork_server is None:
+        import mutate4py._cmd  # noqa: F401 — warms sys.modules before any splice
     total_selected = len(selected_sites)
     counts: dict[str, int] = {"killed": 0, "timeout": 0, "survived": 0}
     selection_counts: dict[str, int] = {"narrowed": 0, "static": 0}

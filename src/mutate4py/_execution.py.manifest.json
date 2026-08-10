@@ -1,42 +1,42 @@
 {
   "version": 1,
-  "tested_at": "2026-08-09T20:06:54Z",
-  "module_hash": "91f9944becfe7cb9421694241f82345c4a7dccde035ee282c487a43c564747e8",
-  "source_sha256": "603f55c758403fdcbc4469945124dadfc02fb1491f57f57d7911237fcfb28927",
+  "tested_at": "2026-08-10T03:11:15Z",
+  "module_hash": "622d54831f8f900054912f382b76d895bbbd24cbf4b5ea555021882b98be9eaf",
+  "source_sha256": "88e48183f4b5cd5b71258dd627326fe8f1d724028abea87631db4eabafa89c9e",
   "functions": [
     {
       "id": "func/_build_mutant_command",
       "name": "_build_mutant_command",
-      "line": 50,
-      "end_line": 69,
+      "line": 49,
+      "end_line": 68,
       "hash": "9dadd97a7e9c7e001d6f773b1776379e86106c9221180797357242d440745237"
     },
     {
       "id": "func/_run_single_mutant",
       "name": "_run_single_mutant",
-      "line": 72,
-      "end_line": 82,
-      "hash": "69aa6636055bdba948183b5541fd63e214b0a3fa5dfb67550049fac524608d54"
+      "line": 71,
+      "end_line": 88,
+      "hash": "ddb092648a6a0f648d82aeb08726666363cd1706a9ae4f8d1c311ae9c29ce877"
     },
     {
       "id": "func/_run_mutation_loop",
       "name": "_run_mutation_loop",
-      "line": 85,
-      "end_line": 118,
-      "hash": "924d8f5b12be188da5fb598065a54bfdb6c64da91c531d8253e066dd3a9477d7"
+      "line": 91,
+      "end_line": 133,
+      "hash": "90c5384d0041b90007bf805bcdfa08d1b25c2667484ae148ec4803831fd9c48f"
     },
     {
       "id": "func/_run_parallel_workers",
       "name": "_run_parallel_workers",
-      "line": 121,
-      "end_line": 146,
+      "line": 136,
+      "end_line": 161,
       "hash": "56ec1a217400d8f328b8e65e70a5e615caeef490ce077d449a28fb52a04ffbbc"
     },
     {
       "id": "func/_execute_mutations",
       "name": "_execute_mutations",
-      "line": 164,
-      "end_line": 182,
+      "line": 179,
+      "end_line": 197,
       "hash": "0ac49180bafa06ffd7af51ce08ab54044c0c113fa44cb30d884fc4af11010049"
     }
   ]
