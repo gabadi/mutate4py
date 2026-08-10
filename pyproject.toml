@@ -11,9 +11,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Testing",
     "Programming Language :: Python :: 3",
-    "Operating System :: POSIX",
-    "Operating System :: POSIX :: Linux",
-    "Operating System :: MacOS :: MacOS X",
 ]
 requires-python = ">=3.11"
 dependencies = []

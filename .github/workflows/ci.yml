@@ -11,14 +11,8 @@ permissions:
 
 jobs:
   ci:
-    name: CI (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        # Both supported platforms (ADR 0019, README "Supported platforms").
-        # No Windows: the forking execution path requires os.fork.
-        os: [ubuntu-latest, macos-latest]
+    name: CI
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
@@ -42,20 +36,11 @@ jobs:
       - name: Tests
         run: just test
       - name: Install lcov
-        # apt on Linux, Homebrew (preinstalled on the macOS runner image) on macOS.
-        run: |
-          if [ "${{ runner.os }}" = "Linux" ]; then
-            sudo apt-get install -y lcov
-          else
-            brew install lcov
-          fi
+        run: sudo apt-get install -y lcov
         if: always()
       - name: Coverage report
         uses: zgosalvez/github-actions-report-lcov@84f16a83ae03e846a4c697bd75cae3f94fa9f426 # v7.0.12
-        # One leg only: this posts/updates a PR comment, and running it twice
-        # (once per OS) would duplicate or race that comment for no benefit —
-        # both legs produce the same lcov.info from the same test suite.
-        if: always() && matrix.os == 'ubuntu-latest'
+        if: always()
         with:
           coverage-files: lcov.info
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -64,14 +49,8 @@ jobs:
       - name: Install drywall
         # Pinned to drywall's latest release; bump this tag alongside the SHA
         # pins on the GitHub Actions above when drywall cuts a new release.
-        # macos-latest runners are arm64, hence the aarch64 asset.
         run: |
-          if [ "${{ runner.os }}" = "Linux" ]; then
-            asset=drywall-linux-x86_64
-          else
-            asset=drywall-macos-aarch64
-          fi
-          gh release download v0.1.3 --repo gabadi/drywall --pattern "$asset" --output drywall
+          gh release download v0.1.3 --repo gabadi/drywall --pattern 'drywall-linux-x86_64' --output drywall
           chmod +x drywall
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -91,14 +70,9 @@ jobs:
         # gherkin-parser binary (e.g. a developer's ~/.local/bin/gherkin-parser),
         # which has no manifest in this repo and stays an unmanaged,
         # out-of-scope concern.
-        # Built into RUNNER_TEMP (guaranteed writable on every runner, unlike
-        # /usr/local/bin which needs sudo on the macOS runner image) and
-        # added to PATH via GITHUB_PATH — works identically on both OSes.
         run: |
           git clone https://github.com/unclebob/Acceptance-Pipeline-Specification /tmp/aps
           cd /tmp/aps && git checkout accaa33d503340c56513ef387258f8da929ba902
-          mkdir -p "$RUNNER_TEMP/bin"
-          go build -o "$RUNNER_TEMP/bin/gherkin-parser" ./cmd/gherkin-parser
-          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          cd /tmp/aps && go build -o /usr/local/bin/gherkin-parser ./cmd/gherkin-parser
       - name: Acceptance tests
         run: just acceptance

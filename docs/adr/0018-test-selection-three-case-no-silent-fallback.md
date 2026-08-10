@@ -165,21 +165,3 @@ through it), not only `--test-contexts` runs: an exit code that distinguishes
   deferred alongside the item above because it is the same underlying question:
   per-member versus shared-baseline cost. Measurement, not a decision, is what
   would unblock it.
-
-## Amendment (2026-08-10) — mode coupling withdrawn, classification unchanged
-
-ADR 0019 (single execution model) re-scopes narrowing from a run-wide fixed
-command to a per-**Mutant** argument list. **This amendment touches nothing above:**
-the three-case classification (`narrowed` / `static` / disagreement, further split
-into `line-absent` / `file-absent`), the exit-2 abort with no `Mutation Report`,
-the query-before-splice ordering, and the `Test selection: narrowed <n>, static
-<k>` report line are all **authoritative and unchanged**.
-
-What is withdrawn is one sentence from the Context section above: "Because
-`--test-contexts` already forces serial execution (`_setup_test_context_db`), this
-is a serial-path-only change." Forcing the whole run serial to honor narrowing was
-a run-wide-mode-switch artifact, the same kind ADR 0019 dismantles for the forking
-executor. Once narrowing is a per-Mutant argument list handed to whichever Worker a
-Site is dispatched to, parallel execution no longer requires giving up narrowing —
-the forced-serial guard is deleted outright (ADR 0019, issue #43), not relaxed into
-a partial rule. Everything else in this ADR stands as written.

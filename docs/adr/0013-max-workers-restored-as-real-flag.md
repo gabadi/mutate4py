@@ -3,7 +3,6 @@
 **Status:** accepted
 **Feature:** F5 (cli-surface) · **Spec:** §2, §9 (reopened) · **Supersedes the §9
 "parallelism removed" stance and the F1-era assumption behind ADR 0012**
-**Amended by:** ADR 0019 (single execution model) — see amendment appended below.
 
 The spec's locked decision (§0 row 5, §9) removed `--max-workers` and made passing
 it a usage error, on the grounds that mutate4go's parallel model (copy the project
@@ -61,11 +60,3 @@ falsehood.
 explicit user direction for upstream parity. Treating `--max-workers` as an unknown
 option — rejected: it loses the upstream parse/validation shape and the deliberate
 scan/update-manifest exclusion.
-
-## Amendment (2026-08-10) — re-scoped by ADR 0019
-
-The decision above — a real, validated, run-scoped flag — is **unchanged and
-reaffirmed**: Worker count was already at its correct scope. The one thing
-withdrawn is a guard added *after* this ADR, outside its decision: the CLI
-rejecting `--test-contexts` together with `--max-workers >= 2`, deleted as part of
-ADR 0019's re-scoping. Full reasoning in ADR 0019.

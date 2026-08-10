@@ -5,7 +5,6 @@
 parallelism are restored). The serial-path observations below remain correct; the
 original "parallelism removed entirely / `--max-workers` is a usage error" premise is
 **withdrawn**.
-**Amended by:** ADR 0019 (single execution model) — see amendment appended below.
 **Feature:** F4 (run-loop) · **Spec:** §7, §8, §9 [PY]
 
 mutate4go ships two execution paths — `runMutationsSerial` and
@@ -63,12 +62,3 @@ runs the serial loop. Parsing/validating `--max-workers` is **F5** (ADR 0013/001
 acting on a value `>= 2` to take the parallel path is **F6** (ADR 0015). (The original
 text here called a passed `--max-workers` a "usage error" — that is withdrawn; it is a
 valid flag.)
-
-## Amendment (2026-08-10) — re-scoped by ADR 0019
-
-The output-token contract above (the two numbered items) is **unchanged and
-authoritative**. What ADR 0019 withdraws, by re-scoping rather than by editing
-anything above, is the assumption that "serial" and "parallel" are two separate
-execution engines chosen once per run: after that ADR, serial is the one-Worker
-case of a single Worker-dispatch mechanism, and which test-executor a Worker holds
-is orthogonal to the token rules recorded here. Full reasoning in ADR 0019.

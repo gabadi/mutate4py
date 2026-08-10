@@ -11,13 +11,6 @@ with the user-facing contract cross-checked against
 divergence (coverage acquisition, the manifest hash) it is marked `[PY]` and
 justified in [`docs/spec.md`](docs/spec.md).
 
-## Supported platforms
-
-**Linux and macOS.** Windows is not supported: the fast execution path forks a
-primed test process per mutant, which requires `os.fork` — unavailable on Windows
-CPython. Both supported platforms run the full CI gate set, including the forking
-path's own tests (ADR 0019).
-
 ## Install
 
 ```bash
