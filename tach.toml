@@ -109,6 +109,23 @@
 # (the Worker-subprocess entry point it spawns) are new at `execution_backends`
 # alongside `_workers`, `_forking_executor`, and `_subprocess_executor` — one
 # persistent primed process per Worker, not one process per Mutant.
+#
+# Issue 06 (plugin neutralisation and per-Mutant overhead) added
+# `_plugin_neutralisation`: a pure importlib-probe with zero cross-module
+# deps, called only from `run_loop` (`_runner.py`) to build the argument list
+# every Mutant dispatch uses. It sits in `domain` alongside `_test_dispatch`,
+# which needed the same reachability argument in gate 04b above — nothing in
+# `execution_backends` calls it, so it doesn't need to sit above that layer.
+#
+# Issue #38 gate 16 extracted the Baseline-timing and per-Mutant-overhead
+# cluster (`_baseline_reason`, `run_baseline`, `measure_per_mutant_overhead`,
+# `resolve_baseline_and_overhead`) out of `_runner.py` into `_baseline`, to
+# bring `_runner.py` back under its module-size cap after issue 06 grew it.
+# It has zero cross-module deps (builds its own pytest argv and shells out
+# directly, same as before extraction) and is depended on only by
+# `run_loop`; nothing in `execution_backends` needs it, so it sits in its
+# own layer directly above `domain`, alongside `_report`/`_site_selection`/
+# `_source_loading`/`_manifest_storage`/`_cli_validation`/`_target_resolution`.
 source_roots = ["src"]
 layers = [
     "cli_adapter",
@@ -122,6 +139,7 @@ layers = [
     "report",
     "source_loading",
     "manifest_storage",
+    "baseline",
     "domain",
     "primitives",
 ]
@@ -178,6 +196,11 @@ layer = "domain"
 depends_on = ["mutate4py._discovery"]
 
 [[modules]]
+path = "mutate4py._plugin_neutralisation"
+layer = "domain"
+depends_on = []
+
+[[modules]]
 path = "mutate4py._cli_validation"
 layer = "cli_validation"
 depends_on = []
@@ -210,6 +233,11 @@ depends_on = []
 [[modules]]
 path = "mutate4py._source_loading"
 layer = "source_loading"
+depends_on = []
+
+[[modules]]
+path = "mutate4py._baseline"
+layer = "baseline"
 depends_on = []
 
 [[modules]]

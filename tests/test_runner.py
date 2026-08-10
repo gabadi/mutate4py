@@ -5,7 +5,6 @@ import os
 import pytest
 
 from ._pytest_project_helpers import (
-    write_always_failing_pytest_project,
     write_always_passing_pytest_project,
     write_content_check_pytest_project,
     write_sleep_if_mutated_pytest_project,
@@ -15,7 +14,6 @@ from mutate4py._manifest import build_manifest, embed_manifest
 from mutate4py._runner import (
     CoverageSource,
     RunMutationsRequest,
-    _baseline_reason,
     check_manifest,
     run_mutations,
     run_scan,
@@ -116,6 +114,53 @@ def test_run_mutations_survived_mutant(tmp_path):
     assert f"[1/{n_sites}]" in output
 
 
+def test_run_mutations_survives_project_addopts_that_enable_coverage(tmp_path):
+    """A project whose own pytest.ini enables pytest-cov via addopts must
+    still run to completion: --no-cov (issue 06's neutralisation) overrides
+    addopts without ever blocking the plugin outright — blocking it instead
+    (`-p no:cov`) would turn the project's own `--cov=...` into an
+    'unrecognized arguments' usage error, since the option is no longer
+    registered by anything."""
+    src = "def f(a, b):\n    return a > b\n"
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+
+    sites = discover_sites(src)
+    lcov_path = str(tmp_path / "cov.lcov")
+    _write_lcov(lcov_path, src_path, [s.line for s in sites])
+
+    pytest_args = write_always_passing_pytest_project(str(tmp_path))
+    with open(os.path.join(str(tmp_path), "pytest.ini"), "w") as f:
+        f.write("[pytest]\naddopts = --cov=calc --cov-report=\n")
+
+    import io
+    from contextlib import redirect_stdout
+
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        rc = run_mutations(
+            RunMutationsRequest(
+                path=src_path,
+                source=src,
+                cov_cmd=None,
+                lcov_path=lcov_path,
+                reuse_coverage=False,
+                pytest_args=pytest_args,
+                timeout_factor=10,
+                lines_filter=None,
+                since_last_run=False,
+                mutate_all=False,
+                warning_threshold=1000,
+                cwd=str(tmp_path),
+            )
+        )
+    output = buf.getvalue()
+    assert rc == 0, output
+    assert "Mutation Report" in output
+    assert "Survived: 1" in output
+
+
 def test_run_mutations_sidecar_writes_manifest_file_and_footer_free_source(tmp_path):
     import json
 
@@ -164,61 +209,6 @@ def test_run_mutations_sidecar_writes_manifest_file_and_footer_free_source(tmp_p
     with open(sidecar_path) as f:
         sidecar = json.load(f)
     assert sidecar["functions"][0]["id"] == "func/f"
-
-
-def test_run_mutations_baseline_failure_exits_1(tmp_path):
-    src = "def f(a, b):\n    return a > b\n"
-    src_path = str(tmp_path / "calc.py")
-    with open(src_path, "w") as f:
-        f.write(src)
-
-    sites = discover_sites(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov(lcov_path, src_path, [s.line for s in sites])
-
-    pytest_args = write_always_failing_pytest_project(str(tmp_path))
-
-    import io
-    from contextlib import redirect_stdout
-
-    buf = io.StringIO()
-    with redirect_stdout(buf):
-        rc = run_mutations(
-            RunMutationsRequest(
-                path=src_path,
-                source=src,
-                cov_cmd=None,
-                lcov_path=lcov_path,
-                reuse_coverage=False,
-                pytest_args=pytest_args,
-                timeout_factor=10,
-                lines_filter=None,
-                since_last_run=False,
-                mutate_all=False,
-                warning_threshold=1000,
-                cwd=str(tmp_path),
-            )
-        )
-    output = buf.getvalue()
-    assert rc == 1
-    assert "baseline failed:" in output
-    assert "Mutation Report" not in output
-    # No backup left
-    assert not os.path.exists(src_path + ".bak")
-
-
-def test_baseline_reason_uses_stderr_first():
-    import subprocess
-
-    result = subprocess.CompletedProcess(args=[], returncode=1, stderr=b"test suite crashed\nsecond line")
-    assert _baseline_reason(result) == "test suite crashed"
-
-
-def test_baseline_reason_falls_back_to_exit_code():
-    import subprocess
-
-    result = subprocess.CompletedProcess(args=[], returncode=42, stderr=b"")
-    assert _baseline_reason(result) == "exit code 42"
 
 
 def test_run_mutations_restores_source_after_run(tmp_path):

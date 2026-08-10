@@ -15,7 +15,23 @@ from mutate4py._executor import Executor
 
 _logger = logging.getLogger(__name__)
 
-__all__ = ["_prepare_executor"]
+__all__ = ["_prepare_executor", "select_executor"]
+
+
+def select_executor(
+    *, caller_supplied: Executor | None, use_parallel: bool, requested: bool, cwd: str, guarded_path: str
+) -> Executor | None:
+    """Pick the executor for a run: the caller-supplied one when given (used
+    as-is, never re-primed here — the caller owns priming, e.g. a fake
+    executor in tests or one already primed by a longer-lived caller); None
+    when a parallel run defers priming to each Worker's own process (issue
+    04b); a freshly prepared one otherwise.
+    """
+    if caller_supplied is not None:
+        return caller_supplied
+    if use_parallel:
+        return None
+    return _prepare_executor(requested=requested, cwd=cwd, guarded_path=guarded_path)
 
 
 def _prepare_executor(*, requested: bool, cwd: str, guarded_path: str) -> Executor:

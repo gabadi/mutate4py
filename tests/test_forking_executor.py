@@ -10,6 +10,7 @@ import types
 
 import pytest
 
+import mutate4py._forking_executor
 from mutate4py._forking_executor import (
     ForkingExecutor,
     ForkingExecutorUnavailable,
@@ -18,6 +19,7 @@ from mutate4py._forking_executor import (
     is_available,
 )
 from mutate4py._forking_executor import _wait_for_child
+from mutate4py._plugin_neutralisation import neutralising_args
 
 # --- is_available ------------------------------------------------------------
 
@@ -108,6 +110,36 @@ def test_prime_succeeds_when_target_not_pre_imported(tmp_path):
     )
     executor = ForkingExecutor(cwd=cwd, guarded_path=target)
     executor.prime()  # must not raise
+
+
+@pytest.mark.integration
+def test_prime_neutralises_plugins_on_its_own_collect_only_call(tmp_path, monkeypatch):
+    """Regression: prime()'s internal collect-only pytest.main() call is
+    itself an in-process, pre-fork pytest re-entry, so it must carry the
+    same neutralising_args() as the per-Mutant args in _runner.py — not
+    just skip its own reporting. Without this, a target project whose own
+    addopts enables a plugin like pytest-cov starts a second Coverage
+    instance inside this interpreter during priming, silently corrupting
+    this process's own coverage measurement for the rest of the run."""
+    cwd, target = _write_fixture_project(
+        tmp_path,
+        target_body="def add(a, b):\n    return a + b\n",
+        test_body=_ADD_TEST_BODY,
+    )
+    captured_args: list[list[str]] = []
+    real_run = mutate4py._forking_executor._run_pytest_output_suppressed
+
+    def spy(pytest_module, args, run_cwd):
+        captured_args.append(args)
+        return real_run(pytest_module, args, run_cwd)
+
+    monkeypatch.setattr(mutate4py._forking_executor, "_run_pytest_output_suppressed", spy)
+
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor.prime()
+
+    assert captured_args, "prime() must invoke pytest.main() via _run_pytest_output_suppressed"
+    assert set(neutralising_args()) <= set(captured_args[0])
 
 
 @pytest.mark.integration

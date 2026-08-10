@@ -2,9 +2,11 @@
 
 from mutate4py._discovery import Site
 from mutate4py._report import (
+    OverheadInfo,
     RunStats,
     _mutation_report_lines,
     _on_parallel_result,
+    _overhead_report_lines,
     _parallel_progress_line,
     _run_header_lines,
     _serial_progress_line,
@@ -176,6 +178,83 @@ def test_mutation_report_lines_selection_counts_included():
 def test_mutation_report_lines_omits_selection_line_without_a_context_db():
     lines = _mutation_report_lines({"killed": 1, "timeout": 0, "survived": 0}, [], uncovered_count=0)
     assert not any(ln.startswith("Test selection:") for ln in lines)
+
+
+# ── _overhead_report_lines (issue 06) ─────────────────────────────────────────
+#
+# Every assertion here is against synthetic overhead/baseline values chosen to
+# land clearly above or below the threshold — never against a real measured
+# duration, which is machine-dependent.
+
+
+def test_overhead_report_lines_prints_the_measured_value():
+    lines = _overhead_report_lines(0.42, 10.0)
+    assert lines[0] == "Per-Mutant overhead: 0.42s"
+
+
+def test_overhead_report_lines_no_hint_when_overhead_is_small():
+    lines = _overhead_report_lines(0.1, 10.0)  # 1% of baseline
+    assert len(lines) == 1
+    assert not any(ln.startswith("Hint:") for ln in lines)
+
+
+def test_overhead_report_lines_hint_when_overhead_is_large():
+    lines = _overhead_report_lines(8.0, 10.0)  # 80% of baseline
+    assert any(ln.startswith("Hint:") for ln in lines)
+
+
+def test_overhead_report_lines_hint_names_pytest_args_flag():
+    lines = _overhead_report_lines(8.0, 10.0)
+    hint = next(ln for ln in lines if ln.startswith("Hint:"))
+    assert "--pytest-args" in hint
+
+
+def test_overhead_report_lines_hint_absent_exactly_below_threshold():
+    lines = _overhead_report_lines(4.999, 10.0)  # 49.99% of baseline
+    assert not any(ln.startswith("Hint:") for ln in lines)
+
+
+def test_overhead_report_lines_hint_present_exactly_at_threshold():
+    lines = _overhead_report_lines(5.0, 10.0)  # exactly 50% of baseline
+    assert any(ln.startswith("Hint:") for ln in lines)
+
+
+def test_overhead_report_lines_no_hint_when_baseline_is_zero():
+    """Guards the division: a zero baseline must never raise or spuriously hint."""
+    lines = _overhead_report_lines(1.0, 0.0)
+    assert len(lines) == 1
+
+
+# ── _mutation_report_lines: overhead wiring ───────────────────────────────────
+
+
+def test_mutation_report_lines_includes_overhead_when_provided():
+    lines = _mutation_report_lines(
+        {"killed": 1, "timeout": 0, "survived": 0},
+        [],
+        uncovered_count=0,
+        overhead=OverheadInfo(overhead_duration=0.33, baseline_duration=10.0),
+    )
+    assert "Per-Mutant overhead: 0.33s" in lines
+
+
+def test_mutation_report_lines_omits_overhead_when_not_provided():
+    lines = _mutation_report_lines({"killed": 1, "timeout": 0, "survived": 0}, [], uncovered_count=0)
+    assert not any(ln.startswith("Per-Mutant overhead:") for ln in lines)
+
+
+def test_mutation_report_lines_overhead_sits_after_uncovered_and_before_survivors():
+    survivor = _make_site(0, 4, "func/f")
+    lines = _mutation_report_lines(
+        {"killed": 0, "timeout": 0, "survived": 1},
+        [survivor],
+        uncovered_count=0,
+        overhead=OverheadInfo(overhead_duration=8.0, baseline_duration=10.0),
+    )
+    uncovered_idx = next(i for i, ln in enumerate(lines) if ln.startswith("Uncovered:"))
+    overhead_idx = next(i for i, ln in enumerate(lines) if ln.startswith("Per-Mutant overhead:"))
+    survivors_idx = lines.index("Survivors:")
+    assert uncovered_idx < overhead_idx < survivors_idx
 
 
 # ── _parallel_progress_line ───────────────────────────────────────────────────

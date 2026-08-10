@@ -421,6 +421,7 @@ def test_injected_executor_receives_narrowed_dispatch_and_is_never_primed(tmp_pa
     proves per-site narrowed dispatch reaches run() without spawning any real
     subprocess or fork(), and confirms run_mutations never (re-)primes a
     caller-supplied executor."""
+    import mutate4py._runner as runner_mod
     import mutate4py._test_selection as ts
 
     class _StubDB:
@@ -434,6 +435,10 @@ def test_injected_executor_receives_narrowed_dispatch_and_is_never_primed(tmp_pa
             pass
 
     monkeypatch.setattr(ts, "TestContextDB", _StubDB)
+    # Dispatch-shape assertion below is exact; plugin neutralisation (issue 06)
+    # is orthogonal and depends on what's importable in whoever runs this, so
+    # it's pinned off here rather than made environment-dependent.
+    monkeypatch.setattr(runner_mod, "neutralising_args", lambda: [])
 
     fake_executor = _FakeExecutor()
     src = _make_multi_site_source(3)
@@ -470,6 +475,7 @@ def test_injected_executor_receives_narrowed_dispatch_and_is_never_primed(tmp_pa
 def test_injected_executor_receives_static_dispatch(tmp_path, monkeypatch):
     """A 'static' classification runs the full pytest_args, unnarrowed — same
     injected-executor isolation as the narrowed case above."""
+    import mutate4py._runner as runner_mod
     import mutate4py._test_selection as ts
 
     class _StubDB:
@@ -483,6 +489,8 @@ def test_injected_executor_receives_static_dispatch(tmp_path, monkeypatch):
             pass
 
     monkeypatch.setattr(ts, "TestContextDB", _StubDB)
+    # See the matching note in the narrowed-dispatch test above.
+    monkeypatch.setattr(runner_mod, "neutralising_args", lambda: [])
 
     fake_executor = _FakeExecutor()
     src = _make_multi_site_source(3)
@@ -513,6 +521,49 @@ def test_injected_executor_receives_static_dispatch(tmp_path, monkeypatch):
     )
     assert rc == 0
     assert fake_executor.calls == [["-q"]] * 3
+
+
+# ── plugin neutralisation reaches every Mutant dispatch (issue 06) ───────────
+
+
+def test_neutralising_args_reach_every_mutant_dispatch(tmp_path, monkeypatch):
+    """The extra pytest args _select_and_prepare computes from
+    neutralising_args() must actually reach ctx.pytest_args, and from there
+    every Mutant's dispatch — not just get computed and discarded. Stubbed to
+    a fake flag rather than relying on which plugins happen to be importable
+    in whoever runs this."""
+    import mutate4py._runner as runner_mod
+
+    monkeypatch.setattr(runner_mod, "neutralising_args", lambda: ["--fake-neutralising-flag"])
+
+    fake_executor = _FakeExecutor()
+    src = _make_multi_site_source(2)
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+    lcov_path = str(tmp_path / "cov.lcov")
+    _write_lcov_for_source(lcov_path, src_path, src)
+
+    rc = run_mutations(
+        RunMutationsRequest(
+            path=src_path,
+            source=src,
+            cov_cmd=None,
+            lcov_path=lcov_path,
+            reuse_coverage=False,
+            pytest_args=["-q"],
+            timeout_factor=10,
+            lines_filter=None,
+            since_last_run=False,
+            mutate_all=False,
+            warning_threshold=1000,
+            cwd=str(tmp_path),
+            executor=fake_executor,
+            baseline_duration=0.01,
+        )
+    )
+    assert rc == 0
+    assert fake_executor.calls == [["-q", "--fake-neutralising-flag"]] * 2
 
 
 def test_test_context_db_and_parallel_workers_compose_in_one_run(tmp_path, monkeypatch, capsys):

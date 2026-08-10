@@ -10,6 +10,7 @@ import textwrap
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 from acceptance.steps.step_lib import make_registry
+from mutate4py._plugin_neutralisation import neutralising_args
 
 STEP_HANDLERS, step, run_step = make_registry()
 
@@ -163,12 +164,22 @@ def _write_arg_logging_fixture(cwd: str, log_path: str) -> None:
 
 
 def _logged_args() -> str:
-    """The last logged invocation's argv — the mutant run, not the baseline pass."""
+    """The last logged invocation's argv — the mutant run, not the baseline
+    pass — with issue 06's neutralising_args() flags (e.g. `--no-cov`)
+    filtered out: this feature's own presence is covered by
+    test_plugin_neutralisation.py, and test-selection's assertions are
+    about which test file/nodeids get appended, an orthogonal concern that
+    would otherwise fail whenever pytest-cov happens to be installed in the
+    environment running these acceptance steps."""
     if not os.path.isfile(ctx.log_path):
         return ""
     with open(ctx.log_path) as f:
         lines = [line for line in f.read().splitlines() if line]
-    return lines[-1] if lines else ""
+    if not lines:
+        return ""
+    prefix, _, rest = lines[-1].partition("[")
+    tokens = [t for t in rest.rstrip("]").split(" ") if t and t not in neutralising_args()]
+    return f"{prefix}[{' '.join(tokens)}]"
 
 
 # ── Given steps ──────────────────────────────────────────────────────────────
