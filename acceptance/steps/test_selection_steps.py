@@ -10,13 +10,22 @@ import textwrap
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 from acceptance.steps.step_lib import make_registry
+from mutate4py._plugin_neutralisation import neutralising_args
 
 STEP_HANDLERS, step, run_step = make_registry()
 
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
 
 def _run_mutate4py(cwd: str, *args: str) -> subprocess.CompletedProcess:
+    # --project REPO_ROOT pins resolution to this repo's own editable install
+    # (mirrors parallel_workers_steps.py::when_run_mutate4py): bare "uv run
+    # mutate4py" resolves against whatever project uv discovers from cwd, and
+    # since cwd here is a scratch tempdir outside the repo, it falls through
+    # to any globally `uv tool install`-ed mutate4py on PATH instead of the
+    # local dev build under test.
     return subprocess.run(
-        ["uv", "run", "mutate4py"] + list(args),
+        ["uv", "run", "--project", REPO_ROOT, "python", "-m", "mutate4py"] + list(args),
         capture_output=True,
         text=True,
         cwd=cwd,
@@ -31,10 +40,9 @@ def _make_lcov(entries: dict[str, list[int]]) -> str:
     return "".join(blocks)
 
 
-def _write_script(path: str, content: str) -> None:
+def _write_test(path: str, body: str) -> None:
     with open(path, "w") as f:
-        f.write(content)
-    os.chmod(path, 0o755)
+        f.write(body)
 
 
 def _write_context_db(db_path: str, files: dict[str, dict[str, set[int]]]) -> None:
@@ -82,7 +90,6 @@ class Context:
         self.lcov_path: str | None = None
         self.db_path: str | None = None
         self.log_path: str | None = None
-        self.test_script: str | None = None
         self.cli_result: subprocess.CompletedProcess | None = None
         self.dir_path: str | None = None
         self.dir_files: list[str] = []
@@ -97,7 +104,6 @@ def _reset_ctx():
     ctx.lcov_path = None
     ctx.db_path = None
     ctx.log_path = None
-    ctx.test_script = None
     ctx.cli_result = None
     ctx.dir_path = None
     ctx.dir_files = []
@@ -114,18 +120,66 @@ def _default_source() -> str:
     return "def calc(a, b):\n    return a > b\n"
 
 
-def _write_logging_script(path: str, log_path: str) -> None:
-    """A test command that always passes and records its own argv."""
-    _write_script(path, f'#!/bin/sh\necho "ARGS:[$*]" >> "{log_path}"\nexit 0\n')
+def _write_uv_project_files(d: str) -> None:
+    """A minimal uv project (pyproject.toml + a pre-created empty uv.lock) so
+    a real --max-workers run's per-Worker `uv sync` provisioning succeeds
+    against this tmpdir, mirroring parallel_workers_steps.py's
+    _make_project_dir(). Only the composition scenario's Worker copies need
+    this; every other scenario here stays on the serial path and never
+    shells out to uv."""
+    with open(os.path.join(d, "pyproject.toml"), "w") as f:
+        f.write(
+            textwrap.dedent("""\
+                [project]
+                name = "test-project"
+                version = "0.1.0"
+                requires-python = ">=3.11"
+                dependencies = []
+            """)
+        )
+    with open(os.path.join(d, "uv.lock"), "w") as f:
+        f.write('version = 1\nrequires-python = ">=3.11"\n')
+
+
+def _write_arg_logging_fixture(cwd: str, log_path: str) -> None:
+    """A real pytest project that always passes when invoked with no extra
+    args, and logs the exact args pytest received (mirrors the old shell
+    stand-in's `echo "ARGS:[$*]"`) via a pytest_configure hook — this fires
+    even when a given node ID doesn't exist, since --pytest-args can no
+    longer swap out the runner itself the way --test-command once did.
+
+    Reads `config.invocation_params.args`, not `sys.argv`: the forking
+    executor runs each mutant via an in-process `pytest.main(args)` call in a
+    forked child, which never touches the parent (mutate4py CLI) process's
+    `sys.argv` — only `invocation_params.args` reflects the actual per-call
+    args pytest was invoked with, correctly under both the forking and
+    subprocess executors."""
+    conftest_body = (
+        "def pytest_configure(config):\n"
+        f"    with open({log_path!r}, 'a') as f:\n"
+        "        f.write('ARGS:[' + ' '.join(config.invocation_params.args) + ']\\n')\n"
+    )
+    _write_test(os.path.join(cwd, "conftest.py"), conftest_body)
+    _write_test(os.path.join(cwd, "test_dummy.py"), "def test_dummy():\n    pass\n")
 
 
 def _logged_args() -> str:
-    """The last logged invocation's argv — the mutant run, not the baseline pass."""
+    """The last logged invocation's argv — the mutant run, not the baseline
+    pass — with issue 06's neutralising_args() flags (e.g. `--no-cov`)
+    filtered out: this feature's own presence is covered by
+    test_plugin_neutralisation.py, and test-selection's assertions are
+    about which test file/nodeids get appended, an orthogonal concern that
+    would otherwise fail whenever pytest-cov happens to be installed in the
+    environment running these acceptance steps."""
     if not os.path.isfile(ctx.log_path):
         return ""
     with open(ctx.log_path) as f:
         lines = [line for line in f.read().splitlines() if line]
-    return lines[-1] if lines else ""
+    if not lines:
+        return ""
+    prefix, _, rest = lines[-1].partition("[")
+    tokens = [t for t in rest.rstrip("]").split(" ") if t and t not in neutralising_args()]
+    return f"{prefix}[{' '.join(tokens)}]"
 
 
 # ── Given steps ──────────────────────────────────────────────────────────────
@@ -173,8 +227,9 @@ def given_dir_files(m, params):
     ctx.lcov_path = os.path.join(d, "cov.lcov")
     with open(ctx.lcov_path, "w") as f:
         f.write(_make_lcov({good: []}))
-    ctx.test_script = os.path.join(d, "test.sh")
-    _write_script(ctx.test_script, "#!/bin/sh\nexit 0\n")
+    tests_dir = os.path.join(d, "tests")
+    os.makedirs(tests_dir, exist_ok=True)
+    _write_test(os.path.join(tests_dir, "test_qa.py"), "def test_qa():\n    pass\n")
 
 
 @step(r"a \.coverage db naming \"([^\"]*)\" as covering the mutated line")
@@ -191,8 +246,7 @@ def given_db_naming_test(m, params):
     ctx.db_path = os.path.join(d, ".coverage")
     _write_context_db(ctx.db_path, {ctx.src_path: {node_id: {2}}})
     ctx.log_path = os.path.join(d, "invocations.log")
-    ctx.test_script = os.path.join(d, "test.sh")
-    _write_logging_script(ctx.test_script, ctx.log_path)
+    _write_arg_logging_fixture(d, ctx.log_path)
 
 
 @step(r"a \.coverage db showing the mutated line only under the empty context")
@@ -208,8 +262,7 @@ def given_db_static_line(m, params):
     ctx.db_path = os.path.join(d, ".coverage")
     _write_context_db(ctx.db_path, {ctx.src_path: {"": {2}}})
     ctx.log_path = os.path.join(d, "invocations.log")
-    ctx.test_script = os.path.join(d, "test.sh")
-    _write_logging_script(ctx.test_script, ctx.log_path)
+    _write_arg_logging_fixture(d, ctx.log_path)
 
 
 @step(r'a \.coverage db in which the mutated line "([^"]*)"')
@@ -232,8 +285,7 @@ def given_db_disagreement(m, params):
         other = os.path.join(d, "other.py")
         _write_context_db(ctx.db_path, {other: {"tests/test_x.py::test_a": {1}}})
     ctx.log_path = os.path.join(d, "invocations.log")
-    ctx.test_script = os.path.join(d, "test.sh")
-    _write_logging_script(ctx.test_script, ctx.log_path)
+    _write_arg_logging_fixture(d, ctx.log_path)
 
 
 @step(r"a Python source file with covered mutation sites")
@@ -247,14 +299,14 @@ def given_source_with_covered_sites(m, params):
     with open(ctx.lcov_path, "w") as f:
         f.write(_make_lcov({ctx.src_path: [2]}))
     ctx.log_path = os.path.join(d, "invocations.log")
-    ctx.test_script = os.path.join(d, "test.sh")
-    _write_logging_script(ctx.test_script, ctx.log_path)
+    _write_arg_logging_fixture(d, ctx.log_path)
 
 
 @step(r"a Python source file with mutation sites covered by known tests")
 def given_source_two_sites(m, params):
     _reset_ctx()
     d = _ensure_tmpdir()
+    _write_uv_project_files(d)
     ctx.src_path = os.path.join(d, "sample.py")
     with open(ctx.src_path, "w") as f:
         f.write(textwrap.dedent("""\
@@ -269,17 +321,15 @@ def given_source_two_sites(m, params):
     with open(ctx.lcov_path, "w") as f:
         f.write(_make_lcov({ctx.src_path: [2, 6]}))
     ctx.log_path = os.path.join(d, "invocations.log")
-    ctx.test_script = os.path.join(d, "test.sh")
-    _write_logging_script(ctx.test_script, ctx.log_path)
+    _write_arg_logging_fixture(d, ctx.log_path)
 
 
 @step(r"a \.coverage db with per-test context data")
 def given_db_per_test_context(m, params):
     d = _ensure_tmpdir()
     ctx.db_path = os.path.join(d, ".coverage")
-    # Both sites execute only at import time here — narrowed vs. static is
-    # irrelevant to this scenario, which only checks that --max-workers is
-    # forced to serial when --test-contexts is supplied.
+    # Both sites execute only at import time here, so both come out "static"
+    # per the outcome the composition scenario asserts on.
     _write_context_db(ctx.db_path, {ctx.src_path: {"": {2, 6}}})
 
 
@@ -304,7 +354,7 @@ def when_run_dir_scan(m, params):
 def when_run_dir_run(m, params):
     d = os.path.dirname(ctx.dir_path)
     ctx.cli_result = _run_mutate4py(
-        d, ctx.dir_path, "--lcov", ctx.lcov_path, "--test-command", ctx.test_script
+        d, ctx.dir_path, "--lcov", ctx.lcov_path, "--pytest-args", "tests"
     )
 
 
@@ -316,8 +366,8 @@ def when_run_with_contexts(m, params):
         ctx.src_path,
         "--lcov",
         ctx.lcov_path,
-        "--test-command",
-        ctx.test_script,
+        "--pytest-args",
+        "",
         "--test-contexts",
         ctx.db_path,
     )
@@ -327,7 +377,7 @@ def when_run_with_contexts(m, params):
 def when_run_without_contexts(m, params):
     d = _ensure_tmpdir()
     ctx.cli_result = _run_mutate4py(
-        d, ctx.src_path, "--lcov", ctx.lcov_path, "--test-command", ctx.test_script
+        d, ctx.src_path, "--lcov", ctx.lcov_path, "--pytest-args", ""
     )
 
 
@@ -339,8 +389,8 @@ def when_run_with_contexts_and_workers(m, params):
         ctx.src_path,
         "--lcov",
         ctx.lcov_path,
-        "--test-command",
-        ctx.test_script,
+        "--pytest-args",
+        "",
         "--test-contexts",
         ctx.db_path,
         "--max-workers",
@@ -397,7 +447,7 @@ def then_test_command_is(m, params):
     )
 
 
-@step(r'that mutant\'s test command is the full "--test-command" verbatim')
+@step(r'that mutant\'s test command is the full "--pytest-args" verbatim')
 def then_test_command_is_verbatim(m, params):
     assert _logged_args() == "ARGS:[]", (
         f"Expected no appended args, got: {_logged_args()!r}\nstdout:\n{ctx.cli_result.stdout}"
@@ -433,8 +483,8 @@ def then_no_test_selection_line(m, params):
     )
 
 
-@step(r"the run proceeds serially \(no worker-N tokens in output\)")
-def then_serial_no_worker_tokens(m, params):
-    assert "worker-" not in ctx.cli_result.stdout, (
-        f"Unexpected 'worker-' token in:\n{ctx.cli_result.stdout}"
+@step(r"worker-N tokens are present in the progress lines")
+def then_worker_tokens_present(m, params):
+    assert "worker-" in ctx.cli_result.stdout, (
+        f"Expected 'worker-' tokens in:\n{ctx.cli_result.stdout}"
     )

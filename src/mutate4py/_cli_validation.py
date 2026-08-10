@@ -59,8 +59,8 @@ def _check_scan_only_incompatibilities(args: argparse.Namespace) -> None:
         _exit_incompatible("--scan", "--timeout-factor")
     if args.min_timeout != 1.0:
         _exit_incompatible("--scan", "--min-timeout")
-    if args.test_command != "pytest":
-        _exit_incompatible("--scan", "--test-command")
+    if args.pytest_args:
+        _exit_incompatible("--scan", "--pytest-args")
 
 
 def _check_selection_exclusivity(args: argparse.Namespace) -> None:

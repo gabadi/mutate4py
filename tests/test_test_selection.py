@@ -1,6 +1,7 @@
 """Tests for _test_selection module (numbits decoding, context stripping, DB query)."""
 
 import sqlite3
+import threading
 
 import pytest
 
@@ -254,6 +255,49 @@ def test_empty_context_does_not_suppress_a_covering_test(tmp_path):
 def test_missing_db_raises_test_context_error(tmp_path):
     with pytest.raises(TestContextError):
         TestContextDB(str(tmp_path / "nonexistent.coverage"))
+
+
+def test_tests_for_line_is_safe_across_concurrent_threads(tmp_path):
+    """Regression: parallel Worker dispatch shares one TestContextDB across
+    worker threads (see _workers.py::WorkerRunSettings). sqlite3 connections
+    default to check_same_thread=True, so this used to raise
+    "SQLite objects created in a thread can only be used in that same
+    thread." the moment a second thread called tests_for_line."""
+    db = tmp_path / ".coverage"
+    _make_coverage_db(
+        str(db),
+        {
+            "/src/foo.py": {
+                "tests/test_foo.py::test_bar|run": {10},
+                "tests/test_foo.py::test_baz|run": {20},
+            }
+        },
+    )
+    ctx_db = TestContextDB(str(db))
+    errors: list[BaseException] = []
+    results: list[tuple[str, list[str]]] = []
+    lock = threading.Lock()
+
+    def worker(line: int) -> None:
+        try:
+            outcome = ctx_db.tests_for_line("/src/foo.py", line)
+        except BaseException as e:  # noqa: BLE001 - captured for assertion, not swallowed
+            with lock:
+                errors.append(e)
+        else:
+            with lock:
+                results.append(outcome)
+
+    threads = [threading.Thread(target=worker, args=(line,)) for line in ([10, 20] * 10)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert errors == []
+    assert results.count(("narrowed", ["tests/test_foo.py::test_bar"])) == 10
+    assert results.count(("narrowed", ["tests/test_foo.py::test_baz"])) == 10
+    ctx_db.close()
 
 
 # ── TestContextDB queries: branch-coverage mode (arc table, has_arcs=1) ─────────

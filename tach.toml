@@ -8,10 +8,12 @@
 # neither lists the other, so tach rejects it the moment someone adds it.
 #
 # Layers, lowest first (mirrors AGENTS.md and issue 02's own ordering):
-#   primitives          -> id derivation, glob dialect, command execution
+#   primitives          -> id derivation, glob dialect, argv execution, the
+#                          executor interface
 #   domain              -> site discovery, manifest, coverage, test
 #                          selection, workspace
-#   execution_backends  -> parallel workers, fork server
+#   execution_backends  -> parallel workers, the forking and subprocess
+#                          executors
 #   run_loop            -> the run-loop orchestration module
 #   cli_adapter         -> the CLI adapter
 #
@@ -62,8 +64,8 @@
 # alongside those three.
 #
 # Issue #38 gate 13 extracted the run-loop's pre-flight setup (test-context
-# db + fork-server priming) out of `_runner.py` into `_run_prep`. It imports
-# `_fork_server` (`execution_backends`) and `_test_selection` (`domain`), and
+# db + executor priming) out of `_runner.py` into `_run_prep`. It imports
+# `_forking_executor` (`execution_backends`) and `_test_selection` (`domain`), and
 # is depended on only by `run_loop` — nothing in `execution_backends` needs
 # it back. That puts it strictly between `execution` (its only caller's
 # other dependency) and `execution_backends` (its own dependency), so it
@@ -90,13 +92,46 @@
 # depended on only by `run_loop`, with no cross-deps against the other
 # no-cross-dep layers, so it sits in its own layer directly above
 # `manifest_storage` (its one non-domain dependency).
+#
+# Issue 04b (all three levers compose) collapsed `run_prep` entirely: its
+# `_forking_eligible` guard is deleted outright (eligibility no longer
+# excludes a parallel run), and its `_prepare_executor` helper moved to
+# `_executor_selection`, in `execution_backends` rather than its own layer
+# above it — eligibility is a property of *this process's* import state, so
+# it must be reachable both from `run_loop` (the single-Worker path, in the
+# orchestrator's own process) and from `execution_backends` itself (each
+# parallel Worker's own subprocess, `_worker_server`), and only a layer at
+# or below `execution_backends` can be imported from both. `_test_dispatch`
+# (per-Mutant argument-list construction, `narrowed`/`static` dispatch) moved
+# out of `_execution` for the same reason: both the serial loop and parallel
+# Workers need it, and `execution_backends` may never import `execution`.
+# `_worker_protocol` (the orchestrator-side Worker proxy) and `_worker_server`
+# (the Worker-subprocess entry point it spawns) are new at `execution_backends`
+# alongside `_workers`, `_forking_executor`, and `_subprocess_executor` — one
+# persistent primed process per Worker, not one process per Mutant.
+#
+# Issue 06 (plugin neutralisation and per-Mutant overhead) added
+# `_plugin_neutralisation`: a pure importlib-probe with zero cross-module
+# deps, called only from `run_loop` (`_runner.py`) to build the argument list
+# every Mutant dispatch uses. It sits in `domain` alongside `_test_dispatch`,
+# which needed the same reachability argument in gate 04b above — nothing in
+# `execution_backends` calls it, so it doesn't need to sit above that layer.
+#
+# Issue #38 gate 16 extracted the Baseline-timing and per-Mutant-overhead
+# cluster (`_baseline_reason`, `run_baseline`, `measure_per_mutant_overhead`,
+# `resolve_baseline_and_overhead`) out of `_runner.py` into `_baseline`, to
+# bring `_runner.py` back under its module-size cap after issue 06 grew it.
+# It has zero cross-module deps (builds its own pytest argv and shells out
+# directly, same as before extraction) and is depended on only by
+# `run_loop`; nothing in `execution_backends` needs it, so it sits in its
+# own layer directly above `domain`, alongside `_report`/`_site_selection`/
+# `_source_loading`/`_manifest_storage`/`_cli_validation`/`_target_resolution`.
 source_roots = ["src"]
 layers = [
     "cli_adapter",
     "dispatch",
     "run_loop",
     "execution",
-    "run_prep",
     "execution_backends",
     "cli_validation",
     "site_selection",
@@ -104,6 +139,7 @@ layers = [
     "report",
     "source_loading",
     "manifest_storage",
+    "baseline",
     "domain",
     "primitives",
 ]
@@ -155,6 +191,16 @@ layer = "domain"
 depends_on = []
 
 [[modules]]
+path = "mutate4py._test_dispatch"
+layer = "domain"
+depends_on = ["mutate4py._discovery"]
+
+[[modules]]
+path = "mutate4py._plugin_neutralisation"
+layer = "domain"
+depends_on = []
+
+[[modules]]
 path = "mutate4py._cli_validation"
 layer = "cli_validation"
 depends_on = []
@@ -190,19 +236,44 @@ layer = "source_loading"
 depends_on = []
 
 [[modules]]
-path = "mutate4py._run_prep"
-layer = "run_prep"
+path = "mutate4py._baseline"
+layer = "baseline"
+depends_on = []
+
+[[modules]]
+path = "mutate4py._executor"
+layer = "primitives"
 depends_on = []
 
 [[modules]]
 path = "mutate4py._workers"
 layer = "execution_backends"
+depends_on = ["mutate4py._worker_protocol"]
+
+[[modules]]
+path = "mutate4py._forking_executor"
+layer = "execution_backends"
 depends_on = []
 
 [[modules]]
-path = "mutate4py._fork_server"
+path = "mutate4py._subprocess_executor"
 layer = "execution_backends"
 depends_on = []
+
+[[modules]]
+path = "mutate4py._executor_selection"
+layer = "execution_backends"
+depends_on = ["mutate4py._forking_executor", "mutate4py._subprocess_executor"]
+
+[[modules]]
+path = "mutate4py._worker_protocol"
+layer = "execution_backends"
+depends_on = []
+
+[[modules]]
+path = "mutate4py._worker_server"
+layer = "execution_backends"
+depends_on = ["mutate4py._executor_selection"]
 
 [[modules]]
 path = "mutate4py._runner"

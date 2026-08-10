@@ -4,9 +4,8 @@ import dataclasses
 import datetime
 import logging
 import os
-import subprocess
-import time
 
+from mutate4py._baseline import measure_per_mutant_overhead, resolve_baseline_and_overhead, run_baseline
 from mutate4py._coverage import CoverageError
 
 __all__ = [
@@ -15,6 +14,7 @@ __all__ = [
     "RunMutationsRequest",
     "TestSelectionError",
     "check_manifest",
+    "measure_per_mutant_overhead",
     "run_baseline",
     "run_mutations",
     "run_scan",
@@ -23,6 +23,8 @@ __all__ = [
     "update_manifest",
 ]
 from mutate4py._discovery import Site, partition_sites
+from mutate4py._executor import Executor
+from mutate4py._executor_selection import select_executor
 from mutate4py._execution import (
     MutantExecCtx,
     TestSelectionError,
@@ -40,19 +42,16 @@ from mutate4py._manifest_storage import (
     _read_existing_manifest,
     _write_manifest_output,
 )
+from mutate4py._plugin_neutralisation import neutralising_args
 from mutate4py._report import (
     CoverageSource,
+    OverheadInfo,
     RunStats,
     _mutation_report_lines,
     _run_header_lines,
     _workers_header_lines,
     scan_report,
     scan_report_with_coverage,
-)
-from mutate4py._run_prep import (
-    _fork_server_eligible,
-    _prepare_fork_server,
-    _setup_test_context_db,
 )
 from mutate4py._site_selection import (
     _acquire_covered_lines,
@@ -81,7 +80,7 @@ class RunMutationsRequest:
     cov_cmd: str | None
     lcov_path: str | None
     reuse_coverage: bool
-    test_command: str
+    pytest_args: list[str]
     timeout_factor: int
     lines_filter: set[int] | None
     since_last_run: bool
@@ -93,24 +92,8 @@ class RunMutationsRequest:
     baseline_duration: float | None = None
     test_contexts_path: str | None = None
     manifest_file: bool = False
-    fork_server_requested: bool = True
-
-
-def _baseline_reason(result: subprocess.CompletedProcess) -> str:
-    stderr = (result.stderr or b"").decode(errors="replace").strip()
-    if stderr:
-        return stderr.splitlines()[0]
-    return f"exit code {result.returncode}"
-
-
-def run_baseline(cmd: str, cwd: str) -> tuple[float, str | None]:
-    """Run baseline; return (duration_seconds, error_reason_or_None)."""
-    start = time.monotonic()
-    result = subprocess.run(cmd, shell=True, cwd=cwd, capture_output=True)
-    elapsed = time.monotonic() - start
-    if result.returncode != 0:
-        return elapsed, _baseline_reason(result)
-    return elapsed, None
+    forking_requested: bool = True
+    executor: Executor | None = None
 
 
 def _print_lines(lines: list[str]) -> None:
@@ -197,13 +180,59 @@ class SelectionOutcome:
     use_parallel: bool = False
     max_workers: int = 0
     mutant_timeout: float = 0.0
-    fork_server: object = None
+    executor: object = None
+    mutant_pytest_args: list[str] = dataclasses.field(default_factory=list)
+    baseline_duration: float = 0.0
+    overhead_duration: float | None = None
+
+
+@dataclasses.dataclass
+class _BaselinePrep:
+    """Baseline/overhead/executor cluster, bundled to keep `_select_and_prepare` under the local-count cap."""
+
+    baseline_duration: float
+    overhead_duration: float | None
+    mutant_timeout: float
+    executor: object
+
+
+def _prepare_baseline_and_executor(
+    request: RunMutationsRequest,
+    setup: RunSetup,
+    mutant_pytest_args: list[str],
+    selected_sites: list[Site],
+    *,
+    use_parallel: bool,
+) -> tuple[_BaselinePrep | None, str | None]:
+    """Resolve Baseline+overhead, write the backup, compute the timeout, select the executor.
+
+    Returns (prep, baseline_error): prep is None exactly when baseline_error is set.
+    """
+    baseline_duration, baseline_error, overhead_duration = resolve_baseline_and_overhead(
+        request.pytest_args, request.cwd, mutant_pytest_args, request.baseline_duration
+    )
+    if baseline_error is not None:
+        return None, baseline_error
+
+    with open(setup.bak_path, "w") as f:
+        f.write(setup.loaded.clean_source)
+
+    mutant_timeout = max(request.min_timeout, request.timeout_factor * baseline_duration)
+    executor = select_executor(
+        caller_supplied=request.executor,
+        use_parallel=use_parallel,
+        requested=request.forking_requested and bool(selected_sites),
+        cwd=request.cwd,
+        guarded_path=os.path.abspath(request.path),
+    )
+
+    return _BaselinePrep(baseline_duration, overhead_duration, mutant_timeout, executor), None
 
 
 def _select_and_prepare(
     request: RunMutationsRequest, setup: RunSetup, test_ctx_db, max_workers: int
 ) -> SelectionOutcome:
-    """Acquire coverage, select sites, print the header, and prime the fork server.
+    """Acquire coverage, select sites, print the header, and prepare the executor.
 
     Returns a SelectionOutcome with error_code set if coverage acquisition or the
     baseline run fails — the caller must check that before using any other field.
@@ -261,48 +290,40 @@ def _select_and_prepare(
     use_parallel = _should_run_parallel(max_workers, len(selected_sites))
     _print_lines(_workers_header_lines(max_workers, use_parallel=use_parallel, n_selected=len(selected_sites)))
 
-    baseline_duration, baseline_error = _resolve_baseline_duration(
-        request.baseline_duration, request.test_command, request.cwd
+    mutant_pytest_args = [*request.pytest_args, *neutralising_args()]
+    prep, baseline_error = _prepare_baseline_and_executor(
+        request, setup, mutant_pytest_args, selected_sites, use_parallel=use_parallel
     )
     if baseline_error is not None:
         # .info, not .error: see the matching note on the cov_error branch above.
         _logger.info(f"baseline failed: {baseline_error}")
         return SelectionOutcome(error_code=1)
 
-    with open(setup.bak_path, "w") as f:
-        f.write(loaded.clean_source)
-
-    mutant_timeout = max(request.min_timeout, request.timeout_factor * baseline_duration)
-
-    fork_server = _prepare_fork_server(
-        requested=_fork_server_eligible(
-            fork_server_requested=request.fork_server_requested,
-            use_parallel=use_parallel,
-            test_ctx_db=test_ctx_db,
-            selected_sites=selected_sites,
-        ),
-        test_command=request.test_command,
-        cwd=request.cwd,
-        guarded_path=os.path.abspath(request.path),
-    )
-
     return SelectionOutcome(
         selected_sites=selected_sites,
         uncovered_count=uncovered_count,
         use_parallel=use_parallel,
         max_workers=max_workers,
-        mutant_timeout=mutant_timeout,
-        fork_server=fork_server,
+        mutant_timeout=prep.mutant_timeout,
+        executor=prep.executor,
+        mutant_pytest_args=mutant_pytest_args,
+        baseline_duration=prep.baseline_duration,
+        overhead_duration=prep.overhead_duration,
     )
 
 
-def _resolve_baseline_duration(
-    baseline_duration: float | None, test_command: str, cwd: str
-) -> tuple[float | None, str | None]:
-    """Return (duration, error). A pre-supplied duration is passed through untouched."""
-    if baseline_duration is not None:
-        return baseline_duration, None
-    return run_baseline(test_command, cwd)
+def _open_test_context_db(test_contexts_path: str | None):
+    """Open the test-context db if requested, or None.
+
+    No longer clamps max_workers to force serial execution (issue 04b):
+    narrowing composes with parallel Workers, so a Test-context db and a
+    Worker count of two or more now both take effect in the same run.
+    """
+    if test_contexts_path is None:
+        return None
+    from mutate4py._test_selection import TestContextDB
+
+    return TestContextDB(test_contexts_path)
 
 
 def run_mutations(request: RunMutationsRequest) -> int:
@@ -311,23 +332,24 @@ def run_mutations(request: RunMutationsRequest) -> int:
     Returns 0, 1 (coverage/baseline failure), or 2 (the test-context db and the
     LCOV coverage disagree about a selected site).
     """
-    test_ctx_db, max_workers = _setup_test_context_db(request.test_contexts_path, request.max_workers)
+    test_ctx_db = _open_test_context_db(request.test_contexts_path)
     try:
         setup = _prepare_run_setup(path=request.path, source=request.source, manifest_file=request.manifest_file)
-        outcome = _select_and_prepare(request, setup, test_ctx_db, max_workers)
+        outcome = _select_and_prepare(request, setup, test_ctx_db, request.max_workers)
         if outcome.error_code is not None:
             return outcome.error_code
 
         ctx = MutantExecCtx(
             path=request.path,
             cwd=request.cwd,
-            test_command=request.test_command,
+            pytest_args=outcome.mutant_pytest_args,
+            executor=outcome.executor,
             mutant_timeout=outcome.mutant_timeout,
             max_workers=outcome.max_workers,
             use_parallel=outcome.use_parallel,
             abs_source_path=os.path.abspath(request.path),
             test_ctx_db=test_ctx_db,
-            fork_server=outcome.fork_server,
+            forking_requested=request.forking_requested,
         )
         try:
             result = _execute_mutations(
@@ -348,8 +370,19 @@ def run_mutations(request: RunMutationsRequest) -> int:
             # cov_error/baseline_error branches in _select_and_prepare above.
             _logger.info(result.error_msg)
             return 1
+        overhead = (
+            OverheadInfo(outcome.overhead_duration, outcome.baseline_duration)
+            if outcome.overhead_duration is not None
+            else None
+        )
         _print_lines(
-            _mutation_report_lines(result.counts, result.survivors, outcome.uncovered_count, result.selection_counts)
+            _mutation_report_lines(
+                result.counts,
+                result.survivors,
+                outcome.uncovered_count,
+                result.selection_counts,
+                overhead=overhead,
+            )
         )
         return 0
     except TestSelectionError as exc:

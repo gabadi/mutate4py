@@ -29,10 +29,9 @@ def _make_lcov(source_abs: str, covered_lines: list[int]) -> str:
     return f"SF:{source_abs}\n{da}\nend_of_record\n"
 
 
-def _write_script(path: str, content: str) -> None:
+def _write_test(path: str, body: str) -> None:
     with open(path, "w") as f:
-        f.write(content)
-    os.chmod(path, 0o755)
+        f.write(body)
 
 
 class Context:
@@ -102,9 +101,11 @@ def given_source_with_covered_sites(m, params):
 @step(r"a baseline test command that passes")
 def given_baseline_passes(m, params):
     d = _ensure_tmpdir()
-    ctx.test_script = os.path.join(d, "test.sh")
-    # By default, the test script passes; mutant outcome setup will override
-    _write_script(ctx.test_script, "#!/bin/sh\nexit 0\n")
+    tests_dir = os.path.join(d, "tests")
+    os.makedirs(tests_dir, exist_ok=True)
+    ctx.test_script = os.path.join(tests_dir, "test_qa.py")
+    # By default, the test passes; mutant outcome setup will override
+    _write_test(ctx.test_script, "def test_qa():\n    pass\n")
 
 
 # ── Given steps ───────────────────────────────────────────────────────────────
@@ -113,23 +114,32 @@ def given_baseline_passes(m, params):
 @step(r'the mutated test run will "([^"]*)"')
 def given_mutated_outcome(m, params):
     outcome = params.get("outcome") or m.group(1)
-    d = _ensure_tmpdir()
     src_path = ctx.src_path
     if outcome == "exit nonzero":
         # The test passes on baseline (original) but fails when mutant is present
-        script = f"#!/bin/sh\nif grep -qF '>=' '{src_path}'; then exit 1; fi\nexit 0\n"
+        body = (
+            "def test_qa():\n"
+            f"    with open({src_path!r}) as f:\n"
+            "        content = f.read()\n"
+            "    assert '>=' not in content\n"
+        )
     elif outcome == "exit zero":
         # Always passes (mutant survives)
-        script = "#!/bin/sh\nexit 0\n"
+        body = "def test_qa():\n    pass\n"
     elif outcome == "exceed timeout":
         # Baseline is fast; mutant causes timeout via sleep
-        script = (
-            f"#!/bin/sh\nif grep -qF '>=' '{src_path}'; then sleep 30; fi\nexit 0\n"
+        body = (
+            "import time\n\n"
+            "def test_qa():\n"
+            f"    with open({src_path!r}) as f:\n"
+            "        content = f.read()\n"
+            "    if '>=' in content:\n"
+            "        time.sleep(30)\n"
         )
     else:
         raise ValueError(f"Unknown outcome: {outcome}")
     ctx.outcome_config["outcome"] = outcome
-    _write_script(ctx.test_script, script)
+    _write_test(ctx.test_script, body)
 
 
 @step(r"(\d+) mutants exit nonzero and (\d+) time out and (\d+) exit zero")
@@ -167,24 +177,27 @@ def given_multi_outcome(m, params):
     with open(counter_path, "w") as f:
         f.write("0")
 
-    # Script that reads counter and decides outcome
+    # Test that reads the counter and decides outcome: call 0 is baseline
+    # (always passes), then the first killed_n calls fail, the next timed_n
+    # calls sleep past the timeout, and the rest pass.
     killed_n = int(killed)
     timed_n = int(timed)
-    # First killed_n calls: exit 1; next timed_n calls: sleep; then exit 0
-    script_lines = [
-        "#!/bin/sh",
-        f"COUNT=$(cat '{counter_path}' 2>/dev/null || echo 0)",
-        # baseline is call 0, mutants start at 1
-        "# Increment counter",
-        f"echo $((COUNT + 1)) > '{counter_path}'",
-        "# Call 0 is baseline: always pass",
-        "if [ $COUNT -eq 0 ]; then exit 0; fi",
-        "MUTANT_NUM=$COUNT",
-        f"if [ $MUTANT_NUM -le {killed_n} ]; then exit 1; fi",
-        f"if [ $MUTANT_NUM -le $((({killed_n}) + ({timed_n}))) ]; then sleep 30; fi",
-        "exit 0",
-    ]
-    _write_script(ctx.test_script, "\n".join(script_lines) + "\n")
+    body = (
+        "import time\n\n"
+        "def test_qa():\n"
+        f"    counter_path = {counter_path!r}\n"
+        "    with open(counter_path) as f:\n"
+        "        count = int(f.read())\n"
+        "    with open(counter_path, 'w') as f:\n"
+        "        f.write(str(count + 1))\n"
+        "    if count == 0:\n"
+        "        return\n"
+        f"    if count <= {killed_n}:\n"
+        "        assert False\n"
+        f"    if count <= {killed_n} + {timed_n}:\n"
+        "        time.sleep(30)\n"
+    )
+    _write_test(ctx.test_script, body)
     ctx.extra_cli_args = ["--timeout-factor", "1", "--min-timeout", "0.1"]
 
 
@@ -235,8 +248,13 @@ def given_single_site_line7(m, params):
 @step(r"that mutant exits nonzero")
 def given_that_mutant_exits_nonzero(m, params):
     src_path = ctx.src_path
-    script = f"#!/bin/sh\nif grep -qF '>=' '{src_path}'; then exit 1; fi\nexit 0\n"
-    _write_script(ctx.test_script, script)
+    body = (
+        "def test_qa():\n"
+        f"    with open({src_path!r}) as f:\n"
+        "        content = f.read()\n"
+        "    assert '>=' not in content\n"
+    )
+    _write_test(ctx.test_script, body)
 
 
 @step(r'the baseline takes "([^"]*)" to pass')
@@ -256,7 +274,7 @@ def given_timeout_factor(m, params):
 
 @step(r"the baseline test command fails")
 def given_baseline_fails(m, params):
-    _write_script(ctx.test_script, "#!/bin/sh\nexit 1\n")
+    _write_test(ctx.test_script, "def test_qa():\n    assert False\n")
 
 
 @step(r'the file "([^"]*)" an existing manifest')
@@ -364,7 +382,7 @@ def given_reuse_lcov(m, params):
 @step(r"I run mutate4py mutating that file")
 def when_run(m, params):
     d = _ensure_tmpdir()
-    args = [ctx.src_path, "--lcov", ctx.lcov_path, "--test-command", ctx.test_script]
+    args = [ctx.src_path, "--lcov", ctx.lcov_path, "--pytest-args", "tests"]
     args += ctx.extra_cli_args
     ctx.cli_result = _run_mutate4py(d, *args)
 
@@ -373,7 +391,7 @@ def when_run(m, params):
 def when_run_with_flags(m, params):
     extra = params.get("--reuse-coverage") or m.group(1)
     d = _ensure_tmpdir()
-    args = [ctx.src_path, "--test-command", ctx.test_script] + extra.split()
+    args = [ctx.src_path, "--pytest-args", "tests"] + extra.split()
     ctx.cli_result = _run_mutate4py(d, *args)
 
 

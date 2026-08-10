@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-10T18:37:48Z",
+  "module_hash": "9460ea524d57b584b26ae1cb56f6fc0088442a40d186f877cf9a1d75fb58bbf1",
+  "source_sha256": "72d058159ac530eea195a5b398bb4ca536b6fb1ae06cea8e1cd7df3e136ecbdb",
+  "functions": [
+    {
+      "id": "func/select_executor",
+      "name": "select_executor",
+      "line": 21,
+      "end_line": 34,
+      "hash": "51c4ca839dc77239699c0568e5d3193c515197ec345e39a121affbcb77b23d9b"
+    },
+    {
+      "id": "func/_prepare_executor",
+      "name": "_prepare_executor",
+      "line": 37,
+      "end_line": 66,
+      "hash": "2f459a3c1699bff337717ea4f00458037e1ac719d1923f1959d0924e6aa3ccf3"
+    }
+  ]
+}

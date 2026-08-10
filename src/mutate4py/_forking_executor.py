@@ -1,4 +1,4 @@
-"""Fork-server execution model for the serial mutation loop (issue #25).
+"""Forking executor for the serial mutation loop (issue #25).
 
 A parent process primes pytest/plugins/framework setup once (running a
 collect-only pass against an empty directory, so root conftest.py and
@@ -11,57 +11,45 @@ POSIX-only (requires os.fork). The parent must never import the guarded
 target file before or between forks: a fork inherits the parent's
 sys.modules, so a pre-imported target would make every child test
 pre-mutation code and every mutant would falsely report as a survivor.
-`assert_source_clean` enforces this after priming; `ForkServer.prime`
+`assert_source_clean` enforces this after priming; `ForkingExecutor.prime`
 raises `ModuleLeakError` rather than silently proceeding unsafe.
+
+Pytest is the supported runner by contract — there is no other execution
+shape to sniff for, so priming never inspects the argument list it will
+later be called with.
 """
 
 import importlib.util
 import os
-import shlex
 import signal
 import sys
 import tempfile
 import time
 
+from mutate4py._plugin_neutralisation import neutralising_args
+
 __all__ = [
-    "ForkServer",
-    "ForkServerUnavailable",
+    "ForkingExecutor",
+    "ForkingExecutorUnavailable",
     "ModuleLeakError",
     "assert_source_clean",
     "is_available",
 ]
 
 _POLL_INTERVAL = 0.01
-# Args are passed straight to pytest.main(), never through a shell, so any of
-# these in test_command would silently change meaning (e.g. "&&" becoming a
-# literal pytest argument instead of a shell operator) rather than error out.
-_SHELL_METACHARACTERS = set("&|;<>$`\\\n")
 
 
-class ForkServerUnavailable(Exception):
-    """Fork-server preconditions are not met; caller should fall back."""
+class ForkingExecutorUnavailable(Exception):
+    """Forking-executor preconditions are not met; caller should fall back."""
 
 
-class ModuleLeakError(ForkServerUnavailable):
+class ModuleLeakError(ForkingExecutorUnavailable):
     """The guarded target file is already present in sys.modules."""
 
 
-def is_available(test_command: str) -> bool:
-    """True if the platform and test_command shape support the fork server.
-
-    Only a plain `pytest [args...]` command can reuse a primed pytest.main()
-    child; anything else (a different runner, a shell pipeline) must keep
-    using the per-mutant subprocess model.
-    """
-    if not hasattr(os, "fork"):
-        return False
-    if any(ch in test_command for ch in _SHELL_METACHARACTERS):
-        return False
-    try:
-        tokens = shlex.split(test_command)
-    except ValueError:
-        return False
-    return bool(tokens) and tokens[0] == "pytest"
+def is_available() -> bool:
+    """True if the platform supports the forking executor (POSIX os.fork)."""
+    return hasattr(os, "fork")
 
 
 def _leaked_modules(guarded_path: str) -> list[str]:
@@ -88,23 +76,22 @@ def assert_source_clean(guarded_path: str) -> None:
             del sys.modules[name]
         raise ModuleLeakError(
             f"module(s) {leaked!r} already imported from {guarded_path}; "
-            "the fork server cannot guarantee children re-read the mutated file"
+            "the forking executor cannot guarantee children re-read the mutated file"
         )
 
 
-class ForkServer:
+class ForkingExecutor:
     """Primes pytest once for `cwd`, then forks a child per mutant.
 
     `guarded_path` must never be importable in this process before or
-    between forks. Call `prime()` once; it raises `ForkServerUnavailable`
+    between forks. Call `prime()` once; it raises `ForkingExecutorUnavailable`
     (including the narrower `ModuleLeakError`) if the fast path is not safe
     for this project, in which case the caller should fall back to the
-    existing per-mutant subprocess model instead of calling `run()`.
+    subprocess executor instead of calling `run()`.
     """
 
-    def __init__(self, cwd: str, extra_args: list[str], guarded_path: str) -> None:
+    def __init__(self, cwd: str, guarded_path: str) -> None:
         self._cwd = cwd
-        self._extra_args = extra_args
         self._guarded_path = guarded_path
         self._primed = False
 
@@ -112,7 +99,7 @@ class ForkServer:
         try:
             import pytest
         except ImportError as exc:
-            raise ForkServerUnavailable(f"pytest is not importable in this process: {exc}") from exc
+            raise ForkingExecutorUnavailable(f"pytest is not importable in this process: {exc}") from exc
 
         # Must live inside cwd (not system tmp): pytest's conftest.py
         # discovery walks from rootdir down to each collected path, so an
@@ -121,27 +108,30 @@ class ForkServer:
         # — defeating the whole point of priming.
         scratch_root = os.path.join(self._cwd, ".mutate4py", "forkserver")
         os.makedirs(scratch_root, exist_ok=True)
+        # neutralising_args() matters here too, not just on the per-Mutant
+        # args in _runner.py: this call is itself an in-process, pre-fork
+        # pytest.main() re-entry, so a target project's own addopts (e.g.
+        # `--cov=...`) would otherwise spin up a second pytest-cov Coverage
+        # instance inside the same interpreter that is running this
+        # process's own coverage measurement — corrupting sys.monitoring's
+        # already-armed line/branch tracking for the rest of the run.
         with tempfile.TemporaryDirectory(dir=scratch_root, prefix="prime-") as empty_dir:
-            _run_pytest_output_suppressed(pytest, ["--collect-only", "-q", empty_dir], self._cwd)
+            _run_pytest_output_suppressed(pytest, ["--collect-only", "-q", empty_dir, *neutralising_args()], self._cwd)
 
         assert_source_clean(self._guarded_path)
         self._primed = True
 
-    def run(self, timeout: float) -> tuple[str, bool]:
-        """Fork a child that runs the primed pytest.main() once.
-
-        Returns (status, timed_out) with status in {killed, timeout,
-        survived} — the same contract as `_cmd.run_command`.
-        """
+    def run(self, args: list[str], timeout: float) -> str:
+        """Fork a child that runs pytest.main(args) once; return the classification."""
         if not self._primed:
-            raise ForkServerUnavailable("prime() must succeed before run()")
+            raise ForkingExecutorUnavailable("prime() must succeed before run()")
         pid = os.fork()
         if pid == 0:
-            self._run_child()
+            self._run_child(args)
             os._exit(70)  # pragma: no cover - _run_child always calls os._exit
         return _wait_for_child(pid, timeout)
 
-    def _run_child(self) -> None:
+    def _run_child(self, args: list[str]) -> None:
         import pytest
 
         # A prior child may have compiled and cached the guarded file's old
@@ -153,7 +143,7 @@ class ForkServer:
         _invalidate_bytecode_cache(self._guarded_path)
         sys.dont_write_bytecode = True
         try:
-            exit_code = _run_pytest_output_suppressed(pytest, self._extra_args, self._cwd)
+            exit_code = _run_pytest_output_suppressed(pytest, args, self._cwd)
         except BaseException:
             os._exit(3)
         os._exit(exit_code if isinstance(exit_code, int) else int(exit_code))
@@ -172,7 +162,17 @@ def _invalidate_bytecode_cache(guarded_path: str) -> None:
 
 
 def _run_pytest_output_suppressed(pytest_module, args: list[str], cwd: str) -> int:
-    """Run pytest.main(args) with cwd set and stdout/stderr redirected to devnull."""
+    """Run pytest.main(args) with cwd set and stdout/stderr redirected to devnull.
+
+    Flushes sys.stdout/sys.stderr before restoring the real fds: Python's
+    TextIOWrapper buffers writes at the object level, independent of the fd
+    they currently point at, so an unflushed pytest summary line written
+    while fd 1/2 point at devnull would otherwise surface later — after
+    restoration — once something finally flushes it, leaking onto whatever
+    now owns fd 1/2. Harmless for a human-readable terminal, but issue 04b's
+    Worker protocol treats every stdout line as a JSON message, so a leaked
+    line there is a framing error, not just noise.
+    """
     prev_cwd = os.getcwd()
     devnull_fd = os.open(os.devnull, os.O_WRONLY)
     saved_stdout = os.dup(1)
@@ -183,6 +183,8 @@ def _run_pytest_output_suppressed(pytest_module, args: list[str], cwd: str) -> i
         os.dup2(devnull_fd, 2)
         return int(pytest_module.main(args))
     finally:
+        sys.stdout.flush()
+        sys.stderr.flush()
         os.dup2(saved_stdout, 1)
         os.dup2(saved_stderr, 2)
         os.close(saved_stdout)
@@ -191,7 +193,7 @@ def _run_pytest_output_suppressed(pytest_module, args: list[str], cwd: str) -> i
         os.chdir(prev_cwd)
 
 
-def _wait_for_child(pid: int, timeout: float) -> tuple[str, bool]:
+def _wait_for_child(pid: int, timeout: float) -> str:
     deadline = time.monotonic() + timeout
     while True:
         done_pid, status = os.waitpid(pid, os.WNOHANG)
@@ -200,9 +202,9 @@ def _wait_for_child(pid: int, timeout: float) -> tuple[str, bool]:
         if time.monotonic() >= deadline:
             os.kill(pid, signal.SIGKILL)
             os.waitpid(pid, 0)
-            return "timeout", True
+            return "timeout"
         time.sleep(_POLL_INTERVAL)
     if os.WIFSIGNALED(status):
-        return "killed", False
+        return "killed"
     exit_code = os.WEXITSTATUS(status)
-    return ("survived" if exit_code == 0 else "killed"), False
+    return "survived" if exit_code == 0 else "killed"

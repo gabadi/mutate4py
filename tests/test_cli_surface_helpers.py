@@ -39,7 +39,7 @@ def test_split_flags_with_value():
 
 
 def test_split_flags_quoted_value():
-    assert split_flags('--test-command "pytest -x"') == ["--test-command", "pytest -x"]
+    assert split_flags('--pytest-args "-x -k foo"') == ["--pytest-args", "-x -k foo"]
 
 
 # ── default_source / lcov_content ─────────────────────────────────────────────
@@ -71,10 +71,10 @@ def test_single_flag_scan_incompatible_gives_lcov_run():
     assert "--max-workers" in args
 
 
-def test_single_flag_test_command_gives_lcov_run():
-    args = single_flag_args("--test-command true", "s.py", "cov.lcov")
+def test_single_flag_pytest_args_gives_lcov_run():
+    args = single_flag_args("--pytest-args -x", "s.py", "cov.lcov")
     assert "--lcov" in args
-    assert "--test-command" in args
+    assert "--pytest-args" in args
 
 
 def test_single_flag_regular_adds_scan():
@@ -335,8 +335,8 @@ def test_assert_option_timeout_factor_default():
     assert_option_accepted("timeout-factor", "10", 0, "")
 
 
-def test_assert_option_test_command_default():
-    assert_option_accepted("test-command", "pytest", 0, "")
+def test_assert_option_pytest_args_default():
+    assert_option_accepted("pytest-args", "", 0, "")
 
 
 def test_assert_option_max_workers_serial():

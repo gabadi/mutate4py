@@ -511,21 +511,48 @@ def test_build_parser_manifest_file_dest_is_manifest_file():
     assert args.manifest_file is True
 
 
-def test_build_parser_no_fork_server_defaults_false():
-    """Fork-server fast path is on by default: --no-fork-server absent -> False."""
+def test_build_parser_pytest_args_defaults_none():
     from mutate4py.__main__ import _build_parser
 
     parser = _build_parser()
     args = parser.parse_args(["f.py"])
-    assert args.no_fork_server is False
+    assert args.pytest_args is None
 
 
-def test_build_parser_no_fork_server_flag_sets_true():
+def test_build_parser_pytest_args_sets_raw_string():
+    """--pytest-args is stored raw here; _dispatch tokenizes it (see test_dispatch.py)."""
     from mutate4py.__main__ import _build_parser
 
     parser = _build_parser()
-    args = parser.parse_args(["f.py", "--no-fork-server"])
-    assert args.no_fork_server is True
+    args = parser.parse_args(["f.py", "--pytest-args", "-x -k foo"])
+    assert args.pytest_args == "-x -k foo"
+
+
+def test_build_parser_rejects_test_command():
+    """--test-command no longer exists; passing it is a usage error."""
+    from mutate4py.__main__ import _build_parser
+
+    parser = _build_parser()
+    with pytest.raises(SystemExit) as exc:
+        parser.parse_args(["f.py", "--test-command", "pytest"])
+    assert exc.value.code == 2
+
+
+def test_build_parser_no_fork_defaults_false():
+    """The forking executor fast path is on by default: --no-fork absent -> False."""
+    from mutate4py.__main__ import _build_parser
+
+    parser = _build_parser()
+    args = parser.parse_args(["f.py"])
+    assert args.no_fork is False
+
+
+def test_build_parser_no_fork_flag_sets_true():
+    from mutate4py.__main__ import _build_parser
+
+    parser = _build_parser()
+    args = parser.parse_args(["f.py", "--no-fork"])
+    assert args.no_fork is True
 
 
 def test_build_parser_manifest_file_defaults_to_false():

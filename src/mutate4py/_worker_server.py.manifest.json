@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-10T16:08:42Z",
+  "module_hash": "2ca61fc979b551195347792c4202962afc35836e13ea4ad37ca408affee0ba44",
+  "source_sha256": "f69ce5e47aa0f8bd9233d52543003d41a8e02da63d53d970ec19ff8509a938f0",
+  "functions": [
+    {
+      "id": "func/_serve",
+      "name": "_serve",
+      "line": 41,
+      "end_line": 53,
+      "hash": "4e13843cc9be5d4e8549f614d7515ccab4ad45013be116331e90eee81e8b4f6a"
+    },
+    {
+      "id": "func/main",
+      "name": "main",
+      "line": 56,
+      "end_line": 70,
+      "hash": "b285d72cbd5f3d6a3b04c26262b8f8ca819102d62d8a8312655d8f069f01946a"
+    }
+  ]
+}

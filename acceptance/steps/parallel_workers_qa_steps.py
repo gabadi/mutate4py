@@ -11,6 +11,17 @@ import textwrap
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
+from acceptance.steps.parallel_workers_qa_helpers import (
+    BODY_ALWAYS_FAIL,
+    BODY_ALWAYS_PASS,
+    check_worker_tree_body,
+    counted_all_killed_body,
+    make_lcov,
+    record_cwd_and_kill_body,
+    single_survivor_body,
+    sleep_past_timeout_body,
+    write_test,
+)
 from acceptance.steps.step_lib import make_registry
 
 STEP_HANDLERS, step, run_step = make_registry()
@@ -39,17 +50,6 @@ CALC_PY = textwrap.dedent("""\
         return g > h
 """)
 COVERED_LINES = [3, 5, 7, 9]
-
-
-def _make_lcov(source_abs: str, covered_lines: list[int]) -> str:
-    da = "\n".join(f"DA:{ln},1" for ln in sorted(covered_lines))
-    return f"SF:{source_abs}\n{da}\nend_of_record\n"
-
-
-def _write_script(path: str, content: str) -> None:
-    with open(path, "w") as f:
-        f.write(content)
-    os.chmod(path, 0o755)
 
 
 # ── Context ───────────────────────────────────────────────────────────────────
@@ -130,8 +130,6 @@ def _run_qa_cmd(cmd_str: str) -> subprocess.CompletedProcess:
             args.append(ctx.calc_path)
         elif part == "cov.info":
             args.append(ctx.lcov_path)
-        elif part == "./runtests.sh":
-            args.append(os.path.join(d, "runtests.sh"))
         else:
             args.append(part)
     env = dict(os.environ)
@@ -175,69 +173,56 @@ def given_lcov_fixture(m, params):
     covered = COVERED_LINES
     ctx.lcov_path = os.path.join(d, m.group(1))
     with open(ctx.lcov_path, "w") as f:
-        f.write(_make_lcov(ctx.calc_path, covered))
+        f.write(make_lcov(ctx.calc_path, covered))
 
 
-@step(r'a fake test command "([^"]*)" the QA agent scripts per outcome')
+@step(r"a fake pytest test the QA agent scripts per outcome")
 def given_fake_test_cmd_placeholder(m, params):
     d = _tmpdir()
-    ctx.test_script = os.path.join(d, m.group(1))
+    tests_dir = os.path.join(d, "tests")
+    os.makedirs(tests_dir, exist_ok=True)
+    ctx.test_script = os.path.join(tests_dir, "test_qa.py")
     # Placeholder — actual content set by Given steps below.
-    _write_script(ctx.test_script, "#!/bin/sh\nexit 0\n")
+    write_test(ctx.test_script, BODY_ALWAYS_PASS)
 
 
 # ── Given steps ───────────────────────────────────────────────────────────────
 
 
-@step(r'"runtests\.sh" exits nonzero for every mutant while the baseline passes')
-def given_all_killed_baseline_passes(m, params):
+def _write_counted_all_killed() -> None:
     d = _tmpdir()
     counter = os.path.join(d, "_call_count.txt")
     with open(counter, "w") as f:
         f.write("0")
-    # Call 0 is baseline; mutants exit 1
-    script = (
-        "#!/bin/sh\n"
-        f"COUNT=$(cat '{counter}' 2>/dev/null || echo 0)\n"
-        f"echo $((COUNT + 1)) > '{counter}'\n"
-        'if [ "$COUNT" -eq 0 ]; then exit 0; fi\n'
-        "exit 1\n"
-    )
-    _write_script(ctx.test_script, script)
+    write_test(ctx.test_script, counted_all_killed_body(counter))
 
 
-@step(r'"runtests\.sh" makes the mutated run "([^"]*)" while the baseline passes')
+@step(r"the fake pytest test exits nonzero for every mutant while the baseline passes")
+def given_all_killed_baseline_passes(m, params):
+    _write_counted_all_killed()
+
+
+@step(r'the fake pytest test makes the mutated run "([^"]*)" while the baseline passes')
 def given_single_outcome_baseline_passes(m, params):
     outcome = m.group(1)
-    d = _tmpdir()
-    counter = os.path.join(d, "_call_count.txt")
-    with open(counter, "w") as f:
-        f.write("0")
     if outcome == "exit nonzero":
-        script = (
-            "#!/bin/sh\n"
-            f"COUNT=$(cat '{counter}' 2>/dev/null || echo 0)\n"
-            f"echo $((COUNT + 1)) > '{counter}'\n"
-            'if [ "$COUNT" -eq 0 ]; then exit 0; fi\n'
-            "exit 1\n"
-        )
-    elif outcome == "exit zero":
-        script = "#!/bin/sh\nexit 0\n"
-    elif outcome == "sleep past timeout":
-        script = (
-            "#!/bin/sh\n"
-            f"COUNT=$(cat '{counter}' 2>/dev/null || echo 0)\n"
-            f"echo $((COUNT + 1)) > '{counter}'\n"
-            'if [ "$COUNT" -eq 0 ]; then exit 0; fi\n'
-            "sleep 30\n"
-        )
-    else:
-        raise ValueError(f"Unknown outcome: {outcome!r}")
-    _write_script(ctx.test_script, script)
+        _write_counted_all_killed()
+        return
+    if outcome == "exit zero":
+        write_test(ctx.test_script, BODY_ALWAYS_PASS)
+        return
+    if outcome == "sleep past timeout":
+        d = _tmpdir()
+        counter = os.path.join(d, "_call_count.txt")
+        with open(counter, "w") as f:
+            f.write("0")
+        write_test(ctx.test_script, sleep_past_timeout_body(counter))
+        return
+    raise ValueError(f"Unknown outcome: {outcome!r}")
 
 
 @step(
-    r'"runtests\.sh" makes "(\d+)" of the 4 mutants exit zero and the rest exit nonzero'
+    r'the fake pytest test makes "(\d+)" of the 4 mutants exit zero and the rest exit nonzero'
 )
 def given_n_survivors_4_sites(m, params):
     n = int(m.group(1))
@@ -249,71 +234,34 @@ def given_n_survivors_4_sites(m, params):
     src_rel = os.path.relpath(ctx.calc_path, d)
     if n == 1:
         # Make only calc1's mutant (a >= b) survive; kill the rest (c >= d, e >= f, g >= h)
-        script = (
-            "#!/bin/sh\n"
-            f"if [ ! -f '{baseline_done}' ]; then\n"
-            f"  touch '{baseline_done}'\n"
-            f"  exit 0\n"
-            f"fi\n"
-            # If the file contains 'a >= b' (calc1's mutant), survive
-            f"if grep -qF 'a >= b' './{src_rel}' 2>/dev/null; then exit 0; fi\n"
-            "exit 1\n"
-        )
+        body = single_survivor_body(baseline_done, src_rel)
     else:
-        # Generic: first n mutant sites survive — detect by content not feasible for n>1
-        # Fall back to killing all for now
-        script = "#!/bin/sh\nexit 1\n"
-    _write_script(ctx.test_script, script)
+        # Generic: first n mutant sites survive — detect by content not feasible for n>1.
+        # Fall back to killing all for now (including the baseline, matching the
+        # original shell script's unconditional exit 1 in this branch).
+        body = BODY_ALWAYS_FAIL
+    write_test(ctx.test_script, body)
 
 
-@step(r'"runtests\.sh" records its working directory to a sentinel and exits nonzero')
+@step(r"the fake pytest test records its working directory to a sentinel and exits nonzero")
 def given_records_cwd_and_kills(m, params):
     d = _tmpdir()
     sentinels_dir = os.path.join(d, "_wd_sentinels")
     os.makedirs(sentinels_dir, exist_ok=True)
     ctx.sentinel_dir = sentinels_dir
     baseline_done = os.path.join(d, "_baseline_done_wd.txt")
-    script = (
-        "#!/bin/sh\n"
-        # Baseline: first call exits 0 without writing sentinel
-        f"if [ ! -f '{baseline_done}' ]; then\n"
-        f"  touch '{baseline_done}'\n"
-        f"  exit 0\n"
-        f"fi\n"
-        # Mutant calls: write CWD to PID-unique sentinel, then exit 1
-        f"pwd > '{sentinels_dir}/wd_$$.txt'\n"
-        "exit 1\n"
-    )
-    _write_script(ctx.test_script, script)
+    write_test(ctx.test_script, record_cwd_and_kill_body(baseline_done, sentinels_dir))
 
 
 @step(
-    r'"runtests\.sh" checks for a "\.mutate4py/workers/" tree on its first call and exits nonzero'
+    r'the fake pytest test checks for a "\.mutate4py/workers/" tree on its first call and exits nonzero'
 )
 def given_checks_worker_tree_on_first_mutant(m, params):
     d = _tmpdir()
     sentinel = os.path.join(d, "_worker_tree_observed.txt")
     baseline_done = os.path.join(d, "_baseline_done2.txt")
     first_mutant_done = os.path.join(d, "_first_mutant_done.txt")
-    script = (
-        "#!/bin/sh\n"
-        # Baseline: first call exits 0
-        f"if [ ! -f '{baseline_done}' ]; then\n"
-        f"  touch '{baseline_done}'\n"
-        f"  exit 0\n"
-        f"fi\n"
-        # First mutant call: check if PWD itself is under .mutate4py/workers
-        f"if [ ! -f '{first_mutant_done}' ]; then\n"
-        f"  touch '{first_mutant_done}'\n"
-        f'  case "$PWD" in\n'
-        f"    */.mutate4py/workers/*)\n"
-        f"      echo observed > '{sentinel}'\n"
-        f"      ;;\n"
-        f"  esac\n"
-        f"fi\n"
-        "exit 1\n"
-    )
-    _write_script(ctx.test_script, script)
+    write_test(ctx.test_script, check_worker_tree_body(baseline_done, first_mutant_done, sentinel))
     ctx.sentinel_dir = sentinel
 
 
@@ -327,20 +275,9 @@ def given_record_prior_body(m, params):
     ctx.prior_body = src[:idx].rstrip() if idx != -1 else src.rstrip()
 
 
-@step(r'"runtests\.sh" exits nonzero for every mutant')
+@step(r"the fake pytest test exits nonzero for every mutant")
 def given_all_killed_no_qualifier(m, params):
-    d = _tmpdir()
-    counter = os.path.join(d, "_call_count.txt")
-    with open(counter, "w") as f:
-        f.write("0")
-    script = (
-        "#!/bin/sh\n"
-        f"COUNT=$(cat '{counter}' 2>/dev/null || echo 0)\n"
-        f"echo $((COUNT + 1)) > '{counter}'\n"
-        'if [ "$COUNT" -eq 0 ]; then exit 0; fi\n'
-        "exit 1\n"
-    )
-    _write_script(ctx.test_script, script)
+    _write_counted_all_killed()
 
 
 @step(r"one worker copy is made unwritable so its restore fails")
@@ -530,7 +467,7 @@ def then_no_wd_is_original(m, params):
         assert real_wd != real_d, f"Sentinel {fname}: worker ran in original dir {wd!r}"
 
 
-@step(r'"runtests\.sh" observed a "\.mutate4py/workers/" tree during the run')
+@step(r'the fake pytest test observed a "\.mutate4py/workers/" tree during the run')
 def then_worker_tree_observed(m, params):
     sentinel = ctx.sentinel_dir  # path to sentinel file
     assert os.path.exists(sentinel), (

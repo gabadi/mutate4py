@@ -1,5 +1,7 @@
 """Unit tests for _workers.py internals."""
 
+import threading
+
 import pytest
 
 from mutate4py._discovery import Site, discover_sites
@@ -11,7 +13,6 @@ from mutate4py._workers import (
     WorkerRunSettings,
     _assign_sites_to_workers,
     _copy_tree,
-    _run_command,
     _run_one_site,
     _summarize_results,
     run_parallel,
@@ -30,27 +31,6 @@ def _make_site(index: int, line: int, fid: str = "func/f") -> Site:
         mutant_text=">=",
         desc="> -> >=",
     )
-
-
-# ── _run_command ──────────────────────────────────────────────────────────────
-
-
-def test_worker_run_command_zero_is_survived():
-    status, timed_out = _run_command("exit 0", "/tmp", timeout=5.0)
-    assert status == "survived"
-    assert not timed_out
-
-
-def test_worker_run_command_nonzero_is_killed():
-    status, timed_out = _run_command("exit 1", "/tmp", timeout=5.0)
-    assert status == "killed"
-    assert not timed_out
-
-
-def test_worker_run_command_timeout():
-    status, timed_out = _run_command("sleep 10", "/tmp", timeout=0.1)
-    assert status == "timeout"
-    assert timed_out
 
 
 # ── _copy_tree ────────────────────────────────────────────────────────────────
@@ -187,6 +167,40 @@ def test_assign_sites_round_robins():
     assert total == 4
 
 
+# ── _provision_worker_executors ───────────────────────────────────────────────
+
+
+def test_provision_worker_executors_assigns_distinct_worker_ids():
+    """Each real WorkerProcessExecutor gets its own worker_id (issue 05) —
+    the identity pytest-django needs to keep per-Worker test databases from
+    colliding — so worker roots must never share one. Numbered from 1 to
+    match worker_roots' own "worker-1", "worker-2", ... naming and the CLI
+    progress line's worker_idx, not pytest-xdist's 0-based convention."""
+    from mutate4py._workers import _provision_worker_executors
+
+    executors = _provision_worker_executors(
+        ["/tmp/worker-1", "/tmp/worker-2", "/tmp/worker-3"],
+        "calc.py",
+        forking_requested=True,
+        injected_executor=None,
+    )
+    assert [e._worker_id for e in executors] == ["gw1", "gw2", "gw3"]
+    assert len({e._worker_id for e in executors}) == 3
+
+
+def test_provision_worker_executors_injected_fake_ignores_worker_id():
+    from mutate4py._workers import _provision_worker_executors
+
+    fake = _FakeExecutor("survived")
+    executors = _provision_worker_executors(
+        ["/tmp/worker-1", "/tmp/worker-2"],
+        "calc.py",
+        forking_requested=True,
+        injected_executor=fake,
+    )
+    assert executors == [fake, fake]
+
+
 # ── _summarize_results ────────────────────────────────────────────────────────
 
 
@@ -217,6 +231,30 @@ def _noop_on_result(result: dict) -> None:
     pass
 
 
+class _FakeExecutor:
+    """Minimal stand-in for the Executor protocol: no forking, no subprocess.
+
+    Lock-guarded so multiple Worker threads can share one instance (as
+    happens when a test injects a single fake executor at max_workers>=2)
+    without racing on prime_calls/calls.
+    """
+
+    def __init__(self, status: str) -> None:
+        self._status = status
+        self._lock = threading.Lock()
+        self.calls: list[list[str]] = []
+        self.prime_calls = 0
+
+    def prime(self) -> None:
+        with self._lock:
+            self.prime_calls += 1
+
+    def run(self, args: list[str], timeout: float) -> str:
+        with self._lock:
+            self.calls.append(args)
+        return self._status
+
+
 def test_run_one_site_survived(tmp_path, monkeypatch):
     src = "def f(a, b):\n    return a > b\n"
     sites = discover_sites(src)
@@ -234,9 +272,10 @@ def test_run_one_site_survived(tmp_path, monkeypatch):
             worker_root=str(tmp_path),
             worker_file_path=str(worker_file),
         ),
+        _FakeExecutor("survived"),
         WorkerRunSettings(
             clean_source=src,
-            test_command="exit 0",
+            pytest_args=[],
             mutant_timeout=5.0,
             on_result=_noop_on_result,
         ),
@@ -262,9 +301,10 @@ def test_run_one_site_killed(tmp_path, monkeypatch):
             worker_root=str(tmp_path),
             worker_file_path=str(worker_file),
         ),
+        _FakeExecutor("killed"),
         WorkerRunSettings(
             clean_source=src,
-            test_command="exit 1",
+            pytest_args=[],
             mutant_timeout=5.0,
             on_result=_noop_on_result,
         ),
@@ -290,9 +330,10 @@ def test_run_one_site_write_fail_env_hook(tmp_path, monkeypatch):
                 worker_root=str(tmp_path),
                 worker_file_path=str(worker_file),
             ),
+            _FakeExecutor("survived"),
             WorkerRunSettings(
                 clean_source=src,
-                test_command="exit 0",
+                pytest_args=[],
                 mutant_timeout=5.0,
                 on_result=_noop_on_result,
             ),
@@ -330,9 +371,10 @@ def test_run_one_site_write_oserror(tmp_path, monkeypatch):
                 worker_root=str(tmp_path),
                 worker_file_path=str(worker_file),
             ),
+            _FakeExecutor("survived"),
             WorkerRunSettings(
                 clean_source=src,
-                test_command="exit 0",
+                pytest_args=[],
                 mutant_timeout=5.0,
                 on_result=_noop_on_result,
             ),
@@ -361,9 +403,161 @@ def test_run_parallel_short_result_raises(tmp_path, monkeypatch):
                 clean_source=src,
                 source_path=str(src_file),
                 cwd=str(tmp_path),
-                test_command="exit 0",
+                pytest_args=[],
                 mutant_timeout=5.0,
                 max_workers=2,
                 on_result=_noop_on_result,
+                executor=_FakeExecutor("survived"),
             )
         )
+
+
+# ── run_parallel: narrowing composes with Worker dispatch (issue 04b) ────────
+
+
+class _FakeTestContextDB:
+    def __init__(self, outcome: str, node_ids: tuple = ()) -> None:
+        self._result = (outcome, list(node_ids))
+
+    def tests_for_line(self, source_path, line):
+        return self._result
+
+
+def test_run_parallel_composes_narrowed_dispatch_with_workers(tmp_path, monkeypatch):
+    """A test-context db in play must reach each Worker's dispatch args, not
+    just the serial loop's — the old parallel engine never called
+    _build_mutant_args at all."""
+    import mutate4py._workers as workers_mod
+
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+
+    src = "def f(a, b):\n    return a > b\ndef g(a, b):\n    return a < b\n"
+    sites = discover_sites(src)
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(src)
+    executor = _FakeExecutor("killed")
+
+    counts, survivors, selection_counts = run_parallel(
+        ParallelRunRequest(
+            selected_sites=sites,
+            clean_source=src,
+            source_path=str(src_file),
+            cwd=str(tmp_path),
+            pytest_args=["-q"],
+            mutant_timeout=5.0,
+            max_workers=2,
+            on_result=_noop_on_result,
+            test_ctx_db=_FakeTestContextDB("narrowed", ("tests/test_calc.py::test_f",)),
+            abs_source_path=str(src_file),
+            executor=executor,
+        )
+    )
+    assert counts == {"killed": 2, "timeout": 0, "survived": 0}
+    assert survivors == []
+    assert selection_counts == {"narrowed": 2, "static": 0}
+    assert executor.calls == [["-q", "tests/test_calc.py::test_f"]] * 2
+
+
+def test_run_parallel_composes_static_dispatch_with_workers(tmp_path, monkeypatch):
+    import mutate4py._workers as workers_mod
+
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+
+    src = "def f(a, b):\n    return a > b\ndef g(a, b):\n    return a < b\n"
+    sites = discover_sites(src)
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(src)
+    executor = _FakeExecutor("killed")
+
+    _, _, selection_counts = run_parallel(
+        ParallelRunRequest(
+            selected_sites=sites,
+            clean_source=src,
+            source_path=str(src_file),
+            cwd=str(tmp_path),
+            pytest_args=["-q"],
+            mutant_timeout=5.0,
+            max_workers=2,
+            on_result=_noop_on_result,
+            test_ctx_db=_FakeTestContextDB("static"),
+            abs_source_path=str(src_file),
+            executor=executor,
+        )
+    )
+    assert selection_counts == {"narrowed": 0, "static": 2}
+    assert executor.calls == [["-q"]] * 2
+
+
+# ── run_parallel: one Worker is primed once and serves every assigned site ───
+
+
+def test_run_parallel_primes_worker_executor_once_for_multiple_sites(tmp_path, monkeypatch):
+    """max_workers=1 keeps everything in one Worker/one thread, so prime()
+    and run() call counts are deterministic without reasoning about
+    thread-interleaving across multiple Worker groups."""
+    import mutate4py._workers as workers_mod
+
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+
+    src = "def f(a, b):\n    return a > b\ndef g(a, b):\n    return a < b\ndef h(a, b):\n    return a >= b\n"
+    sites = discover_sites(src)
+    assert len(sites) == 3
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(src)
+    executor = _FakeExecutor("survived")
+
+    counts, _, _ = run_parallel(
+        ParallelRunRequest(
+            selected_sites=sites,
+            clean_source=src,
+            source_path=str(src_file),
+            cwd=str(tmp_path),
+            pytest_args=[],
+            mutant_timeout=5.0,
+            max_workers=1,
+            on_result=_noop_on_result,
+            executor=executor,
+        )
+    )
+    assert counts == {"killed": 0, "timeout": 0, "survived": 3}
+    assert executor.prime_calls == 1
+    assert len(executor.calls) == 3
+
+
+def test_run_parallel_shared_injected_executor_primed_per_worker_thread(tmp_path, monkeypatch):
+    """A single injected fake executor handed to multiple Worker threads
+    (max_workers>=2) is primed once per Worker thread that uses it, and
+    every site still gets exactly one run() call — the per-thread .prime()
+    calls race on the same instance but must not lose or duplicate results."""
+    import mutate4py._workers as workers_mod
+
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+
+    src = (
+        "def f(a, b):\n    return a > b\n"
+        "def g(a, b):\n    return a < b\n"
+        "def h(a, b):\n    return a >= b\n"
+        "def k(a, b):\n    return a <= b\n"
+    )
+    sites = discover_sites(src)
+    assert len(sites) == 4
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(src)
+    executor = _FakeExecutor("survived")
+
+    counts, _, _ = run_parallel(
+        ParallelRunRequest(
+            selected_sites=sites,
+            clean_source=src,
+            source_path=str(src_file),
+            cwd=str(tmp_path),
+            pytest_args=[],
+            mutant_timeout=5.0,
+            max_workers=2,
+            on_result=_noop_on_result,
+            executor=executor,
+        )
+    )
+    assert counts == {"killed": 0, "timeout": 0, "survived": 4}
+    assert executor.prime_calls == 2
+    assert len(executor.calls) == 4

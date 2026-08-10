@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-10T13:42:28Z",
+  "module_hash": "5a86cb8189e7540e80a799a23e21502112fa25780671ef66685b2445707c1113",
+  "source_sha256": "16d4579692a2fbf7aaeeee80aa83f6b2b5cbdc3d04a2907d7dd053812da780b8",
+  "functions": [
+    {
+      "id": "func/_build_mutant_args",
+      "name": "_build_mutant_args",
+      "line": 30,
+      "end_line": 48,
+      "hash": "cbb3b36d5361410b6ea05877cb4c1555865f2065d638d91472696ef32ded2a43"
+    }
+  ]
+}

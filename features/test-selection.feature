@@ -19,7 +19,7 @@ Feature: Per-mutant test selection and directory run mode
   #       1 narrowed — the db names tests covering the line: run only those.
   #       2 static   — the db shows the line executing only under the empty
   #         (whole-run) context, i.e. at import time, so no test owns it: run the
-  #         full --test-command, as the stated rule (Stryker's "static mutant"
+  #         full --pytest-args, as the stated rule (Stryker's "static mutant"
   #         policy). Structural, not an error.
   #       3 disagreement — the db has nothing for the line, or the file is absent
   #         from the db entirely: the two coverage sources disagree, so the run
@@ -29,9 +29,10 @@ Feature: Per-mutant test selection and directory run mode
   #   report line — whenever --test-contexts is set, the Mutation Report block
   #     carries "Test selection: narrowed <n>, static <k>" after the "Uncovered:"
   #     line. Absent when --test-contexts is not supplied.
-  #   parallelism override — when --test-contexts is set and --max-workers >= 2,
-  #     run mode proceeds serially (parallel workers share a fixed test_command,
-  #     extending _workers.py for per-mutant selection is out of scope).
+  #   parallelism composition — --test-contexts and --max-workers >= 2 compose
+  #     (issue 04b): the run proceeds in parallel, and each Worker's own
+  #     dispatch is narrowed/static per mutant the same way the serial loop's
+  #     is. No forced-serial fallback.
   #
   # CONSTRAINTS:
   #   - --test-contexts PATH: missing file → exit 2, clear error to stderr.
@@ -46,7 +47,8 @@ Feature: Per-mutant test selection and directory run mode
   #   - Case 3 aborts the whole run, not just the one mutant; the remaining
   #     selected sites are not attempted.
   #   - The report is not printed on a case-3 abort (no misleading tally).
-  #   - When --test-contexts is set and --max-workers >= 2, serial mode is used.
+  #   - --test-contexts composes with --max-workers >= 2: the run proceeds in
+  #     parallel and each Worker's dispatch is narrowed/static per mutant.
   #   - Directory run mode: exits non-zero if ANY file's run exits non-zero.
   #   - Directory run mode: skips __pycache__ directories.
   #
@@ -57,8 +59,8 @@ Feature: Per-mutant test selection and directory run mode
   #   - On a case-3 abort the source is still restored and the manifest re-embedded
   #     (the same finalize step a completed run performs), and .mutate4py.bak is
   #     removed — an abort leaves no half-written file behind.
-  #   - Per-mutant command: "{test_command} {node_id_1} {node_id_2} ..." in case 1
-  #     (node IDs shell-quoted); "{test_command}" verbatim in case 2.
+  #   - Per-mutant argv: [*pytest_args, node_id_1, node_id_2, ...] in case 1 (no
+  #     shell, no quoting — a plain argument list); pytest_args verbatim in case 2.
   #   - The "Test selection:" line prints after "Uncovered:" and before any
   #     "Survivors:" block.
   #   - Directory run: files processed in sorted order; per-file run is serial.
@@ -90,7 +92,7 @@ Feature: Per-mutant test selection and directory run mode
   Scenario: a line executed only at import time runs the full test command
     Given a .coverage db showing the mutated line only under the empty context
     When mutate4py is run with "--test-contexts .coverage"
-    Then that mutant's test command is the full "--test-command" verbatim
+    Then that mutant's test command is the full "--pytest-args" verbatim
     And the report line "Test selection: narrowed 0, static 1" is printed
 
   # case 3 — the two coverage sources disagree, so the run stops
@@ -112,8 +114,9 @@ Feature: Per-mutant test selection and directory run mode
     When mutate4py is run without "--test-contexts"
     Then no "Test selection:" line is printed
 
-  Scenario: --test-contexts with --max-workers >= 2 forces serial mode
+  Scenario: --test-contexts composes with --max-workers >= 2
     Given a Python source file with mutation sites covered by known tests
     And a .coverage db with per-test context data
     When mutate4py is run with "--test-contexts .coverage --max-workers 4"
-    Then the run proceeds serially (no worker-N tokens in output)
+    Then worker-N tokens are present in the progress lines
+    And the report line "Test selection: narrowed 0, static 2" is printed

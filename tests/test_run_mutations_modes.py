@@ -11,6 +11,7 @@ import os
 
 import pytest
 
+from ._pytest_project_helpers import write_always_passing_pytest_project
 from mutate4py._discovery import discover_sites
 from mutate4py._runner import RunMutationsRequest, run_mutations
 
@@ -20,15 +21,6 @@ def _write_lcov(path: str, source_abs: str, covered_lines: list[int]) -> None:
     content = f"SF:{source_abs}\n{da_lines}\nend_of_record\n"
     with open(path, "w") as f:
         f.write(content)
-
-
-def _make_pass_script(path: str) -> str:
-    """Write a test script that always passes."""
-    script = "#!/bin/sh\nexit 0\n"
-    with open(path, "w") as f:
-        f.write(script)
-    os.chmod(path, 0o755)
-    return path
 
 
 # ── run_mutations: warning threshold and CoverageError ───────────────────────
@@ -44,8 +36,7 @@ def test_run_mutations_warning_threshold_exceeded(tmp_path):
     lcov_path = str(tmp_path / "cov.lcov")
     _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
-    script_path = str(tmp_path / "test.sh")
-    _make_pass_script(script_path)
+    pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
     import io
     from contextlib import redirect_stdout
@@ -59,7 +50,7 @@ def test_run_mutations_warning_threshold_exceeded(tmp_path):
                 cov_cmd=None,
                 lcov_path=lcov_path,
                 reuse_coverage=False,
-                test_command=f"sh {script_path}",
+                pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
                 since_last_run=False,
@@ -100,7 +91,7 @@ def test_run_mutations_coverage_error_returns_1(tmp_path, monkeypatch):
                 cov_cmd=None,
                 lcov_path=None,
                 reuse_coverage=False,
-                test_command="exit 0",
+                pytest_args=[],
                 timeout_factor=10,
                 lines_filter=None,
                 since_last_run=False,
@@ -133,9 +124,11 @@ def _write_lcov_for_source(lcov_path: str, src_path: str, source: str) -> None:
     _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
 
-def _run_with_capture(tmp_path, src_path, src, *, max_workers, test_cmd="exit 0"):
+def _run_with_capture(tmp_path, src_path, src, *, max_workers, pytest_args=None):
     lcov_path = str(tmp_path / "cov.lcov")
     _write_lcov_for_source(lcov_path, src_path, src)
+    if pytest_args is None:
+        pytest_args = write_always_passing_pytest_project(str(tmp_path))
     import io
     from contextlib import redirect_stdout
 
@@ -148,7 +141,7 @@ def _run_with_capture(tmp_path, src_path, src, *, max_workers, test_cmd="exit 0"
                 cov_cmd=None,
                 lcov_path=lcov_path,
                 reuse_coverage=False,
-                test_command=test_cmd,
+                pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
                 since_last_run=False,
@@ -257,6 +250,7 @@ def test_parallel_path_target_outside_cwd_error(tmp_path, monkeypatch):
 
         lcov_path = str(tmp_path / "cov.lcov")
         _write_lcov_for_source(lcov_path, src_path, src)
+        pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
         import io
         from contextlib import redirect_stdout
@@ -270,7 +264,7 @@ def test_parallel_path_target_outside_cwd_error(tmp_path, monkeypatch):
                     cov_cmd=None,
                     lcov_path=lcov_path,
                     reuse_coverage=False,
-                    test_command="exit 0",
+                    pytest_args=pytest_args,
                     timeout_factor=10,
                     lines_filter=None,
                     since_last_run=False,
@@ -347,6 +341,7 @@ def _run_with_stub_ctx_db(tmp_path, monkeypatch, outcome, node_ids=(), *, test_c
         f.write(src)
     lcov_path = str(tmp_path / "cov.lcov")
     _write_lcov_for_source(lcov_path, src_path, src)
+    pytest_args = write_always_passing_pytest_project(str(tmp_path))
     rc = run_mutations(
         RunMutationsRequest(
             path=src_path,
@@ -354,7 +349,7 @@ def _run_with_stub_ctx_db(tmp_path, monkeypatch, outcome, node_ids=(), *, test_c
             cov_cmd=None,
             lcov_path=lcov_path,
             reuse_coverage=False,
-            test_command="exit 0",
+            pytest_args=pytest_args,
             timeout_factor=10,
             lines_filter=None,
             since_last_run=False,
@@ -401,6 +396,231 @@ def test_disagreement_exits_2_with_no_report(tmp_path, monkeypatch, capsys, outc
     assert "Mutation Report" not in captured.out
     assert "error: test-context db disagrees with coverage" in captured.err
     assert f"{src_path}:2" in captured.err
+
+
+# ── injected executor: all three levers compose without a real fork/subprocess ─
+
+
+class _FakeExecutor:
+    def __init__(self, status="killed"):
+        self._status = status
+        self.calls = []
+        self.primed = False
+
+    def prime(self):
+        self.primed = True
+
+    def run(self, args, timeout):
+        self.calls.append(list(args))
+        return self._status
+
+
+def test_injected_executor_receives_narrowed_dispatch_and_is_never_primed(tmp_path, monkeypatch):
+    """RunMutationsRequest.executor bypasses executor preparation entirely: the
+    injected fake stands in for both the forking and subprocess paths, so this
+    proves per-site narrowed dispatch reaches run() without spawning any real
+    subprocess or fork(), and confirms run_mutations never (re-)primes a
+    caller-supplied executor."""
+    import mutate4py._runner as runner_mod
+    import mutate4py._test_selection as ts
+
+    class _StubDB:
+        def __init__(self, db_path):
+            pass
+
+        def tests_for_line(self, source_path, line):
+            return "narrowed", ["tests/test_calc.py::test_f"]
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(ts, "TestContextDB", _StubDB)
+    # Dispatch-shape assertion below is exact; plugin neutralisation (issue 06)
+    # is orthogonal and depends on what's importable in whoever runs this, so
+    # it's pinned off here rather than made environment-dependent.
+    monkeypatch.setattr(runner_mod, "neutralising_args", lambda: [])
+
+    fake_executor = _FakeExecutor()
+    src = _make_multi_site_source(3)
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+    lcov_path = str(tmp_path / "cov.lcov")
+    _write_lcov_for_source(lcov_path, src_path, src)
+
+    rc = run_mutations(
+        RunMutationsRequest(
+            path=src_path,
+            source=src,
+            cov_cmd=None,
+            lcov_path=lcov_path,
+            reuse_coverage=False,
+            pytest_args=["-q"],
+            timeout_factor=10,
+            lines_filter=None,
+            since_last_run=False,
+            mutate_all=False,
+            warning_threshold=1000,
+            cwd=str(tmp_path),
+            test_contexts_path=".coverage",
+            executor=fake_executor,
+            baseline_duration=0.01,
+        )
+    )
+    assert rc == 0
+    assert fake_executor.calls == [["-q", "tests/test_calc.py::test_f"]] * 3
+    assert fake_executor.primed is False
+
+
+def test_injected_executor_receives_static_dispatch(tmp_path, monkeypatch):
+    """A 'static' classification runs the full pytest_args, unnarrowed — same
+    injected-executor isolation as the narrowed case above."""
+    import mutate4py._runner as runner_mod
+    import mutate4py._test_selection as ts
+
+    class _StubDB:
+        def __init__(self, db_path):
+            pass
+
+        def tests_for_line(self, source_path, line):
+            return "static", []
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(ts, "TestContextDB", _StubDB)
+    # See the matching note in the narrowed-dispatch test above.
+    monkeypatch.setattr(runner_mod, "neutralising_args", lambda: [])
+
+    fake_executor = _FakeExecutor()
+    src = _make_multi_site_source(3)
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+    lcov_path = str(tmp_path / "cov.lcov")
+    _write_lcov_for_source(lcov_path, src_path, src)
+
+    rc = run_mutations(
+        RunMutationsRequest(
+            path=src_path,
+            source=src,
+            cov_cmd=None,
+            lcov_path=lcov_path,
+            reuse_coverage=False,
+            pytest_args=["-q"],
+            timeout_factor=10,
+            lines_filter=None,
+            since_last_run=False,
+            mutate_all=False,
+            warning_threshold=1000,
+            cwd=str(tmp_path),
+            test_contexts_path=".coverage",
+            executor=fake_executor,
+            baseline_duration=0.01,
+        )
+    )
+    assert rc == 0
+    assert fake_executor.calls == [["-q"]] * 3
+
+
+# ── plugin neutralisation reaches every Mutant dispatch (issue 06) ───────────
+
+
+def test_neutralising_args_reach_every_mutant_dispatch(tmp_path, monkeypatch):
+    """The extra pytest args _select_and_prepare computes from
+    neutralising_args() must actually reach ctx.pytest_args, and from there
+    every Mutant's dispatch — not just get computed and discarded. Stubbed to
+    a fake flag rather than relying on which plugins happen to be importable
+    in whoever runs this."""
+    import mutate4py._runner as runner_mod
+
+    monkeypatch.setattr(runner_mod, "neutralising_args", lambda: ["--fake-neutralising-flag"])
+
+    fake_executor = _FakeExecutor()
+    src = _make_multi_site_source(2)
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+    lcov_path = str(tmp_path / "cov.lcov")
+    _write_lcov_for_source(lcov_path, src_path, src)
+
+    rc = run_mutations(
+        RunMutationsRequest(
+            path=src_path,
+            source=src,
+            cov_cmd=None,
+            lcov_path=lcov_path,
+            reuse_coverage=False,
+            pytest_args=["-q"],
+            timeout_factor=10,
+            lines_filter=None,
+            since_last_run=False,
+            mutate_all=False,
+            warning_threshold=1000,
+            cwd=str(tmp_path),
+            executor=fake_executor,
+            baseline_duration=0.01,
+        )
+    )
+    assert rc == 0
+    assert fake_executor.calls == [["-q", "--fake-neutralising-flag"]] * 2
+
+
+def test_test_context_db_and_parallel_workers_compose_in_one_run(tmp_path, monkeypatch, capsys):
+    """A test-context db and max_workers >= 2 both take effect in the same
+    run — no forced-serial fallback (issue 04b deleted that clamp)."""
+    import mutate4py._workers as workers_mod
+    import mutate4py._test_selection as ts
+
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+
+    class _StubDB:
+        def __init__(self, db_path):
+            pass
+
+        def tests_for_line(self, source_path, line):
+            return "narrowed", ["tests/test_calc.py::test_f"]
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(ts, "TestContextDB", _StubDB)
+
+    fake_executor = _FakeExecutor()
+    src = _make_multi_site_source(3)
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+    lcov_path = str(tmp_path / "cov.lcov")
+    _write_lcov_for_source(lcov_path, src_path, src)
+
+    rc = run_mutations(
+        RunMutationsRequest(
+            path=src_path,
+            source=src,
+            cov_cmd=None,
+            lcov_path=lcov_path,
+            reuse_coverage=False,
+            pytest_args=["-q"],
+            timeout_factor=10,
+            lines_filter=None,
+            since_last_run=False,
+            mutate_all=False,
+            warning_threshold=1000,
+            cwd=str(tmp_path),
+            test_contexts_path=".coverage",
+            max_workers=3,
+            executor=fake_executor,
+            baseline_duration=0.01,
+        )
+    )
+    output = capsys.readouterr().out
+    assert rc == 0
+    assert "Mutation workers: 3" in output
+    assert "Test selection: narrowed 3, static 0" in output
+    for line in output.splitlines():
+        if line.startswith("["):
+            assert "worker-" in line, f"Expected worker token, forced serial: {line}"
 
 
 def test_disagreement_restores_the_source_and_removes_the_backup(tmp_path, monkeypatch, capsys):

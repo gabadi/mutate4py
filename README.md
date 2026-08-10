@@ -21,8 +21,12 @@ uv tool install mutate4py
 ## Usage
 
 ```bash
-mutate4py path/to/file.py --test-command "pytest" --lcov lcov.info
+mutate4py path/to/file.py --lcov lcov.info
 ```
+
+pytest is the only supported test runner, invoked directly (never through a
+shell). Pass extra pytest arguments with `--pytest-args "ARGS"`, e.g.
+`--pytest-args "-x -k calc"`.
 
 Generate `lcov.info` with [coverage.py](https://coverage.readthedocs.io/):
 
@@ -125,6 +129,105 @@ each. If the exclusions leave nothing to process — or the directory holds no `
 files at all — the command prints `error: no Python files to process.` and exits
 **2**, rather than passing vacuously. `--exclude` also applies to a single-file
 target: a target that matches is not analysed, and exits 2 the same way.
+
+## Django projects
+
+Parallel Workers (`--max-workers`) each get their own test database automatically:
+mutate4py supplies pytest-django with the per-Worker identity it normally only gets
+from pytest-xdist, so no `conftest.py` change is required and Workers never collide
+on one test database during migration.
+
+Pass pytest-django's own `--reuse-db` through `--pytest-args` if you want it —
+mutate4py can't turn it on for you, because it changes what's on disk between runs
+(a kept-around test database) in a way only you can judge safe for your project and
+environment:
+
+```bash
+mutate4py polls/models.py --max-workers 4 --pytest-args="-q --reuse-db" --lcov lcov.info
+```
+
+A migration-signal count in your terminal is not evidence that `--reuse-db` skipped
+migrations: pytest-django still runs migrations to create (or verify) each test
+database, reused or not. The saving from reuse is skipping the *teardown and
+recreation* at the end of the run, not the migration step itself.
+
+Framework bootstrap (`django.setup()`) runs once per Worker, before any Mutant, and
+imports every `INSTALLED_APPS` model module as a side effect. That has one
+consequence worth predicting rather than discovering: a Mutant in an app-loaded
+module (e.g. `models.py`) is already in `sys.modules` by the time its Worker primes,
+so it degrades to the subprocess executor — one fresh `pytest` process per Mutant,
+same as `--no-fork` — instead of the warm forking path. The Mutant is still killed
+correctly; only the speed of getting there changes. A Mutant in a module outside app
+loading (a plain utility module Django never imports through `INSTALLED_APPS`) keeps
+the warm path. Net effect: Django projects get the warm path least on the modules
+mutation testing cares about most (your models), which is correct, not a defect.
+
+## Per-Mutant plugin cost
+
+Every Mutant runs pytest as a fresh session, whether the interpreter is warm or
+cold — no execution model removes plugin cost at collection or session scope. A
+warm interpreter (the forking executor) skips re-importing plugins, but their
+session-scope hooks still fire on every invocation; measured against one advisory
+plugin in this project, that cost was ~1.6s cold and still ~0.8s warm.
+
+Two plugins mutate4py neutralises automatically for Mutant runs only (never
+Baseline, which needs the real numbers to classify correctly):
+
+- **pytest-cov**, via `--no-cov` if it's importable — coverage instrumentation is
+  pure cost here, because the run already holds coverage and per-Mutant coverage
+  is never consumed.
+- **pytest-benchmark**, via `--benchmark-disable` if it's importable — benchmark
+  timing is unreliable under mutation testing regardless.
+
+`--no-cov` and `--benchmark-disable` are each plugin's own designed-for-this
+override, not `-p no:<plugin>`: blocking a plugin outright deregisters its own
+options too, so a project's own `addopts = "--cov=..."` would turn into a pytest
+"unrecognized arguments" error. Any other plugin is left untouched — some are
+load-bearing for correctness, and mutate4py has no way to know which.
+
+The remaining cost — pytest's own bootstrap plus whatever unknown plugins still
+hook in — is measured once per run, at Baseline time, with one extra
+`--collect-only` pass (no test body runs), and printed in the **Mutation Report**:
+
+```
+Per-Mutant overhead: 0.82s
+Hint: per-Mutant overhead is high relative to your test suite; audit pytest
+plugins with --pytest-args (e.g. -p no:<plugin>).
+```
+
+The hint fires once overhead reaches half of the Baseline's own duration. To audit
+which plugin is responsible, pass `-p no:<plugin>` through `--pytest-args` one
+plugin at a time and re-run — that flag *does* fully deregister a plugin, which is
+exactly what you want for an audit even though mutate4py can't use it
+automatically for the two it neutralises by default.
+
+## Worker provisioning cost and when parallelism pays off
+
+Each parallel Worker (`--max-workers >= 2`) is a full tree copy of the working
+directory, provisioned with `uv venv`/`uv sync` so its editable install resolves
+to its own copy (see "How it differs from mutate4go" below). That provisioning
+cost is paid **once per Worker per run**, not once per Mutant — so it's fixed
+overhead that a run's total Site count must amortize.
+
+For a handful of selected Sites, that fixed cost can exceed what parallelism
+saves; for a target file with many selected Sites, splitting the work across
+Workers wins even after paying it. There's no universal threshold — it depends on
+your test suite's own per-invocation cost — so if `--max-workers` isn't paying
+off, check the `Mutation workers: <n>` line against the `Selected mutation
+sites:` count in the run header and compare a serial run's wall time against a
+parallel one before assuming parallelism should always be on.
+
+## Test selection and the `static` outcome
+
+With `--test-contexts`, most Mutants get **narrowed** to just the tests that
+cover their line. A `static` outcome — the line executed only under coverage.py's
+whole-run context, e.g. module-level constants, imports, or class headers — is
+not a narrowing failure: mutate4py runs the full test set verbatim for that one
+Mutant, same as it would without `--test-contexts` at all. A run with several
+`static` Mutants will show a longer tail than a fully narrowed one; that's
+expected, not a defect. See [ADR 0018](docs/adr/0018-test-selection-three-case-no-silent-fallback.md)
+for the full three-case model (`narrowed` / `static` / hard-error on
+disagreement) and why the third case aborts instead of silently falling back.
 
 ## How it differs from mutate4go (`[PY]`)
 

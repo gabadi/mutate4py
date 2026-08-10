@@ -1,70 +1,77 @@
 {
   "version": 1,
-  "tested_at": "2026-08-09T20:06:55Z",
-  "module_hash": "ce3a71ae4b16c4c554528e224ec5aa06542f731fff0bf4295105ba8e047ac1b0",
-  "source_sha256": "2c370df476dd3fd4b394b398e72034867f1c5251437833112339e8b7fc8e7366",
+  "tested_at": "2026-08-10T18:37:48Z",
+  "module_hash": "0f8368fa273b3c3d3ed4c533e0a321d38316196e09724ca58d1af4813bc21a0f",
+  "source_sha256": "cdf93fd1a838e80352aaebaf35f50388ad694886c65b89558e501b011f8b99c0",
   "functions": [
     {
       "id": "func/_run_header_lines",
       "name": "_run_header_lines",
-      "line": 47,
-      "end_line": 60,
+      "line": 48,
+      "end_line": 61,
       "hash": "e4616d1a61dae486ae5b01ab48203c7fada48431a16503755a27612e0639627a"
     },
     {
       "id": "func/_uncovered_block_lines",
       "name": "_uncovered_block_lines",
-      "line": 63,
-      "end_line": 75,
+      "line": 64,
+      "end_line": 76,
       "hash": "64a4530d06c53d830a8262004e4e6d7f3e98e114d9b61c48415c115251d55511"
     },
     {
       "id": "func/_serial_progress_line",
       "name": "_serial_progress_line",
-      "line": 78,
-      "end_line": 80,
+      "line": 79,
+      "end_line": 81,
       "hash": "2e7753e489bf25bf53ea50c21227ed4f38b4989ef6eab90150ddcf7d12bc518b"
     },
     {
       "id": "func/_parallel_progress_line",
       "name": "_parallel_progress_line",
-      "line": 83,
-      "end_line": 90,
+      "line": 84,
+      "end_line": 91,
       "hash": "605886fe59ebf5cfd4f034f5ce7006def3b4c2e032d0742d78afe52668c550b8"
     },
     {
       "id": "func/_on_parallel_result",
       "name": "_on_parallel_result",
-      "line": 93,
-      "end_line": 95,
+      "line": 94,
+      "end_line": 96,
       "hash": "2076e58d0db2b5dd0a4fe16bc1218f7fa77a92750ee63bbff3263fe169eb8aa1"
+    },
+    {
+      "id": "func/_overhead_report_lines",
+      "name": "_overhead_report_lines",
+      "line": 115,
+      "end_line": 125,
+      "hash": "4af028337280a721b91b0f1466a4138dcfda53fad2c511ea1e136681e445f7e6"
     },
     {
       "id": "func/_mutation_report_lines",
       "name": "_mutation_report_lines",
-      "line": 98,
-      "end_line": 121,
-      "hash": "249ce98055d3b67801d38987070c9e2119bab9af02d657f0b661d26b5a8b187a"
+      "line": 128,
+      "end_line": 154,
+      "hash": "229cf498f90ad2564ddb5bd8d938b7a6b9ba97d6dacb6abd8204898afab15af5"
     },
     {
       "id": "func/_workers_header_lines",
       "name": "_workers_header_lines",
-      "line": 124,
-      "end_line": 128,
+      "line": 157,
+      "end_line": 161,
       "hash": "45a887b31e2142ea6ee16ac8585dbe9ed7ee256035aa668275994ec504e3bfd8"
     },
     {
       "id": "func/scan_report",
       "name": "scan_report",
-      "line": 131,
-      "end_line": 144,
+      "line": 164,
+      "end_line": 177,
       "hash": "a93f4b1530dfba54505143b85e4c075297dd27837402a4767874bf43ddd9f1fe"
     },
     {
       "id": "func/scan_report_with_coverage",
       "name": "scan_report_with_coverage",
-      "line": 147,
-      "end_line": 174,
+      "line": 180,
+      "end_line": 207,
       "hash": "79c826dea41a0b2c9ce3b32bc1247c0089120f03a682d852fb753b8113f6f36c"
     }
   ]

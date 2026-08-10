@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-10T19:26:35Z",
+  "module_hash": "46c3d7dab91a94d317bb37dd953527133163a81c148db504333cf4bb9a7b364d",
+  "source_sha256": "a321f7fe950b0a429c76da9da478dec17f7121f9e15c5ccf7373bc62c38c5c82",
+  "functions": [
+    {
+      "id": "func/_baseline_reason",
+      "name": "_baseline_reason",
+      "line": 22,
+      "end_line": 26,
+      "hash": "6037bd527abaf8a495048a7a504e32c167fda984b2204f6f777d58bb0bc94c61"
+    },
+    {
+      "id": "func/_timed_pytest_run",
+      "name": "_timed_pytest_run",
+      "line": 29,
+      "end_line": 45,
+      "hash": "a4d0a74353892f2216fcea379b6e64dd0ddc38da5a894fb3ea3c55da61cfeaef"
+    },
+    {
+      "id": "func/run_baseline",
+      "name": "run_baseline",
+      "line": 48,
+      "end_line": 53,
+      "hash": "4b950e65530a7886e6471999baa870f0790b4654f4eb6be93f4207a712fd426e"
+    },
+    {
+      "id": "func/measure_per_mutant_overhead",
+      "name": "measure_per_mutant_overhead",
+      "line": 56,
+      "end_line": 70,
+      "hash": "32f787e44fd2ecbfa989ac01dd298f41fbe44fce6de463a1958ec921ca713dd7"
+    },
+    {
+      "id": "func/resolve_baseline_and_overhead",
+      "name": "resolve_baseline_and_overhead",
+      "line": 73,
+      "end_line": 91,
+      "hash": "de36b9e14c494d99ce2b2a9ea498c8e5391f177b9027937ded2d9a2f5b17091b"
+    }
+  ]
+}

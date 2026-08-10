@@ -17,7 +17,7 @@ Feature: Parallel worker execution for --max-workers
   #           shouldSkipCopy :527, sortResults :457, printHeader :614, per-mutant :425).
   #
   # CONTRACT:
-  #   command: mutate4py <file> --max-workers <n> <coverage flag> [--test-command CMD]
+  #   command: mutate4py <file> --max-workers <n> <coverage flag> [--pytest-args ARGS]
   #            [selection flags] [--timeout-factor N] [--mutation-warning N]
   #   request:
   #     <file> — path, required; a Python source file with selected mutation sites (F1).
@@ -49,7 +49,8 @@ Feature: Parallel worker execution for --max-workers
   #     (upstream runner.go:614). The "worker-<k>" token tracks the PATH (parallel only).
   #   - Each worker is a tree copy of the working dir under
   #     .mutate4py/workers/run-<pid>-<nanos>/worker-<k>/, with its own uv-provisioned
-  #     venv; it runs the user --test-command verbatim with cwd = worker-root. No
+  #     venv; it runs pytest with the run's --pytest-args verbatim, no shell,
+  #     with cwd = worker-root. No
   #     "uv pip install -e", no "uv run" wrapping (ADR 0015 resolution 1).
   #   - The copy skips .git, __pycache__, .venv, .pytest_cache, .mypy_cache,
   #     .ruff_cache, and the .mutate4py/ worker dir itself (ADR 0015 resolution 3).
@@ -99,7 +100,7 @@ Feature: Parallel worker execution for --max-workers
   #     target file (upstream mutates one file per invocation).
   #   - ASSUMED: uv is available on PATH in the run environment; the exact provisioning
   #     commands (uv venv / uv sync) and subprocess mechanism are the coder's to pin.
-  #   - ASSUMED: the injected exec seam runs --test-command in a given working directory
+  #   - ASSUMED: the injected exec seam runs pytest (no shell) in a given working directory
   #     and reports exit status / timeout (same seam F4 assumes), now per worker copy.
   #
   # UX INTENT: none

@@ -58,7 +58,7 @@ def _make_src_dir(tmp_path, files: dict[str, str]) -> str:
 @pytest.mark.integration
 def test_directory_run_mode_attempts_run_on_files(tmp_path):
     d = _make_src_dir(tmp_path, {"a.py": "x = 1\n"})
-    result = _run_cli_path(d, "--test-command", "true")
+    result = _run_cli_path(d, "--pytest-args", "--collect-only -q tests/test_cmd.py", "--no-fork")
     assert "run mode requires a single file, not a directory" not in result.stderr
 
 
@@ -192,7 +192,7 @@ def test_directory_all_files_excluded_exits_2_in_update_manifest_mode(tmp_path):
 def test_directory_all_files_excluded_exits_2_in_run_mode(tmp_path):
     """Run mode bails before acquiring coverage or timing a baseline."""
     d = _make_src_dir(tmp_path, {"a.py": "x = 1\n"})
-    result = _run_cli_path(d, "--exclude", "**/*.py", "--test-command", "false")
+    result = _run_cli_path(d, "--exclude", "**/*.py")
     assert result.returncode == 2
     assert "error: no Python files to process." in result.stderr
 
@@ -467,8 +467,9 @@ def test_main_directory_run_mode_continues_past_syntax_error(tmp_path, capsys):
         str(d),
         "--lcov",
         str(lcov),
-        "--test-command",
-        "true",
+        "--pytest-args",
+        "--collect-only -q tests/test_cmd.py",
+        "--no-fork",
     ]
     with pytest.raises(SystemExit) as exc:
         m.main()

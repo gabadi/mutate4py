@@ -13,6 +13,7 @@ from mutate4py._discovery import Site, discover_sites, partition_sites
 
 __all__ = [
     "CoverageSource",
+    "OverheadInfo",
     "RunStats",
     "scan_report",
     "scan_report_with_coverage",
@@ -95,11 +96,41 @@ def _on_parallel_result(result: dict) -> None:
     _logger.info(_parallel_progress_line(result))
 
 
+# Overhead at or above this share of the Baseline's own duration means a
+# Mutant spends more of its run on fixed cost than on the tests it exists to
+# run — the threshold, not the measured value, is what tests pin (issue 06).
+_OVERHEAD_HINT_RATIO = 0.5
+
+
+@dataclasses.dataclass(frozen=True)
+class OverheadInfo:
+    """Per-Mutant overhead paired with the Baseline duration it was measured
+    alongside — bundled into one param so _mutation_report_lines stays at
+    the project's 5-argument cap (issue 06)."""
+
+    overhead_duration: float
+    baseline_duration: float
+
+
+def _overhead_report_lines(overhead_duration: float, baseline_duration: float) -> list[str]:
+    """The per-Mutant overhead line, plus a plugin-audit hint once overhead
+    reaches _OVERHEAD_HINT_RATIO of the Baseline it was measured alongside.
+    """
+    lines = [f"Per-Mutant overhead: {overhead_duration:.2f}s"]
+    if baseline_duration > 0 and overhead_duration / baseline_duration >= _OVERHEAD_HINT_RATIO:
+        lines.append(
+            "Hint: per-Mutant overhead is high relative to your test suite; "
+            "audit pytest plugins with --pytest-args (e.g. -p no:<plugin>)."
+        )
+    return lines
+
+
 def _mutation_report_lines(
     counts: dict[str, int],
     survivors: list[Site],
     uncovered_count: int,
     selection_counts: dict[str, int] | None = None,
+    overhead: OverheadInfo | None = None,
 ) -> list[str]:
     killed_total = counts["killed"] + counts["timeout"]
     lines = [
@@ -112,6 +143,8 @@ def _mutation_report_lines(
     ]
     if selection_counts is not None:
         lines.append(f"Test selection: narrowed {selection_counts['narrowed']}, static {selection_counts['static']}")
+    if overhead is not None:
+        lines.extend(_overhead_report_lines(overhead.overhead_duration, overhead.baseline_duration))
     if survivors:
         lines.append("")
         lines.append("Survivors:")

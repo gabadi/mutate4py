@@ -3,7 +3,9 @@
 import os
 import shlex
 
-_SCAN_INCOMPATIBLE_FLAGS = {"--timeout-factor", "--test-command", "--max-workers"}
+_SCAN_INCOMPATIBLE_FLAGS = {"--timeout-factor", "--pytest-args", "--max-workers"}
+
+_FAKE_PYTEST_ARGS = "-q tests"
 
 _MANIFEST_REPORT_PREFIXES = (
     "Manifest missing:",
@@ -36,10 +38,10 @@ def single_flag_args(flag_str: str, src: str, lcov: str) -> list[str]:
         return [src, "--scan"]
     flags = split_flags(flag_str)
     flag_name = flags[0] if flags else ""
-    if flag_name == "--test-command":
-        return [src, "--lcov", lcov, "--test-command", "true"]
+    if flag_name == "--pytest-args":
+        return [src, "--lcov", lcov, "--pytest-args", _FAKE_PYTEST_ARGS]
     if flag_name in _SCAN_INCOMPATIBLE_FLAGS:
-        return [src, "--lcov", lcov, "--test-command", "true"] + flags
+        return [src, "--lcov", lcov, "--pytest-args", _FAKE_PYTEST_ARGS] + flags
     return [src, "--scan"] + flags
 
 
@@ -52,7 +54,7 @@ def two_flag_args(flag1: str, flag2: str, src: str, lcov: str) -> list[str]:
     if "--max-workers" in flag_names and not any(
         f in flag_names for f in ("--scan", "--update-manifest")
     ):
-        return [src, "--lcov", lcov, "--test-command", "true"] + all_flags
+        return [src, "--lcov", lcov, "--pytest-args", _FAKE_PYTEST_ARGS] + all_flags
     return [src] + all_flags
 
 
@@ -65,10 +67,10 @@ def accepted_flags_args(
     if flags_str == "--update-manifest":
         return [src, "--update-manifest"], "manifest write", None
     if flags_str == "(a coverage flag)":
-        return [src, "--lcov", lcov, "--test-command", "true"], "run loop", None
+        return [src, "--lcov", lcov, "--pytest-args", _FAKE_PYTEST_ARGS], "run loop", None
     if flags_str == "--max-workers 4 (a coverage flag)":
         return (
-            [src, "--lcov", lcov, "--max-workers", "4", "--test-command", "true"],
+            [src, "--lcov", lcov, "--max-workers", "4", "--pytest-args", _FAKE_PYTEST_ARGS],
             "run loop",
             4,
         )
@@ -79,11 +81,11 @@ def assert_option_accepted(
     option: str, value: str, returncode: int, stderr: str
 ) -> None:
     """Assert that a CLI option was accepted (zero exit or no error in stderr)."""
-    if option in ("mutation-warning", "timeout-factor", "test-command"):
+    if option in ("mutation-warning", "timeout-factor", "pytest-args"):
         default_values = {
             "mutation-warning": "50",
             "timeout-factor": "10",
-            "test-command": "pytest",
+            "pytest-args": "(none)",
         }
         if value == default_values.get(option):
             assert returncode == 0 or "error" not in stderr.lower(), (
@@ -106,6 +108,8 @@ def described_args(description: str, src: str) -> list[str]:
     """Return CLI args for a descriptive invocation."""
     if description == "a valid file with --bogus-flag":
         return [src, "--bogus-flag"]
+    if description == "a valid file with --test-command":
+        return [src, "--test-command", "pytest"]
     if description == "no positional source file":
         return ["--scan"]
     if description == "a source path that does not exist":

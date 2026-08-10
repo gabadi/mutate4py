@@ -26,7 +26,7 @@ def _make_args(**kwargs):
         max_workers=None,
         timeout_factor=10,
         min_timeout=1.0,
-        test_command="pytest",
+        pytest_args=[],
         test_contexts=None,
         cov_cmd=None,
         lcov=None,
@@ -36,7 +36,7 @@ def _make_args(**kwargs):
         verbose=False,
         exclude=None,
         prune_dirs=(),
-        no_fork_server=False,
+        no_fork=False,
     )
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -121,7 +121,7 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
 
     args = _make_args(
         cov_cmd="echo hi",
-        test_command="tox",
+        pytest_args=["-x", "-k", "foo"],
         timeout_factor=7,
         min_timeout=2.5,
         lines="3,4",
@@ -140,7 +140,7 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
         "cov_cmd": "echo hi",
         "lcov_path": None,
         "reuse_coverage": False,
-        "test_command": "tox",
+        "pytest_args": ["-x", "-k", "foo"],
         "timeout_factor": 7,
         "min_timeout": 2.5,
         "lines_filter": {3, 4},
@@ -152,7 +152,8 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
         "baseline_duration": 1.5,
         "test_contexts_path": ".coverage",
         "manifest_file": False,
-        "fork_server_requested": True,
+        "forking_requested": True,
+        "executor": None,
     }
 
 
@@ -196,8 +197,8 @@ def test_run_on_file_scan_coverage_error_exits_2(monkeypatch, capsys):
     assert "no coverage source" in capsys.readouterr().err
 
 
-def test_run_on_file_fork_server_requested_defaults_true(monkeypatch):
-    """Default (no --no-fork-server): run_mutations is asked to use the fast path."""
+def test_run_on_file_forking_requested_defaults_true(monkeypatch):
+    """Default (no --no-fork): run_mutations is asked to use the fast path."""
     from mutate4py._dispatch import _run_on_file
 
     captured = {}
@@ -205,12 +206,12 @@ def test_run_on_file_fork_server_requested_defaults_true(monkeypatch):
         "mutate4py._dispatch.run_mutations",
         lambda request: captured.update(request=request) or 0,
     )
-    args = _make_args(no_fork_server=False)
+    args = _make_args(no_fork=False)
     _run_on_file(args, "f.py", "x = 1\n", "/cwd")
-    assert captured["request"].fork_server_requested is True
+    assert captured["request"].forking_requested is True
 
 
-def test_run_on_file_fork_server_requested_false_when_disabled(monkeypatch):
+def test_run_on_file_forking_requested_false_when_disabled(monkeypatch):
     from mutate4py._dispatch import _run_on_file
 
     captured = {}
@@ -218,9 +219,9 @@ def test_run_on_file_fork_server_requested_false_when_disabled(monkeypatch):
         "mutate4py._dispatch.run_mutations",
         lambda request: captured.update(request=request) or 0,
     )
-    args = _make_args(no_fork_server=True)
+    args = _make_args(no_fork=True)
     _run_on_file(args, "f.py", "x = 1\n", "/cwd")
-    assert captured["request"].fork_server_requested is False
+    assert captured["request"].forking_requested is False
 
 
 # ── _needs_directory_baseline / _prepare_directory_baseline ───────────────────
@@ -252,9 +253,9 @@ def test_prepare_directory_baseline_returns_duration(monkeypatch):
     from mutate4py._dispatch import _prepare_directory_baseline
 
     monkeypatch.setattr("mutate4py._coverage.acquire_coverage", lambda **kwargs: {1, 2})
-    monkeypatch.setattr("mutate4py._dispatch.run_baseline", lambda cmd, cwd: (1.23, None))
+    monkeypatch.setattr("mutate4py._dispatch.run_baseline", lambda pytest_args, cwd: (1.23, None))
 
-    args = _make_args(test_command="pytest")
+    args = _make_args()
     duration = _prepare_directory_baseline(args, ["a.py"], "/cwd")
 
     assert duration == 1.23
@@ -529,6 +530,45 @@ def test_parse_lines_negative_exits(capsys):
         assert exc.code == 2
     err = capsys.readouterr().err
     assert "positive integer" in err
+
+
+# ── _parse_pytest_args ──────────────────────────────────────────────────────
+
+
+def test_parse_pytest_args_none():
+    from mutate4py._dispatch import _parse_pytest_args
+
+    assert _parse_pytest_args(None) == []
+
+
+def test_parse_pytest_args_empty_string():
+    from mutate4py._dispatch import _parse_pytest_args
+
+    assert _parse_pytest_args("") == []
+
+
+def test_parse_pytest_args_splits_tokens():
+    from mutate4py._dispatch import _parse_pytest_args
+
+    assert _parse_pytest_args("-x -k foo") == ["-x", "-k", "foo"]
+
+
+def test_parse_pytest_args_respects_quoting():
+    from mutate4py._dispatch import _parse_pytest_args
+
+    assert _parse_pytest_args("-k 'foo bar'") == ["-k", "foo bar"]
+
+
+def test_parse_pytest_args_malformed_quoting_exits_2(capsys):
+    from mutate4py._dispatch import _parse_pytest_args
+
+    try:
+        _parse_pytest_args("-k 'unclosed")
+        assert False, "expected SystemExit"
+    except SystemExit as exc:
+        assert exc.code == 2
+    err = capsys.readouterr().err
+    assert "--pytest-args" in err
 
 
 # ── --exclude: dispatch-level reporting and exits ─────────────────────────────

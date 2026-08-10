@@ -138,19 +138,23 @@ mutate-sample:
 # first — REWRITES `path` afterward, same as mutate4py always does on a
 # scored run: expect a diff.
 #
-# Default --test-command excludes @pytest.mark.integration tests (the
+# Default --pytest-args excludes @pytest.mark.integration tests (the
 # subprocess-spawning `_run_cli_path`/`_run_cli_in` CLI tests in
 # tests/test_main.py): pytest-cov's --cov-context=test can't see inside a
 # spawned subprocess, so these tests never contribute to per-mutant test
 # scoping (confirmed: 0/346 sites depend on them) — they only added cost to
 # the once-per-run baseline and any full-suite fallback. `{{args}}` can still
-# override with an explicit --test-command if ever needed.
+# override with an explicit --pytest-args if ever needed.
+# `-p no:tach` skips tach's pytest plugin, which re-runs its impact analysis
+# on every subprocess spawn with no cache (measured ~1-1.3s/mutant, issue
+# #26 diagnosis) — irrelevant here since `tach check` already runs in the
+# `lint` gate; this only drops its redundant per-mutant pytest-plugin cost.
 mutate path *args:
     #!/usr/bin/env bash
     set -uo pipefail
     log="$(mktemp)"
     trap 'rm -f "$log"' EXIT
-    uv run mutate4py {{path}} --lcov lcov.info --test-contexts .coverage --test-command "pytest -m 'not integration'" {{args}} >"$log" 2>&1
+    uv run mutate4py {{path}} --lcov lcov.info --test-contexts .coverage --pytest-args "-p no:tach -m 'not integration'" {{args}} >"$log" 2>&1
     status=$?
     awk '/^Mutation Report$/,0' "$log"
     if [ "$status" -ne 0 ]; then
@@ -166,6 +170,12 @@ mutate path *args:
 # using per-mutant test selection, and prints a duration table with a total.
 # Not a pre-commit gate — dogfoods mutate4py against all of src/, so this
 # takes minutes, not seconds. Run it to benchmark real mutation-testing cost.
+#
+# The mutation step below calls `mutate` above rather than invoking
+# mutate4py directly, so this — the largest run in the project — always
+# gets the same `-p no:tach` plugin-disable and integration-test exclusion
+# as every other scored run, with one invocation to keep in sync instead of
+# two that can silently drift apart.
 perf:
     #!/usr/bin/env bash
     set -uo pipefail
@@ -196,8 +206,7 @@ perf:
     _run "check-manifest" uv run mutate4py src/ --check-manifest
     _run "acceptance" bash acceptance/run_acceptance.sh
     _run "mutation (src/, --test-contexts)" \
-        uv run mutate4py src/ --lcov lcov.info --test-contexts .coverage \
-            --mutate-all --mutation-warning 100000
+        just mutate src/ --mutate-all --mutation-warning 100000
 
     name_width=0
     for n in "${names[@]}"; do

@@ -20,6 +20,7 @@ is unchanged by this module's existence.
 import argparse
 import logging
 import os
+import shlex
 import sys
 
 from mutate4py._runner import (
@@ -86,6 +87,17 @@ def _parse_lines(lines_str: str | None) -> set[int] | None:
     return {_parse_line_token(p) for p in parts}
 
 
+def _parse_pytest_args(raw: str | None) -> list[str]:
+    """Parse --pytest-args into a token list; exit on malformed quoting."""
+    if not raw:
+        return []
+    try:
+        return shlex.split(raw)
+    except ValueError as exc:
+        _logger.error(f"error: --pytest-args value {raw!r} could not be parsed: {exc}")
+        sys.exit(2)
+
+
 def _run_scan(args: argparse.Namespace, path: str, source: str, cwd: str) -> None:
     """Execute --scan logic; exits with code 2 on CoverageError."""
     try:
@@ -129,7 +141,7 @@ def _run_on_file(
             cov_cmd=args.cov_cmd,
             lcov_path=args.lcov,
             reuse_coverage=args.reuse_coverage,
-            test_command=args.test_command,
+            pytest_args=args.pytest_args,
             timeout_factor=args.timeout_factor,
             min_timeout=args.min_timeout,
             lines_filter=lines_filter,
@@ -141,7 +153,7 @@ def _run_on_file(
             baseline_duration=baseline_duration,
             test_contexts_path=args.test_contexts,
             manifest_file=args.manifest_file,
-            fork_server_requested=not args.no_fork_server,
+            forking_requested=not args.no_fork,
         )
     )
 
@@ -169,7 +181,7 @@ def _prepare_directory_baseline(args: argparse.Namespace, files: list[str], cwd:
     except CoverageError as exc:
         _logger.error(f"error: {exc}")
         sys.exit(1)
-    baseline_duration, baseline_error = run_baseline(args.test_command, cwd)
+    baseline_duration, baseline_error = run_baseline(args.pytest_args, cwd)
     if baseline_error is not None:
         _logger.error(f"baseline failed: {baseline_error}")
         sys.exit(1)
@@ -270,6 +282,7 @@ def _dispatch(args: argparse.Namespace) -> None:
     deduped this way), but it is a real deviation from ADR 0017's
     byte-for-byte framing, so it's called out here rather than silently.
     """
+    args.pytest_args = _parse_pytest_args(args.pytest_args)
     roots, args.prune_dirs = _resolve_roots(args)
     if len(roots) > 1:
         _dispatch_batch(args, roots)

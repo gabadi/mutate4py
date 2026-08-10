@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-10T18:37:48Z",
+  "module_hash": "e275f4d48db7cd37460e53699214e4a5ba2ccf0df4aafe2b053ca129c0f4becc",
+  "source_sha256": "218237b7043d8840e715e6371f7f75fec63bbb40b8c3154da2c0459c90c2a1a5",
+  "functions": [
+    {
+      "id": "func/neutralising_args",
+      "name": "neutralising_args",
+      "line": 34,
+      "end_line": 36,
+      "hash": "bff4fe6e73605dd30b75ed0ae421c5e689900986735a74fe3e5d247df1153673"
+    }
+  ]
+}

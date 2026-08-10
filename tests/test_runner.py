@@ -4,12 +4,16 @@ import os
 
 import pytest
 
+from ._pytest_project_helpers import (
+    write_always_passing_pytest_project,
+    write_content_check_pytest_project,
+    write_sleep_if_mutated_pytest_project,
+)
 from mutate4py._discovery import discover_sites
 from mutate4py._manifest import build_manifest, embed_manifest
 from mutate4py._runner import (
     CoverageSource,
     RunMutationsRequest,
-    _baseline_reason,
     check_manifest,
     run_mutations,
     run_scan,
@@ -28,34 +32,6 @@ def _write_lcov(path: str, source_abs: str, covered_lines: list[int]) -> None:
         f.write(content)
 
 
-def _make_pass_script(path: str) -> str:
-    """Write a test script that always passes."""
-    script = "#!/bin/sh\nexit 0\n"
-    with open(path, "w") as f:
-        f.write(script)
-    os.chmod(path, 0o755)
-    return path
-
-
-def _make_fail_script(path: str) -> str:
-    """Write a test script that always fails."""
-    script = "#!/bin/sh\nexit 1\n"
-    with open(path, "w") as f:
-        f.write(script)
-    os.chmod(path, 0o755)
-    return path
-
-
-def _make_kill_if_mutated_script(path: str, source_path: str, mutant_text: str) -> str:
-    """Write a test script that fails when the source contains mutant_text."""
-    escaped = mutant_text.replace("'", "'\\''")
-    script = f"#!/bin/sh\nif grep -qF '{escaped}' '{source_path}'; then exit 1; else exit 0; fi\n"
-    with open(path, "w") as f:
-        f.write(script)
-    os.chmod(path, 0o755)
-    return path
-
-
 def test_run_mutations_killed_mutant(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "calc.py")
@@ -66,8 +42,7 @@ def test_run_mutations_killed_mutant(tmp_path):
     lcov_path = str(tmp_path / "cov.lcov")
     _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
-    script_path = str(tmp_path / "test.sh")
-    _make_kill_if_mutated_script(script_path, src_path, sites[0].mutant_text)
+    pytest_args = write_content_check_pytest_project(str(tmp_path), src_path, sites[0].mutant_text)
 
     import io
     from contextlib import redirect_stdout
@@ -81,7 +56,7 @@ def test_run_mutations_killed_mutant(tmp_path):
                 cov_cmd=None,
                 lcov_path=lcov_path,
                 reuse_coverage=False,
-                test_command=f"sh {script_path}",
+                pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
                 since_last_run=False,
@@ -107,8 +82,7 @@ def test_run_mutations_survived_mutant(tmp_path):
     lcov_path = str(tmp_path / "cov.lcov")
     _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
-    script_path = str(tmp_path / "test.sh")
-    _make_pass_script(script_path)
+    pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
     import io
     from contextlib import redirect_stdout
@@ -122,7 +96,7 @@ def test_run_mutations_survived_mutant(tmp_path):
                 cov_cmd=None,
                 lcov_path=lcov_path,
                 reuse_coverage=False,
-                test_command=f"sh {script_path}",
+                pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
                 since_last_run=False,
@@ -140,6 +114,53 @@ def test_run_mutations_survived_mutant(tmp_path):
     assert f"[1/{n_sites}]" in output
 
 
+def test_run_mutations_survives_project_addopts_that_enable_coverage(tmp_path):
+    """A project whose own pytest.ini enables pytest-cov via addopts must
+    still run to completion: --no-cov (issue 06's neutralisation) overrides
+    addopts without ever blocking the plugin outright — blocking it instead
+    (`-p no:cov`) would turn the project's own `--cov=...` into an
+    'unrecognized arguments' usage error, since the option is no longer
+    registered by anything."""
+    src = "def f(a, b):\n    return a > b\n"
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+
+    sites = discover_sites(src)
+    lcov_path = str(tmp_path / "cov.lcov")
+    _write_lcov(lcov_path, src_path, [s.line for s in sites])
+
+    pytest_args = write_always_passing_pytest_project(str(tmp_path))
+    with open(os.path.join(str(tmp_path), "pytest.ini"), "w") as f:
+        f.write("[pytest]\naddopts = --cov=calc --cov-report=\n")
+
+    import io
+    from contextlib import redirect_stdout
+
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        rc = run_mutations(
+            RunMutationsRequest(
+                path=src_path,
+                source=src,
+                cov_cmd=None,
+                lcov_path=lcov_path,
+                reuse_coverage=False,
+                pytest_args=pytest_args,
+                timeout_factor=10,
+                lines_filter=None,
+                since_last_run=False,
+                mutate_all=False,
+                warning_threshold=1000,
+                cwd=str(tmp_path),
+            )
+        )
+    output = buf.getvalue()
+    assert rc == 0, output
+    assert "Mutation Report" in output
+    assert "Survived: 1" in output
+
+
 def test_run_mutations_sidecar_writes_manifest_file_and_footer_free_source(tmp_path):
     import json
 
@@ -152,8 +173,7 @@ def test_run_mutations_sidecar_writes_manifest_file_and_footer_free_source(tmp_p
     lcov_path = str(tmp_path / "cov.lcov")
     _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
-    script_path = str(tmp_path / "test.sh")
-    _make_pass_script(script_path)
+    pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
     sidecar_path = src_path + ".manifest.json"
 
@@ -169,7 +189,7 @@ def test_run_mutations_sidecar_writes_manifest_file_and_footer_free_source(tmp_p
                 cov_cmd=None,
                 lcov_path=lcov_path,
                 reuse_coverage=False,
-                test_command=f"sh {script_path}",
+                pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
                 since_last_run=False,
@@ -191,62 +211,6 @@ def test_run_mutations_sidecar_writes_manifest_file_and_footer_free_source(tmp_p
     assert sidecar["functions"][0]["id"] == "func/f"
 
 
-def test_run_mutations_baseline_failure_exits_1(tmp_path):
-    src = "def f(a, b):\n    return a > b\n"
-    src_path = str(tmp_path / "calc.py")
-    with open(src_path, "w") as f:
-        f.write(src)
-
-    sites = discover_sites(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov(lcov_path, src_path, [s.line for s in sites])
-
-    script_path = str(tmp_path / "test.sh")
-    _make_fail_script(script_path)
-
-    import io
-    from contextlib import redirect_stdout
-
-    buf = io.StringIO()
-    with redirect_stdout(buf):
-        rc = run_mutations(
-            RunMutationsRequest(
-                path=src_path,
-                source=src,
-                cov_cmd=None,
-                lcov_path=lcov_path,
-                reuse_coverage=False,
-                test_command=f"sh {script_path}",
-                timeout_factor=10,
-                lines_filter=None,
-                since_last_run=False,
-                mutate_all=False,
-                warning_threshold=1000,
-                cwd=str(tmp_path),
-            )
-        )
-    output = buf.getvalue()
-    assert rc == 1
-    assert "baseline failed:" in output
-    assert "Mutation Report" not in output
-    # No backup left
-    assert not os.path.exists(src_path + ".bak")
-
-
-def test_baseline_reason_uses_stderr_first():
-    import subprocess
-
-    result = subprocess.CompletedProcess(args=[], returncode=1, stderr=b"test suite crashed\nsecond line")
-    assert _baseline_reason(result) == "test suite crashed"
-
-
-def test_baseline_reason_falls_back_to_exit_code():
-    import subprocess
-
-    result = subprocess.CompletedProcess(args=[], returncode=42, stderr=b"")
-    assert _baseline_reason(result) == "exit code 42"
-
-
 def test_run_mutations_restores_source_after_run(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "calc.py")
@@ -257,8 +221,7 @@ def test_run_mutations_restores_source_after_run(tmp_path):
     lcov_path = str(tmp_path / "cov.lcov")
     _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
-    script_path = str(tmp_path / "test.sh")
-    _make_pass_script(script_path)
+    pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
     import io
     from contextlib import redirect_stdout
@@ -272,7 +235,7 @@ def test_run_mutations_restores_source_after_run(tmp_path):
                 cov_cmd=None,
                 lcov_path=lcov_path,
                 reuse_coverage=False,
-                test_command=f"sh {script_path}",
+                pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
                 since_last_run=False,
@@ -304,8 +267,7 @@ def test_run_mutations_crash_safety_restores_bak(tmp_path):
     lcov_path = str(tmp_path / "cov.lcov")
     _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
-    script_path = str(tmp_path / "test.sh")
-    _make_pass_script(script_path)
+    pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
     import io
     from contextlib import redirect_stdout
@@ -319,7 +281,7 @@ def test_run_mutations_crash_safety_restores_bak(tmp_path):
                 cov_cmd=None,
                 lcov_path=lcov_path,
                 reuse_coverage=False,
-                test_command=f"sh {script_path}",
+                pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
                 since_last_run=False,
@@ -355,8 +317,7 @@ def test_run_mutations_preserves_tested_at_when_manifest_already_current(tmp_pat
     lcov_path = str(tmp_path / "cov.lcov")
     _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
-    script_path = str(tmp_path / "test.sh")
-    _make_pass_script(script_path)
+    pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
     import io
     from contextlib import redirect_stdout
@@ -370,7 +331,7 @@ def test_run_mutations_preserves_tested_at_when_manifest_already_current(tmp_pat
                 cov_cmd=None,
                 lcov_path=lcov_path,
                 reuse_coverage=False,
-                test_command=f"sh {script_path}",
+                pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
                 since_last_run=False,
@@ -399,8 +360,7 @@ def test_run_mutations_reuse_coverage_warns(tmp_path):
     lcov_path = str(tmp_path / "coverage.lcov")
     _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
-    script_path = str(tmp_path / "test.sh")
-    _make_pass_script(script_path)
+    pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
     import io
     from contextlib import redirect_stdout
@@ -414,7 +374,7 @@ def test_run_mutations_reuse_coverage_warns(tmp_path):
                 cov_cmd=None,
                 lcov_path=None,
                 reuse_coverage=True,
-                test_command=f"sh {script_path}",
+                pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
                 since_last_run=False,
@@ -441,8 +401,7 @@ def test_run_mutations_header_counts(tmp_path):
     lcov_path = str(tmp_path / "cov.lcov")
     _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
-    script_path = str(tmp_path / "test.sh")
-    _make_pass_script(script_path)
+    pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
     import io
     from contextlib import redirect_stdout
@@ -456,7 +415,7 @@ def test_run_mutations_header_counts(tmp_path):
                 cov_cmd=None,
                 lcov_path=lcov_path,
                 reuse_coverage=False,
-                test_command=f"sh {script_path}",
+                pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
                 since_last_run=False,
@@ -491,8 +450,7 @@ def test_run_mutations_prints_uncovered_block_for_uncovered_sites(tmp_path):
     lcov_path = str(tmp_path / "cov.lcov")
     _write_lcov(lcov_path, src_path, [sites[0].line])  # only the first site is covered
 
-    script_path = str(tmp_path / "test.sh")
-    _make_pass_script(script_path)
+    pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
     import io
     from contextlib import redirect_stdout
@@ -506,7 +464,7 @@ def test_run_mutations_prints_uncovered_block_for_uncovered_sites(tmp_path):
                 cov_cmd=None,
                 lcov_path=lcov_path,
                 reuse_coverage=False,
-                test_command=f"sh {script_path}",
+                pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
                 since_last_run=False,
@@ -531,12 +489,7 @@ def test_run_mutations_timeout_counts_as_killed(tmp_path):
     _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
     # Baseline passes quickly, mutant sleeps past the short timeout
-    baseline_script = str(tmp_path / "baseline.sh")
-    with open(baseline_script, "w") as f:
-        f.write("#!/bin/sh\n")
-        f.write(f"if grep -qF '{sites[0].mutant_text}' '{src_path}'; then sleep 5; fi\n")
-        f.write("exit 0\n")
-    os.chmod(baseline_script, 0o755)
+    pytest_args = write_sleep_if_mutated_pytest_project(str(tmp_path), src_path, sites[0].mutant_text, 5)
 
     import io
     from contextlib import redirect_stdout
@@ -550,7 +503,7 @@ def test_run_mutations_timeout_counts_as_killed(tmp_path):
                 cov_cmd=None,
                 lcov_path=lcov_path,
                 reuse_coverage=False,
-                test_command=f"sh {baseline_script}",
+                pytest_args=pytest_args,
                 timeout_factor=1,
                 min_timeout=0.1,
                 lines_filter=None,
@@ -750,7 +703,7 @@ def test_run_mutations_propagates_syntax_error(tmp_path):
                 cov_cmd=None,
                 lcov_path=None,
                 reuse_coverage=False,
-                test_command="true",
+                pytest_args=[],
                 timeout_factor=10,
                 lines_filter=None,
                 since_last_run=False,

@@ -24,7 +24,7 @@ which this mirrors module-for-module.
 | 3 | Function unit = top-level `def` / method / `async def`; nested defs & lambdas fold into enclosing named unit | [PORT]+[PY] |
 | 4 | Operators = core set + `and`/`or` + `True`/`False` + comparison-negation flips (`==`/`!=`, `is`/`is not`, `in`/`not in`) | [PY] |
 | 5 | In-place splice/restore mutation; `--max-workers` **restored** (REOPENED — see §9, ADR 0013/0015): serial by default, parallel via `uv`-provisioned clone-per-worker; mutate4go's tree-copy+`cwd` model replaced as editable-install-unsound | [PY] |
-| 6 | `--test-command` defaults to `pytest` | [PY] |
+| 6 | `--pytest-args` (extra pytest arguments; no shell) — pytest is the only supported runner | [PY] |
 
 ---
 
@@ -67,7 +67,7 @@ batch, and zero triggers uv workspace autodiscovery instead of a usage error.
 | `--timeout-factor N` | mutant timeout = N × baseline (default 10) | same | [PORT] |
 | `--verbose` | log actions to stderr | same | [PORT] |
 | `--help` | usage and exit | same | [PORT] |
-| `--test-command CMD` | default `go test ./...` | default **`pytest`** | [PY] |
+| `--pytest-args ARGS` | default `go test ./...` | extra pytest arguments (default none) — pytest is the only supported runner, invoked directly, never through a shell | [PY] |
 | `--cov-cmd CMD` | — (Go appends `-coverprofile`) | command that emits LCOV | [PY] |
 | `--lcov PATH` | — (fixed path) | path to LCOV file | [PY] |
 | `--reuse-coverage` | reuse coverprofile on disk | reuse LCOV on disk | [PORT]/[PY] |
@@ -93,9 +93,17 @@ batch, and zero triggers uv workspace autodiscovery instead of a usage error.
   recursive walk, by directory-path identity, not by re-encoding the path as a glob
   string. stdlib `tomllib` only, never a `uv` subprocess; needing it unconditionally
   raised the Python floor to 3.11 (§1) rather than adding a `tomli` dependency.
-- **`--test-command` defaults to `pytest`** (Go defaults `go test ./...`, clj
-  defaults `clj -M:spec ...`; all three ports ship a default — `pytest` is the
-  Python near-universal). Override for `unittest`/`nose`/custom.
+- **Pytest is the only supported runner (`--pytest-args`, issue 03).** Go's
+  `--test-command` and Clojure's `--test-command` both let the whole runner be
+  swapped out; mutate4py instead fixes pytest by contract and exposes
+  `--pytest-args ARGS` — one shell-quoted string of extra pytest arguments,
+  parsed at the CLI boundary and passed straight through to pytest as an argv
+  list, never through a shell. The **serial** run loop's two execution paths
+  (forking and subprocess) both implement one `Executor` interface — prime
+  once, then run a given argument list under a timeout and report the
+  classification — so the serial loop never branches on which one it holds.
+  The **parallel** path (§9) does not go through `Executor` yet; it still
+  runs pytest directly per mutant. Unifying the two is issue 04's job.
 - **Coverage acquisition split (`--cov-cmd` / `--lcov` / `--reuse-coverage`).**
   mutate4go appends `-coverprofile=...` to the test command; Python has no
   universal coverage flag, so coverage is acquired separately. clj-mutate reads
@@ -115,10 +123,10 @@ batch, and zero triggers uv workspace autodiscovery instead of a usage error.
   missing file is a usage error (exit 2) before any mutation runs. For every
   selected site, the db is queried for the mutated line and the outcome is one of
   three declared cases — **no silent fallback** (ADR 0018): **narrowed**, the db
-  names covering tests, so only those run (`<test-command> <node-id>...`, node IDs
-  shell-quoted); **static**, the line executed only under coverage.py's empty
-  (whole-run) context — import-time code that no single test owns — so the full
-  `--test-command` runs verbatim, as the stated rule (Stryker's "static mutant"
+  names covering tests, so only those run (`[*pytest_args, *node_ids]` — a plain
+  argument list, no shell, so no quoting is needed); **static**, the line executed
+  only under coverage.py's empty (whole-run) context — import-time code that no
+  single test owns — so `pytest_args` runs verbatim, as the stated rule (Stryker's "static mutant"
   policy); **disagreement**, the db has nothing for the line or lacks the file
   entirely, which can only be an input defect because selected sites are
   LCOV-covered by construction (§6) — the run aborts with exit **2** and an
@@ -181,7 +189,7 @@ batch, and zero triggers uv workspace autodiscovery instead of a usage error.
 **[PORT] mutual-exclusion rules** (reproduce exactly):
 - `--scan` and `--update-manifest` are mutually exclusive and cannot combine with
   any execution option (`--lines`, `--since-last-run`, `--mutate-all`,
-  `--timeout-factor`, `--test-command`, `--max-workers`).
+  `--timeout-factor`, a non-empty `--pytest-args`, `--max-workers`).
 - `--since-last-run`, `--mutate-all`, `--lines` are pairwise exclusive.
 - `--max-workers` joins only the scan/update-manifest exclusion; it may combine with
   the selection flags.
@@ -336,8 +344,8 @@ as the embedded footer, written standalone to `<source_path>.manifest.json`
 5. `selectSites`: from covered sites, drop those not in `--lines` (if set) and,
    when differential, drop those whose FunctionID is unchanged.
 6. Print header (§8); print uncovered list when not differential and no `--lines`.
-7. **Baseline:** run `--test-command` once with no mutation; it must pass, and its
-   duration sets `timeout = max(1s, timeout-factor × baseline)`.
+7. **Baseline:** run pytest once with `pytest_args`, no mutation; it must pass,
+   and its duration sets `timeout = max(1s, timeout-factor × baseline)`.
 8. Save `.mutate4py.bak`; for each selected site: apply mutant → write file → run
    test command with timeout → classify → restore original. Statuses:
    non-zero exit → **killed**; timeout → **timeout** (counted as killed); zero exit
@@ -451,8 +459,8 @@ and it preserves the byte-splice engine (so no `__pycache__`-spoof rework).
 working directory (skipping `.git`, `__pycache__`, `.venv`, `.pytest_cache`,
 `.mypy_cache`, `.ruff_cache`, and the worker dir itself) under
 `.mutate4py/workers/run-<pid>-<nanos>/worker-<k>/`, provisioned with `uv venv`/`uv
-sync` so the worker has its own resolved environment. The worker then runs the user's
-`--test-command` **verbatim** with `cwd = worker-root` (upstream's `cwd = workerRoot`
+sync` so the worker has its own resolved environment. The worker then runs the run's
+`pytest_args` **verbatim** (no shell) with `cwd = worker-root` (upstream's `cwd = workerRoot`
 model) — **no `uv pip install -e`, no `uv run` wrapping** — and the worker's own venv
 makes imports resolve to its copy, so each worker is editable-install-proof. The whole
 `run-<pid>-<nanos>` root is removed at the end of the run.
