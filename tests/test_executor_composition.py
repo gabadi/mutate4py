@@ -5,12 +5,14 @@ test_run_mutations_modes.py, which cover the same dispatch logic without
 paying for a real fork()/subprocess.
 """
 
+import os
 import sqlite3
 import sys
 import types
 
 import pytest
 
+import mutate4py
 from mutate4py._discovery import discover_sites
 from mutate4py._forking_executor import ForkingExecutor
 from mutate4py._runner import RunMutationsRequest, run_mutations
@@ -262,3 +264,76 @@ def test_forking_and_subprocess_executors_classify_the_same_mutant_identically(t
     target.write_text("def add(a, b):\n    return a - b\n")
     assert forking.run(args, timeout=30.0) == "killed"
     assert subprocess_executor.run(args, timeout=30.0) == "killed"
+
+
+# --- self-scan on the project's own orchestrator modules ----------------------
+
+
+@pytest.mark.integration
+def test_self_scan_on_run_prep_degrades_to_subprocess_and_kills_correctly(tmp_path, monkeypatch):
+    """mutate4py._run_prep — the module this very ticket edits — is already
+    imported by this test process (transitively, via the `from mutate4py._runner
+    import ...` above), so scanning its real on-disk file is a genuine self-leak,
+    not a synthetic tmp_path fixture: exactly the "self-referential scanning"
+    hazard AGENTS.md warns about. Must still degrade to the subprocess executor
+    and still classify mutants on the real file correctly."""
+    import mutate4py._forking_executor as forking_mod
+    import mutate4py._subprocess_executor as subprocess_mod
+
+    target = os.path.join(os.path.dirname(mutate4py.__file__), "_run_prep.py")
+    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(mutate4py.__file__))))
+    assert os.path.isfile(os.path.join(repo_root, "tests", "test_run_prep.py")), "repo_root miscomputed"
+
+    with open(target) as f:
+        original = f.read()
+    sites = discover_sites(original)
+    assert sites, "expected real mutation sites in _run_prep.py"
+
+    created_forking = []
+    created_subprocess = []
+    real_forking_cls = forking_mod.ForkingExecutor
+    real_subprocess_cls = subprocess_mod.SubprocessExecutor
+
+    class _TrackingForkingExecutor(real_forking_cls):
+        def __init__(self, *a, **kw):
+            created_forking.append(self)
+            super().__init__(*a, **kw)
+
+    class _TrackingSubprocessExecutor(real_subprocess_cls):
+        def __init__(self, *a, **kw):
+            created_subprocess.append(self)
+            super().__init__(*a, **kw)
+
+    monkeypatch.setattr(forking_mod, "ForkingExecutor", _TrackingForkingExecutor)
+    monkeypatch.setattr(subprocess_mod, "SubprocessExecutor", _TrackingSubprocessExecutor)
+
+    lcov_path = str(tmp_path / "cov.lcov")
+    _write_lcov(lcov_path, target, [s.line for s in sites])
+
+    try:
+        rc = run_mutations(
+            RunMutationsRequest(
+                path=target,
+                source=original,
+                cov_cmd=None,
+                lcov_path=lcov_path,
+                reuse_coverage=False,
+                pytest_args=["-q", "tests/test_run_prep.py", "-k", "forking_eligible or prepare_executor"],
+                timeout_factor=20,
+                lines_filter=None,
+                since_last_run=False,
+                mutate_all=False,
+                warning_threshold=1000,
+                cwd=repo_root,
+            )
+        )
+    finally:
+        with open(target, "w") as f:
+            f.write(original)
+
+    assert rc == 0
+    assert len(created_forking) == 1, "expected the forking executor to be attempted once"
+    assert len(created_subprocess) == 1, "expected the self-leak to fall back to the subprocess executor"
+    # The eligibility-predicate mutant (its own `and`/`or` swap) must be
+    # killed by test_run_prep.py's own _forking_eligible assertions.
+    assert any(s.function_id == "func/_forking_eligible" for s in sites)
