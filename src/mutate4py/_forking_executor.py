@@ -153,7 +153,17 @@ def _invalidate_bytecode_cache(guarded_path: str) -> None:
 
 
 def _run_pytest_output_suppressed(pytest_module, args: list[str], cwd: str) -> int:
-    """Run pytest.main(args) with cwd set and stdout/stderr redirected to devnull."""
+    """Run pytest.main(args) with cwd set and stdout/stderr redirected to devnull.
+
+    Flushes sys.stdout/sys.stderr before restoring the real fds: Python's
+    TextIOWrapper buffers writes at the object level, independent of the fd
+    they currently point at, so an unflushed pytest summary line written
+    while fd 1/2 point at devnull would otherwise surface later — after
+    restoration — once something finally flushes it, leaking onto whatever
+    now owns fd 1/2. Harmless for a human-readable terminal, but issue 04b's
+    Worker protocol treats every stdout line as a JSON message, so a leaked
+    line there is a framing error, not just noise.
+    """
     prev_cwd = os.getcwd()
     devnull_fd = os.open(os.devnull, os.O_WRONLY)
     saved_stdout = os.dup(1)
@@ -164,6 +174,8 @@ def _run_pytest_output_suppressed(pytest_module, args: list[str], cwd: str) -> i
         os.dup2(devnull_fd, 2)
         return int(pytest_module.main(args))
     finally:
+        sys.stdout.flush()
+        sys.stderr.flush()
         os.dup2(saved_stdout, 1)
         os.dup2(saved_stderr, 2)
         os.close(saved_stdout)

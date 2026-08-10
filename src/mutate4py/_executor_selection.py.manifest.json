@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-10T13:42:28Z",
+  "module_hash": "8ea4759b8632e8082466a83617fbfa48116ba439eed8f28f03817e8303a2e061",
+  "source_sha256": "009eece4a606ea3331560420022a790a5fc0544ed5f3bd814ad0ebccf09a3f7c",
+  "functions": [
+    {
+      "id": "func/_prepare_executor",
+      "name": "_prepare_executor",
+      "line": 21,
+      "end_line": 50,
+      "hash": "2f459a3c1699bff337717ea4f00458037e1ac719d1923f1959d0924e6aa3ccf3"
+    }
+  ]
+}

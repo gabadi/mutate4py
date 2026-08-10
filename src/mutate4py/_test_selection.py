@@ -1,6 +1,7 @@
 """Per-mutant test selection from a coverage.py SQLite context database."""
 
 import sqlite3
+import threading
 
 __all__ = [
     "TestContextDB",
@@ -48,10 +49,14 @@ class TestContextDB:
     """Read-only view of a .coverage SQLite context database."""
 
     def __init__(self, db_path: str) -> None:
+        # check_same_thread=False + _lock: parallel Worker dispatch shares one
+        # TestContextDB across worker threads, so sqlite3's default
+        # same-thread guard must be relaxed and access serialized instead.
         try:
-            self._conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+            self._conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, check_same_thread=False)
         except sqlite3.OperationalError as e:
             raise TestContextError(f"cannot open coverage db: {e}") from e
+        self._lock = threading.Lock()
         cur = self._conn.cursor()
         cur.execute("SELECT value FROM meta WHERE key = 'has_arcs'")
         row = cur.fetchone()
@@ -68,15 +73,16 @@ class TestContextDB:
           "file-absent" — the file is not in the db at all
         node_ids is empty for every outcome but "narrowed".
         """
-        cur = self._conn.cursor()
-        cur.execute("SELECT id FROM file WHERE path = ?", (source_path,))
-        row = cur.fetchone()
-        if row is None:
-            return "file-absent", []
-        file_id = row[0]
-        if self._has_arcs:
-            return self._tests_for_line_arcs(cur, file_id, line)
-        return self._tests_for_line_bits(cur, file_id, line)
+        with self._lock:
+            cur = self._conn.cursor()
+            cur.execute("SELECT id FROM file WHERE path = ?", (source_path,))
+            row = cur.fetchone()
+            if row is None:
+                return "file-absent", []
+            file_id = row[0]
+            if self._has_arcs:
+                return self._tests_for_line_arcs(cur, file_id, line)
+            return self._tests_for_line_bits(cur, file_id, line)
 
     def _tests_for_line_bits(self, cur: sqlite3.Cursor, file_id: int, line: int) -> tuple[str, list[str]]:
         cur.execute(
@@ -119,4 +125,5 @@ class TestContextDB:
         return _classify(tests, static=any(not c for c in contexts))
 
     def close(self) -> None:
-        self._conn.close()
+        with self._lock:
+            self._conn.close()

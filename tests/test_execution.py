@@ -188,7 +188,7 @@ def test_run_parallel_workers_passes_timeout(tmp_path, monkeypatch):
 
     def fake_run_parallel(request):
         captured["mutant_timeout"] = request.mutant_timeout
-        return ({"killed": 0, "survived": 0, "timeout": 0}, [])
+        return ({"killed": 0, "survived": 0, "timeout": 0}, [], None)
 
     monkeypatch.setattr(workers_mod, "run_parallel", fake_run_parallel)
     monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)

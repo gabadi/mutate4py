@@ -13,10 +13,18 @@ from acceptance.steps.step_lib import make_registry
 
 STEP_HANDLERS, step, run_step = make_registry()
 
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
 
 def _run_mutate4py(cwd: str, *args: str) -> subprocess.CompletedProcess:
+    # --project REPO_ROOT pins resolution to this repo's own editable install
+    # (mirrors parallel_workers_steps.py::when_run_mutate4py): bare "uv run
+    # mutate4py" resolves against whatever project uv discovers from cwd, and
+    # since cwd here is a scratch tempdir outside the repo, it falls through
+    # to any globally `uv tool install`-ed mutate4py on PATH instead of the
+    # local dev build under test.
     return subprocess.run(
-        ["uv", "run", "mutate4py"] + list(args),
+        ["uv", "run", "--project", REPO_ROOT, "python", "-m", "mutate4py"] + list(args),
         capture_output=True,
         text=True,
         cwd=cwd,
@@ -109,6 +117,27 @@ def _ensure_tmpdir() -> str:
 def _default_source() -> str:
     """A source file with exactly one Compare site on line 2."""
     return "def calc(a, b):\n    return a > b\n"
+
+
+def _write_uv_project_files(d: str) -> None:
+    """A minimal uv project (pyproject.toml + a pre-created empty uv.lock) so
+    a real --max-workers run's per-Worker `uv sync` provisioning succeeds
+    against this tmpdir, mirroring parallel_workers_steps.py's
+    _make_project_dir(). Only the composition scenario's Worker copies need
+    this; every other scenario here stays on the serial path and never
+    shells out to uv."""
+    with open(os.path.join(d, "pyproject.toml"), "w") as f:
+        f.write(
+            textwrap.dedent("""\
+                [project]
+                name = "test-project"
+                version = "0.1.0"
+                requires-python = ">=3.11"
+                dependencies = []
+            """)
+        )
+    with open(os.path.join(d, "uv.lock"), "w") as f:
+        f.write('version = 1\nrequires-python = ">=3.11"\n')
 
 
 def _write_arg_logging_fixture(cwd: str, log_path: str) -> None:
@@ -266,6 +295,7 @@ def given_source_with_covered_sites(m, params):
 def given_source_two_sites(m, params):
     _reset_ctx()
     d = _ensure_tmpdir()
+    _write_uv_project_files(d)
     ctx.src_path = os.path.join(d, "sample.py")
     with open(ctx.src_path, "w") as f:
         f.write(textwrap.dedent("""\
@@ -287,9 +317,8 @@ def given_source_two_sites(m, params):
 def given_db_per_test_context(m, params):
     d = _ensure_tmpdir()
     ctx.db_path = os.path.join(d, ".coverage")
-    # Both sites execute only at import time here — narrowed vs. static is
-    # irrelevant to this scenario, which only checks that --max-workers is
-    # forced to serial when --test-contexts is supplied.
+    # Both sites execute only at import time here, so both come out "static"
+    # per the outcome the composition scenario asserts on.
     _write_context_db(ctx.db_path, {ctx.src_path: {"": {2, 6}}})
 
 
@@ -443,8 +472,8 @@ def then_no_test_selection_line(m, params):
     )
 
 
-@step(r"the run proceeds serially \(no worker-N tokens in output\)")
-def then_serial_no_worker_tokens(m, params):
-    assert "worker-" not in ctx.cli_result.stdout, (
-        f"Unexpected 'worker-' token in:\n{ctx.cli_result.stdout}"
+@step(r"worker-N tokens are present in the progress lines")
+def then_worker_tokens_present(m, params):
+    assert "worker-" in ctx.cli_result.stdout, (
+        f"Expected 'worker-' tokens in:\n{ctx.cli_result.stdout}"
     )

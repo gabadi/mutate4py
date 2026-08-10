@@ -515,6 +515,63 @@ def test_injected_executor_receives_static_dispatch(tmp_path, monkeypatch):
     assert fake_executor.calls == [["-q"]] * 3
 
 
+def test_test_context_db_and_parallel_workers_compose_in_one_run(tmp_path, monkeypatch, capsys):
+    """A test-context db and max_workers >= 2 both take effect in the same
+    run — no forced-serial fallback (issue 04b deleted that clamp)."""
+    import mutate4py._workers as workers_mod
+    import mutate4py._test_selection as ts
+
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+
+    class _StubDB:
+        def __init__(self, db_path):
+            pass
+
+        def tests_for_line(self, source_path, line):
+            return "narrowed", ["tests/test_calc.py::test_f"]
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(ts, "TestContextDB", _StubDB)
+
+    fake_executor = _FakeExecutor()
+    src = _make_multi_site_source(3)
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+    lcov_path = str(tmp_path / "cov.lcov")
+    _write_lcov_for_source(lcov_path, src_path, src)
+
+    rc = run_mutations(
+        RunMutationsRequest(
+            path=src_path,
+            source=src,
+            cov_cmd=None,
+            lcov_path=lcov_path,
+            reuse_coverage=False,
+            pytest_args=["-q"],
+            timeout_factor=10,
+            lines_filter=None,
+            since_last_run=False,
+            mutate_all=False,
+            warning_threshold=1000,
+            cwd=str(tmp_path),
+            test_contexts_path=".coverage",
+            max_workers=3,
+            executor=fake_executor,
+            baseline_duration=0.01,
+        )
+    )
+    output = capsys.readouterr().out
+    assert rc == 0
+    assert "Mutation workers: 3" in output
+    assert "Test selection: narrowed 3, static 0" in output
+    for line in output.splitlines():
+        if line.startswith("["):
+            assert "worker-" in line, f"Expected worker token, forced serial: {line}"
+
+
 def test_disagreement_restores_the_source_and_removes_the_backup(tmp_path, monkeypatch, capsys):
     from mutate4py._manifest import strip_manifest
 

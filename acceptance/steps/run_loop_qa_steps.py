@@ -8,6 +8,17 @@ import textwrap
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
+from acceptance.steps.run_loop_qa_helpers import (
+    BODY_ALWAYS_FAIL,
+    BODY_ALWAYS_PASS,
+    all_killed_body,
+    make_lcov,
+    mutated_run_exits_nonzero_body,
+    mutated_run_sleeps_past_timeout_body,
+    n_survivors_body,
+    one_timeout_rest_killed_body,
+    write_test,
+)
 from acceptance.steps.step_lib import make_registry
 
 STEP_HANDLERS, step, run_step = make_registry()
@@ -26,17 +37,6 @@ CALC_PY = textwrap.dedent("""\
     def calc2(c, d):
         return c > d
 """)
-
-
-# LCOV fixture covering lines 3 and 7 of calc.py
-def _make_lcov(source_abs: str, covered_lines: list[int]) -> str:
-    da = "\n".join(f"DA:{ln},1" for ln in sorted(covered_lines))
-    return f"SF:{source_abs}\n{da}\nend_of_record\n"
-
-
-def _write_test(path: str, body: str) -> None:
-    with open(path, "w") as f:
-        f.write(body)
 
 
 def _run_cmd(cmd: list[str], cwd: str) -> subprocess.CompletedProcess:
@@ -101,7 +101,7 @@ def given_lcov_fixture(m, params):
     covered = [int(x.strip()) for x in lines_str.split(",") if x.strip()]
     ctx.lcov_path = os.path.join(d, lcov_name)
     with open(ctx.lcov_path, "w") as f:
-        f.write(_make_lcov(ctx.calc_path, covered))
+        f.write(make_lcov(ctx.calc_path, covered))
 
 
 @step(r"a fake pytest test the QA agent scripts per outcome")
@@ -111,7 +111,7 @@ def given_test_script(m, params):
     os.makedirs(tests_dir, exist_ok=True)
     ctx.test_script = os.path.join(tests_dir, "test_qa.py")
     # Default: always pass; individual scenario Given steps will override
-    _write_test(ctx.test_script, "def test_qa():\n    pass\n")
+    write_test(ctx.test_script, BODY_ALWAYS_PASS)
 
 
 # ── Scenario-specific Given steps ────────────────────────────────────────────
@@ -122,31 +122,14 @@ def given_mutated_outcome(m, params):
     outcome = params.get("outcome") or m.group(1)
     calc_path = ctx.calc_path
     if outcome == "exit nonzero":
-        # Passes on unmutated source; fails when any mutant is present
-        body = (
-            "import re\n\n"
-            "def test_qa():\n"
-            f"    with open({calc_path!r}) as f:\n"
-            "        content = f.read()\n"
-            "    assert not re.search(r'>=|<=', content)\n"
-        )
+        body = mutated_run_exits_nonzero_body(calc_path)
     elif outcome == "exit zero":
-        # Always passes
-        body = "def test_qa():\n    pass\n"
+        body = BODY_ALWAYS_PASS
     elif outcome == "sleep past timeout":
-        # Baseline passes quickly; mutant causes sleep past timeout
-        body = (
-            "import re\n"
-            "import time\n\n"
-            "def test_qa():\n"
-            f"    with open({calc_path!r}) as f:\n"
-            "        content = f.read()\n"
-            "    if re.search(r'>=|<=', content):\n"
-            "        time.sleep(30)\n"
-        )
+        body = mutated_run_sleeps_past_timeout_body(calc_path)
     else:
         raise ValueError(f"Unknown outcome: {outcome}")
-    _write_test(ctx.test_script, body)
+    write_test(ctx.test_script, body)
 
 
 @step(
@@ -158,22 +141,7 @@ def given_one_timeout_rest_killed(m, params):
     counter_path = os.path.join(d, "mutant_counter.txt")
     with open(counter_path, "w") as f:
         f.write("0")
-    body = (
-        "import time\n\n"
-        "def test_qa():\n"
-        f"    counter_path = {counter_path!r}\n"
-        "    with open(counter_path) as f:\n"
-        "        count = int(f.read())\n"
-        "    with open(counter_path, 'w') as f:\n"
-        "        f.write(str(count + 1))\n"
-        "    if count == 0:\n"  # baseline: always pass
-        "        return\n"
-        "    if count == 1:\n"  # first mutant: timeout
-        "        time.sleep(30)\n"
-        "        return\n"
-        "    assert False\n"  # rest: killed
-    )
-    _write_test(ctx.test_script, body)
+    write_test(ctx.test_script, one_timeout_rest_killed_body(counter_path))
 
 
 @step(
@@ -186,24 +154,13 @@ def given_n_survivors(m, params):
     counter_path = os.path.join(d, "mutant_counter.txt")
     with open(counter_path, "w") as f:
         f.write("0")
-    body = (
-        "def test_qa():\n"
-        f"    counter_path = {counter_path!r}\n"
-        "    with open(counter_path) as f:\n"
-        "        count = int(f.read())\n"
-        "    with open(counter_path, 'w') as f:\n"
-        "        f.write(str(count + 1))\n"
-        "    if count == 0:\n"  # baseline: always pass
-        "        return\n"
-        f"    assert count <= {n}\n"  # first n mutant(s) survive; rest killed
-    )
-    _write_test(ctx.test_script, body)
+    write_test(ctx.test_script, n_survivors_body(counter_path, n))
 
 
 @step(r"the fake pytest test exits nonzero on the unmutated baseline run")
 def given_baseline_fails(m, params):
     # Always fails, including the baseline
-    _write_test(ctx.test_script, "def test_qa():\n    assert False\n")
+    write_test(ctx.test_script, BODY_ALWAYS_FAIL)
 
 
 @step(r"the fake pytest test exits nonzero for every mutant")
@@ -212,18 +169,7 @@ def given_all_killed(m, params):
     counter_path = os.path.join(d, "mutant_counter.txt")
     with open(counter_path, "w") as f:
         f.write("0")
-    body = (
-        "def test_qa():\n"
-        f"    counter_path = {counter_path!r}\n"
-        "    with open(counter_path) as f:\n"
-        "        count = int(f.read())\n"
-        "    with open(counter_path, 'w') as f:\n"
-        "        f.write(str(count + 1))\n"
-        "    if count == 0:\n"  # baseline: always pass
-        "        return\n"
-        "    assert False\n"  # all mutants: killed
-    )
-    _write_test(ctx.test_script, body)
+    write_test(ctx.test_script, all_killed_body(counter_path))
 
 
 @step(r'the bytes of "calc\.py" before any manifest footer are recorded')
@@ -262,7 +208,7 @@ def given_reuse_lcov(m, params):
     covered = [int(x.strip()) for x in lines_str.split(",") if x.strip()]
     lcov_path = os.path.join(d, "coverage.lcov")
     with open(lcov_path, "w") as f:
-        f.write(_make_lcov(ctx.calc_path, covered))
+        f.write(make_lcov(ctx.calc_path, covered))
 
 
 # ── When steps ────────────────────────────────────────────────────────────────

@@ -1,36 +1,29 @@
 {
   "version": 1,
-  "tested_at": "2026-08-10T04:58:12Z",
-  "module_hash": "8ea07a9823dd04bc4444490ee91ab81dfcdeb5bfafcf57aff2ce2bee7f646db4",
-  "source_sha256": "409c5c4abbedc686c95628650065037aaf1b7ec124d6091a8362c135c757bcfc",
+  "tested_at": "2026-08-10T13:42:28Z",
+  "module_hash": "f60e1233b423820362d75fb66ff797ad107eba89ac3f33bc8cd89f7c243b673d",
+  "source_sha256": "6d2a2c3bc4552122b608c68ebe4cced83c979bbc5e46702ae9d482febb44f9cb",
   "functions": [
-    {
-      "id": "func/_build_mutant_args",
-      "name": "_build_mutant_args",
-      "line": 49,
-      "end_line": 67,
-      "hash": "cbb3b36d5361410b6ea05877cb4c1555865f2065d638d91472696ef32ded2a43"
-    },
     {
       "id": "func/_run_mutation_loop",
       "name": "_run_mutation_loop",
-      "line": 70,
-      "end_line": 100,
+      "line": 37,
+      "end_line": 67,
       "hash": "7183835013da9e6a861345df57d26c381367310525aa2c77f47b08ac77a950d3"
     },
     {
       "id": "func/_run_parallel_workers",
       "name": "_run_parallel_workers",
-      "line": 103,
-      "end_line": 128,
-      "hash": "4ce166d03cfdce16a08345fffe8d26891dfb71a10ba1d615c4c98c0de5af1e3a"
+      "line": 70,
+      "end_line": 104,
+      "hash": "4d65ba1a5b910e8fdaa2708c48a0562aa16a247f0ec9b90ecb8338ace8b1c087"
     },
     {
       "id": "func/_execute_mutations",
       "name": "_execute_mutations",
-      "line": 146,
-      "end_line": 164,
-      "hash": "0ac49180bafa06ffd7af51ce08ab54044c0c113fa44cb30d884fc4af11010049"
+      "line": 122,
+      "end_line": 140,
+      "hash": "8f8b999f54f19367401a2c4360b65672b1acf42e3c644c3c90bc31271ef92de3"
     }
   ]
 }

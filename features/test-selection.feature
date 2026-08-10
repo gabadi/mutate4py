@@ -29,9 +29,10 @@ Feature: Per-mutant test selection and directory run mode
   #   report line — whenever --test-contexts is set, the Mutation Report block
   #     carries "Test selection: narrowed <n>, static <k>" after the "Uncovered:"
   #     line. Absent when --test-contexts is not supplied.
-  #   parallelism override — when --test-contexts is set and --max-workers >= 2,
-  #     run mode proceeds serially (parallel workers share a fixed pytest_args,
-  #     extending _workers.py for per-mutant selection is out of scope).
+  #   parallelism composition — --test-contexts and --max-workers >= 2 compose
+  #     (issue 04b): the run proceeds in parallel, and each Worker's own
+  #     dispatch is narrowed/static per mutant the same way the serial loop's
+  #     is. No forced-serial fallback.
   #
   # CONSTRAINTS:
   #   - --test-contexts PATH: missing file → exit 2, clear error to stderr.
@@ -46,7 +47,8 @@ Feature: Per-mutant test selection and directory run mode
   #   - Case 3 aborts the whole run, not just the one mutant; the remaining
   #     selected sites are not attempted.
   #   - The report is not printed on a case-3 abort (no misleading tally).
-  #   - When --test-contexts is set and --max-workers >= 2, serial mode is used.
+  #   - --test-contexts composes with --max-workers >= 2: the run proceeds in
+  #     parallel and each Worker's dispatch is narrowed/static per mutant.
   #   - Directory run mode: exits non-zero if ANY file's run exits non-zero.
   #   - Directory run mode: skips __pycache__ directories.
   #
@@ -112,8 +114,9 @@ Feature: Per-mutant test selection and directory run mode
     When mutate4py is run without "--test-contexts"
     Then no "Test selection:" line is printed
 
-  Scenario: --test-contexts with --max-workers >= 2 forces serial mode
+  Scenario: --test-contexts composes with --max-workers >= 2
     Given a Python source file with mutation sites covered by known tests
     And a .coverage db with per-test context data
     When mutate4py is run with "--test-contexts .coverage --max-workers 4"
-    Then the run proceeds serially (no worker-N tokens in output)
+    Then worker-N tokens are present in the progress lines
+    And the report line "Test selection: narrowed 0, static 2" is printed

@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-10T13:42:28Z",
+  "module_hash": "5c70c614ef64b0260f057eda60977de745c2807e19458d04397b4191995c60b6",
+  "source_sha256": "bc60fc20a0785e5934b03a8c71af387d1781d6aa9d0e7802322a40c0b3891062",
+  "functions": [
+    {
+      "id": "func/WorkerProcessExecutor.__init__",
+      "name": "__init__",
+      "line": 22,
+      "end_line": 26,
+      "hash": "6388c12f6fd8a6ca5a604b0f4b282023520852acc931a3eac3463319ef2c53cb"
+    },
+    {
+      "id": "func/WorkerProcessExecutor.prime",
+      "name": "prime",
+      "line": 28,
+      "end_line": 47,
+      "hash": "141761b987a6713b03f2808992913438252635c1981d5a83f165fb16d853a084"
+    },
+    {
+      "id": "func/WorkerProcessExecutor.run",
+      "name": "run",
+      "line": 49,
+      "end_line": 57,
+      "hash": "c86c856202c9dfccce5da71223520e68d40c98ec56d533fad8c06fe5393ce11f"
+    },
+    {
+      "id": "func/WorkerProcessExecutor.close",
+      "name": "close",
+      "line": 59,
+      "end_line": 67,
+      "hash": "de169e7d9ab045984381514d9afbc1bf5706528f6b3ecf0867e97f01b8490180"
+    }
+  ]
+}

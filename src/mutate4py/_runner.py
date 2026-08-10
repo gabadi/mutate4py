@@ -25,6 +25,7 @@ __all__ = [
 ]
 from mutate4py._discovery import Site, partition_sites
 from mutate4py._executor import Executor
+from mutate4py._executor_selection import _prepare_executor
 from mutate4py._execution import (
     MutantExecCtx,
     TestSelectionError,
@@ -50,11 +51,6 @@ from mutate4py._report import (
     _workers_header_lines,
     scan_report,
     scan_report_with_coverage,
-)
-from mutate4py._run_prep import (
-    _forking_eligible,
-    _prepare_executor,
-    _setup_test_context_db,
 )
 from mutate4py._site_selection import (
     _acquire_covered_lines,
@@ -117,7 +113,7 @@ def run_baseline(pytest_args: list[str], cwd: str) -> tuple[float, str | None]:
     on every mutation run — poisoning the forking executor's module-leak
     check whenever the scan target is _cmd.py or _subprocess_executor.py
     itself, exactly the hazard the lazy imports elsewhere in this codebase
-    (see _run_prep.py) exist to avoid.
+    (see _executor_selection.py) exist to avoid.
     """
     start = time.monotonic()
     result = subprocess.run([sys.executable, "-m", "pytest", *pytest_args], cwd=cwd, capture_output=True)
@@ -290,16 +286,17 @@ def _select_and_prepare(
 
     if request.executor is not None:
         # Caller-supplied executor: used as-is, never (re-)primed here — the
-        # caller owns priming, e.g. a fake executor in tests, or a real one
-        # already primed once for a longer-lived caller than a single run.
+        # caller owns priming, e.g. a fake executor in tests (shared across
+        # every Worker when use_parallel, same seam either way), or a real
+        # one already primed once for a longer-lived caller than a single run.
         executor = request.executor
+    elif use_parallel:
+        # Each real Worker prepares and primes its own executor in its own
+        # process (issue 04b) — nothing to prepare here for the orchestrator.
+        executor = None
     else:
         executor = _prepare_executor(
-            requested=_forking_eligible(
-                forking_requested=request.forking_requested,
-                use_parallel=use_parallel,
-                selected_sites=selected_sites,
-            ),
+            requested=request.forking_requested and bool(selected_sites),
             cwd=request.cwd,
             guarded_path=os.path.abspath(request.path),
         )
@@ -323,16 +320,30 @@ def _resolve_baseline_duration(
     return run_baseline(pytest_args, cwd)
 
 
+def _open_test_context_db(test_contexts_path: str | None):
+    """Open the test-context db if requested, or None.
+
+    No longer clamps max_workers to force serial execution (issue 04b):
+    narrowing composes with parallel Workers, so a Test-context db and a
+    Worker count of two or more now both take effect in the same run.
+    """
+    if test_contexts_path is None:
+        return None
+    from mutate4py._test_selection import TestContextDB
+
+    return TestContextDB(test_contexts_path)
+
+
 def run_mutations(request: RunMutationsRequest) -> int:
     """Execute the mutation run loop.
 
     Returns 0, 1 (coverage/baseline failure), or 2 (the test-context db and the
     LCOV coverage disagree about a selected site).
     """
-    test_ctx_db, max_workers = _setup_test_context_db(request.test_contexts_path, request.max_workers)
+    test_ctx_db = _open_test_context_db(request.test_contexts_path)
     try:
         setup = _prepare_run_setup(path=request.path, source=request.source, manifest_file=request.manifest_file)
-        outcome = _select_and_prepare(request, setup, test_ctx_db, max_workers)
+        outcome = _select_and_prepare(request, setup, test_ctx_db, request.max_workers)
         if outcome.error_code is not None:
             return outcome.error_code
 
@@ -346,6 +357,7 @@ def run_mutations(request: RunMutationsRequest) -> int:
             use_parallel=outcome.use_parallel,
             abs_source_path=os.path.abspath(request.path),
             test_ctx_db=test_ctx_db,
+            forking_requested=request.forking_requested,
         )
         try:
             result = _execute_mutations(

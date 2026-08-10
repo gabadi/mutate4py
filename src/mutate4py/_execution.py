@@ -11,6 +11,7 @@ import logging
 from mutate4py._discovery import Site, apply_mutant
 from mutate4py._executor import Executor
 from mutate4py._report import _on_parallel_result, _serial_progress_line
+from mutate4py._test_dispatch import TestSelectionError, _build_mutant_args
 
 __all__ = ["MutantExecCtx", "TestSelectionError"]
 
@@ -24,47 +25,13 @@ class MutantExecCtx:
     path: str
     cwd: str
     pytest_args: list[str]
-    executor: Executor
+    executor: Executor | None
     mutant_timeout: float
     max_workers: int = 0
     use_parallel: bool = False
     abs_source_path: str = ""
     test_ctx_db: object = None
-
-
-class TestSelectionError(Exception):
-    """A selected site the test-context db cannot account for (case 3)."""
-
-
-# The selected sites are LCOV-covered by construction, so a miss is always an
-# input defect, never uncovered code — hence a hard error rather than a fallback.
-_DISAGREEMENT_HINTS = {
-    "line-absent": "line is LCOV-covered but absent from the test-context db "
-    "(stale db: regenerate it with pytest --cov-context=test)",
-    "file-absent": "file is not in the test-context db at all "
-    "(path-format mismatch, or its coverage was recorded in a subprocess)",
-}
-
-
-def _build_mutant_args(
-    pytest_args: list[str], test_ctx_db, abs_source_path: str, site: Site
-) -> tuple[list[str], str | None]:
-    """Return (args, selection) for site; selection is None without a context db.
-
-    "narrowed" runs only the tests covering site.line; "static" runs the full
-    pytest_args because the line executes at import time and no test owns it.
-    """
-    if test_ctx_db is None:
-        return pytest_args, None
-    outcome, node_ids = test_ctx_db.tests_for_line(abs_source_path, site.line)
-    if outcome == "narrowed":
-        return [*pytest_args, *node_ids], "narrowed"
-    if outcome == "static":
-        return pytest_args, "static"
-    # Every other outcome raises, so an unrecognized one can never fall through to
-    # a full-suite run that the report would then miscount as narrowed.
-    hint = _DISAGREEMENT_HINTS.get(outcome, f"unrecognized selection outcome {outcome!r}")
-    raise TestSelectionError(f"{abs_source_path}:{site.line}: {hint}")
+    forking_requested: bool = True
 
 
 def _run_mutation_loop(
@@ -104,12 +71,17 @@ def _run_parallel_workers(
     selected_sites: list[Site],
     clean_source: str,
     ctx: MutantExecCtx,
-) -> tuple[dict | None, list[Site] | None, str | None]:
-    """Dispatch the parallel engine; return (counts, survivors, error_msg)."""
+) -> tuple[dict | None, list[Site] | None, dict[str, int] | None, str | None]:
+    """Dispatch the parallel engine; return (counts, survivors, selection_counts, error_msg).
+
+    A TestSelectionError raised inside a Worker's dispatch propagates
+    uncaught, same as the serial loop — only WorkerFailureError/ParallelRunError
+    (real dispatch-mechanics failures) are translated into an error message here.
+    """
     from mutate4py._workers import ParallelRunError, ParallelRunRequest, WorkerFailureError, run_parallel
 
     try:
-        counts, survivors = run_parallel(
+        counts, survivors, selection_counts = run_parallel(
             ParallelRunRequest(
                 selected_sites=selected_sites,
                 clean_source=clean_source,
@@ -119,13 +91,17 @@ def _run_parallel_workers(
                 mutant_timeout=ctx.mutant_timeout,
                 max_workers=ctx.max_workers,
                 on_result=_on_parallel_result,
+                test_ctx_db=ctx.test_ctx_db,
+                abs_source_path=ctx.abs_source_path,
+                forking_requested=ctx.forking_requested,
+                executor=ctx.executor,
             )
         )
-        return counts, survivors, None
+        return counts, survivors, selection_counts, None
     except WorkerFailureError as e:
-        return None, None, f"mutation worker failed: {e}"
+        return None, None, None, f"mutation worker failed: {e}"
     except ParallelRunError as e:
-        return None, None, str(e)
+        return None, None, None, str(e)
 
 
 @dataclasses.dataclass
@@ -156,9 +132,9 @@ def _execute_mutations(
     the source exactly as a completed run would leave it.
     """
     if ctx.use_parallel:
-        counts, survivors, error_msg = _run_parallel_workers(selected_sites, clean_source, ctx)
+        counts, survivors, selection_counts, error_msg = _run_parallel_workers(selected_sites, clean_source, ctx)
         if error_msg is not None:
             return ExecutionOutcome(error_msg=error_msg)
-        return ExecutionOutcome(counts=counts, survivors=survivors)
+        return ExecutionOutcome(counts=counts, survivors=survivors, selection_counts=selection_counts)
     counts, survivors, selection_counts = _run_mutation_loop(selected_sites, clean_source, ctx)
     return ExecutionOutcome(counts=counts, survivors=survivors, selection_counts=selection_counts)

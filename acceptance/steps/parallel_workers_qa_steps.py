@@ -11,6 +11,17 @@ import textwrap
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
+from acceptance.steps.parallel_workers_qa_helpers import (
+    BODY_ALWAYS_FAIL,
+    BODY_ALWAYS_PASS,
+    check_worker_tree_body,
+    counted_all_killed_body,
+    make_lcov,
+    record_cwd_and_kill_body,
+    single_survivor_body,
+    sleep_past_timeout_body,
+    write_test,
+)
 from acceptance.steps.step_lib import make_registry
 
 STEP_HANDLERS, step, run_step = make_registry()
@@ -39,16 +50,6 @@ CALC_PY = textwrap.dedent("""\
         return g > h
 """)
 COVERED_LINES = [3, 5, 7, 9]
-
-
-def _make_lcov(source_abs: str, covered_lines: list[int]) -> str:
-    da = "\n".join(f"DA:{ln},1" for ln in sorted(covered_lines))
-    return f"SF:{source_abs}\n{da}\nend_of_record\n"
-
-
-def _write_test(path: str, body: str) -> None:
-    with open(path, "w") as f:
-        f.write(body)
 
 
 # ── Context ───────────────────────────────────────────────────────────────────
@@ -172,7 +173,7 @@ def given_lcov_fixture(m, params):
     covered = COVERED_LINES
     ctx.lcov_path = os.path.join(d, m.group(1))
     with open(ctx.lcov_path, "w") as f:
-        f.write(_make_lcov(ctx.calc_path, covered))
+        f.write(make_lcov(ctx.calc_path, covered))
 
 
 @step(r"a fake pytest test the QA agent scripts per outcome")
@@ -182,31 +183,18 @@ def given_fake_test_cmd_placeholder(m, params):
     os.makedirs(tests_dir, exist_ok=True)
     ctx.test_script = os.path.join(tests_dir, "test_qa.py")
     # Placeholder — actual content set by Given steps below.
-    _write_test(ctx.test_script, "def test_qa():\n    pass\n")
+    write_test(ctx.test_script, BODY_ALWAYS_PASS)
 
 
 # ── Given steps ───────────────────────────────────────────────────────────────
 
 
 def _write_counted_all_killed() -> None:
-    """Call 0 (the baseline, always serial and first) passes; every later
-    call (a mutant, possibly racing other workers) fails."""
     d = _tmpdir()
     counter = os.path.join(d, "_call_count.txt")
     with open(counter, "w") as f:
         f.write("0")
-    body = (
-        "def test_qa():\n"
-        f"    counter_path = {counter!r}\n"
-        "    with open(counter_path) as f:\n"
-        "        count = int(f.read())\n"
-        "    with open(counter_path, 'w') as f:\n"
-        "        f.write(str(count + 1))\n"
-        "    if count == 0:\n"
-        "        return\n"
-        "    assert False\n"
-    )
-    _write_test(ctx.test_script, body)
+    write_test(ctx.test_script, counted_all_killed_body(counter))
 
 
 @step(r"the fake pytest test exits nonzero for every mutant while the baseline passes")
@@ -221,26 +209,14 @@ def given_single_outcome_baseline_passes(m, params):
         _write_counted_all_killed()
         return
     if outcome == "exit zero":
-        _write_test(ctx.test_script, "def test_qa():\n    pass\n")
+        write_test(ctx.test_script, BODY_ALWAYS_PASS)
         return
     if outcome == "sleep past timeout":
         d = _tmpdir()
         counter = os.path.join(d, "_call_count.txt")
         with open(counter, "w") as f:
             f.write("0")
-        body = (
-            "import time\n\n"
-            "def test_qa():\n"
-            f"    counter_path = {counter!r}\n"
-            "    with open(counter_path) as f:\n"
-            "        count = int(f.read())\n"
-            "    with open(counter_path, 'w') as f:\n"
-            "        f.write(str(count + 1))\n"
-            "    if count == 0:\n"
-            "        return\n"
-            "    time.sleep(30)\n"
-        )
-        _write_test(ctx.test_script, body)
+        write_test(ctx.test_script, sleep_past_timeout_body(counter))
         return
     raise ValueError(f"Unknown outcome: {outcome!r}")
 
@@ -258,23 +234,13 @@ def given_n_survivors_4_sites(m, params):
     src_rel = os.path.relpath(ctx.calc_path, d)
     if n == 1:
         # Make only calc1's mutant (a >= b) survive; kill the rest (c >= d, e >= f, g >= h)
-        body = (
-            "import os\n\n"
-            "def test_qa():\n"
-            f"    baseline_done = {baseline_done!r}\n"
-            "    if not os.path.exists(baseline_done):\n"
-            "        open(baseline_done, 'w').close()\n"
-            "        return\n"
-            f"    with open({src_rel!r}) as f:\n"
-            "        content = f.read()\n"
-            "    assert 'a >= b' in content\n"
-        )
+        body = single_survivor_body(baseline_done, src_rel)
     else:
         # Generic: first n mutant sites survive — detect by content not feasible for n>1.
         # Fall back to killing all for now (including the baseline, matching the
         # original shell script's unconditional exit 1 in this branch).
-        body = "def test_qa():\n    assert False\n"
-    _write_test(ctx.test_script, body)
+        body = BODY_ALWAYS_FAIL
+    write_test(ctx.test_script, body)
 
 
 @step(r"the fake pytest test records its working directory to a sentinel and exits nonzero")
@@ -284,19 +250,7 @@ def given_records_cwd_and_kills(m, params):
     os.makedirs(sentinels_dir, exist_ok=True)
     ctx.sentinel_dir = sentinels_dir
     baseline_done = os.path.join(d, "_baseline_done_wd.txt")
-    body = (
-        "import os\n\n"
-        "def test_qa():\n"
-        f"    baseline_done = {baseline_done!r}\n"
-        "    if not os.path.exists(baseline_done):\n"
-        "        open(baseline_done, 'w').close()\n"
-        "        return\n"
-        f"    sentinels_dir = {sentinels_dir!r}\n"
-        "    with open(os.path.join(sentinels_dir, f'wd_{os.getpid()}.txt'), 'w') as f:\n"
-        "        f.write(os.getcwd())\n"
-        "    assert False\n"
-    )
-    _write_test(ctx.test_script, body)
+    write_test(ctx.test_script, record_cwd_and_kill_body(baseline_done, sentinels_dir))
 
 
 @step(
@@ -307,22 +261,7 @@ def given_checks_worker_tree_on_first_mutant(m, params):
     sentinel = os.path.join(d, "_worker_tree_observed.txt")
     baseline_done = os.path.join(d, "_baseline_done2.txt")
     first_mutant_done = os.path.join(d, "_first_mutant_done.txt")
-    body = (
-        "import os\n\n"
-        "def test_qa():\n"
-        f"    baseline_done = {baseline_done!r}\n"
-        "    if not os.path.exists(baseline_done):\n"
-        "        open(baseline_done, 'w').close()\n"
-        "        return\n"
-        f"    first_mutant_done = {first_mutant_done!r}\n"
-        "    if not os.path.exists(first_mutant_done):\n"
-        "        open(first_mutant_done, 'w').close()\n"
-        "        if os.sep.join(['.mutate4py', 'workers']) in os.getcwd():\n"
-        f"            with open({sentinel!r}, 'w') as f:\n"
-        "                f.write('observed')\n"
-        "    assert False\n"
-    )
-    _write_test(ctx.test_script, body)
+    write_test(ctx.test_script, check_worker_tree_body(baseline_done, first_mutant_done, sentinel))
     ctx.sentinel_dir = sentinel
 
 

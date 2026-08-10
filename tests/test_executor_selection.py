@@ -1,33 +1,17 @@
-"""Unit tests for run-loop pre-flight setup (_run_prep.py)."""
+"""Unit tests for executor selection (_executor_selection.py).
+
+Moved from test_run_prep.py (issue 04b): _run_prep.py collapsed once its
+_forking_eligible guard was deleted outright (eligibility no longer excludes
+a parallel run) and _prepare_executor moved to execution_backends, where
+both the single-Worker path and each parallel Worker's own subprocess can
+reach it.
+"""
 
 import sys
 
 import pytest
 
-from mutate4py._run_prep import _forking_eligible, _prepare_executor
-
-# ── _forking_eligible ─────────────────────────────────────────────────────
-
-
-def test_forking_eligible_true_when_all_conditions_met():
-    """Also covers test-context narrowing: _forking_eligible no longer takes
-    a test_ctx_db argument at all, since the Executor protocol takes a fresh
-    argument list per run() call, so per-site narrowed/static dispatch
-    composes with the warm forking path unconditionally."""
-    assert _forking_eligible(forking_requested=True, use_parallel=False, selected_sites=[object()]) is True
-
-
-def test_forking_eligible_false_when_not_requested():
-    assert _forking_eligible(forking_requested=False, use_parallel=False, selected_sites=[object()]) is False
-
-
-def test_forking_eligible_false_when_parallel():
-    assert _forking_eligible(forking_requested=True, use_parallel=True, selected_sites=[object()]) is False
-
-
-def test_forking_eligible_false_when_no_selected_sites():
-    assert _forking_eligible(forking_requested=True, use_parallel=False, selected_sites=[]) is False
-
+from mutate4py._executor_selection import _prepare_executor
 
 # ── _prepare_executor ─────────────────────────────────────────────────────
 
