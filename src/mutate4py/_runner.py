@@ -24,6 +24,7 @@ __all__ = [
     "update_manifest",
 ]
 from mutate4py._discovery import Site, partition_sites
+from mutate4py._executor import Executor
 from mutate4py._execution import (
     MutantExecCtx,
     TestSelectionError,
@@ -95,6 +96,7 @@ class RunMutationsRequest:
     test_contexts_path: str | None = None
     manifest_file: bool = False
     forking_requested: bool = True
+    executor: Executor | None = None
 
 
 def _baseline_reason(result: subprocess.CompletedProcess) -> str:
@@ -286,16 +288,21 @@ def _select_and_prepare(
 
     mutant_timeout = max(request.min_timeout, request.timeout_factor * baseline_duration)
 
-    executor = _prepare_executor(
-        requested=_forking_eligible(
-            forking_requested=request.forking_requested,
-            use_parallel=use_parallel,
-            test_ctx_db=test_ctx_db,
-            selected_sites=selected_sites,
-        ),
-        cwd=request.cwd,
-        guarded_path=os.path.abspath(request.path),
-    )
+    if request.executor is not None:
+        # Caller-supplied executor: used as-is, never (re-)primed here — the
+        # caller owns priming, e.g. a fake executor in tests, or a real one
+        # already primed once for a longer-lived caller than a single run.
+        executor = request.executor
+    else:
+        executor = _prepare_executor(
+            requested=_forking_eligible(
+                forking_requested=request.forking_requested,
+                use_parallel=use_parallel,
+                selected_sites=selected_sites,
+            ),
+            cwd=request.cwd,
+            guarded_path=os.path.abspath(request.path),
+        )
 
     return SelectionOutcome(
         selected_sites=selected_sites,

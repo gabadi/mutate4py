@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-08-10T04:58:12Z",
-  "module_hash": "1cf7053e55502b70c0eae348d3e766967f45d5c23466c5d5e89aa716ce8dec34",
-  "source_sha256": "e543eee731436ee41e4f053983b03b805af60d0d0cfbc0c60dedbec178799844",
+  "tested_at": "2026-08-10T11:39:36Z",
+  "module_hash": "3a4ab1311900f61e6b03f8e52057003ab5f85812ee87dfd1a689664171c6d0c4",
+  "source_sha256": "a7fc710b9b90b405adea05c63907205232d76db388f718804bea8f435e5291fc",
   "functions": [
     {
       "id": "func/_setup_test_context_db",
@@ -22,8 +22,8 @@
       "id": "func/_forking_eligible",
       "name": "_forking_eligible",
       "line": 62,
-      "end_line": 75,
-      "hash": "98371499c0a991a109b0fdb63117bf931558a227253371b12a02c7d583f1af25"
+      "end_line": 76,
+      "hash": "36a8f6986cb8177b0ee20768030b6913507ee14bfa29f735f9b0004e67237ccf"
     }
   ]
 }

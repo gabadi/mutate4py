@@ -398,6 +398,123 @@ def test_disagreement_exits_2_with_no_report(tmp_path, monkeypatch, capsys, outc
     assert f"{src_path}:2" in captured.err
 
 
+# ── injected executor: all three levers compose without a real fork/subprocess ─
+
+
+class _FakeExecutor:
+    def __init__(self, status="killed"):
+        self._status = status
+        self.calls = []
+        self.primed = False
+
+    def prime(self):
+        self.primed = True
+
+    def run(self, args, timeout):
+        self.calls.append(list(args))
+        return self._status
+
+
+def test_injected_executor_receives_narrowed_dispatch_and_is_never_primed(tmp_path, monkeypatch):
+    """RunMutationsRequest.executor bypasses executor preparation entirely: the
+    injected fake stands in for both the forking and subprocess paths, so this
+    proves per-site narrowed dispatch reaches run() without spawning any real
+    subprocess or fork(), and confirms run_mutations never (re-)primes a
+    caller-supplied executor."""
+    import mutate4py._test_selection as ts
+
+    class _StubDB:
+        def __init__(self, db_path):
+            pass
+
+        def tests_for_line(self, source_path, line):
+            return "narrowed", ["tests/test_calc.py::test_f"]
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(ts, "TestContextDB", _StubDB)
+
+    fake_executor = _FakeExecutor()
+    src = _make_multi_site_source(3)
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+    lcov_path = str(tmp_path / "cov.lcov")
+    _write_lcov_for_source(lcov_path, src_path, src)
+
+    rc = run_mutations(
+        RunMutationsRequest(
+            path=src_path,
+            source=src,
+            cov_cmd=None,
+            lcov_path=lcov_path,
+            reuse_coverage=False,
+            pytest_args=["-q"],
+            timeout_factor=10,
+            lines_filter=None,
+            since_last_run=False,
+            mutate_all=False,
+            warning_threshold=1000,
+            cwd=str(tmp_path),
+            test_contexts_path=".coverage",
+            executor=fake_executor,
+            baseline_duration=0.01,
+        )
+    )
+    assert rc == 0
+    assert fake_executor.calls == [["-q", "tests/test_calc.py::test_f"]] * 3
+    assert fake_executor.primed is False
+
+
+def test_injected_executor_receives_static_dispatch(tmp_path, monkeypatch):
+    """A 'static' classification runs the full pytest_args, unnarrowed — same
+    injected-executor isolation as the narrowed case above."""
+    import mutate4py._test_selection as ts
+
+    class _StubDB:
+        def __init__(self, db_path):
+            pass
+
+        def tests_for_line(self, source_path, line):
+            return "static", []
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(ts, "TestContextDB", _StubDB)
+
+    fake_executor = _FakeExecutor()
+    src = _make_multi_site_source(3)
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+    lcov_path = str(tmp_path / "cov.lcov")
+    _write_lcov_for_source(lcov_path, src_path, src)
+
+    rc = run_mutations(
+        RunMutationsRequest(
+            path=src_path,
+            source=src,
+            cov_cmd=None,
+            lcov_path=lcov_path,
+            reuse_coverage=False,
+            pytest_args=["-q"],
+            timeout_factor=10,
+            lines_filter=None,
+            since_last_run=False,
+            mutate_all=False,
+            warning_threshold=1000,
+            cwd=str(tmp_path),
+            test_contexts_path=".coverage",
+            executor=fake_executor,
+            baseline_duration=0.01,
+        )
+    )
+    assert rc == 0
+    assert fake_executor.calls == [["-q"]] * 3
+
+
 def test_disagreement_restores_the_source_and_removes_the_backup(tmp_path, monkeypatch, capsys):
     from mutate4py._manifest import strip_manifest
 

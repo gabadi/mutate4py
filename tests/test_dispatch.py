@@ -153,6 +153,7 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
         "test_contexts_path": ".coverage",
         "manifest_file": False,
         "forking_requested": True,
+        "executor": None,
     }
 
 

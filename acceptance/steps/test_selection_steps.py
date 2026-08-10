@@ -116,12 +116,18 @@ def _write_arg_logging_fixture(cwd: str, log_path: str) -> None:
     args, and logs the exact args pytest received (mirrors the old shell
     stand-in's `echo "ARGS:[$*]"`) via a pytest_configure hook — this fires
     even when a given node ID doesn't exist, since --pytest-args can no
-    longer swap out the runner itself the way --test-command once did."""
+    longer swap out the runner itself the way --test-command once did.
+
+    Reads `config.invocation_params.args`, not `sys.argv`: the forking
+    executor runs each mutant via an in-process `pytest.main(args)` call in a
+    forked child, which never touches the parent (mutate4py CLI) process's
+    `sys.argv` — only `invocation_params.args` reflects the actual per-call
+    args pytest was invoked with, correctly under both the forking and
+    subprocess executors."""
     conftest_body = (
         "def pytest_configure(config):\n"
-        "    import sys\n"
         f"    with open({log_path!r}, 'a') as f:\n"
-        "        f.write('ARGS:[' + ' '.join(sys.argv[1:]) + ']\\n')\n"
+        "        f.write('ARGS:[' + ' '.join(config.invocation_params.args) + ']\\n')\n"
     )
     _write_test(os.path.join(cwd, "conftest.py"), conftest_body)
     _write_test(os.path.join(cwd, "test_dummy.py"), "def test_dummy():\n    pass\n")

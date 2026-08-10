@@ -10,35 +10,23 @@ from mutate4py._run_prep import _forking_eligible, _prepare_executor
 
 
 def test_forking_eligible_true_when_all_conditions_met():
-    assert (
-        _forking_eligible(forking_requested=True, use_parallel=False, test_ctx_db=None, selected_sites=[object()])
-        is True
-    )
+    """Also covers test-context narrowing: _forking_eligible no longer takes
+    a test_ctx_db argument at all, since the Executor protocol takes a fresh
+    argument list per run() call, so per-site narrowed/static dispatch
+    composes with the warm forking path unconditionally."""
+    assert _forking_eligible(forking_requested=True, use_parallel=False, selected_sites=[object()]) is True
 
 
 def test_forking_eligible_false_when_not_requested():
-    assert (
-        _forking_eligible(forking_requested=False, use_parallel=False, test_ctx_db=None, selected_sites=[object()])
-        is False
-    )
+    assert _forking_eligible(forking_requested=False, use_parallel=False, selected_sites=[object()]) is False
 
 
 def test_forking_eligible_false_when_parallel():
-    assert (
-        _forking_eligible(forking_requested=True, use_parallel=True, test_ctx_db=None, selected_sites=[object()])
-        is False
-    )
-
-
-def test_forking_eligible_false_when_test_ctx_db_present():
-    assert (
-        _forking_eligible(forking_requested=True, use_parallel=False, test_ctx_db=object(), selected_sites=[object()])
-        is False
-    )
+    assert _forking_eligible(forking_requested=True, use_parallel=True, selected_sites=[object()]) is False
 
 
 def test_forking_eligible_false_when_no_selected_sites():
-    assert _forking_eligible(forking_requested=True, use_parallel=False, test_ctx_db=None, selected_sites=[]) is False
+    assert _forking_eligible(forking_requested=True, use_parallel=False, selected_sites=[]) is False
 
 
 # ── _prepare_executor ─────────────────────────────────────────────────────

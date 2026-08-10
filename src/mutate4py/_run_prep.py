@@ -63,13 +63,14 @@ def _forking_eligible(
     *,
     forking_requested: bool,
     use_parallel: bool,
-    test_ctx_db,
     selected_sites: list,
 ) -> bool:
     """Whether the forking executor may be attempted for this run.
 
-    Mutually exclusive with parallel workers and per-mutant test-context
-    narrowing: the forking executor always runs pytest against one fixed
-    argument list per mutant, so it cannot honor per-site narrowing here.
+    Mutually exclusive with parallel workers only: the Executor protocol
+    takes a fresh argument list per `run()` call, so the forking executor
+    honors per-site test-context narrowing the same as the subprocess
+    executor does. Parallel workers remain out of scope — each Worker
+    doesn't yet own its own primed executor.
     """
-    return forking_requested and not use_parallel and test_ctx_db is None and bool(selected_sites)
+    return forking_requested and not use_parallel and bool(selected_sites)
