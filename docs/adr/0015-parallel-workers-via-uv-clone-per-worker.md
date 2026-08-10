@@ -3,6 +3,7 @@
 **Status:** accepted (F6) · mechanism recorded at F5 time when §9 was reopened;
 grilling open questions resolved in F6 (see "F6 grilling resolutions" below)
 **Feature:** F6 (parallel-workers) · **Spec:** §9 (rewritten in F6)
+**Amended by:** ADR 0019 (single execution model) — see amendment appended below.
 
 `--max-workers` is restored as a real flag (ADR 0013). The execution it enables is
 F6. This ADR records *which* parallel mechanism F6 will use, so the decision is not
@@ -116,3 +117,11 @@ engine, would discard the faithful byte-splice port); `git clone` granularity
 (requires a git repo, misses uncommitted edits); wrapping the user command in
 `uv run` (prescribes the runner, double-wraps `uv run pytest`); graceful-degrade on
 worker failure (non-deterministic, under-reports survivors).
+
+## Amendment (2026-08-10) — re-scoped by ADR 0019
+
+The provisioning mechanism above — tree copy, `uv venv`/`uv sync`, verbatim command
+with `cwd = worker-root` — is **unchanged**. It becomes the home for the warm
+test-executor too: each Worker now additionally provisions and owns exactly one
+executor, primed once, inside its own copy — additive to this ADR's
+responsibilities, not a competing mechanism. Full reasoning in ADR 0019.
