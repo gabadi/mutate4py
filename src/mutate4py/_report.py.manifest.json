@@ -1,78 +1,85 @@
 {
   "version": 1,
-  "tested_at": "2026-08-11T02:30:13Z",
-  "module_hash": "2e50ea1ef351e3420d6263430ebd3619318968a67a7f63459dd85cc81626b641",
-  "source_sha256": "8f37db60287324ccb3e295787e87b908d75b8248dbbcb7a69c5209fc609f30d3",
+  "tested_at": "2026-08-11T04:20:16Z",
+  "module_hash": "8eac7378414cc5c49e52a927382eb350051917924b929eb96761d685472bf699",
+  "source_sha256": "767fea26c319d46b5c79c769b29b9dccbb92ee889a8251f060fadbe609d0488c",
   "functions": [
     {
       "id": "func/_run_header_lines",
       "name": "_run_header_lines",
-      "line": 48,
-      "end_line": 61,
+      "line": 50,
+      "end_line": 63,
       "hash": "e4616d1a61dae486ae5b01ab48203c7fada48431a16503755a27612e0639627a"
     },
     {
       "id": "func/_uncovered_block_lines",
       "name": "_uncovered_block_lines",
-      "line": 64,
-      "end_line": 76,
+      "line": 66,
+      "end_line": 78,
       "hash": "64a4530d06c53d830a8262004e4e6d7f3e98e114d9b61c48415c115251d55511"
     },
     {
       "id": "func/_serial_progress_line",
       "name": "_serial_progress_line",
-      "line": 79,
-      "end_line": 81,
+      "line": 81,
+      "end_line": 83,
       "hash": "2e7753e489bf25bf53ea50c21227ed4f38b4989ef6eab90150ddcf7d12bc518b"
     },
     {
       "id": "func/_parallel_progress_line",
       "name": "_parallel_progress_line",
-      "line": 84,
-      "end_line": 91,
+      "line": 86,
+      "end_line": 93,
       "hash": "605886fe59ebf5cfd4f034f5ce7006def3b4c2e032d0742d78afe52668c550b8"
     },
     {
       "id": "func/_on_parallel_result",
       "name": "_on_parallel_result",
-      "line": 94,
-      "end_line": 96,
+      "line": 96,
+      "end_line": 98,
       "hash": "2076e58d0db2b5dd0a4fe16bc1218f7fa77a92750ee63bbff3263fe169eb8aa1"
     },
     {
       "id": "func/_overhead_report_lines",
       "name": "_overhead_report_lines",
-      "line": 115,
-      "end_line": 125,
+      "line": 117,
+      "end_line": 127,
       "hash": "4af028337280a721b91b0f1466a4138dcfda53fad2c511ea1e136681e445f7e6"
     },
     {
       "id": "func/_mutation_report_lines",
       "name": "_mutation_report_lines",
-      "line": 128,
-      "end_line": 154,
+      "line": 130,
+      "end_line": 156,
       "hash": "229cf498f90ad2564ddb5bd8d938b7a6b9ba97d6dacb6abd8204898afab15af5"
     },
     {
       "id": "func/_workers_header_lines",
       "name": "_workers_header_lines",
-      "line": 157,
-      "end_line": 161,
+      "line": 159,
+      "end_line": 163,
       "hash": "45a887b31e2142ea6ee16ac8585dbe9ed7ee256035aa668275994ec504e3bfd8"
+    },
+    {
+      "id": "func/_scan_manifest_state",
+      "name": "_scan_manifest_state",
+      "line": 166,
+      "end_line": 184,
+      "hash": "8866f3fc9d4c5fd02c6263bdcce7e9fbadceb020feb92a9497515effd0c3a7ab"
     },
     {
       "id": "func/scan_report",
       "name": "scan_report",
-      "line": 164,
-      "end_line": 177,
-      "hash": "a93f4b1530dfba54505143b85e4c075297dd27837402a4767874bf43ddd9f1fe"
+      "line": 187,
+      "end_line": 203,
+      "hash": "266a66f3c40d09563d5b6c962ec8afa5a233c6e855e551c745fd890d23afe504"
     },
     {
       "id": "func/scan_report_with_coverage",
       "name": "scan_report_with_coverage",
-      "line": 180,
-      "end_line": 207,
-      "hash": "79c826dea41a0b2c9ce3b32bc1247c0089120f03a682d852fb753b8113f6f36c"
+      "line": 206,
+      "end_line": 237,
+      "hash": "abbfcdf392bd6616b157f900ae3be8cd28db869d65552ad60ae9502e76cc5078"
     }
   ]
 }

@@ -106,6 +106,7 @@ def _run_scan(args: argparse.Namespace, path: str, source: str, cwd: str) -> Non
                 reuse_coverage=args.reuse_coverage,
                 cwd=cwd,
             ),
+            manifest_file=args.manifest_file,
         )
     except CoverageError as exc:
         _logger.error(f"error: {exc}")

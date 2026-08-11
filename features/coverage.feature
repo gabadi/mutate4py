@@ -21,11 +21,14 @@ Feature: Coverage acquisition and the line gate
   #     a site is UNCOVERED iff its line is absent from LCOV or has DA count 0;
   #     LCOV SF:<path> is matched to <file> by SUFFIX (one path is a path-suffix of the other);
   #     BRDA (branch) records NEVER affect the gate (ADR 0007).
-  #   stdout (exit 0) — the --scan block gains two lines when coverage is supplied:
+  #   stdout (exit 0) — the --scan block gains Covered/Uncovered lines (in place of
+  #     the no-coverage variant's plain Total-only line) when coverage is supplied,
+  #     same Changed/Manifest exists lines as the no-coverage variant (issue #46):
   #     Mutation scan: <file>
   #     Total mutation sites: <n>
   #     Covered mutation sites: <c>
   #     Uncovered mutation sites: <u>
+  #     Changed mutation sites: <ch>
   #     Manifest exists: <true|false>
   #   response (usage error, non-zero exit, NO partition counts printed):
   #     more than one coverage flag supplied (pairwise-exclusive — ADR 0008);

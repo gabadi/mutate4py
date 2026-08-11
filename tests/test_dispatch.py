@@ -68,6 +68,7 @@ def test_run_scan_no_coverage(tmp_path, capsys):
         cov_cmd=None,
         lcov=None,
         reuse_coverage=False,
+        manifest_file=False,
     )
     _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
     out = capsys.readouterr().out
@@ -89,6 +90,7 @@ def test_run_scan_with_lcov(tmp_path, capsys):
         cov_cmd=None,
         lcov=str(lcov_file),
         reuse_coverage=False,
+        manifest_file=False,
     )
     _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
     out = capsys.readouterr().out
@@ -326,6 +328,7 @@ def test_run_scan_coverage_error_exits_2(tmp_path):
         cov_cmd=None,
         lcov=str(tmp_path / "missing.info"),
         reuse_coverage=False,
+        manifest_file=False,
     )
     with pytest.raises(SystemExit) as exc:
         _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
@@ -346,6 +349,7 @@ def test_run_scan_coverage_error_goes_to_stderr(tmp_path, capsys):
         cov_cmd=None,
         lcov=str(tmp_path / "missing.info"),
         reuse_coverage=False,
+        manifest_file=False,
     )
     with pytest.raises(SystemExit):
         _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
@@ -367,6 +371,7 @@ def test_run_scan_output_newline_separated(tmp_path, capsys):
         cov_cmd=None,
         lcov=None,
         reuse_coverage=False,
+        manifest_file=False,
     )
     _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
     out = capsys.readouterr().out
@@ -393,6 +398,7 @@ def test_run_scan_passes_cov_cmd_to_coverage(tmp_path, capsys):
         cov_cmd=cmd,
         lcov=None,
         reuse_coverage=False,
+        manifest_file=False,
     )
     _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
     out = capsys.readouterr().out
@@ -416,6 +422,7 @@ def test_run_scan_reuse_coverage_with_cwd(tmp_path, capsys):
         cov_cmd=None,
         lcov=None,
         reuse_coverage=True,
+        manifest_file=False,
     )
     _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
     out = capsys.readouterr().out
@@ -437,6 +444,7 @@ def test_run_scan_passes_args_file_path(tmp_path, capsys):
         cov_cmd=None,
         lcov=None,
         reuse_coverage=False,
+        manifest_file=False,
     )
     _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
     out = capsys.readouterr().out
@@ -457,6 +465,7 @@ def test_run_scan_separator_is_newline_not_other_string(tmp_path, capsys):
         cov_cmd=None,
         lcov=None,
         reuse_coverage=False,
+        manifest_file=False,
     )
     _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
     out = capsys.readouterr().out
