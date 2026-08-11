@@ -1,9 +1,6 @@
 Feature: QA — the CLI surface is observable end-to-end through the command
 
-  # TRACKING: F5 (cli-surface) — docs/plan.md; docs/spec.md §2, §8, §9;
-  #           docs/adr/0013-max-workers-restored-as-real-flag.md;
-  #           docs/adr/0014-cli-validation-mirrors-upstream-parse-model.md;
-  #           docs/adr/0008-coverage-flags-pairwise-exclusive.md
+  # TRACKING: F5 (cli-surface) — docs/adr/0008-coverage-flags-pairwise-exclusive.md
   #
   # CONTRACT:
   #   End-to-end QA for F5. Operates ONLY through the user interface: the

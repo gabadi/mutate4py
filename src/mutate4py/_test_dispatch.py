@@ -1,11 +1,9 @@
 """Per-Mutant test-selection dispatch: builds the pytest argument list for
-one Site given its Selection outcome (issue 04b).
+one Site given its Selection outcome.
 
 Shared by both execution paths — the serial loop (`_execution.py`) and
-parallel Workers (`_workers.py`) — so it lives in the domain layer rather
-than either one's own module: both callers sit in layers above domain,
-which tach's layering forbids the reverse of (execution_backends may never
-import from execution).
+parallel Workers (`_workers.py`) — which is why it sits in the domain layer
+rather than in either caller. See tach.toml before moving it.
 """
 
 from mutate4py._discovery import Site

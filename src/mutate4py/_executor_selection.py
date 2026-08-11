@@ -1,12 +1,12 @@
-"""Executor selection (issue 04b): the forking executor when requested and
+"""Executor selection: the forking executor when requested and
 eligible for this process, the subprocess executor otherwise.
 
 Eligibility is a property of *this interpreter's* import state (module-leak
 detection), not of the run as a whole, so the choice is made once per
 process attempting it — the serial run loop's own process for a run with a
 single Worker, or a Worker subprocess's own process for a parallel run
-(`_worker_server.py`). Both callers sit above `execution_backends`, so this
-module lives at that layer rather than in either one's own module.
+(`_worker_server.py`). See tach.toml for why this module may not sit in a
+layer above `execution_backends`.
 """
 
 import logging

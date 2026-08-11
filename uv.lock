@@ -382,7 +382,7 @@ wheels = [
 
 [[package]]
 name = "mutate4py"
-version = "0.1.2"
+version = "0.1.3"
 source = { editable = "." }
 
 [package.dev-dependencies]

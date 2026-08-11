@@ -98,7 +98,7 @@ def _on_parallel_result(result: dict) -> None:
 
 # Overhead at or above this share of the Baseline's own duration means a
 # Mutant spends more of its run on fixed cost than on the tests it exists to
-# run — the threshold, not the measured value, is what tests pin (issue 06).
+# run — the threshold, not the measured value, is what tests pin.
 _OVERHEAD_HINT_RATIO = 0.5
 
 
@@ -106,7 +106,7 @@ _OVERHEAD_HINT_RATIO = 0.5
 class OverheadInfo:
     """Per-Mutant overhead paired with the Baseline duration it was measured
     alongside — bundled into one param so _mutation_report_lines stays at
-    the project's 5-argument cap (issue 06)."""
+    the project's 5-argument cap."""
 
     overhead_duration: float
     baseline_duration: float

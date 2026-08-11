@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-08-09T20:06:58Z",
-  "module_hash": "5c79a9fb9ffda1c5ea3a6babdfc3d3fe27be36b6107101ed7370d78f869f7261",
-  "source_sha256": "6b5b70df8367eaefed4552555cee65a43a8a8f56f034356d4bc57077d9ea7eb0",
+  "tested_at": "2026-08-11T02:30:13Z",
+  "module_hash": "ccc9c062396a4500a37c0b02f4b92db27b546103ea5c3bbfeb08740210cddd4d",
+  "source_sha256": "ac0caed2d868fd2cb51f0ecc71f5c9458cc35e353b7c3d77b449097396357035",
   "functions": [
     {
       "id": "func/_find_pyproject",
@@ -79,7 +79,7 @@
       "name": "_resolve_member_dirs",
       "line": 118,
       "end_line": 122,
-      "hash": "dcc817758fdadd1ee1aada7a9b40028adb5af03f35bf172e131bb4948e6a1942"
+      "hash": "2d6106cef53adb45b4702c4eacaaaa9cf17eb407d30e41095694fd4984acda5e"
     },
     {
       "id": "func/_is_excluded_dir",
@@ -93,14 +93,14 @@
       "name": "_discover_workspace_roots",
       "line": 130,
       "end_line": 139,
-      "hash": "d7e0d0ee32d6e98f11ec3905d8aacac147c53d3badc97b6d57778769b21b2541"
+      "hash": "52690e0bbe288f05bb1911fc069fba974a68f3f2172d7928042a1a2f0f431c4f"
     },
     {
       "id": "func/_workspace_exclude_dirs",
       "name": "_workspace_exclude_dirs",
       "line": 142,
       "end_line": 147,
-      "hash": "7eee43120ced8fe816d25e4647683eaf8ddd87fdf3ce4fffc76eda2fbfd68504"
+      "hash": "1282a070bdda334223db7a5320759031b6c56e86644f90d056c76e4f7dd33b3a"
     }
   ]
 }

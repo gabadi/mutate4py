@@ -1,20 +1,15 @@
-"""CLI dispatch and execution (issue #38 gate 11): turns resolved targets
-into file reads, mode routing, and process exit codes.
+"""CLI dispatch and execution: turns resolved targets into file reads, mode
+routing, and process exit codes — root resolution, single-file vs. batch
+routing by arity, per-file mode dispatch, and worst-code exit aggregation.
 
-Root resolution (positionals/globs, or uv workspace autodiscovery),
-single-file vs. batch routing by arity, per-file mode dispatch (scan /
-check-manifest / update-manifest / run-mutations), and the worst-code exit
-aggregation across a batch all live here. Argument parsing and validation
-stay in the CLI adapter (`__main__.py`) — this module never builds an
-`argparse.ArgumentParser`, only reads the `argparse.Namespace` it's handed.
+This module never builds an `argparse.ArgumentParser`; it only reads the
+`Namespace` it is handed. Parsing and validation stay in `__main__.py`.
 
-Like `_workspace.py`, this module exits the process directly (`sys.exit`)
-rather than raising a typed error for the caller to translate: it is a
-second adapter-tier module, not a domain module, so nothing needs to catch
-its errors programmatically. The one exception is `NoFilesToProcessError`
-raised by `_target_resolution`'s "no files kept" case, which the caller
-(`main()`) still needs to catch to apply its own exit code — that contract
-is unchanged by this module's existence.
+Like `_workspace.py`, it exits the process directly (`sys.exit`) rather than
+raising a typed error for a caller to translate: it is a second adapter-tier
+module, not a domain module, so nothing needs to catch its errors
+programmatically. The one exception is `NoFilesToProcessError` from
+`_target_resolution`, which `main()` catches to apply its own exit code.
 """
 
 import argparse
@@ -196,8 +191,8 @@ def _report_excluded(excluded: list[str]) -> None:
 
 def _collect_union_files(args: argparse.Namespace, roots: list[str]) -> list[str]:
     """The union's .py files across all roots: root order, deduped, raises
-    NoFilesToProcessError if the whole union is empty (an individual empty
-    root is silent, item 17)."""
+    NoFilesToProcessError if the whole union is empty; an individual empty
+    root is silent."""
     kept: list[str] = []
     excluded: list[str] = []
     for root in roots:
@@ -241,7 +236,7 @@ def _run_files_and_exit(args: argparse.Namespace, files: list[str]) -> None:
 
 def _dispatch_batch(args: argparse.Namespace, roots: list[str]) -> None:
     """One or more resolved roots: one shared baseline, and one exit code — the
-    worst per-file code across the batch (item 2)."""
+    worst per-file code across the batch."""
     _run_files_and_exit(args, _collect_union_files(args, roots))
 
 
@@ -256,10 +251,10 @@ def _raise_if_target_excluded(args: argparse.Namespace) -> None:
 
 
 def _resolve_roots(args: argparse.Namespace) -> tuple[list[str], tuple[str, ...]]:
-    """Positionals/globs, or uv workspace autodiscovery when none are given
-    (issue #22 item 3). Autodiscovery also returns the real
+    """Positionals/globs, or uv workspace autodiscovery when none are given.
+    Autodiscovery also returns the real
     [tool.uv.workspace].exclude directories, so the shared collector skips
-    them by path identity in every walk (item 10's second half) — not by
+    them by path identity in every walk — not by
     re-encoding a literal directory path as a glob pattern, which a "*" in
     the directory's own name would misinterpret."""
     if args.files:
@@ -269,13 +264,13 @@ def _resolve_roots(args: argparse.Namespace) -> tuple[list[str], tuple[str, ...]
 
 def _dispatch(args: argparse.Namespace) -> None:
     """Resolve positionals (or autodiscover a workspace), then route by
-    arity (issue #22 item 2).
+    arity.
 
     A single resolved path that is a file runs the single-file path below,
     untouched; a single directory or two or more roots run as one batch.
-    Routing a lone directory through _dispatch_batch (gate 11) means it now
-    also gets _collect_union_files' realpath dedup, which a bare directory
-    walk never applied on its own — a directory containing a symlinked .py
+    Routing a lone directory through _dispatch_batch also gives it
+    _collect_union_files' realpath dedup, which a bare directory walk never
+    applied on its own — a directory containing a symlinked .py
     file that aliases another file in the same walk now keeps only one of
     them, where both used to be kept. Narrow (requires an in-tree symlink
     alias) and arguably a correctness fix (multi-root batches already

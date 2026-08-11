@@ -1,6 +1,6 @@
 """pytest plugin loaded per-Worker (`-p mutate4py._django_worker_plugin`) so
 pytest-django gets the per-Worker test-database identity it otherwise only
-gets from pytest-xdist (issue 05).
+gets from pytest-xdist.
 
 pytest-django derives its per-worker test-database suffix from
 `config.workerinput["workerid"]`, an attribute only pytest-xdist populates.

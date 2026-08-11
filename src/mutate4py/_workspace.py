@@ -1,4 +1,4 @@
-"""uv workspace autodiscovery (issue #22 items 3, 8-12).
+"""uv workspace autodiscovery.
 
 Zero positional arguments trigger this: climb from cwd to the nearest
 ancestor `pyproject.toml`, require it to declare `[tool.uv.workspace]`, then
@@ -116,7 +116,7 @@ def _resolve_dirs(workspace_root: str, patterns: Sequence[str]) -> list[str]:
 
 
 def _resolve_member_dirs(workspace_root: str, patterns: Sequence[str]) -> list[str]:
-    """Member dirs (item 9): glob-matched directories with their own
+    """Member dirs: glob-matched directories with their own
     pyproject.toml; a match without one is skipped silently."""
     dirs = _resolve_dirs(workspace_root, patterns)
     return [d for d in dirs if os.path.isfile(os.path.join(d, "pyproject.toml"))]
@@ -129,7 +129,7 @@ def _is_excluded_dir(d: str, excluded: Sequence[str]) -> bool:
 
 def _discover_workspace_roots() -> list[str]:
     """Roots for the zero-positional path: the workspace root, then every
-    member directory (items 3, 8-11), root order preserved (item 15)."""
+    member directory, root order preserved."""
     workspace_root, workspace = _load_workspace_config()
     exclude_patterns = _workspace_list(workspace_root, workspace, "exclude")
     member_patterns = _workspace_list(workspace_root, workspace, "members")
@@ -140,8 +140,8 @@ def _discover_workspace_roots() -> list[str]:
 
 
 def _workspace_exclude_dirs() -> list[str]:
-    """Directories to prune from the workspace root's recursive walk
-    (item 10's second half); re-parses the same workspace config."""
+    """Directories to prune from the workspace root's recursive walk;
+    re-parses the same workspace config."""
     workspace_root, workspace = _load_workspace_config()
     exclude_patterns = _workspace_list(workspace_root, workspace, "exclude")
     return _resolve_dirs(workspace_root, exclude_patterns)

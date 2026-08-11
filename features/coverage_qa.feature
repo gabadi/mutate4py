@@ -1,9 +1,7 @@
 Feature: QA — the coverage gate is observable end-to-end through --scan
 
-  # TRACKING: F3 (coverage-gate) — docs/plan.md; docs/spec.md §6, §8 (--scan output);
-  #           docs/adr/0007-coverage-default-path-and-line-only-gate.md;
-  #           docs/adr/0008-coverage-flags-pairwise-exclusive.md;
-  #           docs/adr/0009-coverage-partition-surfaces-via-scan.md
+  # TRACKING: F3 (coverage-gate) — docs/adr/0007-coverage-default-path-and-line-only-gate.md;
+  #           docs/adr/0008-coverage-flags-pairwise-exclusive.md
   #
   # CONTRACT:
   #   End-to-end QA for F3. Operates ONLY through the user interface: the

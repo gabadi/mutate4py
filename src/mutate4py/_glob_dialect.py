@@ -1,4 +1,4 @@
-"""The shared glob dialect (issue #22 item 4).
+"""The shared glob dialect.
 
 `*` matches exactly one path segment and never crosses `/`; `**` matches zero
 or more segments. A small hand-rolled translator to regex, not a general glob

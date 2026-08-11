@@ -315,9 +315,9 @@ def _select_and_prepare(
 def _open_test_context_db(test_contexts_path: str | None):
     """Open the test-context db if requested, or None.
 
-    No longer clamps max_workers to force serial execution (issue 04b):
-    narrowing composes with parallel Workers, so a Test-context db and a
-    Worker count of two or more now both take effect in the same run.
+    Never clamps max_workers to force serial execution: narrowing composes
+    with parallel Workers, so a Test-context db and a Worker count of two or
+    more both take effect in the same run.
     """
     if test_contexts_path is None:
         return None

@@ -5,10 +5,7 @@
 
 Feature: Manifest embed, extract, diff, and the --update-manifest mode
 
-  # TRACKING: F2 (manifest) — docs/plan.md; docs/spec.md §5 (manifest), §4 (units),
-  #           §8 (--update-manifest output);
-  #           docs/adr/0004-manifest-faithful-port-of-mutate4go.md;
-  #           docs/adr/0005-manifest-hash-is-ast-dump.md;
+  # TRACKING: F2 (manifest) — docs/adr/0005-manifest-hash-is-ast-unparse.md;
   #           docs/adr/0006-update-manifest-idempotent.md
   #
   # CONTRACT:
@@ -32,17 +29,17 @@ Feature: Manifest embed, extract, diff, and the --update-manifest mode
   #     classifies no mutants, and prints no run report (that is F4).
   #
   # CONSTRAINTS:
-  #   - Hash = sha256(ast.dump(subtree)); module_hash = sha256(ast.dump(stripped module)).
-  #     ast.dump default args (no include_attributes) => position-independent;
+  #   - Hash = sha256(ast.unparse(subtree)); module_hash = sha256(ast.unparse(stripped module)).
+  #     ast.unparse emits canonical source (no positions, no comments) => position-independent;
   #     reformat-only and comment-only edits do NOT change a hash (ADR 0005).
   #   - Function unit range: line = the def/async-def line (node.lineno),
-  #     end_line = node.end_lineno; decorators are ABOVE the range (ADR 0004).
-  #   - Unit ids follow F1 §4: func/foo, func/Class.m; nested def/lambda fold in.
+  #     end_line = node.end_lineno; decorators are ABOVE the range.
+  #   - Unit ids: func/foo, func/Class.m; nested def/lambda fold in.
   #   - Embed strips any existing manifest first: re-embedding never accretes markers
   #     and the body above the footer is byte-identical to the stripped original.
   #   - diff: previous is none => every current id is changed; else a current id is
   #     changed iff its hash differs from previous; a new id (absent from previous)
-  #     is changed; a removed id (in previous, not current) is dropped (ADR 0004).
+  #     is changed; a removed id (in previous, not current) is dropped.
   #   - module_hash is a top-level field; it is NOT part of the per-function diff set.
   #   - --update-manifest is idempotent: it writes (and bumps tested_at) only when the
   #     freshly-built functions/module_hash differ from the embedded manifest (ADR 0006).
@@ -155,7 +152,7 @@ Feature: Manifest embed, extract, diff, and the --update-manifest mode
     Then the file contains exactly one "# mutate4py-manifest-begin" line
     And the manifest body above the footer is byte-identical to the once-embedded body
 
-  # manifest-9: the hash is stable across edits that do not change ast.dump()
+  # manifest-9: the hash is stable across edits that do not change ast.unparse()
   Scenario Outline: a "<edit>" edit leaves the function unchanged in the diff
     Given a previous manifest built from a function
     And the function is changed by "<edit>"
@@ -193,7 +190,7 @@ Feature: Manifest embed, extract, diff, and the --update-manifest mode
     And the file then contains an embedded manifest
     And no test command is run
 
-  # manifest-12: --update-manifest is idempotent under ast.dump() hashing
+  # manifest-12: --update-manifest is idempotent under ast.unparse() hashing
   Scenario Outline: re-running --update-manifest reflects whether anything changed
     Given a Python source file with an embedded manifest current as of its content
     And the file is then changed by "<edit>"

@@ -1,7 +1,6 @@
 Feature: QA — site discovery is observable end-to-end through the mutate4py CLI
 
-  # TRACKING: F1 (site-discovery) — docs/plan.md; docs/spec.md §8 (--scan);
-  #           docs/adr/0002-scan-counts-only-no-manifest-in-f1.md
+  # TRACKING: F1 (site-discovery)
   #
   # CONTRACT:
   #   End-to-end QA for F1. Operates ONLY through the user interface: the
@@ -34,7 +33,7 @@ Feature: QA — site discovery is observable end-to-end through the mutate4py CL
   #     "Manifest exists: false" and "Changed == Total" are the only manifest-related
   #     observations.
   #   - ASSUMED: `mutate4py <file> --scan` is the user-facing invocation and prints
-  #     the §8 scan block to stdout.
+  #     the scan block to stdout.
   #
   # UX INTENT: none
   # Design artifacts: none

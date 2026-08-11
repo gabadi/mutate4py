@@ -5,9 +5,7 @@
 
 Feature: Mutation site discovery and the --scan count surface
 
-  # TRACKING: F1 (site-discovery) — docs/plan.md; docs/spec.md §3, §4, §8 (--scan);
-  #           docs/adr/0001-site-discovery-and-operators.md;
-  #           docs/adr/0002-scan-counts-only-no-manifest-in-f1.md
+  # TRACKING: F1 (site-discovery) — docs/adr/0001-site-discovery-and-operators.md
   #
   # CONTRACT:
   #   command: mutate4py <file> --scan
@@ -27,7 +25,7 @@ Feature: Mutation site discovery and the --scan count surface
   # CONSTRAINTS:
   #   - One file at a time (positional <file>).
   #   - Exactly one mutant per site; one operator/literal per site.
-  #   - Operator catalogue is closed (spec §3): + - *, > >= < <=, == !=, is/is not,
+  #   - Operator catalogue is closed: + - *, > >= < <=, == !=, is/is not,
   #     in/not in, and/or, True/False, integer 0/1. `*`→`/` only (never `/`→`*`).
   #   - Excluded — NO site emitted: augmented assignment (+=, -=), unary removal,
   #     any cross-coercion-family swap, integer literals other than 0 and 1.
@@ -53,7 +51,7 @@ Feature: Mutation site discovery and the --scan count surface
   #     false here and Changed == Total.
   #   - Does NOT: implement the full flag matrix or mutual-exclusion rules (F5);
   #     only <file>, --scan, --help exist in F1.
-  #   - Does NOT: list per-site descriptions under --scan (counts only; ADR 0002).
+  #   - Does NOT: list per-site descriptions under --scan (counts only).
   #   - ASSUMED: per-operator and per-attribution correctness is also covered by the
   #     discovery module's unit tests; the Gherkin asserts the count contract.
   #

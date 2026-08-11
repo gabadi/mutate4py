@@ -17,7 +17,7 @@ Navigation and universal invariants for all agents in this project.
 - `crap4py`: installed from local sibling `~/workspace/addi/crap4py` via `uv tool install ~/workspace/addi/crap4py` (not PyPI, not GitHub URL)
 - `drywall`: available at `/Users/gabadi/.local/bin/drywall` (not in PyPI under that name)
 - `uv run mutate4py` is the correct invocation for mutation scan and manifest checks (not `uvx mutate4py`); uvx isolates the env and breaks self-referential scanning
-- `uv run mutate4py src/ --check-manifest` — CI gate; exits 0 if all manifests current, 1 if any are missing/stale
+- `uv run mutate4py src/ --check-manifest --manifest-file` — CI gate; exits 0 if all manifests current, 1 if any are missing/stale. `src/` stores manifests as sidecars (`*.manifest.json`), so `--manifest-file` is required — without it the check looks for embedded footers and always fails (issue #47).
 
 ## Tool CLI Signatures
 - `gherkin-parser`: requires two args: `gherkin-parser <feature-file> <json-output>`; bare `gherkin-parser <file>` fails with usage error; call WITHOUT `rtk` prefix — rtk breaks it
@@ -31,14 +31,20 @@ Navigation and universal invariants for all agents in this project.
 - When modifying source with an embedded manifest, always strip manifest first, modify body, then re-embed; never append after the manifest footer — `strip_manifest` removes everything from begin-marker to EOF
 
 ## Module Dependency Invariants
-- `tach.toml` is the enforced source of truth for package layering (`src/mutate4py/*`); `tach check` runs inside the `lint` gate. The prose below describes the same contract — if it ever drifts from `tach.toml`, the config wins.
-- `_coverage.py` must not import from `_discovery.py`; if coverage code needs Site objects, move that function to `_discovery.py` (IO-free domain boundary). Enforced: both sit in `tach.toml`'s `domain` layer with no `depends_on` between them, so `tach check` fails the moment either imports the other.
+- `tach.toml` holds package layering for `src/mutate4py/*` — the rules and the reasoning both. `tach check` enforces it inside the `lint` gate. Read its header before moving a module between layers or adding a `depends_on`.
 - Acceptance step files are boundary files (15-site mutation threshold); extractable pure logic belongs in `*_helpers.py` modules with their own unit tests.
 - `coverage_helpers.py` is the testable module for acceptance step helper functions; unit tests live in `tests/test_coverage_helpers.py`.
 - `cli_surface_helpers.py` is the testable module for CLI surface acceptance step helpers; unit tests live in `tests/test_cli_surface_helpers.py`.
 - `__main__.py` is a pure CLI adapter; `scan_report`, `scan_report_with_coverage`, and `update_manifest` belong in `_runner.py` and are tested directly. Do not move domain functions back to `__main__.py`.
 
 ## References
+- `CONTEXT.md` — the project's glossary. Use its terms; don't drift to synonyms.
+- `docs/adr/` — decisions and their **rejected** alternatives. Read the ADR covering
+  an area before changing it: each one exists to stop a deliberate choice being
+  "fixed" back. Behaviour itself is documented by the code, not by these.
+- Sibling repos (`~/workspace/addi/`): `crap4py` (Python gold template for CI,
+  release, `features/*.feature`, `acceptance/`), `mutate4js` (module-for-module
+  mirror of this tool), `drywall` (DRY gate binary).
 - See `.agents/roles/` for per-role operational rules.
 - See `.agents/references/` for deep-dive topics.
 - See `.agents/backlog.md` for pending enforcement-gate proposals.

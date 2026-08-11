@@ -94,7 +94,8 @@ def _resolve_lcov_path(
         return default
     if lcov_path is not None:
         return lcov_path
-    # reuse=True
+    # reuse=True is the only case left — the three flags are pairwise exclusive
+    # (ADR 0008), so it needs no test of its own.
     return os.path.join(cwd, DEFAULT_LCOV_PATH)
 
 

@@ -1,4 +1,4 @@
-"""Forking executor for the serial mutation loop (issue #25).
+"""Forking executor for the serial mutation loop.
 
 A parent process primes pytest/plugins/framework setup once (running a
 collect-only pass against an empty directory, so root conftest.py and
@@ -169,7 +169,7 @@ def _run_pytest_output_suppressed(pytest_module, args: list[str], cwd: str) -> i
     they currently point at, so an unflushed pytest summary line written
     while fd 1/2 point at devnull would otherwise surface later — after
     restoration — once something finally flushes it, leaking onto whatever
-    now owns fd 1/2. Harmless for a human-readable terminal, but issue 04b's
+    now owns fd 1/2. Harmless for a human-readable terminal, but the
     Worker protocol treats every stdout line as a JSON message, so a leaked
     line there is a framing error, not just noise.
     """

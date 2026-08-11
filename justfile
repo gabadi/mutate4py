@@ -28,7 +28,7 @@ LOG := "check.log"
 check *gates:
     #!/usr/bin/env bash
     set -euo pipefail
-    all=(lint format-check test crap dry manifest acceptance)
+    all=(lint format-check test-unit test-integration crap dry manifest acceptance)
     extra=(gherkin-mutation mutate-sample)
     known=("${all[@]}" "${extra[@]}")
     selected=({{gates}})
@@ -45,14 +45,23 @@ check *gates:
         fi
     done
     # `crap` and `mutate-sample` read artifacts (lcov.info / .coverage) that
-    # only `test` writes, and --no-deps means nothing here will produce them.
+    # only `test-integration` writes, and --no-deps means nothing here will
+    # produce them. It writes them for BOTH halves — see its own comment.
     for needs_test in crap mutate-sample; do
-        if [[ " ${selected[*]} " == *" ${needs_test} "* && " ${selected[*]} " != *" test "* ]]; then
-            echo "  ✗ ${needs_test} reads lcov.info/.coverage, which only \`test\` writes" >&2
-            echo "    run:  just check test ${needs_test}" >&2
+        if [[ " ${selected[*]} " == *" ${needs_test} "* && " ${selected[*]} " != *" test-integration "* ]]; then
+            echo "  ✗ ${needs_test} reads lcov.info/.coverage, which only \`test-integration\` writes" >&2
+            echo "    run:  just check test-unit test-integration ${needs_test}" >&2
             exit 1
         fi
     done
+    # test-integration appends to test-unit's coverage data. Running it alone
+    # would measure 80 tests and fail --cov-fail-under, which reads as a
+    # coverage regression rather than the missing half it is.
+    if [[ " ${selected[*]} " == *" test-integration "* && " ${selected[*]} " != *" test-unit "* ]]; then
+        echo "  ✗ test-integration appends to test-unit's coverage; run both" >&2
+        echo "    run:  just check test-unit test-integration" >&2
+        exit 1
+    fi
     : > "{{LOG}}"
     _run() {
         printf '\n=== %s ===\n' "$1" >> "{{LOG}}"
@@ -81,13 +90,33 @@ format-check:
 format:
     uv run ruff format src/ tests/
 
+# The suite runs in two halves so a slow or flaky integration test is visible
+# as itself rather than as "tests took a while": 80 integration tests are 9% of
+# the suite and about half its wall clock, because each one spawns a fresh
+# interpreter.
+#
+# They are two halves of ONE coverage measurement, not two measurements.
+# test-unit writes the data; test-integration appends to it and only then
+# writes lcov.info and applies the threshold. Splitting the data instead would
+# turn the `crap` gate red: those 80 tests cover 2 statements nothing else
+# reaches, and without them `_wait_for_child` scores 6.2 against a cap of 6.
+# The two halves must therefore stay in the same job, on the same machine,
+# in this order.
+#
 # --cov-context=test records which test covers which line in .coverage
 # (sqlite), which `mutate`'s --test-contexts reads for per-mutant test
-# selection (#02) — the same shape perf.sh already used.
+# selection.
 [private]
-test:
-    uv run pytest --cov --cov-context=test --cov-report=lcov:lcov.info \
-        --cov-report=term-missing --cov-fail-under=90
+test-unit:
+    uv run pytest -m 'not integration' --cov --cov-context=test \
+        --cov-report= --cov-fail-under=0
+
+# Appends to test-unit's coverage data, then reports on the total. The
+# threshold and lcov.info always describe the whole suite.
+[private]
+test-integration:
+    uv run pytest -m integration --cov --cov-append --cov-context=test \
+        --cov-report=lcov:lcov.info --cov-report=term-missing --cov-fail-under=90
 
 # Requires lcov.info from `test`.
 [private]
@@ -197,9 +226,11 @@ perf:
     _run "lint"   uv run ruff check src/ tests/
     _run "tach"   uv run tach check
     _run "format" uv run ruff format --check src/ tests/
-    _run "test"   uv run pytest --cov --cov-context=test \
-                      --cov-report=lcov:lcov.info --cov-report=term-missing \
-                      --cov-fail-under=90 -q
+    _run "test (unit)" uv run pytest -m 'not integration' --cov \
+                      --cov-context=test --cov-report= --cov-fail-under=0 -q
+    _run "test (integration)" uv run pytest -m integration --cov --cov-append \
+                      --cov-context=test --cov-report=lcov:lcov.info \
+                      --cov-report=term-missing --cov-fail-under=90 -q
     _run "crap"   uv run crap4py src/ --lcov lcov.info --max-crap 6
     DRYWALL="${DRYWALL:-$(command -v drywall 2>/dev/null || echo "$HOME/.local/bin/drywall")}"
     _run "dry"    "$DRYWALL" src/

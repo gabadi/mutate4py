@@ -97,7 +97,6 @@ def _node_text(source: str, line_index: list[int], node: ast.AST) -> str:
 
 def _replace_op_token(node_text: str, orig_op: str, mutant_op: str) -> str:
     """Replace the first occurrence of orig_op (as whole token) in node_text."""
-    # For multi-char ops or keyword ops, replace the first match
     return node_text.replace(orig_op, mutant_op, 1)
 
 
@@ -108,12 +107,10 @@ def _mutate_binop(source: str, line_index: list[int], node: ast.BinOp) -> tuple[
         return None
     orig_op, mutant_op = token_pair
     orig = _node_text(source, line_index, node)
-    # The operator is between left.end and right.start; replace its token in node text
     left_end = _abs_offset(line_index, node.left.end_lineno, node.left.end_col_offset)  # type: ignore[attr-defined]
     right_start = _abs_offset(line_index, node.right.lineno, node.right.col_offset)  # type: ignore[attr-defined]
     node_start = _abs_offset(line_index, node.lineno, node.col_offset)  # type: ignore[attr-defined]
     between = source[left_end:right_start]
-    # Replace op token in the between-region
     new_between = between.replace(orig_op, mutant_op, 1)
     if new_between == between:
         return None
@@ -125,7 +122,6 @@ def _mutate_binop(source: str, line_index: list[int], node: ast.BinOp) -> tuple[
 
 def _mutate_compare(source: str, line_index: list[int], node: ast.Compare) -> tuple[str, str] | None:
     """Return (orig_text, mutant_text) for first mutable Compare op, or None."""
-    # Pairs: (left_node, op, right_node)
     lefts = [node.left] + list(node.comparators[:-1])
     for left_node, op, right_node in zip(lefts, node.ops, node.comparators):
         token_pair = _COMPARE_TOKEN_MUTATIONS.get(type(op))
@@ -154,7 +150,6 @@ def _mutate_boolop(source: str, line_index: list[int], node: ast.BoolOp) -> tupl
         return None
     orig_op, mutant_op = token_pair
     orig = _node_text(source, line_index, node)
-    # Find the operator between first and second values
     first_end = _abs_offset(line_index, node.values[0].end_lineno, node.values[0].end_col_offset)  # type: ignore[attr-defined]
     second_start = _abs_offset(line_index, node.values[1].lineno, node.values[1].col_offset)  # type: ignore[attr-defined]
     node_start = _abs_offset(line_index, node.lineno, node.col_offset)  # type: ignore[attr-defined]
