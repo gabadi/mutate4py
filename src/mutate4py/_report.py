@@ -10,6 +10,8 @@ import os
 
 from mutate4py._coverage import acquire_coverage
 from mutate4py._discovery import Site, discover_sites, partition_sites
+from mutate4py._manifest_storage import ManifestLocation
+from mutate4py._source_loading import _compute_manifest_diff
 
 __all__ = [
     "CoverageSource",
@@ -161,15 +163,39 @@ def _workers_header_lines(max_workers: int, *, use_parallel: bool, n_selected: i
     return [f"Mutation workers: {displayed}"]
 
 
-def scan_report(path: str, source: str, warning_threshold: int) -> tuple[list[str], bool]:
+def _scan_manifest_state(path: str, source: str, *, manifest_file: bool) -> tuple[list[Site], int, bool]:
+    """Sites discovered on the manifest-stripped source, plus changed-site count
+    and manifest-exists.
+
+    changed_fn_ids (from the same per-function diff the real run selects with)
+    only ever contains named-function ids, so a site outside any function
+    never matches it — with no special case, a module-level-only file would
+    report Changed=0 even on an untracked first scan. Since "no manifest" means
+    nothing has a prior baseline to diff against, every site counts as changed
+    in that case; once a manifest exists, changed_fn_ids drives the real diff.
+    """
+    loc = ManifestLocation(path=path, manifest_file=manifest_file)
+    clean_source, _, manifest_exists, changed_fn_ids, _ = _compute_manifest_diff(source, loc)
+    sites = discover_sites(clean_source)
+    if manifest_exists:
+        changed_count = len([s for s in sites if s.function_id in changed_fn_ids])
+    else:
+        changed_count = len(sites)
+    return sites, changed_count, manifest_exists
+
+
+def scan_report(
+    path: str, source: str, warning_threshold: int, *, manifest_file: bool = False
+) -> tuple[list[str], bool]:
     """Return (output_lines, exceeded_threshold) for a --scan run without coverage."""
-    sites = discover_sites(source)
+    sites, changed_count, manifest_exists = _scan_manifest_state(path, source, manifest_file=manifest_file)
     total = len(sites)
+    manifest_str = "true" if manifest_exists else "false"
     lines = [
         f"Mutation scan: {path}",
         f"Total mutation sites: {total}",
-        f"Changed mutation sites: {total}",
-        "Manifest exists: false",
+        f"Changed mutation sites: {changed_count}",
+        f"Manifest exists: {manifest_str}",
     ]
     exceeded = total > warning_threshold
     if exceeded:
@@ -182,9 +208,11 @@ def scan_report_with_coverage(
     source: str,
     warning_threshold: int,
     coverage: CoverageSource,
+    *,
+    manifest_file: bool = False,
 ) -> tuple[list[str], bool]:
     """Return (output_lines, exceeded_threshold) for a --scan run with coverage."""
-    sites = discover_sites(source)
+    sites, changed_count, manifest_exists = _scan_manifest_state(path, source, manifest_file=manifest_file)
     total = len(sites)
     covered_lines = acquire_coverage(
         cov_cmd=coverage.cov_cmd,
@@ -194,12 +222,14 @@ def scan_report_with_coverage(
         source_path=os.path.abspath(path),
     )
     covered, uncovered = partition_sites(sites, covered_lines)
+    manifest_str = "true" if manifest_exists else "false"
     lines = [
         f"Mutation scan: {path}",
         f"Total mutation sites: {total}",
         f"Covered mutation sites: {covered}",
         f"Uncovered mutation sites: {uncovered}",
-        "Manifest exists: false",
+        f"Changed mutation sites: {changed_count}",
+        f"Manifest exists: {manifest_str}",
     ]
     exceeded = total > warning_threshold
     if exceeded:

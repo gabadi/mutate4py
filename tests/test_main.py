@@ -140,6 +140,64 @@ def test_scan_report_total_equals_changed():
     assert total_line.split(": ")[1] == changed_line.split(": ")[1]
 
 
+def test_scan_report_with_embedded_manifest_reports_exists_true(tmp_path):
+    from mutate4py._runner import update_manifest
+
+    p = tmp_path / "mod.py"
+    src = "def f(a, b):\n    return a > b\n\n\ndef g(a, b):\n    return a < b\n"
+    p.write_text(src)
+    update_manifest(path=str(p), source=src, manifest_file=False)
+    embedded = p.read_text()
+
+    lines, _ = scan_report(str(p), embedded, 1000, manifest_file=False)
+    assert "Manifest exists: true" in lines
+
+
+def test_scan_report_with_embedded_manifest_changed_reflects_diff(tmp_path):
+    from mutate4py._runner import update_manifest
+
+    p = tmp_path / "mod.py"
+    src = "def f(a, b):\n    return a > b\n\n\ndef g(a, b):\n    return a < b\n"
+    p.write_text(src)
+    update_manifest(path=str(p), source=src, manifest_file=False)
+    embedded = p.read_text()
+
+    # Only g's body changes after the manifest was recorded.
+    changed_src = embedded.replace("return a < b", "return a <= b")
+
+    lines, _ = scan_report(str(p), changed_src, 1000, manifest_file=False)
+    total = int(next(line for line in lines if "Total mutation sites:" in line).split(": ")[1])
+    changed = int(next(line for line in lines if "Changed mutation sites:" in line).split(": ")[1])
+    assert 0 < changed < total
+
+
+def test_scan_report_sidecar_manifest_reports_exists_true(tmp_path):
+    from mutate4py._runner import update_manifest
+
+    p = tmp_path / "mod.py"
+    src = "def f(a, b):\n    return a > b\n"
+    p.write_text(src)
+    update_manifest(path=str(p), source=src, manifest_file=True)
+
+    lines, _ = scan_report(str(p), src, 1000, manifest_file=True)
+    assert "Manifest exists: true" in lines
+    assert "Changed mutation sites: 0" in lines
+
+
+def test_scan_report_sidecar_manifest_changed_reflects_diff(tmp_path):
+    from mutate4py._runner import update_manifest
+
+    p = tmp_path / "mod.py"
+    src = "def f(a, b):\n    return a > b\n"
+    p.write_text(src)
+    update_manifest(path=str(p), source=src, manifest_file=True)
+
+    changed_src = "def f(a, b):\n    return a >= b\n"
+    lines, _ = scan_report(str(p), changed_src, 1000, manifest_file=True)
+    assert "Manifest exists: true" in lines
+    assert "Changed mutation sites: 1" in lines
+
+
 # ── main() direct invocation (CRAP coverage) ──────────────────────────────────
 
 
@@ -343,6 +401,32 @@ def test_scan_report_with_coverage_manifest_exists_false(tmp_path):
         CoverageSource(cov_cmd=None, lcov_path=str(lcov_file), reuse_coverage=False, cwd=str(tmp_path)),
     )
     assert "Manifest exists: false" in lines
+    assert "Changed mutation sites: 1" in lines
+
+
+def test_scan_report_with_coverage_embedded_manifest_reports_exists_true_and_changed(tmp_path):
+    from mutate4py._runner import scan_report_with_coverage, update_manifest
+
+    src_file = tmp_path / "foo.py"
+    src = "def f(a, b):\n    return a > b\n\n\ndef g(a, b):\n    return a < b\n"
+    src_file.write_text(src)
+    update_manifest(path=str(src_file), source=src, manifest_file=False)
+    embedded = src_file.read_text()
+    changed_src = embedded.replace("return a < b", "return a <= b")
+
+    lcov_file = tmp_path / "cov.info"
+    lcov_file.write_text(f"SF:{src_file}\nDA:2,1\nDA:6,1\nend_of_record\n")
+
+    lines, _ = scan_report_with_coverage(
+        str(src_file),
+        changed_src,
+        1000,
+        CoverageSource(cov_cmd=None, lcov_path=str(lcov_file), reuse_coverage=False, cwd=str(tmp_path)),
+    )
+    assert "Manifest exists: true" in lines
+    total = int(next(line for line in lines if "Total mutation sites:" in line).split(": ")[1])
+    changed = int(next(line for line in lines if "Changed mutation sites:" in line).split(": ")[1])
+    assert 0 < changed < total
 
 
 def test_scan_report_with_coverage_no_warning_at_threshold(tmp_path):

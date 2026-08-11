@@ -36,7 +36,10 @@ Feature: QA — the manifest is observable end-to-end through the --update-manif
   #
   # SCOPE:
   #   - Does NOT: assert run-report, coverage, or killed/survived output (F4).
-  #   - Does NOT: assert --scan's Changed / Manifest exists interaction (F5).
+  #   - Does NOT: assert --scan's Changed / Manifest exists interaction through
+  #     Gherkin — --scan does read the manifest (issue #46; see site-discovery.feature
+  #     for its no-manifest scenarios and tests/test_main.py for the manifest-present
+  #     case) but no QA scenario here drives --scan against a real manifest.
   #   - Does NOT: assert internal JSON field values (manifest.feature covers shape).
   #   - ASSUMED: `mutate4py <file> --update-manifest` is the user-facing invocation,
   #     prints one status line to stdout, and exits 0 on success.

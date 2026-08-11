@@ -31,8 +31,14 @@ Feature: Mutation site discovery and the --scan count surface
   #     any cross-coercion-family swap, integer literals other than 0 and 1.
   #   - A site outside any function has an empty FunctionID and is still counted.
   #   - Nested def / lambda sites fold into the enclosing named unit (not separate units).
-  #   - In F1 there is no manifest code: Manifest exists is always false, and
-  #     Changed always equals Total.
+  #   - --scan reads the manifest the same way the F4 run loop does (issue #46):
+  #     Manifest exists reflects whatever storage (embedded or --manifest-file
+  #     sidecar) actually holds, and Changed counts sites in functions whose hash
+  #     differs from it (every site, if no manifest exists yet). The scenarios
+  #     below use fixtures with no manifest, where Manifest exists is false and
+  #     Changed always equals Total — that is this scope's only case, not a
+  #     universal rule; the manifest-present case is unit-tested directly
+  #     (tests/test_main.py) rather than through Gherkin.
   #   - --scan is read-only: no coverage acquired, no test command run, no file write.
   #
   # SEQUENCING: none
@@ -42,13 +48,14 @@ Feature: Mutation site discovery and the --scan count surface
   #   - Sites are ordered by (line, column) with a stable Index.
   #
   # SIDE EFFECTS: none
-  #   # --scan writes nothing; it does not embed or modify the manifest.
+  #   # --scan writes nothing; it reads the manifest but never embeds or modifies it.
   #
   # SCOPE:
   #   - Does NOT: acquire or read coverage (F3); --scan never touches coverage.
   #   - Does NOT: run tests, classify mutants, or print a run report (F4).
-  #   - Does NOT: read, diff, or write the manifest (F2) — Manifest exists is always
-  #     false here and Changed == Total.
+  #   - Does NOT: write the manifest (F2) — --scan only reads it (issue #46); these
+  #     scenarios use fixtures with no manifest, so Manifest exists is false and
+  #     Changed == Total throughout.
   #   - Does NOT: implement the full flag matrix or mutual-exclusion rules (F5);
   #     only <file>, --scan, --help exist in F1.
   #   - Does NOT: list per-site descriptions under --scan (counts only).

@@ -102,13 +102,20 @@ def _print_lines(lines: list[str]) -> None:
         _logger.info("\n".join(lines))
 
 
-def run_scan(*, path: str, source: str, warning_threshold: int, coverage: CoverageSource) -> None:
+def run_scan(
+    *,
+    path: str,
+    source: str,
+    warning_threshold: int,
+    coverage: CoverageSource,
+    manifest_file: bool = False,
+) -> None:
     """Execute --scan: log site counts. Raises CoverageError on acquisition failure."""
     has_coverage = coverage.cov_cmd is not None or coverage.lcov_path is not None or coverage.reuse_coverage
     if has_coverage:
-        lines, _ = scan_report_with_coverage(path, source, warning_threshold, coverage)
+        lines, _ = scan_report_with_coverage(path, source, warning_threshold, coverage, manifest_file=manifest_file)
     else:
-        lines, _ = scan_report(path, source, warning_threshold)
+        lines, _ = scan_report(path, source, warning_threshold, manifest_file=manifest_file)
     _logger.info("\n".join(lines))
 
 
