@@ -468,3 +468,51 @@ def test_apply_mutant_integer_0_to_1():
     sites = discover_sites(src)
     mutated = apply_mutant(src, sites[0])
     assert mutated.strip() == "x = 1"
+
+
+# ── non-ASCII column offsets (issue #45) ──────────────────────────────────────
+# ast col_offset/end_col_offset are UTF-8 BYTE offsets, not character offsets.
+# A multi-byte character before a mutable operator must not shift the
+# computed span off the operator.
+
+
+def test_discover_sites_accented_chars_before_compare_operator():
+    src = 'def f(t):\n    u = "éééé"; return len(t) > 2\n'
+    sites = discover_sites(src)
+    assert len(sites) == 1
+    assert sites[0].orig_text == "len(t) > 2"
+
+
+def test_discover_sites_cjk_chars_before_binop_operator():
+    # CJK characters are 3 bytes each in UTF-8 (vs 1 char), same class of bug
+    # as the accented-Latin case but with a larger byte/char divergence.
+    src = 'def f(x):\n    label = "日本語"; return x + 5\n'
+    sites = discover_sites(src)
+    assert len(sites) == 1
+    assert sites[0].orig_text == "x + 5"
+
+
+def test_discover_sites_emoji_before_boolop_operator():
+    # Astral-plane emoji are 4 bytes in UTF-8 but a single Python str codepoint,
+    # so no UTF-16 surrogate-pair handling is needed — only byte accounting.
+    src = 'def f(a, b):\n    label = "🎉🎉"; return a and b\n'
+    sites = discover_sites(src)
+    assert len(sites) == 1
+    assert sites[0].orig_text == "a and b"
+
+
+def test_discover_sites_combining_character_before_compare_operator():
+    # "e" + combining acute accent (U+0301) is two codepoints, each contributing
+    # its own UTF-8 byte count, regardless of Unicode normalization form.
+    src = 'def f(t):\n    u = "éé"; return len(t) > 2\n'
+    sites = discover_sites(src)
+    assert len(sites) == 1
+    assert sites[0].orig_text == "len(t) > 2"
+
+
+def test_apply_mutant_splices_correctly_with_non_ascii_before_mutation_column():
+    src = 'def f(t):\n    u = "éééé"; return len(t) > 2\n'
+    sites = discover_sites(src)
+    assert len(sites) == 1
+    mutated = apply_mutant(src, sites[0])
+    assert mutated == 'def f(t):\n    u = "éééé"; return len(t) >= 2\n'

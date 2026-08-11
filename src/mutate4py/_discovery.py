@@ -2,6 +2,7 @@
 
 import ast
 import dataclasses
+import functools
 
 from mutate4py._ids import function_unit_id
 
@@ -83,15 +84,31 @@ def _build_line_index(source: str) -> list[int]:
     return offsets
 
 
-def _abs_offset(line_index: list[int], lineno: int, col_offset: int) -> int:
-    """Convert 1-based lineno + 0-based col_offset to absolute character offset."""
-    return line_index[lineno - 1] + col_offset
+@functools.lru_cache(maxsize=4096)
+def _line_utf8_bytes(source: str, line_start: int, line_end: int) -> bytes:
+    """Cache a line's UTF-8 encoding; reused across the several _abs_offset
+    calls made per mutable node and across nodes/mutants sharing the line."""
+    return source[line_start:line_end].encode("utf-8")
+
+
+def _abs_offset(source: str, line_index: list[int], lineno: int, byte_col_offset: int) -> int:
+    """Convert 1-based lineno + 0-based UTF-8 byte col_offset to absolute character offset.
+
+    ast col_offset/end_col_offset are UTF-8 byte offsets within the line, not
+    character offsets, so any multi-byte character earlier on the line requires
+    re-decoding to find the true character column.
+    """
+    line_start = line_index[lineno - 1]
+    line_end = line_index[lineno] if lineno < len(line_index) else len(source)
+    line_bytes = _line_utf8_bytes(source, line_start, line_end)
+    char_col = len(line_bytes[:byte_col_offset].decode("utf-8"))
+    return line_start + char_col
 
 
 def _node_text(source: str, line_index: list[int], node: ast.AST) -> str:
     """Extract source text for a node using its span attributes."""
-    start = _abs_offset(line_index, node.lineno, node.col_offset)  # type: ignore[attr-defined]
-    end = _abs_offset(line_index, node.end_lineno, node.end_col_offset)  # type: ignore[attr-defined]
+    start = _abs_offset(source, line_index, node.lineno, node.col_offset)  # type: ignore[attr-defined]
+    end = _abs_offset(source, line_index, node.end_lineno, node.end_col_offset)  # type: ignore[attr-defined]
     return source[start:end]
 
 
@@ -107,9 +124,9 @@ def _mutate_binop(source: str, line_index: list[int], node: ast.BinOp) -> tuple[
         return None
     orig_op, mutant_op = token_pair
     orig = _node_text(source, line_index, node)
-    left_end = _abs_offset(line_index, node.left.end_lineno, node.left.end_col_offset)  # type: ignore[attr-defined]
-    right_start = _abs_offset(line_index, node.right.lineno, node.right.col_offset)  # type: ignore[attr-defined]
-    node_start = _abs_offset(line_index, node.lineno, node.col_offset)  # type: ignore[attr-defined]
+    left_end = _abs_offset(source, line_index, node.left.end_lineno, node.left.end_col_offset)  # type: ignore[attr-defined]
+    right_start = _abs_offset(source, line_index, node.right.lineno, node.right.col_offset)  # type: ignore[attr-defined]
+    node_start = _abs_offset(source, line_index, node.lineno, node.col_offset)  # type: ignore[attr-defined]
     between = source[left_end:right_start]
     new_between = between.replace(orig_op, mutant_op, 1)
     if new_between == between:
@@ -129,9 +146,9 @@ def _mutate_compare(source: str, line_index: list[int], node: ast.Compare) -> tu
             continue
         orig_op, mutant_op = token_pair
         orig = _node_text(source, line_index, node)
-        left_end = _abs_offset(line_index, left_node.end_lineno, left_node.end_col_offset)  # type: ignore[attr-defined]
-        right_start = _abs_offset(line_index, right_node.lineno, right_node.col_offset)  # type: ignore[attr-defined]
-        node_start = _abs_offset(line_index, node.lineno, node.col_offset)  # type: ignore[attr-defined]
+        left_end = _abs_offset(source, line_index, left_node.end_lineno, left_node.end_col_offset)  # type: ignore[attr-defined]
+        right_start = _abs_offset(source, line_index, right_node.lineno, right_node.col_offset)  # type: ignore[attr-defined]
+        node_start = _abs_offset(source, line_index, node.lineno, node.col_offset)  # type: ignore[attr-defined]
         between = source[left_end:right_start]
         new_between = between.replace(orig_op, mutant_op, 1)
         if new_between == between:
@@ -150,9 +167,9 @@ def _mutate_boolop(source: str, line_index: list[int], node: ast.BoolOp) -> tupl
         return None
     orig_op, mutant_op = token_pair
     orig = _node_text(source, line_index, node)
-    first_end = _abs_offset(line_index, node.values[0].end_lineno, node.values[0].end_col_offset)  # type: ignore[attr-defined]
-    second_start = _abs_offset(line_index, node.values[1].lineno, node.values[1].col_offset)  # type: ignore[attr-defined]
-    node_start = _abs_offset(line_index, node.lineno, node.col_offset)  # type: ignore[attr-defined]
+    first_end = _abs_offset(source, line_index, node.values[0].end_lineno, node.values[0].end_col_offset)  # type: ignore[attr-defined]
+    second_start = _abs_offset(source, line_index, node.values[1].lineno, node.values[1].col_offset)  # type: ignore[attr-defined]
+    node_start = _abs_offset(source, line_index, node.lineno, node.col_offset)  # type: ignore[attr-defined]
     between = source[first_end:second_start]
     # Replace " and " or " or " with space-padded mutant
     new_between = between.replace(orig_op, mutant_op, 1)
@@ -186,8 +203,8 @@ def _mutate_constant(node: ast.Constant) -> tuple[str, str] | None:
 def apply_mutant(source: str, site: Site) -> str:
     """Return source with the site's mutation spliced in."""
     line_index = _build_line_index(source)
-    start = _abs_offset(line_index, site.line, site.col)
-    end = _abs_offset(line_index, site.end_line, site.end_col)
+    start = _abs_offset(source, line_index, site.line, site.col)
+    end = _abs_offset(source, line_index, site.end_line, site.end_col)
     return source[:start] + site.mutant_text + source[end:]
 
 
