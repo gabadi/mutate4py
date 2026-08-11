@@ -1,32 +1,23 @@
-"""Target resolution (issue #38 gate 05): turns positional arguments into a
-concrete list of Python files.
+"""Turns positional arguments into a concrete list of Python files: glob
+expansion, the recursive walk with directory-mode pruning, `--exclude`
+matching, and realpath dedup.
 
-Glob-pattern expansion (shared dialect), the recursive walk with
-directory-mode pruning, `--exclude` matching, and realpath dedup all live
-here. Root resolution itself (workspace autodiscovery, binding parsed
-arguments) stays in the CLI adapter — this module never sees argparse.
+This module never sees argparse. Root resolution — workspace autodiscovery,
+binding parsed arguments — stays in the CLI adapter.
 
-Failure modes raise a typed `TargetResolutionError` instead of exiting the
-process; the adapter is the only place that calls `sys.exit`. The "nothing
-to process" mode is the exception: it depends on whether an aggregate across
-multiple roots is empty, and on adapter-owned verbose reporting having run
-first, so the adapter raises `NoFilesToProcessError` itself once it has
-finished collecting and reporting. This module still owns the error type.
+Failures raise a typed `TargetResolutionError`; the adapter is the only place
+that calls `sys.exit`. `NoFilesToProcessError` is the one the adapter raises
+itself, because "nothing to process" depends on whether the aggregate across
+multiple roots is empty and on adapter-owned verbose reporting having already
+run — this module still owns the type. (`_workspace.py` deliberately keeps its
+own sys.exit-from-domain-code precedent; its failure modes share no
+adapter-level catch point with these.)
 
-A single walk produces both the kept list and the excluded list (files a
-`--exclude` pattern dropped) — the old code walked the tree a second time,
-without `--exclude` or `prune_dirs` applied, just to diff against the first
-walk's result. That second walk also mislabeled pruned-subtree files as
-"excluded" even though no `--exclude` pattern had matched them. One walk
-fixes both.
-
-Decision (ticket 05 AC): `_workspace.py` keeps its own sys.exit-from-domain-
-code precedent for now rather than adopting this raise-not-exit contract.
-Its failure modes (missing pyproject.toml, malformed TOML, a workspace key
-that isn't a list of strings) are a different, self-contained concern with
-no adapter-level catch to share; folding it into this ticket would extend
-the diff without a clear justification. Revisit if a future ticket needs
-`_workspace.py` errors to flow through the same catch point as these.
+One walk produces both the kept list and the excluded list. The earlier code
+walked the tree a second time — without `--exclude` or `prune_dirs` applied —
+just to diff against the first walk, which also mislabeled pruned-subtree files
+as "excluded" though no `--exclude` pattern had matched them. Don't reintroduce
+a second walk.
 """
 
 import glob
@@ -124,13 +115,13 @@ def _collect_py_files(directory: str, exclude: Sequence[str] = (), prune_dirs: S
     """The .py files under a root, bucketed into kept and --exclude-dropped.
 
     The root may be a directory (walked recursively) or a single file (kept
-    or excluded as-is) — the union path (issue #22 item 15) calls this
+    or excluded as-is) — the union path calls this
     uniformly over every resolved root.
 
     prune_dirs skips whole subtrees by path identity (os.path.realpath),
     not by glob pattern — used for [tool.uv.workspace].exclude, which names
-    real directories that may themselves contain glob metacharacters (phase
-    B review: a literal "*" in a directory name must not be reinterpreted).
+    real directories that may themselves contain glob metacharacters — a
+    literal "*" in a directory name must not be reinterpreted as a wildcard.
     """
     if not os.path.isdir(directory):
         if not directory.endswith(".py"):
@@ -153,8 +144,8 @@ def _has_glob_chars(pattern: str) -> bool:
 def _expand_glob_pattern(pattern: str) -> list[str]:
     """Resolve a wildcard pattern to its matched dirs/.py files, sorted.
 
-    Other matched files are dropped silently (issue #22 item 6); raises if
-    nothing survives, naming the pattern (item 7).
+    Other matched files are dropped silently; raises if nothing survives,
+    naming the pattern.
     """
     matches = sorted(glob.glob(pattern, recursive=True))
     kept = [m for m in matches if os.path.isdir(m) or m.endswith(".py")]
@@ -173,10 +164,10 @@ def _expand_literal_path(pattern: str) -> str:
 def _expand_roots(patterns: Sequence[str]) -> list[str]:
     """Resolve positional patterns to root paths, in argument order.
 
-    Every pattern is validated (item 7's fail-fast) before any file is
-    collected: a bad pattern anywhere in the list raises before dispatch,
-    with none of the other patterns' files processed. Feeds both positional
-    expansion (this cycle) and uv workspace `members` (a later cycle).
+    Every pattern is validated before any file is collected: a bad pattern
+    anywhere in the list raises before dispatch, with none of the other
+    patterns' files processed. Feeds both positional expansion and uv
+    workspace `members`.
     """
     roots: list[str] = []
     for pattern in patterns:
@@ -189,7 +180,7 @@ def _expand_roots(patterns: Sequence[str]) -> list[str]:
 
 def _dedup_by_realpath(files: list[str]) -> list[str]:
     """Drop later duplicates that resolve to the same real path; keep the
-    first occurrence and the given order (issue #22 item 14)."""
+    first occurrence and the given order."""
     seen: set[str] = set()
     result = []
     for f in files:

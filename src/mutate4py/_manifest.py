@@ -150,7 +150,6 @@ def build_manifest(source: str, *, tested_at: str) -> dict:
 def _extract_functions(tree: ast.Module) -> list[dict]:
     """Extract outermost named function units with their id, name, line, end_line, hash."""
     results = []
-    # Iterative walk tracking parent to detect outermost functions
     stack: list[tuple[ast.AST, ast.AST | None, bool]] = [(tree, None, False)]
     while stack:
         node, parent, inside_fn = stack.pop()
@@ -167,7 +166,6 @@ def _extract_functions(tree: ast.Module) -> list[dict]:
                         "hash": _sha256_ast(node),
                     }
                 )
-            # children are inside a function now
             for child in ast.iter_child_nodes(node):
                 stack.append((child, node, True))
         else:

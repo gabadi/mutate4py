@@ -66,18 +66,18 @@ replace = 'version = "{new_version}"'
 line-length = 120
 
 [tool.ruff.lint]
-# Needed only because too-many-locals (PLR0914) and too-many-positional-
-# arguments (PLR0917) are preview-gated in ruff 0.15. Scoped to [lint] only
-# (not top-level [tool.ruff]) so it doesn't also flip `ruff format` into its
-# preview hug-brackets style. IMPORTANT: use `select` below, not
-# `extend-select` — with preview on, `extend-select` was observed to extend
-# from ruff's full (~900-rule) preview set instead of the E4/E7/E9/F default,
-# silently enabling dozens of unrelated rule families. `select` does not
-# have this problem.
+# Carried only for too-many-locals (PLR0914), still preview-gated at the pinned
+# ruff. Scoped to [lint] rather than top-level [tool.ruff] so it doesn't also
+# flip `ruff format` into its preview hug-brackets style. Drop it once PLR0914
+# stabilises — re-check with `ruff rule PLR0914`, don't assume.
+#
+# Keep `select` below, never `extend-select`: with preview on, `extend-select`
+# was observed to extend from ruff's full (~900-rule) preview set rather than
+# the E4/E7/E9/F default, silently enabling dozens of unrelated rule families.
 preview = true
 
-# The current defaults (E4/E7/E9/F), spelled out because `select` replaces
-# rather than adds to them, plus the shape rules below.
+# The default rules (E4/E7/E9/F) are respelled here because `select` replaces
+# them rather than adding to them.
 select = [
     "E4",
     "E7",

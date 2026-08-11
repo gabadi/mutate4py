@@ -1,11 +1,9 @@
-"""Baseline timing and per-Mutant overhead measurement (issue #38 gate 16 /
-issue 06). Extracted from `_runner.py` to keep the run loop's own module
-under its size cap.
+"""Baseline timing and per-Mutant overhead measurement.
 
 No cross-module deps: both the timed Baseline run and the extra
-`--collect-only` overhead probe build their own argv and shell out directly,
-same as before extraction (see `run_baseline`'s own docstring for why it
-never imports `_subprocess_executor`'s argv helper).
+`--collect-only` overhead probe build their own argv and shell out directly.
+See `run_baseline`'s own docstring for why it never imports
+`_subprocess_executor`'s argv helper.
 """
 
 import subprocess

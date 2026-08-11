@@ -1,15 +1,15 @@
-"""Parallel worker engine (F6 --max-workers >= 2, sites >= 2; re-scoped by
-issue 04b).
+"""Parallel worker engine (--max-workers >= 2, sites >= 2).
 
 Each Worker is an isolated tree copy of the working directory with its own
-uv venv (ADR 0015, unchanged). What changed: each Worker now also provisions
-and owns exactly one primed Executor — the forking executor when eligible,
-the subprocess executor otherwise — chosen by that Worker's own subprocess
-(`_worker_server.py`) at startup and held for the Worker's whole run, so a
-Mutant is dispatched over `_worker_protocol`'s request/response pipe instead
-of spawning a fresh `pytest` process per Mutant. Per-site test-context
-narrowing (`_test_dispatch._build_mutant_args`) now composes with parallel
-Workers the same way it already does with the serial loop.
+uv venv (ADR 0015), and owns exactly one primed Executor — forking when
+eligible, subprocess otherwise — chosen by that Worker's own subprocess
+(`_worker_server.py`) at startup and held for the Worker's whole run. A
+Mutant is dispatched over `_worker_protocol`'s request/response pipe; the
+cost this design exists to avoid is a fresh `pytest` process per Mutant.
+
+Per-site test-context narrowing (`_test_dispatch._build_mutant_args`)
+composes with parallel Workers exactly as it does with the serial loop —
+neither path may special-case the other.
 """
 
 import dataclasses
@@ -66,7 +66,7 @@ class ParallelRunRequest:
     test_ctx_db: object = None
     abs_source_path: str = ""
     forking_requested: bool = True
-    # Test-injection seam (issue 04b): when set, every Worker shares this one
+    # Test-injection seam: when set, every Worker shares this one
     # Executor instead of provisioning a real WorkerProcessExecutor — makes
     # narrowed/static dispatch, per-Worker Site assignment, and
     # primed-once-serves-many assertable without forking or spawning anything.
@@ -147,7 +147,7 @@ def _provision_worker_executors(
 
     Each real proxy gets a distinct worker_id ("gw1", "gw2", ...) so
     pytest-django gives every Worker its own test database instead of
-    colliding (issue 05). Numbered from 1, matching `worker_roots`' own
+    colliding. Numbered from 1, matching `worker_roots`' own
     "worker-1", "worker-2", ... naming (`_provision_workers`) and the CLI
     progress line's `worker-{worker_idx}` — not pytest-xdist's 0-based "gw0"
     convention, which would leave the two identifiers for one Worker off by

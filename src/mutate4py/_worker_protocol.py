@@ -1,4 +1,4 @@
-"""Orchestrator-side proxy for a Worker subprocess (issue 04b): implements
+"""Orchestrator-side proxy for a Worker subprocess: implements
 the `Executor` protocol by spawning `_worker_server.py` once and holding its
 stdin/stdout pipes open for the Worker's whole run, dispatching one JSON
 line per Mutant rather than spawning a fresh process per Mutant. Worker

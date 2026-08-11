@@ -1,27 +1,19 @@
-"""Worker-process entry point for parallel dispatch (issue 04b): a small
-JSON-lines request/response server over stdin/stdout.
+"""Worker-process entry point for parallel dispatch: a JSON-lines
+request/response server over stdin/stdout.
 
 Spawned once per Worker by `_worker_protocol.WorkerProcessExecutor` — never
-imported directly by orchestrator code — and stays alive for the Worker's
-whole run: it primes exactly one Executor at startup (the same capability
-probe the single-Worker path uses, `_prepare_executor`), signals readiness,
-then answers one `run(args, timeout)` request per line until stdin closes.
-This replaces spawning a fresh subprocess for every Mutant with one
-persistent, already-primed process per Worker.
+imported by orchestrator code — and stays alive for the Worker's whole run:
+one primed Executor per Worker answering one `run()` request per line, not a
+fresh subprocess per Mutant. Keep it that way; the priming cost is the whole
+reason this process exists.
 
-Invoked as `python -m mutate4py._worker_server <cwd> <guarded_path>
-<forking_requested 0|1> <worker_id>`, using the orchestrator's own
-interpreter (`sys.executable`) so `mutate4py` is always importable here
-regardless of what a tree-copied Worker root's own provisioned venv happens
-to contain.
+The spawn uses the orchestrator's own interpreter (`sys.executable`), so
+`mutate4py` is importable here regardless of what a tree-copied Worker root's
+own provisioned venv contains.
 
-`worker_id` (empty string when this Worker has none) gives pytest-django the
-per-Worker test-database identity it otherwise only gets from pytest-xdist
-(issue 05): it is set once as `MUTATE4PY_WORKER_ID` in this process's own
-environment — inherited by a forked child automatically, and by a spawned
-subprocess the same way any environment variable is — and `-p
-mutate4py._django_worker_plugin` is added to every dispatched pytest
-invocation to read it back.
+`MUTATE4PY_WORKER_ID` is set in this process's environment rather than passed
+per request, because a forked child inherits it for free; see
+`_django_worker_plugin` for what reads it back and why.
 """
 
 import json

@@ -1,131 +1,33 @@
-# Package layering (issue #38, gate 02): the direction AGENTS.md's "Module
-# Dependency Invariants" describes in prose, enforced mechanically by `tach
-# check` (wired into the `lint` gate — see justfile). `layers` is ordered
-# highest first; a module may import anything in a strictly lower layer for
-# free, but importing a sibling in its own layer still needs an explicit
-# `depends_on` entry — that's what makes the _coverage-must-not-import
-# _discovery invariant hold without a separate rule: both sit in `domain`,
-# neither lists the other, so tach rejects it the moment someone adds it.
+# Package layering, enforced by `tach check` (wired into the `lint` gate).
 #
-# Layers, lowest first (mirrors AGENTS.md and issue 02's own ordering):
-#   primitives          -> id derivation, glob dialect, argv execution, the
-#                          executor interface
-#   domain              -> site discovery, manifest, coverage, test
-#                          selection, workspace
-#   execution_backends  -> parallel workers, the forking and subprocess
-#                          executors
-#   run_loop            -> the run-loop orchestration module
-#   cli_adapter         -> the CLI adapter
+# `layers` is ordered highest first. A module may import anything in a strictly
+# lower layer for free; importing a sibling in its own layer needs an explicit
+# `depends_on`. That one mechanic is what enforces the "_coverage must not
+# import _discovery" invariant — both sit in `domain`, neither lists the other,
+# so tach rejects the import the moment someone adds it. It needs no rule of
+# its own.
 #
-# Issue #38 gate 05 extracted target/glob resolution out of __main__.py into
-# `_target_resolution`. It depends on `domain` (glob dialect) and is
-# depended on by `cli_adapter`; nothing in `run_loop` or
-# `execution_backends` needs it, so it sits in its own layer directly above
-# `domain`.
+# Most layers here hold a single module extracted from `__main__.py` or
+# `_runner.py` to keep those under their size caps. Their order relative to
+# each other encodes only real dependencies — `site_selection` above `report`,
+# `source_loading` above `manifest_storage`. The rest of that ordering carries
+# no meaning; don't derive one from it.
 #
-# Issue #38 gate 08 extracted the run loop's line-returning report/format
-# functions out of `_runner.py` into `_report`. It depends only on `domain`
-# (Site, discovery, coverage) and is depended on by `run_loop`; nothing in
-# `execution_backends` or `target_resolution` needs it, so it sits in its
-# own layer directly above `domain`, alongside `target_resolution`.
+# Two placements are load-bearing and easy to "tidy" wrongly:
 #
-# Issue #38 gate 09 extracted the mutant build/run/tally cluster out of
-# `_runner.py` into `_execution`. It needs both `_report` (per-mutant
-# progress-line formatting) and `_workers` (the parallel dispatch it
-# routes to), so it sits directly above `execution_backends` — one layer
-# below `run_loop`, which is its only caller.
+# `_executor_selection` and `_test_dispatch` must stay at or below
+# `execution_backends`. Both are reached from two directions — the orchestrator
+# process (`run_loop`) and each parallel Worker's own subprocess
+# (`_worker_server`, itself in `execution_backends`) — and `execution_backends`
+# may never import `execution` or above. Only a layer at or below
+# `execution_backends` is importable from both. Executor eligibility is a
+# property of *this process's* import state, which is why it lives with the
+# backends rather than in a layer above them.
 #
-# Issue #38 gate 10 extracted the two manifest-storage adapters (sidecar
-# JSON vs. embedded footer) out of `_runner.py` into `_manifest_storage`.
-# It depends only on `_manifest` (domain layer) and is depended on by
-# `run_loop`; nothing in `execution`, `execution_backends`, or
-# `target_resolution` needs it, so it sits in its own layer directly
-# above `domain`, alongside `target_resolution` and `report`.
-#
-# Issue #38 gate 11 extracted the CLI dispatch/execution cluster (root
-# resolution, single-file/batch routing, per-file mode dispatch, worst-code
-# exit aggregation) out of `__main__.py` into `_dispatch`. It calls
-# `_runner` (`run_loop`), `_target_resolution`, and `_workspace`/`_coverage`
-# (`domain`) — the same things `__main__.py` called directly before this
-# gate — and is depended on only by `__main__.py`. It is a second
-# adapter-tier module, not a domain module (see its own docstring), so it
-# sits directly below `cli_adapter` rather than alongside the `domain`-tier
-# extractions above.
-#
-# Issue #38 gate 12 extracted the CLI flag-validation cluster (mutual
-# exclusion / incompatibility checks) out of `__main__.py` into
-# `_cli_validation`. Unlike gate 11's `_dispatch`, it imports nothing from
-# this codebase (pure `argparse.Namespace` checks plus `os.path.isfile`) and
-# is depended on only by `__main__.py` — it doesn't call into `_dispatch` or
-# `_target_resolution`, and nothing in `dispatch`/`run_loop`/`execution`
-# needs it. That makes it structurally identical to `target_resolution`,
-# `report`, and `manifest_storage`: no cross-deps, called only from the
-# adapter tier above. It sits in its own layer directly above `domain`,
-# alongside those three.
-#
-# Issue #38 gate 13 extracted the run-loop's pre-flight setup (test-context
-# db + executor priming) out of `_runner.py` into `_run_prep`. It imports
-# `_forking_executor` (`execution_backends`) and `_test_selection` (`domain`), and
-# is depended on only by `run_loop` — nothing in `execution_backends` needs
-# it back. That puts it strictly between `execution` (its only caller's
-# other dependency) and `execution_backends` (its own dependency), so it
-# sits in its own layer right between the two.
-#
-# Issue #38 gate 14 extracted the run loop's site-selection cluster
-# (coverage acquisition, since-last-run/lines-filter narrowing, and the
-# serial/parallel switch) out of `_runner.py` into `_site_selection`. It
-# imports `_report` (`_uncovered_block_lines`, for the uncovered-sites
-# report block it now returns rather than prints) alongside `domain`
-# (`Site`, `CoverageError`, `acquire_coverage`); nothing in
-# `execution_backends` is needed, so — unlike `run_prep` — it doesn't have
-# to sit above that layer. It's depended on only by `run_loop`, with no
-# cross-deps against `cli_validation` or `target_resolution`, so it sits in
-# its own layer alongside them, directly above `report` (its one non-domain
-# dependency).
-#
-# Issue #38 gate 15 extracted the run loop's source-loading cluster (backup
-# rescue, manifest diffing, and site discovery on the stripped source) out of
-# `_runner.py` into `_source_loading`. It imports `_manifest_storage` (its
-# only non-domain dependency, for `ManifestLocation`/read/write) alongside
-# `_manifest` and `_discovery` (`domain`); it doesn't need `_report`, so
-# unlike `site_selection` it isn't required to sit above `report`. It's
-# depended on only by `run_loop`, with no cross-deps against the other
-# no-cross-dep layers, so it sits in its own layer directly above
-# `manifest_storage` (its one non-domain dependency).
-#
-# Issue 04b (all three levers compose) collapsed `run_prep` entirely: its
-# `_forking_eligible` guard is deleted outright (eligibility no longer
-# excludes a parallel run), and its `_prepare_executor` helper moved to
-# `_executor_selection`, in `execution_backends` rather than its own layer
-# above it — eligibility is a property of *this process's* import state, so
-# it must be reachable both from `run_loop` (the single-Worker path, in the
-# orchestrator's own process) and from `execution_backends` itself (each
-# parallel Worker's own subprocess, `_worker_server`), and only a layer at
-# or below `execution_backends` can be imported from both. `_test_dispatch`
-# (per-Mutant argument-list construction, `narrowed`/`static` dispatch) moved
-# out of `_execution` for the same reason: both the serial loop and parallel
-# Workers need it, and `execution_backends` may never import `execution`.
-# `_worker_protocol` (the orchestrator-side Worker proxy) and `_worker_server`
-# (the Worker-subprocess entry point it spawns) are new at `execution_backends`
-# alongside `_workers`, `_forking_executor`, and `_subprocess_executor` — one
-# persistent primed process per Worker, not one process per Mutant.
-#
-# Issue 06 (plugin neutralisation and per-Mutant overhead) added
-# `_plugin_neutralisation`: a pure importlib-probe with zero cross-module
-# deps, called only from `run_loop` (`_runner.py`) to build the argument list
-# every Mutant dispatch uses. It sits in `domain` alongside `_test_dispatch`,
-# which needed the same reachability argument in gate 04b above — nothing in
-# `execution_backends` calls it, so it doesn't need to sit above that layer.
-#
-# Issue #38 gate 16 extracted the Baseline-timing and per-Mutant-overhead
-# cluster (`_baseline_reason`, `run_baseline`, `measure_per_mutant_overhead`,
-# `resolve_baseline_and_overhead`) out of `_runner.py` into `_baseline`, to
-# bring `_runner.py` back under its module-size cap after issue 06 grew it.
-# It has zero cross-module deps (builds its own pytest argv and shells out
-# directly, same as before extraction) and is depended on only by
-# `run_loop`; nothing in `execution_backends` needs it, so it sits in its
-# own layer directly above `domain`, alongside `_report`/`_site_selection`/
-# `_source_loading`/`_manifest_storage`/`_cli_validation`/`_target_resolution`.
+# `_dispatch` is a second adapter-tier module, not a domain one (see its own
+# docstring): it exits the process directly instead of raising. It belongs
+# directly below `cli_adapter`, not alongside the single-module extractions
+# above `domain`.
 source_roots = ["src"]
 layers = [
     "cli_adapter",
