@@ -291,7 +291,6 @@ def test_run_reports_timeout_and_kills_child(tmp_path):
     assert status == "timeout"
 
 
-@pytest.mark.integration
 def test_run_before_prime_raises():
     executor = ForkingExecutor(cwd="/tmp", guarded_path="/tmp/x.py")
     with pytest.raises(ForkingExecutorUnavailable):
@@ -318,11 +317,16 @@ def test_run_does_not_leak_child_stdout(tmp_path, capsys):
 # --- _wait_for_child ---------------------------------------------------------
 
 
-@pytest.mark.integration
 def test_wait_for_child_reports_killed_when_child_dies_by_signal():
     """A child that dies from an external signal (not its own os._exit, e.g. a
     mutant that crashes the interpreter) must still resolve to "killed", not
-    misread WEXITSTATUS on a status word that WIFSIGNALED, not WIFEXITED."""
+    misread WEXITSTATUS on a status word that WIFSIGNALED, not WIFEXITED.
+
+    Not @pytest.mark.integration: the fork()ed child is test scaffolding
+    (sleep+exit), not code under test. _wait_for_child, the function this
+    test exercises, runs entirely parent-side and is fully visible to
+    --cov-context=test.
+    """
     pid = os.fork()
     if pid == 0:
         time.sleep(5)
