@@ -5,11 +5,8 @@
 
 Feature: Coverage acquisition and the line gate
 
-  # TRACKING: F3 (coverage-gate) — docs/plan.md; docs/spec.md §6 (coverage),
-  #           §2 (flags), §8 (--scan output);
-  #           docs/adr/0007-coverage-default-path-and-line-only-gate.md;
-  #           docs/adr/0008-coverage-flags-pairwise-exclusive.md;
-  #           docs/adr/0009-coverage-partition-surfaces-via-scan.md
+  # TRACKING: F3 (coverage-gate) — docs/adr/0007-coverage-default-path-and-line-only-gate.md;
+  #           docs/adr/0008-coverage-flags-pairwise-exclusive.md
   #
   # CONTRACT:
   #   command: mutate4py <file> --scan (--cov-cmd <CMD> | --lcov <PATH> | --reuse-coverage)
@@ -24,7 +21,7 @@ Feature: Coverage acquisition and the line gate
   #     a site is UNCOVERED iff its line is absent from LCOV or has DA count 0;
   #     LCOV SF:<path> is matched to <file> by SUFFIX (one path is a path-suffix of the other);
   #     BRDA (branch) records NEVER affect the gate (ADR 0007).
-  #   stdout (exit 0) — the §8 --scan block gains two lines when coverage is supplied:
+  #   stdout (exit 0) — the --scan block gains two lines when coverage is supplied:
   #     Mutation scan: <file>
   #     Total mutation sites: <n>
   #     Covered mutation sites: <c>
@@ -70,8 +67,9 @@ Feature: Coverage acquisition and the line gate
   #   - Does NOT: select sites differentially or honor --lines/--since-last-run/--mutate-all (F4).
   #   - Does NOT: own the full flag-matrix validation — F3 specifies the exclusivity
   #     OUTCOME (non-zero exit, no counts); F5 owns where in the parse pipeline it fires,
-  #     and whether --scan + a coverage flag is permitted (ADR 0008, ADR 0009).
-  #   - Does NOT: parallelize (--max-workers is parsed in F5, executed in F6; §9 reopened).
+  #     and whether --scan + a coverage flag is permitted (ADR 0008).
+  #   - Does NOT: parallelize (--max-workers is parsed in F5, executed in F6 on the
+  #     parallel path).
   #   - ASSUMED: an LCOV file supplied to the tool is well-formed; malformed-LCOV handling
   #     is not specified here (flag if field use shows it matters).
   #   - ASSUMED: --cov-cmd writes its LCOV to a location the tool then reads; the exact

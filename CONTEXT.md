@@ -1,298 +1,103 @@
 # mutate4py — context & glossary
 
-A faithful Python port of `unclebob/mutate4go`, cross-checked against
-`unclebob/clj-mutate`, mirroring `gabadi/mutate4js` module-for-module. The
-authoritative behavior spec is [`docs/spec.md`](docs/spec.md); the feature roadmap
-is [`docs/plan.md`](docs/plan.md); decisions are in [`docs/adr/`](docs/adr/).
+Mutation testing for Python, distinguished by an **embedded-in-source manifest** so
+differential reruns survive a clone with no CI state.
 
-## Before exploring, read these
+Use these terms in issue titles, test names, and proposals; don't drift to synonyms.
+If a concept you need isn't here, that's a signal — either you're inventing language
+the project doesn't use, or there's a real gap to record. Behaviour lives in the
+code; decisions and their rejected alternatives live in [`docs/adr/`](docs/adr/).
 
-- `docs/spec.md` — the faithful-port contract ([PORT] vs [PY] tagged).
-- `docs/plan.md` — feature decomposition and order.
-- `docs/adr/` — read the ADRs touching the area you are about to work in.
+## Language
 
-Use the glossary terms below in issue titles, test names, and proposals; don't
-drift to synonyms. If a concept you need isn't here, that's a signal — either
-you're inventing language the project doesn't use, or there's a real gap to record.
-If your output contradicts an ADR, surface it explicitly rather than overriding it.
+### Mutation
 
-## Glossary
+**Site**:
+A single AST location that can be mutated — one operator, one boolean literal, or
+one integer `0`/`1`. Yields exactly one Mutant.
+_Avoid_: mutation point, target
 
-The project's ubiquitous language, organized by the feature that introduces each
-term. This is the single canonical glossary for the project.
+**Mutant**:
+The mutated form of a Site.
+_Avoid_: variant, mutation
 
-### Site discovery & operators (F1)
+**Splice / restore**:
+Applying a Mutant by byte-offset source edit, then rewriting the original back. The
+in-place model: one file on disk, one Mutant at a time.
+_Avoid_: patch, inject
 
-- **Site** — a single AST location that can be mutated: one operator, one boolean
-  literal, or one integer `0`/`1`. Each site yields exactly one *mutant*. (ADR
-  0001.)
-- **Mutant** — the mutated form of a site (e.g. `+`→`-`). One operator/literal per
-  site, one mutant per site.
-- **Operator catalogue** — the locked set of mutations (spec §3, ADR 0001):
-  arithmetic, relational, equality/identity/membership *negation flips*, logical,
-  boolean, constant. `*`→`/` only.
-- **Negation flip** — mutating a comparison to its logical negation (`==`→`!=`,
-  `is`→`is not`, `in`→`not in`). The Python localization of mutate4go's equality
-  category; never a cross-coercion-family swap.
-- **Function unit** (a.k.a. *unit*) — the granularity the manifest tracks and
-  differential reruns scope by. `func/foo` for a top-level `def`/`async def`,
-  `func/Class.m` for a method. Nested `def`/`lambda` and decorators **fold into**
-  the enclosing named unit (NOT separate units — deliberately the opposite of
-  crap4py's per-function scoring; ADR 0001). Module-level sites have an **empty
-  FunctionID** and are still mutated.
-- **FunctionID** — the unit id attributed to a site by line range; empty for
-  module-level sites.
-- **Index** — a site's stable position after sorting all sites by `(line, column)`.
-- **Splice / restore** — applying a mutant by byte-offset source edit and rewriting
-  the original back. The in-place model (one file on disk → one mutant at a time),
-  editable-install-proof. Serial on the F4 path; F6 runs N isolated copies in
-  parallel (spec §9, reopened — ADR 0015).
-- **`--scan`** — read-only CLI mode printing site *counts* only (no coverage, no
-  tests, no write, no per-site listing; ADR 0001, 0002).
+**Function unit**:
+The granularity the Manifest tracks and differential reruns scope by — a top-level
+`def`/`async def` or a method. Nested `def`s and lambdas fold into the enclosing
+named unit rather than forming their own.
+_Avoid_: function, scope, block
 
-### Manifest (F2)
+**FunctionID**:
+The Function unit id attributed to a Site by line range. Empty for module-level
+Sites, which are still mutated.
 
-- **Manifest** — a single JSON object embedded in a source file's footer between
-  `# mutate4py-manifest-begin/-end`, recording per function unit the structural hash
-  at the time it was last mutation-tested; lets a later run tell which units changed.
-  Fields: `version`, `tested_at`, `module_hash`, `functions[]` (spec §5). Owned by
-  F2; **absent in F1** (ADR 0002).
-- **Unit hash** — `sha256(ast.unparse(subtree))` of the unit's AST node. Position- and
-  reformat-independent; changes on rename/literal/operator/re-block edits (ADR 0005).
-- **`module_hash`** — `sha256(ast.unparse(module))` over the manifest-stripped source.
-  A top-level manifest field, separate from per-unit hashes.
-- **Embed** — write the manifest into the footer: strip any existing manifest, trim
-  trailing newlines, append `\n\n` + begin marker + `\n# ` + JSON + `\n` + end
-  marker + `\n`.
-- **Extract** — read a manifest back: locate the markers, strip `# ` prefixes,
-  JSON-parse. Missing markers or a parse failure ⇒ "no manifest" (not an error).
-- **Strip** — remove a manifest footer, returning the source body up to (and one
-  trailing newline after) the begin marker. No marker ⇒ source unchanged.
-- **Changed function IDs** — the diff output: ids whose hash differs from the
-  previous manifest, plus **new** ids (no previous entry). **Removed** ids are
-  dropped. No previous manifest ⇒ all current ids changed.
-- **`tested_at`** — RFC3339 timestamp stamped into the manifest when it is
-  (re)embedded. Bumped only when the manifest actually changes (ADR 0006,
-  extended to the F4 run loop's `_finalize_source` by ADR 0016).
-- **`--update-manifest`** — the thin CLI mode that rewrites the footer without
-  running mutations. Idempotent: prints `Updated manifest: <file>` when it writes,
-  `Manifest unchanged: <file>` when the file already matches (ADR 0006).
-- **Differential rerun** — re-testing only sites whose function unit changed since
-  the last manifest; the default once a manifest exists (spec §7).
+### Manifest
 
-### Coverage (F3)
+**Manifest**:
+The per-file record of each Function unit's structural hash at the time it was last
+mutation-tested, letting a later run tell which units changed. Embedded in the
+source footer by default, or a sidecar JSON file.
+_Avoid_: cache, state file, lockfile
 
-- **Coverage gate** — the line-coverage filter that partitions F1's discovered sites
-  into `covered` / `uncovered`. **Covered** iff the line has an LCOV
-  `DA:<line>,<count>` with `count > 0`; absent line or `count == 0` ⇒ **uncovered**.
-  Branch (`BRDA`) data is ignored on purpose (ADR 0007).
-- **`covered` / `uncovered`** — the two disjoint, exhaustive partitions of the
-  discovered sites. `covered + uncovered == total`; each keeps its stable F1 index.
-- **`DA` record** — an LCOV line record `DA:<line>,<count>`; the only coverage signal
-  the gate reads. `count > 0` means the line executed.
-- **`BRDA` record** — an LCOV branch record. Read-and-discarded; never affects the
-  gate, so boundary survivors (`>` vs `>=`) are not suppressed.
-- **`SF` suffix match** — reconciling an LCOV `SF:<path>` record with the target by
-  path suffix (one path is a suffix of the other), bridging absolute-vs-relative
-  forms. Ports mutate4go's matching.
-- **Coverage acquisition** — obtaining the LCOV via exactly one of three
-  mutually-exclusive modes (ADR 0008): **`--cov-cmd <CMD>`** (run **once**, must emit
-  LCOV), **`--lcov <PATH>`** (a pre-generated file), **`--reuse-coverage`** (read the
-  default path **`coverage.lcov`**; missing file ⇒ hard usage error, ADR 0007).
+**Unit hash**:
+A Function unit's structural fingerprint. Reformatting and comment edits leave it
+alone; behaviour-affecting edits change it.
 
-### Run loop & report (F4)
+**Differential rerun**:
+Re-testing only the Sites whose Function unit changed since the last Manifest. The
+default once a Manifest exists.
 
-- **Run loop** — the full mutation run (spec §7): strip manifest → discover →
-  build+diff manifest → acquire coverage + partition → select → header → [uncovered
-  block] → baseline → per-site apply/test/classify/restore → restore → report →
-  re-embed manifest (idempotent under structural equality, ADR 0016) →
-  cleanup (ADR 0010).
-- **Baseline** — one run of pytest with `--pytest-args` (default none) on the
-  **unmutated** source; it must pass, and its duration sets the mutant timeout.
-- **Mutant timeout** — `max(1s, timeout-factor × baseline-duration)`; the `1s` floor
-  is fixed.
-- **Classification** — the per-site verdict: **killed** (non-zero exit), **timeout**
-  (exceeded the mutant timeout, folds into Killed in the report), **survived** (zero
-  exit) (ADR 0011).
-- **Executor** — the interface the serial run loop's two execution paths both
-  implement (issue 03): prime once, then run a given pytest argument list under
-  a timeout and return a classification. The **forking executor**
-  (`ForkingExecutor`) forks a primed pytest process per mutant, on by default
-  on POSIX (`--no-fork` forces the fallback); the **subprocess executor**
-  (`SubprocessExecutor`) runs `sys.executable -m pytest` fresh per mutant,
-  always available. The serial loop only ever holds an `Executor` and never
-  branches on which one it has. The parallel path (F6) does not go through
-  `Executor` yet — issue 04 unifies the two.
-- **Selected sites** — the covered sites actually mutated, after dropping those not
-  in `--lines` and, when differential, those whose FunctionID is unchanged.
-  `selected ⊆ covered ⊆ total`.
-- **`effectiveSinceLastRun`** — the differential switch: `--since-last-run OR
-  (manifest exists AND not --mutate-all AND not --lines)`. Differential is the
-  default once a manifest exists; it suppresses the uncovered block.
-- **Run header / Mutation Report / Per-mutant progress line** — the §8 output blocks.
-  On the **serial** path there is no `Mutation workers:` line and no `worker-<k>`
-  token (ADR 0012); both appear only on the **parallel** path (F6, see below).
-- **`.mutate4py.bak`** — crash-safety backup of the stripped source, written before
-  the per-site loop and removed after. A pre-existing `.bak` is restored at the start
-  of the next run, printing `Restored source from backup (previous run was
-  interrupted).`
-- **Stale-coverage warning** — `Reusing existing coverage; covered/uncovered
-  classification may be stale.`, printed on the `--reuse-coverage` run path before the
-  header (ADR 0010).
+### Coverage
 
-### Per-mutant test selection (`--test-contexts`, [PY] addition to F4)
+**Coverage gate**:
+The line-coverage filter that splits discovered Sites into covered and uncovered.
+Branch data is deliberately ignored.
+_Avoid_: coverage filter, eligibility check
 
-- **`--test-contexts PATH`** — narrows each mutant's test run to the tests covering
-  the mutated line. `PATH` is a **test-context db**; a missing file is a usage error
-  (exit 2) before any mutation runs. Forces serial execution (never combines with the
-  parallel engine). Python-only; no upstream counterpart (ADR 0018). One CLI-level
-  path serves every file in a directory/union/workspace batch, so a workspace run
-  expects **one combined db** covering all members, not one db per member.
-- **Test-context db** — a coverage.py SQLite `.coverage` file written by
-  `pytest --cov-context=test`, mapping each source line to the **contexts** (pytest
-  node IDs) that executed it. Read-only, via `TestContextDB` (`_test_selection.py`).
-  Classifies identically in both coverage.py storage modes: `line_bits`
-  (`has_arcs=0`) and `arc` (`has_arcs=1`).
-- **Empty context** — coverage.py's whole-run context (`""`), as opposed to a named
-  per-test one. A line matched *only* by it ran at import time. It is a signal, not
-  noise; a named test matching the same line always wins.
-- **Selection outcome** — the per-site verdict `TestContextDB.tests_for_line`
-  returns, one of four, covering three declared cases (ADR 0018; **no silent
-  fallback**): **`narrowed`** (case 1 — named tests cover the line, so only those
-  run), **`static`** (case 2 — empty context only, so `--pytest-args` runs
-  verbatim, as the stated rule), **`line-absent`** / **`file-absent`** (case 3 — the
-  db cannot account for an LCOV-covered line, so the run aborts).
-- **Selection disagreement** — case 3: the context db and the LCOV coverage gate
-  contradict each other. Since selected sites are LCOV-covered by construction, this
-  is always an input defect (stale db, path-format mismatch, or subprocess-recorded
-  coverage), never uncovered code. Prints
-  `error: test-context db disagrees with coverage: <file>:<line>: <hint>` to stderr
-  and exits **2**; the whole run stops and no `Mutation Report` is printed. The
-  source is still restored and the manifest re-embedded, as on any other abort. In a
-  batch the abort is per-file — the other files still run (batch exit code below).
-- **`Test selection: narrowed <n>, static <k>` line** — the report line inside the
-  `Mutation Report` block, directly after `Uncovered:`, printed only when
-  `--test-contexts` is supplied. The block is where agents look, so the tally lives
-  there rather than in a warning line (ADR 0018).
+**covered / uncovered**:
+The two disjoint, exhaustive partitions of the discovered Sites.
 
-### CLI surface & validation (F5)
+**Baseline**:
+One run of the test suite against unmutated source. It must pass, and its duration
+sets the Mutant timeout.
 
-- **Flag matrix** — the full §2 option set F5 parses and validates: `--scan`,
-  `--update-manifest`, `--lines`, `--since-last-run`, `--mutate-all`,
-  `--mutation-warning N`, `--timeout-factor N`, `--pytest-args ARGS`,
-  `--max-workers N`, `--exclude PATTERN`, the three coverage flags, `--verbose`,
-  `--help`.
-- **Target resolution** — the phase between flag validation and dispatch (ADR
-  0017, issue #22) that turns the positional(s) into a concrete file list. `file`
-  (required, singular) became `files` (`nargs="*"`, zero or more); each is a
-  **glob pattern**, expanded via `glob.glob(pattern, recursive=True)`, not just
-  a literal path. Resolved-root count decides the run shape: **one** → today's
-  single-file/directory dispatch, byte-for-byte unchanged; **two or more** → a
-  **union batch** (one baseline, one exit code, `.py` files deduped by
-  `os.path.realpath`); **zero** → **workspace autodiscovery** (below). No
-  `--discover`/`--workspace` flag — arity alone is the trigger.
-- **Batch exit code** — in every multi-file mode (directory, union, workspace), the
-  process exit code is the **worst** per-file code seen, severity `2 > 1 > 0`, not a
-  boolean collapse (`_run_files_and_exit`, ADR 0018 amendment). A failing file never
-  stops the batch; it only contributes its code. So a selection disagreement (2) in
-  one file stays distinguishable from an ordinary run failure (1) in another.
-- **Glob dialect** — the one pattern-matching dialect shared by positional
-  targets, `--exclude`, and uv `members`/`exclude` (ADR 0017): `*` matches
-  exactly one path segment and never crosses `/`; `**` matches zero or more
-  segments, but only when it stands alone as a whole `/`-bounded component
-  (glued to literal text, e.g. `foo**bar`, it degrades to an ordinary
-  same-segment wildcard). Hand-rolled in `_glob_dialect.py` because
-  `pathlib.PurePath.full_match`, which has this dialect natively, is 3.13+.
-  Replaces `--exclude`'s old `fnmatch.fnmatchcase` dialect.
-- **Workspace autodiscovery** — the zero-positional path (ADR 0017): climb
-  from `cwd` (inclusive) to the nearest ancestor `pyproject.toml`; it must
-  declare `[tool.uv.workspace]` or the run errors there, exit 2, without
-  climbing further (mirrors uv's own `find_workspace`; stdlib `tomllib` only,
-  never a `uv` subprocess). Roots = the workspace root (walked recursively,
-  same as directory mode) plus every `[tool.uv.workspace].members`-glob match
-  that has its own `pyproject.toml` — a match without one is skipped
-  silently, not an error, diverging from real `uv`.
-  `[tool.uv.workspace].exclude` is honored (not required by the AC) and
-  prunes both the member list and the workspace root's recursive walk.
-- **Directory-mode pruning** — the walk itself, before `--exclude` ever runs,
-  skips `__pycache__`, `venv`, `node_modules`, and any dot-directory (`.git`,
-  `.venv`, …); `build/` and `dist/` are left walkable. Applies to every
-  directory-mode run, autodiscovered or not (issue #22 — previously only
-  `__pycache__` was pruned).
-- **`--exclude PATTERN`** — repeatable (`action="append"`) directory-mode scope
-  control: a file whose walked path matches ANY pattern (shared glob dialect
-  above, ADR 0017) is dropped inside the collector, so it is never scanned, never
-  reported, and cannot affect the exit code, in all four directory modes and for a
-  single-file target. Silent unless `--verbose`, which prints `Excluded: <path>` per
-  dropped file. Not exclusive of anything — it composes with every other flag.
-- **Nothing to process** — the empty-file-list outcome: exclusions (or a directory
-  with no `.py` files) leaving zero files prints `error: no Python files to
-  process.` to stderr and exits **2**, rather than passing vacuously.
-- **Usage error** — a rejected invocation: print a usage/error message, exit
-  **non-zero**, run no analysis and no test command. Triggers: unknown flag, missing
-  value, invalid numeric value, illegal flag combination, missing/nonexistent source
-  file (ADR 0014).
-- **Mutual exclusion** — fail-loud rules that reject combined flags rather than
-  silently pick a winner (ADR 0008, 0014): `--scan`/`--update-manifest` exclusive of
-  each other and of every execution option; `--since-last-run`/`--mutate-all`/
-  `--lines` pairwise exclusive; the three coverage flags pairwise exclusive.
-- **Positive-int flag** — `--mutation-warning`, `--timeout-factor`, `--max-workers`:
-  each requires an integer `≥ 1`; non-integer or non-positive is a usage error.
-  `--lines` takes a comma-separated list under the same rule.
-- **Dispatch** — after validation, routing accepted options: `--scan` → F1 scan,
-  `--update-manifest` → F2 write, otherwise → the F4 run loop (serial, or the F6
-  worker engine when `--max-workers ≥ 2`). F5 routes; it never re-implements a target.
+### Execution
 
-### Parallel workers (F6 — §9 reopened)
+**Executor**:
+The interface both Mutant-execution backends implement — prime once, then run a test
+argument list under a timeout and classify. The forking executor is the fast path;
+the subprocess executor is the always-correct fallback.
 
-- **`--max-workers N`** — the worker-count flag, restored to match upstream (ADR
-  0013). Parsed/validated in F5 (positive int; default 0/unset = serial); executed in
-  F6. Joins only the scan/update-manifest exclusion — it may combine with selection
-  flags.
-- **Serial-vs-parallel switch** — ported from upstream `runner.go:319`:
-  `--max-workers ≤ 1 OR selected sites ≤ 1` → the F4 serial loop, unchanged;
-  `--max-workers ≥ 2 AND sites ≥ 2` → the parallel engine. Parallelism is across the
-  **selected sites of the one target file**; `maxWorkers` is clamped to the site
-  count (ADR 0015).
-- **Worker (clone-per-worker)** — an isolated **tree copy** of the working directory
-  with its own `uv`-provisioned venv (`uv venv`/`uv sync`); it mutates its **own** file
-  copy, so editable installs resolve to it — the reason mutate4go's tree-copy+`cwd`
-  model is replaced. The worker runs pytest with the run's `--pytest-args`
-  **verbatim**, no shell, with `cwd = worker-root` (no `uv pip install -e`, no `uv run`
-  wrapping). Copies live under
-  `.mutate4py/workers/run-<pid>-<nanos>/worker-<k>/`, skipping `.git`, `__pycache__`,
-  `.venv`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, and the worker dir itself; the
-  whole run-root is removed when the run ends (ADR 0015).
-- **`Mutation workers: <n>` line** — header line printed whenever `--max-workers > 0`,
-  **serial or parallel** (upstream-verbatim, `runner.go:614`); `<n>` is the clamped
-  count on the parallel path. So a serial `--max-workers 1` run prints it too. This is
-  the one deliberate divergence the F6 grilling settled — ADR 0012 amended, ADR 0015
-  resolution 7.
-- **`worker-<k>` token** — the per-mutant attribution `[i/total] worker-<k> <status>
-  …`, present **only** on the true parallel path (workers ≥ 2 AND sites ≥ 2); upstream's
-  token lives only in `runMutationsParallel`, so any serial run (incl. `--max-workers 1`)
-  has none (ADR 0015).
-- **Arrival-order print / index-sorted aggregation** — per-mutant lines print as each
-  worker finishes (indices out of sequence), but results are sorted by stable site
-  `Index` before the `Mutation Report` / `Survivors:` block, so the report is
-  deterministic regardless of worker timing (upstream `sortResults`, `runner.go:457`).
-- **Strict worker failure** — any worker write/restore error, or a collected result
-  count != selected-site count, aborts the whole parallel run non-zero with no
-  `Mutation Report` (upstream `sendFirstError` / "mutation workers stopped after k/n
-  results"). On the parallel path a target file outside the working directory is a hard
-  error (`runner.go:365`). `.mutate4py.bak` and manifest re-embed stay at the
-  orchestration layer — the original is never mutated in parallel, so there is no
-  per-worker `.bak` (ADR 0015).
+**Worker**:
+An isolated tree copy of the working directory with its own provisioned environment,
+mutating its own file copy. Parallelism unit.
+_Avoid_: thread, process, job
 
-## Faithful-port tags
+**Selected sites**:
+The covered Sites actually mutated, after line filtering and differential selection.
 
-- **[PORT]** — reproduce mutate4go's behavior exactly.
-- **[PY]** — a deviation forced by Python / its ecosystem, justified in the spec.
+**Classification**:
+The per-Site verdict: **killed**, **survived**, or **timeout**. Timeout is visible
+per-Mutant and counted as killed in the report.
+_Avoid_: result, status, outcome (reserve *outcome* for Selection outcome)
 
-## Sibling repos (`~/workspace/addi/`)
+### Test selection
 
-- `crap4py` — Python gold template (CI, release, features + `*_qa.feature`,
-  `docs/adr`). Pattern source for skeleton/CI/`.gitignore`.
-- `mutate4js` — the module-for-module mirror of this tool. Its `docs/adr/`
-  pre-resolve several F1 questions; cited where relevant.
-- `drywall` — the DRY gate binary (CI downloads its release).
+**Selection outcome**:
+What the test-context db says about a Site's line — **narrowed** (named tests cover
+it, so only those run), **static** (import-time code no single test owns, so the
+full test set runs), or a disagreement.
+
+**Empty context**:
+Coverage.py's whole-run context, as opposed to a named per-test one. A line matched
+only by it ran at import time. A signal, not noise.
+
+**Selection disagreement**:
+The test-context db and the Coverage gate contradicting each other. Always an input
+defect — a stale db or a path mismatch — never uncovered code, so it aborts the run
+rather than falling back.

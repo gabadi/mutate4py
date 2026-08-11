@@ -1,8 +1,6 @@
 Feature: QA — the manifest is observable end-to-end through the --update-manifest CLI
 
-  # TRACKING: F2 (manifest) — docs/plan.md; docs/spec.md §5, §8 (--update-manifest);
-  #           docs/adr/0004-manifest-faithful-port-of-mutate4go.md;
-  #           docs/adr/0005-manifest-hash-is-ast-dump.md;
+  # TRACKING: F2 (manifest) — docs/adr/0005-manifest-hash-is-ast-unparse.md;
   #           docs/adr/0006-update-manifest-idempotent.md
   #
   # CONTRACT:

@@ -5,11 +5,7 @@
 
 Feature: The CLI surface parses, validates, and dispatches the flag matrix
 
-  # TRACKING: F5 (cli-surface) — docs/plan.md; docs/spec.md §2 (CLI surface),
-  #           §8 (--scan / --update-manifest output strings), §9 (parallelism, reopened);
-  #           docs/adr/0013-max-workers-restored-as-real-flag.md;
-  #           docs/adr/0014-cli-validation-mirrors-upstream-parse-model.md;
-  #           docs/adr/0015-parallel-workers-via-uv-clone-per-worker.md;
+  # TRACKING: F5 (cli-surface) — docs/adr/0015-parallel-workers-via-uv-clone-per-worker.md;
   #           docs/adr/0008-coverage-flags-pairwise-exclusive.md
   #           Upstream ground truth: unclebob/mutate4go internal/cli/cli.go
   #           (ValidateArgs, consumeValueOption, parsePositiveInt, parseLines).
@@ -17,7 +13,7 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   # CONTRACT:
   #   command: mutate4py [PATH ...] [options]   (0+ targets: literal paths or
   #            glob patterns; issue #22, ADR 0017)
-  #   request — the §2 flag matrix F5 parses and validates:
+  #   request — the flag matrix F5 parses and validates:
   #     <targets>            — positional, 0+ PATHs, literal or glob; arity
   #                            decides the run shape: 1 resolved root = today's
   #                            single-file/directory dispatch, 2+ = a union
@@ -32,13 +28,13 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #     --pytest-args ARGS    — one shell-quoted string of extra pytest arguments,
   #                             default none; reaches pytest directly, never
   #                             through a shell — pytest is the only supported
-  #                             runner by contract ([PY] §2).
-  #     --max-workers N       — positive int, default 0/unset = serial (ADR 0013).
+  #                             runner by contract.
+  #     --max-workers N       — positive int, default 0/unset = serial.
   #     --cov-cmd CMD | --lcov PATH | --reuse-coverage — the three coverage flags.
   #     --exclude PATTERN     — repeatable; skip files whose walked path matches the
   #                             shared glob dialect (union across patterns) — the
   #                             same dialect <targets> and uv members/exclude use
-  #                             (ADR 0017). [PY] §2.
+  #                             (ADR 0017).
   #     --verbose             — log to stderr.
   #     --help                — print usage, exit 0.
   #   on ACCEPT: parsed options are dispatched —
@@ -56,7 +52,7 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #   - Positive-int flags (--mutation-warning, --timeout-factor, --max-workers) require
   #     an integer >= 1; non-integer or <= 0 is a usage error (parsePositiveInt).
   #   - --lines requires a comma-separated list of POSITIVE integers (parseLines).
-  #   - Mutual exclusion (fail-loud, never silent-precedence; ADR 0008, 0014):
+  #   - Mutual exclusion (fail-loud, never silent-precedence; ADR 0008):
   #       * --scan and --update-manifest: exclusive of each other AND of every execution
   #         option (--lines, --since-last-run, --mutate-all, non-default --timeout-factor,
   #         a non-empty --pytest-args, --max-workers).
@@ -84,9 +80,9 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #     fail-loud contract that the hard errors exist to enforce).
   #
   # SIDE EFFECTS:
-  #   - F5 adds no new output strings: --scan / --update-manifest text is F1/F2's
-  #     (§8), the run report is F4's. F5 only parses, validates, and routes.
-  #   - --help's usage summary must LIST --max-workers (restored, ADR 0013).
+  #   - F5 adds no new output strings: --scan / --update-manifest text is F1/F2's,
+  #     the run report is F4's. F5 only parses, validates, and routes.
+  #   - --help's usage summary must LIST --max-workers (restored).
   #   - The accepted --max-workers count is passed through to the run dispatcher for
   #     F6 to act on; F5 itself does not execute workers.
   #
@@ -95,7 +91,7 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #     the count through; the serial/parallel switch and worker engine are F6.
   #   - Does NOT: re-implement --scan counting (F1), --update-manifest writing (F2), the
   #     LCOV gate (F3), or the run loop (F4) — it dispatches to them.
-  #   - Does NOT: re-create the §8 --scan / --update-manifest output strings (F1/F2 own
+  #   - Does NOT: re-create the --scan / --update-manifest output strings (F1/F2 own
   #     them); F5 only routes to the mode that prints them.
   #   - ASSUMED: the exact arg-parser (argparse vs hand-rolled) and the exact non-zero
   #     exit code (1 vs 2) are the coder's to pin; this feature fixes the usage-error
@@ -107,7 +103,7 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   Background:
     Given an existing Python source file with discovered mutation sites
 
-  # cli-surface-1: every §2 flag parses to its option with the documented default
+  # cli-surface-1: every flag in the matrix parses to its option with the documented default
   Scenario Outline: the full flag matrix parses and applies its default
     When I run mutate4py with the flag "<flag>"
     Then the option "<option>" is set to "<value>"

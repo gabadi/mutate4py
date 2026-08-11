@@ -1,8 +1,7 @@
 Feature: Continuous integration and release pipeline
 
   # TRACKING: F1 (site-discovery) — user directive: F1 includes CI + releasable skeleton;
-  #           base ~/workspace/addi/crap4py .github/workflows;
-  #           docs/adr/0003-ci-skeleton-crap-and-mutation-gates-deferred.md
+  #           base ~/workspace/addi/crap4py .github/workflows
   #
   # CONTRACT:
   #   trigger: push to branch main; pull_request.

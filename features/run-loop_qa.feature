@@ -1,9 +1,6 @@
 Feature: QA — the mutation run loop is observable end-to-end through the CLI
 
-  # TRACKING: F4 (run-loop) — docs/plan.md; docs/spec.md §7, §8, §9;
-  #           docs/adr/0010-run-loop-composes-f3-coverage-and-baseline-gate.md;
-  #           docs/adr/0011-timeout-printed-verbatim-folded-into-killed.md;
-  #           docs/adr/0012-run-loop-serial-only-no-worker-token.md
+  # TRACKING: F4 (run-loop) — docs/adr/0011-timeout-printed-verbatim-folded-into-killed.md
   #
   # CONTRACT:
   #   End-to-end QA for F4. Operates ONLY through the user interface: the

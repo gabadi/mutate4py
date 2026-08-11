@@ -5,12 +5,8 @@
 
 Feature: The mutation run loop and report
 
-  # TRACKING: F4 (run-loop) — docs/plan.md; docs/spec.md §7 (run loop), §8 (output),
-  #           §9 (serial path; parallelism reopened as F6 — ADR 0013/0015);
-  #           CONTEXT.md "Run loop & report (F4)";
-  #           docs/adr/0010-run-loop-composes-f3-coverage-and-baseline-gate.md;
-  #           docs/adr/0011-timeout-printed-verbatim-folded-into-killed.md;
-  #           docs/adr/0012-run-loop-serial-only-no-worker-token.md
+  # TRACKING: F4 (run-loop) — CONTEXT.md "Run loop & report (F4)";
+  #           docs/adr/0011-timeout-printed-verbatim-folded-into-killed.md
   #           Upstream ground truth: unclebob/mutate4go internal/runner/runner.go
   #           (Mutate, runMutationsSerial, runMutant, summarize, printHeader).
   #
@@ -29,7 +25,7 @@ Feature: The mutation run loop and report
   #     acquire coverage (F3) + partition -> select -> print header -> [uncovered block] ->
   #     baseline -> save .mutate4py.bak -> per-site apply/test/classify/restore ->
   #     restore source -> print report -> re-embed manifest -> remove .mutate4py.bak.
-  #   stdout (exit 0) — the §8 run output:
+  #   stdout (exit 0) — the run output:
   #     [Restored source from backup (previous run was interrupted).]   (only if a .bak existed)
   #     [Reusing existing coverage; covered/uncovered classification may be stale.]  (only --reuse-coverage)
   #     Mutation run: <file>
@@ -53,7 +49,7 @@ Feature: The mutation run loop and report
   #     no mutant applied, no .mutate4py.bak left, no report printed.
   #   NOT in the response (F4 default, --max-workers unset/0): no "Mutation workers: <n>"
   #     line; no "worker-<k>" token; no "Timeout: <n>" report line (timeout folds into
-  #     Killed). NOTE (F6, ADR 0012 amendment/0015): a serial run with --max-workers > 0
+  #     Killed). NOTE (F6, ADR 0015): a serial run with --max-workers > 0
   #     DOES print "Mutation workers: <n>" (upstream-verbatim, runner.go:614); the
   #     "worker-<k>" token is still absent on any serial run. F4 scenarios cover the
   #     --max-workers-unset case; the workers line is exercised in F6 (parallel-workers).
@@ -72,7 +68,7 @@ Feature: The mutation run loop and report
   #   - Survivors block prints only when survived > 0.
   #   - Killed report total = killed-count + timeout-count.
   #   - The run is serial: sites are mutated one at a time in stable (line, column) order;
-  #     no parallel workers run on this path (§9, ADR 0012). The parallel engine selected
+  #     no parallel workers run on this path. The parallel engine selected
   #     by --max-workers >= 2 AND >= 2 sites is F6 (parallel-workers, ADR 0015).
   #
   # SEQUENCING:
@@ -103,9 +99,9 @@ Feature: The mutation run loop and report
   #   - Does NOT: own --scan or --update-manifest output (F1/F2); does NOT re-implement
   #     site discovery (F1), manifest embed/diff (F2), or the LCOV line gate (F3).
   #   - Does NOT: print a "worker-<k>" token or a "Timeout:" report line; does NOT
-  #     parallelize — the serial path only (§9, ADR 0012). Does NOT print a "Mutation
+  #     parallelize — the serial path only. Does NOT print a "Mutation
   #     workers" line in the F4 default case (--max-workers unset/0); the workers line
-  #     for --max-workers > 0 and the parallel engine are F6 (§9 reopened, ADR 0013/0015).
+  #     for --max-workers > 0 and the parallel engine are F6 (ADR 0015).
   #     Parsing --max-workers is F5.
   #   - ASSUMED: the injected exec seam runs pytest directly (no shell) and reports exit
   #     status and timeout; the exact subprocess mechanism is the coder's to pin.

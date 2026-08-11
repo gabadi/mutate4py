@@ -5,11 +5,11 @@ tests, and reports killed, survived, and uncovered mutations — with an
 **embedded-in-source manifest** so differential reruns survive a clone with zero CI
 setup.
 
-A faithful Python port of [unclebob/mutate4go](https://github.com/unclebob/mutate4go),
+Originally a Python port of [unclebob/mutate4go](https://github.com/unclebob/mutate4go),
 with the user-facing contract cross-checked against
-[unclebob/clj-mutate](https://github.com/unclebob/clj-mutate). Where Python forces a
-divergence (coverage acquisition, the manifest hash) it is marked `[PY]` and
-justified in [`docs/spec.md`](docs/spec.md).
+[unclebob/clj-mutate](https://github.com/unclebob/clj-mutate). Where Python forced a
+divergence — coverage acquisition, the manifest hash, parallel worker isolation —
+the reasoning is recorded in [`docs/adr/`](docs/adr/).
 
 ## Install
 
@@ -34,7 +34,7 @@ Generate `lcov.info` with [coverage.py](https://coverage.readthedocs.io/):
 pytest --cov --cov-branch --cov-report=lcov:lcov.info
 ```
 
-See `mutate4py --help` and the [spec](docs/spec.md) for the full flag set.
+See `mutate4py --help` for the full flag set.
 
 ## Multiple targets & glob patterns
 

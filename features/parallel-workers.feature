@@ -5,13 +5,9 @@
 
 Feature: Parallel worker execution for --max-workers
 
-  # TRACKING: F6 (parallel-workers) — docs/plan.md; docs/spec.md §9 (REOPENED —
-  #           parallelism via uv clone-per-worker); CONTEXT.md "Parallel workers (F6)";
-  #           docs/adr/0013-max-workers-restored-as-real-flag.md;
+  # TRACKING: F6 (parallel-workers) — CONTEXT.md "Parallel workers (F6)";
   #           docs/adr/0015-parallel-workers-via-uv-clone-per-worker.md (mechanism +
-  #           grilling resolutions 1-9);
-  #           docs/adr/0012-run-loop-serial-only-no-worker-token.md (amended: serial
-  #           run with --max-workers > 0 prints the workers line).
+  #           grilling resolutions 1-9).
   #           Upstream ground truth: unclebob/mutate4go internal/runner/runner.go
   #           (runMutations switch :319, runMutationsParallel :351, copyProject :487,
   #           shouldSkipCopy :527, sortResults :457, printHeader :614, per-mutant :425).
@@ -26,7 +22,7 @@ Feature: Parallel worker execution for --max-workers
   #   path selection (the switch, upstream runner.go:319):
   #     --max-workers <= 1 OR selected sites <= 1 -> SERIAL path (the unchanged F4 loop).
   #     --max-workers >= 2 AND selected sites >= 2 -> PARALLEL path (the F6 engine).
-  #   stdout — identical to the F4 §8 run output, with two additions governed by flag/path:
+  #   stdout — identical to the F4 run output, with two additions governed by flag/path:
   #     Mutation workers: <n>   — printed whenever --max-workers > 0 (serial OR parallel);
   #                               <n> is the clamped count on the parallel path.
   #     [i/total] worker-<k> <status> line <L> <desc>: <functionID>

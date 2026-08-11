@@ -3,7 +3,6 @@ Feature: Per-mutant test selection and directory run mode
   # TRACKING: Issue #15 — directory run mode + --test-contexts
   #           Issue #27 — three-case selection replaces #15's silent full-suite
   #           fallback; docs/adr/0018-test-selection-three-case-no-silent-fallback.md;
-  #           docs/spec.md §2 (--test-contexts row), §8 (report block);
   #           CONTEXT.md "Per-mutant test selection (--test-contexts)".
   #
   # CONTRACT:

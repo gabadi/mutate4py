@@ -1,9 +1,6 @@
 Feature: QA — parallel --max-workers execution is observable end-to-end through the CLI
 
-  # TRACKING: F6 (parallel-workers) — docs/plan.md; docs/spec.md §9 (REOPENED);
-  #           docs/adr/0013-max-workers-restored-as-real-flag.md;
-  #           docs/adr/0015-parallel-workers-via-uv-clone-per-worker.md;
-  #           docs/adr/0012-run-loop-serial-only-no-worker-token.md (amended).
+  # TRACKING: F6 (parallel-workers) — docs/adr/0015-parallel-workers-via-uv-clone-per-worker.md
   #
   # CONTRACT:
   #   End-to-end QA for F6. Operates ONLY through the user interface: the
