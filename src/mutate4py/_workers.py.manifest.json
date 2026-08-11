@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-08-11T02:30:13Z",
-  "module_hash": "a47531bef2e12d8e44be7b4818357ecf557a7fa92e1830daa62ff9e88b418fce",
-  "source_sha256": "7b7b35c515a0a07b1b05291a270516593b53e2490e4ff02dfc5fa4601d1d384d",
+  "tested_at": "2026-08-11T04:51:41Z",
+  "module_hash": "147bfcf4908bb1f38c5edabcb1a8824ed5379b9171c58486e27f56d0e8ee254a",
+  "source_sha256": "31d2e3fdb358b88291ad8f258c040400cc2d6438e4b8debb4f309b9e0e52c0c5",
   "functions": [
     {
       "id": "func/_copy_tree",
@@ -29,50 +29,50 @@
       "id": "func/_run_one_site",
       "name": "_run_one_site",
       "line": 168,
-      "end_line": 207,
-      "hash": "33ae5c21cd855a3576b9ea2eba40a661bd81a28a50fbafe24da13b48ad606bdf"
+      "end_line": 211,
+      "hash": "c913ed043625e54c7cf9d18a617d0f250959280f85b341b7fbb366c2cd2940ad"
     },
     {
       "id": "func/_provision_workers",
       "name": "_provision_workers",
-      "line": 210,
-      "end_line": 218,
+      "line": 214,
+      "end_line": 222,
       "hash": "01e586a80be2c797bf3a60fc2d8148469fa497fa11ee73e471be120c0fc76c2e"
     },
     {
       "id": "func/_assign_sites_to_workers",
       "name": "_assign_sites_to_workers",
-      "line": 221,
-      "end_line": 227,
+      "line": 225,
+      "end_line": 231,
       "hash": "38182f3ff4d30bc4333538f3b42892b1be3285e6ae0c194917a5ac9075ae763f"
     },
     {
       "id": "func/_summarize_results",
       "name": "_summarize_results",
-      "line": 230,
-      "end_line": 239,
+      "line": 234,
+      "end_line": 243,
       "hash": "f13aab7e3a9b5709751bc84562dafffcbba38134093167fac49188a4ba6947e1"
     },
     {
       "id": "func/_summarize_selection",
       "name": "_summarize_selection",
-      "line": 242,
-      "end_line": 249,
+      "line": 246,
+      "end_line": 253,
       "hash": "f6f2a670384ec5358b5f0be84f9b77b503897335b9363bf8eefb63b67c93c4f8"
     },
     {
       "id": "func/_dispatch_worker_groups",
       "name": "_dispatch_worker_groups",
-      "line": 252,
-      "end_line": 299,
+      "line": 256,
+      "end_line": 303,
       "hash": "1915b7676bf8fbd1e708c9b8f84033f38c2c83f053385666c40a037cbe2b96b9"
     },
     {
       "id": "func/run_parallel",
       "name": "run_parallel",
-      "line": 302,
-      "end_line": 364,
-      "hash": "ba1a85e27446b35e495f858fe10d4b99fe2526e70f50b031100894eb969b61f5"
+      "line": 306,
+      "end_line": 368,
+      "hash": "60a8fb85c845384540d4502651b0f5a2a8aa6009c47d9f4bbef2ac1b0b94660a"
     }
   ]
 }

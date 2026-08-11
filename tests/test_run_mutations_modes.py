@@ -363,7 +363,11 @@ def _run_with_stub_ctx_db(tmp_path, monkeypatch, outcome, node_ids=(), *, test_c
 
 
 def test_report_counts_narrowed_selections(tmp_path, monkeypatch, capsys):
-    rc, _, _ = _run_with_stub_ctx_db(tmp_path, monkeypatch, "narrowed", ["tests/test_calc.py::test_f"])
+    # Node ID must actually exist: _run_with_stub_ctx_db runs a real executor
+    # here (no injected fake), and a node ID pytest can't find is exactly the
+    # exit-4 usage-error abort issue #55 added — a fictional node ID would
+    # now correctly abort the run instead of silently reporting `narrowed 3`.
+    rc, _, _ = _run_with_stub_ctx_db(tmp_path, monkeypatch, "narrowed", ["tests/test_always_passes.py::test_ok"])
     assert rc == 0
     assert "Test selection: narrowed 3, static 0" in capsys.readouterr().out
 
@@ -627,6 +631,72 @@ def test_disagreement_restores_the_source_and_removes_the_backup(tmp_path, monke
     from mutate4py._manifest import strip_manifest
 
     rc, src_path, src = _run_with_stub_ctx_db(tmp_path, monkeypatch, "line-absent")
+    capsys.readouterr()
+    assert rc == 2
+    with open(src_path) as f:
+        final = f.read()
+    assert strip_manifest(final).rstrip("\n") == src.rstrip("\n")
+    assert not os.path.isfile(src_path + ".bak")
+
+
+# ── no tests collected / usage error: the fourth ADR 0018 case (issue #55) ────
+
+
+def _run_with_abort_status(tmp_path, status):
+    """Run a single-site mutation with an injected executor forced to return
+    an abort status — reachable without --test-contexts too, since a bare
+    --pytest-args filter can deselect every mutant just as easily."""
+    fake_executor = _FakeExecutor(status=status)
+    src = _make_multi_site_source(1)
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+    lcov_path = str(tmp_path / "cov.lcov")
+    _write_lcov_for_source(lcov_path, src_path, src)
+
+    rc = run_mutations(
+        RunMutationsRequest(
+            path=src_path,
+            source=src,
+            cov_cmd=None,
+            lcov_path=lcov_path,
+            reuse_coverage=False,
+            pytest_args=["-q"],
+            timeout_factor=10,
+            lines_filter=None,
+            since_last_run=False,
+            mutate_all=False,
+            warning_threshold=1000,
+            cwd=str(tmp_path),
+            executor=fake_executor,
+            baseline_duration=0.01,
+        )
+    )
+    return rc, src_path, src
+
+
+@pytest.mark.parametrize(
+    "status, hint",
+    [
+        ("no-tests-collected", "pytest collected no tests"),
+        ("usage-error", "usage error before collecting any test"),
+    ],
+)
+def test_no_tests_collected_exits_2_with_no_report(tmp_path, capsys, status, hint):
+    """No Site may reach the tally as `killed` when pytest ran nothing for it."""
+    rc, src_path, src = _run_with_abort_status(tmp_path, status)
+    captured = capsys.readouterr()
+    assert rc == 2
+    assert "Mutation Report" not in captured.out
+    assert "error: pytest ran no test for a Mutant" in captured.err
+    assert f"{src_path}:2" in captured.err
+    assert hint in captured.err
+
+
+def test_no_tests_collected_restores_the_source_and_removes_the_backup(tmp_path, capsys):
+    from mutate4py._manifest import strip_manifest
+
+    rc, src_path, src = _run_with_abort_status(tmp_path, "no-tests-collected")
     capsys.readouterr()
     assert rc == 2
     with open(src_path) as f:

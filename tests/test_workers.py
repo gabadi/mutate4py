@@ -5,6 +5,7 @@ import threading
 import pytest
 
 from mutate4py._discovery import Site, discover_sites
+from mutate4py._test_dispatch import NoTestsCollectedError
 from mutate4py._workers import (
     ParallelRunError,
     ParallelRunRequest,
@@ -310,6 +311,40 @@ def test_run_one_site_killed(tmp_path, monkeypatch):
         ),
     )
     assert result["status"] == "killed"
+    assert worker_file.read_text() == src
+
+
+@pytest.mark.parametrize("status, hint", [("no-tests-collected", "collected no tests"), ("usage-error", "usage error")])
+def test_run_one_site_no_tests_collected_raises_and_still_restores(tmp_path, monkeypatch, status, hint):
+    """A Mutant whose test run exercised no test at all must abort, not be
+    tallied `killed` (issue #55) — and the worker's file copy must still be
+    restored, same as a WorkerProcessError."""
+    src = "def f(a, b):\n    return a > b\n"
+    sites = discover_sites(src)
+    site = sites[0]
+    worker_file = tmp_path / "calc.py"
+    worker_file.write_text(src)
+    monkeypatch.delenv("_MUTATE4PY_TEST_WORKER_WRITE_FAIL", raising=False)
+
+    with pytest.raises(NoTestsCollectedError, match=hint):
+        _run_one_site(
+            SiteAssignment(
+                worker_idx=1,
+                site=site,
+                site_idx=1,
+                total=1,
+                worker_root=str(tmp_path),
+                worker_file_path=str(worker_file),
+            ),
+            _FakeExecutor(status),
+            WorkerRunSettings(
+                clean_source=src,
+                pytest_args=[],
+                mutant_timeout=5.0,
+                on_result=_noop_on_result,
+                abs_source_path=str(worker_file),
+            ),
+        )
     assert worker_file.read_text() == src
 
 

@@ -214,6 +214,37 @@ def test_run_killed_when_tests_fail(tmp_path):
 
 
 @pytest.mark.integration
+def test_run_reports_no_tests_collected_when_filter_deselects_everything(tmp_path):
+    """A -k filter matching nothing is pytest exit 5 ("no tests were
+    collected") — must not be scored killed (issue #55), same as the
+    subprocess executor (_wait_for_child duplicates run_argv's classification)."""
+    cwd, target = _write_fixture_project(
+        tmp_path,
+        target_body="def add(a, b):\n    return a + b\n",
+        test_body=_ADD_TEST_BODY,
+    )
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor.prime()
+    status = executor.run(["-q", "tests", "-k", "no_such_test_name"], timeout=30.0)
+    assert status == "no-tests-collected"
+
+
+@pytest.mark.integration
+def test_run_reports_usage_error_for_a_bad_argument(tmp_path):
+    """An unrecognized pytest option is exit 4 (usage error) — must not be
+    scored killed either (issue #55)."""
+    cwd, target = _write_fixture_project(
+        tmp_path,
+        target_body="def add(a, b):\n    return a + b\n",
+        test_body=_ADD_TEST_BODY,
+    )
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor.prime()
+    status = executor.run(["-q", "tests", "--not-a-real-flag-xyz"], timeout=30.0)
+    assert status == "usage-error"
+
+
+@pytest.mark.integration
 def test_run_picks_up_post_prime_mutation_from_disk(tmp_path):
     """The central correctness property: priming before the file is mutated
     must not leave a stale pre-mutation module cached for the child."""

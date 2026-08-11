@@ -5,6 +5,7 @@ import pytest
 from mutate4py._discovery import discover_sites
 from mutate4py._execution import (
     MutantExecCtx,
+    NoTestsCollectedError,
     TestSelectionError,
     _build_mutant_args,
     _run_mutation_loop,
@@ -175,6 +176,37 @@ def test_run_mutation_loop_disagreement_aborts_before_applying_the_mutant(tmp_pa
             ),
         )
     assert src_file.read_text() == src
+
+
+@pytest.mark.parametrize(
+    "status, hint",
+    [
+        ("no-tests-collected", "pytest collected no tests"),
+        ("usage-error", "usage error before collecting any test"),
+    ],
+)
+def test_run_mutation_loop_no_tests_collected_raises(tmp_path, status, hint):
+    """A Mutant whose test run exercised no test at all must abort, not be
+    tallied `killed` (issue #55)."""
+    src = "def f(a, b):\n    return a > b\n"
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(src)
+    with pytest.raises(NoTestsCollectedError) as excinfo:
+        _run_mutation_loop(
+            selected_sites=discover_sites(src),
+            clean_source=src,
+            ctx=MutantExecCtx(
+                path=str(src_file),
+                cwd=str(tmp_path),
+                pytest_args=[],
+                executor=_FakeExecutor(status=status),
+                mutant_timeout=5.0,
+                abs_source_path=str(src_file),
+            ),
+        )
+    message = str(excinfo.value)
+    assert f"{src_file}:2" in message
+    assert hint in message
 
 
 # ── _run_parallel_workers passes mutant_timeout ───────────────────────────────

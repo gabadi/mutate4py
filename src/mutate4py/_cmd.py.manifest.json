@@ -1,15 +1,22 @@
 {
   "version": 1,
-  "tested_at": "2026-08-10T05:29:55Z",
-  "module_hash": "d6bbf06ad23de333935ba543e8a770eef9fc45b6a54c202c4ce707a7089a1fad",
-  "source_sha256": "a93a1f41785b99595f3dd2ee66e8f8b488606b9223ca039c3b3306ecfae85349",
+  "tested_at": "2026-08-11T04:51:41Z",
+  "module_hash": "c8b56ea3c4238e413b40b8cd5e6a8a1ae865acad004a06afaf3d36741b23e0a4",
+  "source_sha256": "9f6c8fe1eef267966c7667eb9cb0e7f904b44c2b1bd5aa769a26228efe833914",
   "functions": [
+    {
+      "id": "func/classify_exit_code",
+      "name": "classify_exit_code",
+      "line": 22,
+      "end_line": 27,
+      "hash": "70daea636c407a277765466e805097cb8bacaef3278022368bb7be2417716d1d"
+    },
     {
       "id": "func/run_argv",
       "name": "run_argv",
-      "line": 10,
-      "end_line": 23,
-      "hash": "52e08c7d6cd0166d88f0e879a6ce770099cb74e9020af3c7762a2b4a4b862ef7"
+      "line": 30,
+      "end_line": 44,
+      "hash": "9da95628a35650bff181a74975cfd8d1a6619dea9ff7c11b9c542e607ead97e9"
     }
   ]
 }

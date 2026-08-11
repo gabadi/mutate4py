@@ -1,6 +1,6 @@
 """Unit tests for _cmd.run_argv (shared argv runner, no shell)."""
 
-from mutate4py._cmd import run_argv
+from mutate4py._cmd import classify_exit_code, run_argv
 
 
 def test_run_argv_exit_zero_is_survived():
@@ -9,6 +9,32 @@ def test_run_argv_exit_zero_is_survived():
 
 def test_run_argv_exit_nonzero_is_killed():
     assert run_argv(["false"], "/tmp", timeout=5.0) == "killed"
+
+
+def test_run_argv_exit_5_is_no_tests_collected():
+    """pytest exit 5 ("no tests were collected") must not be scored killed (issue #55)."""
+    assert run_argv(["sh", "-c", "exit 5"], "/tmp", timeout=5.0) == "no-tests-collected"
+
+
+def test_run_argv_exit_4_is_usage_error():
+    """pytest exit 4 (usage error) must not be scored killed either (issue #55)."""
+    assert run_argv(["sh", "-c", "exit 4"], "/tmp", timeout=5.0) == "usage-error"
+
+
+def test_classify_exit_code_zero_is_survived():
+    assert classify_exit_code(0) == "survived"
+
+
+def test_classify_exit_code_one_is_killed():
+    assert classify_exit_code(1) == "killed"
+
+
+def test_classify_exit_code_five_is_no_tests_collected():
+    assert classify_exit_code(5) == "no-tests-collected"
+
+
+def test_classify_exit_code_four_is_usage_error():
+    assert classify_exit_code(4) == "usage-error"
 
 
 def test_run_argv_timeout_is_timeout():
