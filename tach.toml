@@ -88,6 +88,11 @@ layer = "domain"
 depends_on = []
 
 [[modules]]
+path = "mutate4py._test_context_build"
+layer = "domain"
+depends_on = []
+
+[[modules]]
 path = "mutate4py._workspace"
 layer = "domain"
 depends_on = []
