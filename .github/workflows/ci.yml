@@ -33,8 +33,14 @@ jobs:
         run: just lint
       - name: Format check
         run: just format-check
-      - name: Tests
-        run: just test
+      # Two steps, one job, one coverage measurement: test-integration appends
+      # to test-unit's data and only then applies the threshold. They cannot be
+      # moved to separate jobs without merging coverage first — the `crap` gate
+      # below reads lcov.info and needs both halves. See the justfile.
+      - name: Tests (unit)
+        run: just test-unit
+      - name: Tests (integration)
+        run: just test-integration
       - name: Install lcov
         run: sudo apt-get install -y lcov
         if: always()

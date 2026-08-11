@@ -15,7 +15,7 @@ Key commands:
 
 Invoke scored runs through the justfile instead of calling `mutate4py --mutate-all` directly:
 ```
-just check test          # once per verification pass, refreshes lcov.info + .coverage
+just check test-unit test-integration   # once per verification pass, refreshes lcov.info + .coverage
 just mutate <path>        # e.g. just mutate src/mutate4py/_runner.py --mutate-all
 ```
 `just mutate` is `justfile`'s wrapper: it redirects the run to a temp log, then prints only the `Mutation Report` block (Killed/Survived/Uncovered counts + every Survivor's `line N desc` — still fully actionable) via `awk '/^Mutation Report$/,0'`. On a non-zero exit it also tails the last 20 log lines, so an infra failure that happens before the summary prints is still visible. This is the same shape `perf.sh`'s (now `just perf`) `_run` helper already used — see `justfile`'s header comment.
