@@ -11,8 +11,11 @@ import os
 import subprocess
 import sys
 import tempfile
+from typing import Callable
 
-__all__ = ["TestContextBuildError", "_combine_argv", "_run_argv", "build_test_context_db"]
+__all__ = ["IsolatedSessionRunner", "TestContextBuildError", "_combine_argv", "_run_argv", "build_test_context_db"]
+
+IsolatedSessionRunner = Callable[[str, str, list[str]], str]
 
 
 class TestContextBuildError(Exception):
@@ -52,7 +55,7 @@ def build_test_context_db(
     cwd: str,
     output_db_path: str,
     pytest_args: list[str] | None = None,
-    python_executable: str = sys.executable,
+    isolated_session_runner: IsolatedSessionRunner | None = None,
 ) -> str:
     """Build a combined test-context db, one isolated coverage.py session per test.
 
@@ -63,6 +66,15 @@ def build_test_context_db(
     Slow — one pytest startup per test — by design: see the ADR for why the
     faster single-session `--cov-context=test` alternative silently drops
     every test after the first to touch a shared line.
+
+    If isolated_session_runner is given, it replaces the `coverage run -m
+    pytest` subprocess for each node_id (called as
+    `runner(node_id, data_file, pytest_args)`, returning the same
+    survived/killed/timeout/no-tests-collected/usage-error vocabulary
+    Executor.run() uses) — the warm, forking-process path. Anything other
+    than "survived" raises TestContextBuildError, same as a nonzero
+    subprocess exit would. Left as None, the original cold subprocess path
+    runs unchanged.
 
     Branch vs line coverage mode is whatever the target project's own
     coverage config (pyproject.toml / .coveragerc) already selects; every
@@ -77,9 +89,18 @@ def build_test_context_db(
         data_files = []
         for i, node_id in enumerate(test_node_ids):
             data_file = os.path.join(tmp_dir, f".coverage.{i}")
-            argv = _run_argv(node_id, data_file=data_file, pytest_args=pytest_args, python_executable=python_executable)
-            _run_and_check(argv, cwd=cwd, error_prefix=f"isolated coverage session for {node_id!r} failed")
+            if isolated_session_runner is not None:
+                outcome = isolated_session_runner(node_id, data_file, pytest_args)
+                if outcome != "survived":
+                    raise TestContextBuildError(
+                        f"isolated coverage session for {node_id!r} did not run cleanly: {outcome}"
+                    )
+            else:
+                argv = _run_argv(
+                    node_id, data_file=data_file, pytest_args=pytest_args, python_executable=sys.executable
+                )
+                _run_and_check(argv, cwd=cwd, error_prefix=f"isolated coverage session for {node_id!r} failed")
             data_files.append(data_file)
-        argv = _combine_argv(data_files, output_db_path=output_db_path, python_executable=python_executable)
+        argv = _combine_argv(data_files, output_db_path=output_db_path, python_executable=sys.executable)
         _run_and_check(argv, cwd=cwd, error_prefix="coverage combine failed")
     return output_db_path

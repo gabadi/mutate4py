@@ -35,6 +35,9 @@ from mutate4py._target_resolution import (
     _expand_roots,
     _is_excluded,
 )
+from mutate4py._executor_selection import _prepare_executor
+from mutate4py._forking_executor import ForkingExecutor, isolated_coverage_session_safe
+from mutate4py._test_context_build import IsolatedSessionRunner
 from mutate4py._test_context_orchestration import build_test_contexts
 from mutate4py._workspace import _discover_workspace_roots, _workspace_exclude_dirs
 
@@ -153,6 +156,38 @@ def _run_on_file(
             forking_requested=not args.no_fork,
         )
     )
+
+
+def _build_isolated_session_runner(*, no_fork: bool, cwd: str) -> IsolatedSessionRunner | None:
+    """Executor for --build-test-contexts' per-test isolated coverage
+    sessions: the forking path when eligible, else None (build_test_context_db
+    falls back to its own cold `coverage run` subprocess per test).
+
+    guarded_path=cwd (a directory, not a mutated file): nothing is ever
+    mutated on disk during this build, so assert_source_clean's module-leak
+    check — which exists to protect a forked child from reading a just-
+    mutated file's stale pre-fork import — has no freshness hazard to guard
+    here. A directory's realpath can never equal an imported module's
+    __file__ realpath, so the check is a structural no-op, which is correct
+    rather than a workaround. This still reuses select_executor's existing
+    fallback logic verbatim — no separate eligibility mechanism.
+
+    That module-leak check being a no-op here also means it can no longer
+    coincidentally protect against the fork-after-prime plugin deadlock the
+    way it does for ordinary Mutant execution (see
+    isolated_coverage_session_safe's docstring) — so that hazard needs this
+    explicit, separate precheck instead.
+    """
+    executor = _prepare_executor(requested=not no_fork, cwd=cwd, guarded_path=cwd)
+    if not isinstance(executor, ForkingExecutor) or not isolated_coverage_session_safe():
+        return None
+
+    def run_isolated_session(node_id: str, data_file: str, pytest_args: list[str]) -> str:
+        return executor.run_isolated_coverage_session(
+            node_id, data_file=data_file, pytest_args=pytest_args, timeout=float("inf")
+        )
+
+    return run_isolated_session
 
 
 def _needs_directory_baseline(files: list[str], args: argparse.Namespace) -> bool:
@@ -285,8 +320,14 @@ def _dispatch(args: argparse.Namespace) -> None:
         # (scoped by --pytest-args), not a mutation target — validated to
         # exclude positional PATHs in _cli_validation, so workspace
         # autodiscovery below would never apply to this mode anyway.
+        cwd = os.getcwd()
         sys.exit(
-            build_test_contexts(output_db_path=args.build_test_contexts, cwd=os.getcwd(), pytest_args=args.pytest_args)
+            build_test_contexts(
+                output_db_path=args.build_test_contexts,
+                cwd=cwd,
+                pytest_args=args.pytest_args,
+                isolated_session_runner=_build_isolated_session_runner(no_fork=args.no_fork, cwd=cwd),
+            )
         )
     roots, args.prune_dirs = _resolve_roots(args)
     if len(roots) > 1:
