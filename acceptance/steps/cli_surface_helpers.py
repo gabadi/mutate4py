@@ -171,6 +171,46 @@ def assert_worker_count(
     )
 
 
+def source_file_run_args(flag_str: str, src: str) -> list[str]:
+    """Return CLI args: the background source file plus a flag string."""
+    return [src, *split_flags(flag_str)]
+
+
+def overlapping_coverage_fixture_dir(repo_root: str) -> str:
+    """Absolute path to the checked-in overlapping_coverage fixture."""
+    return os.path.join(repo_root, "tests", "fixtures", "overlapping_coverage")
+
+
+def build_test_contexts_fixture_args(db_path: str) -> list[str]:
+    """Args for a --build-test-contexts run scoped to the checked-in
+    overlapping_coverage fixture (two tests sharing one covered line).
+
+    Must run with cwd=<fixture dir> (not the repo root): this project's own
+    pyproject.toml restricts `[tool.coverage.run] source = ["mutate4py"]`,
+    which — if honoured, as it would be were cwd the repo root — silently
+    drops every file under tests/fixtures from coverage, leaving the built
+    db's `file` table empty. Running from the fixture dir means coverage.py's
+    config discovery finds the fixture's own unrestricted `.coveragerc`
+    instead, and node IDs collect correctly relative to that same cwd.
+    """
+    return ["--build-test-contexts", db_path]
+
+
+def assert_db_narrows_shared_line(db_path: str, fixture_dir: str) -> None:
+    """Assert the built db narrows the fixture's shared line to both covering
+    tests (the isolated-session build's whole point; see ADR 0021)."""
+    from mutate4py._test_selection import TestContextDB
+
+    shared_py = os.path.join(fixture_dir, "shared.py")
+    db = TestContextDB(db_path)
+    try:
+        outcome, node_ids = db.tests_for_line(shared_py, 2)
+        assert outcome == "narrowed", f"expected narrowed, got {outcome!r}"
+        assert len(node_ids) == 2, f"expected both covering tests, got {node_ids}"
+    finally:
+        db.close()
+
+
 def exclude_run_args(mode_flag: str, pattern: str, directory: str) -> list[str]:
     """Return CLI args for a directory-mode run under a single --exclude pattern."""
     return [directory] + split_flags(mode_flag) + ["--exclude", pattern]

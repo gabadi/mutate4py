@@ -31,6 +31,8 @@ def _no_run_flag(args: argparse.Namespace) -> str:
         return "--scan"
     if args.update_manifest:
         return "--update-manifest"
+    if args.build_test_contexts is not None:
+        return "--build-test-contexts"
     return "--check-manifest"
 
 
@@ -63,11 +65,28 @@ def _check_scan_only_incompatibilities(args: argparse.Namespace) -> None:
         _exit_incompatible("--scan", "--pytest-args")
 
 
+def _check_build_test_contexts_incompatibilities(args: argparse.Namespace) -> None:
+    """Raise if --build-test-contexts is combined with a positional PATH
+    target: it builds a db for whatever pytest collects (scoped via
+    --pytest-args), not for a mutation target, so a PATH given alongside it
+    would otherwise be silently ignored."""
+    if args.files:
+        _exit_incompatible("--build-test-contexts", "a positional PATH target")
+
+
 def _check_selection_exclusivity(args: argparse.Namespace) -> None:
     """Raise if more than one selection flag is set."""
     selection_count = sum([args.since_last_run, args.mutate_all, args.lines is not None])
     if selection_count > 1:
         raise ValidationError("--since-last-run, --mutate-all, and --lines are pairwise exclusive; supply at most one.")
+
+
+def _check_no_run_mode_specific_incompatibilities(args: argparse.Namespace) -> None:
+    """Raise the extra checks specific to whichever no-run mode is active."""
+    if args.scan:
+        _check_scan_only_incompatibilities(args)
+    if args.build_test_contexts is not None:
+        _check_build_test_contexts_incompatibilities(args)
 
 
 def _validate_mutual_exclusions(args: argparse.Namespace) -> None:
@@ -76,14 +95,14 @@ def _validate_mutual_exclusions(args: argparse.Namespace) -> None:
         ("--scan", args.scan),
         ("--update-manifest", args.update_manifest),
         ("--check-manifest", args.check_manifest),
+        ("--build-test-contexts", args.build_test_contexts is not None),
     ]
     active = [name for name, v in no_run if v]
     if len(active) > 1:
         _exit_incompatible(active[0], active[1])
     if active:
         _check_no_run_incompatibilities(args)
-        if args.scan:
-            _check_scan_only_incompatibilities(args)
+        _check_no_run_mode_specific_incompatibilities(args)
     _check_selection_exclusivity(args)
 
 

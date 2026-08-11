@@ -35,6 +35,7 @@ from mutate4py._target_resolution import (
     _expand_roots,
     _is_excluded,
 )
+from mutate4py._test_context_orchestration import build_test_contexts
 from mutate4py._workspace import _discover_workspace_roots, _workspace_exclude_dirs
 
 _logger = logging.getLogger(__name__)
@@ -279,6 +280,14 @@ def _dispatch(args: argparse.Namespace) -> None:
     byte-for-byte framing, so it's called out here rather than silently.
     """
     args.pytest_args = _parse_pytest_args(args.pytest_args)
+    if args.build_test_contexts is not None:
+        # No file roots to resolve: the db covers whatever pytest collects
+        # (scoped by --pytest-args), not a mutation target — validated to
+        # exclude positional PATHs in _cli_validation, so workspace
+        # autodiscovery below would never apply to this mode anyway.
+        sys.exit(
+            build_test_contexts(output_db_path=args.build_test_contexts, cwd=os.getcwd(), pytest_args=args.pytest_args)
+        )
     roots, args.prune_dirs = _resolve_roots(args)
     if len(roots) > 1:
         _dispatch_batch(args, roots)

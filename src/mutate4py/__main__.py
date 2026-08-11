@@ -158,6 +158,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Path to a .coverage SQLite db (pytest --cov-context=test); enables per-mutant test selection",
     )
     parser.add_argument(
+        "--build-test-contexts",
+        dest="build_test_contexts",
+        default=None,
+        metavar="OUTPUT_PATH",
+        help="Build a test-context db and write it to OUTPUT_PATH: one "
+        "isolated coverage.py session per test pytest would collect (scoped "
+        "by --pytest-args), then combined (see --test-contexts); no "
+        "mutation run occurs, and no positional PATH target is accepted",
+    )
+    parser.add_argument(
         "--no-fork",
         action="store_true",
         dest="no_fork",

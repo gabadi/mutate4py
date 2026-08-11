@@ -20,6 +20,11 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #                            batch, 0 = uv workspace autodiscovery (ADR 0017).
   #     --scan               — no-run mode: count sites (F1 surface).
   #     --update-manifest    — no-run mode: rewrite the footer manifest (F2 surface).
+  #     --build-test-contexts OUTPUT_PATH — no-run mode: build a test-context db
+  #                             (issue #50, ADR 0021) from every test pytest
+  #                             would collect, scoped by --pytest-args; accepts
+  #                             no positional PATH target (it isn't a mutation
+  #                             target).
   #     --lines L1,L2,...     — selection: comma-separated POSITIVE ints.
   #     --since-last-run      — selection: only changed functions.
   #     --mutate-all          — selection: all covered sites despite manifest.
@@ -175,6 +180,14 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
       | --update-manifest | --since-last-run  |
       | --update-manifest | --mutate-all      |
       | --update-manifest | --max-workers 4   |
+      | --build-test-contexts out.db | --scan            |
+      | --build-test-contexts out.db | --update-manifest |
+      | --build-test-contexts out.db | --check-manifest  |
+      | --build-test-contexts out.db | --lines 7         |
+      | --build-test-contexts out.db | --since-last-run  |
+      | --build-test-contexts out.db | --mutate-all      |
+      | --build-test-contexts out.db | --max-workers 4   |
+      | --build-test-contexts out.db | --test-contexts .coverage |
 
   # cli-surface-5: the three selection flags are pairwise exclusive
   Scenario Outline: combining two selection flags is a usage error
@@ -256,3 +269,20 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
     Given two Python source files "one.py" and "two.py" without a manifest
     When I run mutate4py on both files with "--check-manifest"
     Then both "one.py" and "two.py" are reported
+
+  # cli-surface-13: --build-test-contexts builds a db for whatever pytest
+  # collects, not for a mutation target, so it does not accept one (issue #50)
+  Scenario: --build-test-contexts rejects a positional PATH target
+    When I run mutate4py on that source file with "--build-test-contexts out.db"
+    Then the invocation is a usage error
+    And the command exits with a non-zero status
+
+  # cli-surface-14: an accepted --build-test-contexts run dispatches to the
+  # test-context build behaviour and writes a real, usable db (issue #50,
+  # ADR 0021) — proven end to end against the checked-in overlapping-coverage
+  # fixture (tests/fixtures/overlapping_coverage), whose shared line is
+  # covered by two tests.
+  Scenario: --build-test-contexts writes a db that narrows to every covering test
+    When I run mutate4py with the flag "--build-test-contexts" against the overlapping-coverage fixture
+    Then the invocation is accepted
+    And the written test-context db narrows the shared line to both covering tests
