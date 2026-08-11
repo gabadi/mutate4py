@@ -20,7 +20,6 @@ from mutate4py._target_resolution import (
     _expand_roots,
     _is_excluded,
     _is_target_py_file,
-    _walkable_dirs,
 )
 
 
@@ -209,20 +208,6 @@ def test_is_target_py_file_requires_a_py_suffix():
     assert _is_target_py_file("pkg/mod.py", ())
     assert not _is_target_py_file("pkg/README.md", ())
     assert not _is_target_py_file("pkg/mod.py", ["*/mod.py"])
-
-
-def test_walkable_dirs_sorts_and_drops_pycache():
-    assert _walkable_dirs(["sub", "__pycache__", "abc"]) == ["abc", "sub"]
-
-
-def test_walkable_dirs_prunes_dot_dirs_venv_and_node_modules():
-    """Issue #22 item 13: applies to ALL directory-mode walks, not just
-    autodiscovered ones. build/ and dist/ are deliberately NOT pruned."""
-    assert _walkable_dirs(["sub", ".git", ".venv", "venv", "node_modules", "build", "dist"]) == [
-        "build",
-        "dist",
-        "sub",
-    ]
 
 
 # ── multi-root positionals (issue #22): _expand_roots ──────────────────────────

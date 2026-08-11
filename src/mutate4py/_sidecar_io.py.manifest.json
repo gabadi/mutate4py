@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-11T16:29:49Z",
+  "module_hash": "1383c7ae2e76c75782faefedb0adffb8f4c1b854fe0f371a4c6b91a68e41fc66",
+  "source_sha256": "6d1c886572718f85b71f647a6d3a89bc98efd8d14e7c59d68079fc835b71f535",
+  "functions": [
+    {
+      "id": "func/serialize_json_sidecar",
+      "name": "serialize_json_sidecar",
+      "line": 18,
+      "end_line": 20,
+      "hash": "6abd316e5c2380d6e8122edfb37d8a5f1346c5e4aa04787171f368ddac250f38"
+    },
+    {
+      "id": "func/parse_json_text",
+      "name": "parse_json_text",
+      "line": 23,
+      "end_line": 28,
+      "hash": "1a7d9b4db2a4ee840940f80716b165584f7193268a0a55eaa933979b632fc3e3"
+    },
+    {
+      "id": "func/read_json_sidecar",
+      "name": "read_json_sidecar",
+      "line": 31,
+      "end_line": 43,
+      "hash": "822a22cb524f805211ab749175f146ce0abce85e2cdf9bcca5725419bba9f82c"
+    },
+    {
+      "id": "func/write_json_sidecar",
+      "name": "write_json_sidecar",
+      "line": 46,
+      "end_line": 49,
+      "hash": "470307af4424bad506c22b68ecd73afd2a049e851350ea8c9b649e67985a94bc"
+    }
+  ]
+}

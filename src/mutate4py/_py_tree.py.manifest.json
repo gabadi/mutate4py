@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-11T17:13:39Z",
+  "module_hash": "81cf8a5eca1e6585395fe68bba35db4167524fd7f4cec6851c4bab490dc4fa7c",
+  "source_sha256": "5a83a1df0ea6f9c6546fd749c39d5992fa172ce38ec797de717d38a2f34c9b3d",
+  "functions": [
+    {
+      "id": "func/walkable_dirs",
+      "name": "walkable_dirs",
+      "line": 16,
+      "end_line": 22,
+      "hash": "cd225e55fc0731bc44c86228d59f2b047e5429bd4e5944ea321b45fd2fc0174b"
+    }
+  ]
+}
