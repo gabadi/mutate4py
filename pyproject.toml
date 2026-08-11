@@ -27,6 +27,7 @@ packages = ["src/mutate4py"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["scripts"]
 addopts = "--tb=short --strict-markers --ignore=tests/fixtures/django_project --ignore=tests/fixtures/overlapping_coverage"
 markers = [
     "integration: work runs inside a spawned interpreter (via _run_cli_path/_run_cli_in), so --cov-context=test can't see it and it contributes no per-Mutant test narrowing; excluded from the mutation test command, run only by the full `test` gate.",

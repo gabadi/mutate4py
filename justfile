@@ -28,7 +28,7 @@ LOG := "check.log"
 check *gates:
     #!/usr/bin/env bash
     set -euo pipefail
-    all=(lint format-check test-unit test-integration crap dry manifest acceptance)
+    all=(lint format-check test-unit test-integration context-deselection crap dry manifest acceptance)
     extra=(gherkin-mutation mutate-sample)
     known=("${all[@]}" "${extra[@]}")
     selected=({{gates}})
@@ -44,10 +44,11 @@ check *gates:
             exit 1
         fi
     done
-    # `crap` and `mutate-sample` read artifacts (lcov.info / .coverage) that
-    # only `test-integration` writes, and --no-deps means nothing here will
-    # produce them. It writes them for BOTH halves — see its own comment.
-    for needs_test in crap mutate-sample; do
+    # `crap`, `mutate-sample`, and `context-deselection` read artifacts
+    # (lcov.info / .coverage) that only `test-integration` writes, and
+    # --no-deps means nothing here will produce them. It writes them for
+    # BOTH halves — see its own comment.
+    for needs_test in crap mutate-sample context-deselection; do
         if [[ " ${selected[*]} " == *" ${needs_test} "* && " ${selected[*]} " != *" test-integration "* ]]; then
             echo "  ✗ ${needs_test} reads lcov.info/.coverage, which only \`test-integration\` writes" >&2
             echo "    run:  just check test-unit test-integration ${needs_test}" >&2
@@ -117,6 +118,18 @@ test-unit:
 test-integration:
     uv run pytest -m integration --cov --cov-append --cov-context=test \
         --cov-report=lcov:lcov.info --cov-report=term-missing --cov-fail-under=90
+
+# No test recorded as a named context in `.coverage` may be deselected by the
+# `mutate` recipe's --pytest-args below: narrowing could still pick that
+# test's node ID for some Site, the marker filter then deselects it, and
+# pytest exits 5/4 -- which _cmd.py's classify_exit_code (#55) now raises on
+# instead of scoring `killed`, aborting the whole mutation run mid-batch over
+# a misconfiguration this gate catches ahead of time instead. Requires
+# .coverage from `test-unit` + `test-integration` (see `check`'s needs_test
+# guard).
+[private]
+context-deselection:
+    uv run python scripts/check_context_deselection.py
 
 # Requires lcov.info from `test`.
 [private]
