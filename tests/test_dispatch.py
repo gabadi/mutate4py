@@ -8,6 +8,7 @@ module's internals in isolation.
 """
 
 import os
+import sys
 
 import pytest
 
@@ -868,3 +869,50 @@ def test_collect_union_files_verbose_reports_excluded_per_root(tmp_path, capsys)
     files = _collect_union_files(args, [str(a_dir), str(b_dir)])
     assert files == [str(a_dir / "a.py")]
     assert f"Excluded: {b_dir / 'b.py'}" in capsys.readouterr().out
+
+
+# --- _build_isolated_session_runner (issue #51) -------------------------------
+
+
+def test_build_isolated_session_runner_returns_none_when_a_fork_unsafe_plugin_is_loaded(tmp_path):
+    """Regression: this repo's own acceptance suite hung for 36+ minutes
+    (real, observed) because --build-test-contexts unconditionally engaged
+    the forking path against tests/fixtures/overlapping_coverage, which
+    deadlocks under pytest-tach's fork-time lock (see
+    isolated_coverage_session_safe). tach.pytest_plugin is genuinely loaded
+    in this test process -- this repo's own active pytest plugin -- so this
+    exercises the real hazard, not a synthetic stand-in."""
+    from mutate4py._dispatch import _build_isolated_session_runner
+
+    assert "tach.pytest_plugin" in sys.modules
+    (tmp_path / "test_x.py").write_text("def test_ok():\n    assert True\n")
+    runner = _build_isolated_session_runner(no_fork=False, cwd=str(tmp_path))
+    assert runner is None
+
+
+@pytest.mark.integration
+def test_build_isolated_session_runner_forks_and_runs_when_eligible(tmp_path, monkeypatch):
+    """With the fork-unsafe-plugin precheck stubbed out (this dev venv always
+    has tach loaded once ForkingExecutor.prime()'s own collect-only
+    pytest.main() call runs, so the real check can't be forced True here --
+    see isolated_coverage_session_safe's docstring), prove the returned
+    closure is wired correctly end to end: forks, runs the named test under
+    an isolated coverage session, and returns "survived".
+
+    Two independent call sites need stubbing: _dispatch.py's own eligibility
+    check (decides whether to build a working closure at all) and
+    ForkingExecutor.run_isolated_coverage_session's self-check (issue #51
+    Standards fix -- the method no longer trusts a caller to have checked
+    first, so it re-checks on every call)."""
+    import mutate4py._dispatch as dispatch_mod
+    import mutate4py._forking_executor as forking_executor_mod
+
+    monkeypatch.setattr(dispatch_mod, "isolated_coverage_session_safe", lambda: True)
+    monkeypatch.setattr(forking_executor_mod, "isolated_coverage_session_safe", lambda: True)
+    (tmp_path / "test_x.py").write_text("def test_ok():\n    assert True\n")
+
+    runner = dispatch_mod._build_isolated_session_runner(no_fork=False, cwd=str(tmp_path))
+    assert runner is not None
+
+    status = runner("test_x.py::test_ok", str(tmp_path / ".coverage.0"), ["-q"])
+    assert status == "survived"

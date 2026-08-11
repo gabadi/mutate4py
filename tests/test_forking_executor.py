@@ -8,6 +8,7 @@ import textwrap
 import time
 import types
 
+import coverage
 import pytest
 
 import mutate4py._forking_executor
@@ -17,9 +18,11 @@ from mutate4py._forking_executor import (
     ModuleLeakError,
     assert_source_clean,
     is_available,
+    isolated_coverage_session_safe,
 )
 from mutate4py._forking_executor import _wait_for_child
 from mutate4py._plugin_neutralisation import neutralising_args
+from mutate4py._test_selection import TestContextDB
 
 # --- is_available ------------------------------------------------------------
 
@@ -309,6 +312,191 @@ def test_run_does_not_leak_child_stdout(tmp_path, capsys):
     executor = ForkingExecutor(cwd=cwd, guarded_path=target)
     executor.prime()
     executor.run(_ARGS, timeout=30.0)
+    captured = capsys.readouterr()
+    assert "SHOULD_NOT_APPEAR" not in captured.out
+    assert "SHOULD_NOT_APPEAR" not in captured.err
+
+
+# --- isolated_coverage_session_safe -------------------------------------------
+
+
+def test_isolated_coverage_session_safe_false_when_a_known_unsafe_plugin_is_loaded(monkeypatch):
+    """Regression for the acceptance-suite hang this precheck exists to
+    prevent: tach.pytest_plugin is genuinely loaded in this test process
+    (it's this repo's own pytest plugin), so this assertion also proves the
+    check fires for real, not just against a synthetic fake module."""
+    assert "tach.pytest_plugin" in sys.modules
+    assert isolated_coverage_session_safe() is False
+
+
+def test_isolated_coverage_session_safe_true_when_no_unsafe_plugin_is_loaded(monkeypatch):
+    monkeypatch.delitem(sys.modules, "tach.pytest_plugin", raising=False)
+    assert isolated_coverage_session_safe() is True
+
+
+# --- ForkingExecutor.run_isolated_coverage_session ---------------------------
+
+
+def _write_coverage_fixture_project(tmp_path) -> str:
+    """Write a minimal two-test project with a line shared by both tests plus
+    one line private to each, mirroring tests/fixtures/overlapping_coverage/
+    but built fresh under tmp_path (real system tmp, outside this repo).
+
+    Must NOT reuse the in-repo fixture: priming followed by a second
+    in-process pytest.main() call inside this repo's own tree deadlocks
+    under pytest-tach's native fork-time lock (issue #51 spike finding);
+    tmp_path sidesteps the plugin's config discovery entirely. branch=True
+    in .coveragerc routes context lookups through the arc table, avoiding
+    the unrelated, separately-tracked off-by-one in the line-only numbits
+    decoder (mutate4py._test_selection._numbits_to_lines).
+    """
+    (tmp_path / ".coveragerc").write_text("[run]\nbranch = True\n")
+    (tmp_path / "shared.py").write_text(
+        "def shared():\n    return 1\n\n\ndef only_a():\n    return 'a'\n\n\ndef only_b():\n    return 'b'\n"
+    )
+    (tmp_path / "test_a.py").write_text(
+        "from shared import only_a, shared\n\n\ndef test_from_a():\n    assert shared() == 1\n"
+        "    assert only_a() == 'a'\n"
+    )
+    (tmp_path / "test_b.py").write_text(
+        "from shared import only_b, shared\n\n\ndef test_from_b():\n    assert shared() == 1\n"
+        "    assert only_b() == 'b'\n"
+    )
+    return str(tmp_path)
+
+
+_SHARED_LINE = 2
+_ONLY_A_LINE = 6
+_ONLY_B_LINE = 10
+
+
+@pytest.mark.integration
+def test_run_isolated_coverage_session_narrows_shared_line_to_both_tests(tmp_path, monkeypatch):
+    """Central correctness property (ADR 0021): two isolated per-test
+    sessions, combined, must narrow a shared line to both covering tests and
+    a private line to only its own test. This also exercises the
+    chdir-before-Coverage()-construction ordering fix -- the outer pytest
+    process's own cwd is this repo's root (source=["mutate4py"] in
+    pyproject.toml), so a regressed ordering would silently record zero data
+    for this fixture project's files instead of raising.
+
+    isolated_coverage_session_safe stubbed True: this dev venv's own
+    tach.pytest_plugin is reloaded by prime()'s internal collect-only
+    pytest.main() call regardless of cwd (confirmed empirically -- it is not
+    specific to being inside this repo's tree), so the real gate would
+    always refuse here. That gate has its own dedicated tests above; this
+    test isolates the fork/coverage mechanics it protects."""
+    monkeypatch.setattr(mutate4py._forking_executor, "isolated_coverage_session_safe", lambda: True)
+    cwd = _write_coverage_fixture_project(tmp_path)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=cwd)
+    executor.prime()
+
+    data_a = str(tmp_path / ".coverage.a")
+    data_b = str(tmp_path / ".coverage.b")
+    status_a = executor.run_isolated_coverage_session(
+        "test_a.py::test_from_a", data_file=data_a, pytest_args=["-q"], timeout=30.0
+    )
+    status_b = executor.run_isolated_coverage_session(
+        "test_b.py::test_from_b", data_file=data_b, pytest_args=["-q"], timeout=30.0
+    )
+    assert status_a == "survived"
+    assert status_b == "survived"
+
+    combined_path = str(tmp_path / "combined.coverage")
+    combined = coverage.Coverage(data_file=combined_path)
+    combined.combine(data_paths=[data_a, data_b], strict=True)
+    combined.save()
+
+    db = TestContextDB(combined_path)
+    try:
+        shared_py = str(tmp_path / "shared.py")
+        node_ids = sorted(["test_a.py::test_from_a", "test_b.py::test_from_b"])
+        assert db.tests_for_line(shared_py, _SHARED_LINE) == ("narrowed", node_ids)
+        assert db.tests_for_line(shared_py, _ONLY_A_LINE) == ("narrowed", ["test_a.py::test_from_a"])
+        assert db.tests_for_line(shared_py, _ONLY_B_LINE) == ("narrowed", ["test_b.py::test_from_b"])
+    finally:
+        db.close()
+
+
+@pytest.mark.integration
+def test_run_isolated_coverage_session_killed_when_test_fails(tmp_path, monkeypatch):
+    """isolated_coverage_session_safe stubbed True: see the docstring on
+    test_run_isolated_coverage_session_narrows_shared_line_to_both_tests."""
+    monkeypatch.setattr(mutate4py._forking_executor, "isolated_coverage_session_safe", lambda: True)
+    cwd = _write_coverage_fixture_project(tmp_path)
+    (tmp_path / "test_a.py").write_text(
+        "from shared import shared\n\n\ndef test_from_a():\n    assert shared() == 999\n"
+    )
+    executor = ForkingExecutor(cwd=cwd, guarded_path=cwd)
+    executor.prime()
+    status = executor.run_isolated_coverage_session(
+        "test_a.py::test_from_a", data_file=str(tmp_path / ".coverage.a"), pytest_args=["-q"], timeout=30.0
+    )
+    assert status == "killed"
+
+
+@pytest.mark.integration
+def test_run_isolated_coverage_session_reports_timeout_and_kills_child(tmp_path, monkeypatch):
+    """isolated_coverage_session_safe stubbed True: see the docstring on
+    test_run_isolated_coverage_session_narrows_shared_line_to_both_tests."""
+    monkeypatch.setattr(mutate4py._forking_executor, "isolated_coverage_session_safe", lambda: True)
+    cwd = _write_coverage_fixture_project(tmp_path)
+    (tmp_path / "test_a.py").write_text(
+        "import time\nfrom shared import shared\n\n\ndef test_from_a():\n    time.sleep(5)\n    assert shared() == 1\n"
+    )
+    executor = ForkingExecutor(cwd=cwd, guarded_path=cwd)
+    executor.prime()
+    status = executor.run_isolated_coverage_session(
+        "test_a.py::test_from_a", data_file=str(tmp_path / ".coverage.a"), pytest_args=["-q"], timeout=0.5
+    )
+    assert status == "timeout"
+
+
+@pytest.mark.integration
+def test_run_isolated_coverage_session_before_prime_raises(tmp_path):
+    executor = ForkingExecutor(cwd=str(tmp_path), guarded_path=str(tmp_path))
+    with pytest.raises(ForkingExecutorUnavailable):
+        executor.run_isolated_coverage_session(
+            "test_a.py::test_from_a", data_file=str(tmp_path / ".coverage.a"), pytest_args=[], timeout=1.0
+        )
+
+
+@pytest.mark.integration
+def test_run_isolated_coverage_session_raises_when_a_fork_unsafe_plugin_is_loaded_after_prime(tmp_path):
+    """Self-enforcement regression (issue #51 Standards review): a fork-unsafe
+    plugin (e.g. tach.pytest_plugin) can get loaded into sys.modules by
+    prime()'s own internal pytest.main() call, not just by whatever loaded
+    the interpreter -- verified for real here, since this dev venv's tach
+    plugin does exactly that (see the empirical note on
+    test_run_isolated_coverage_session_narrows_shared_line_to_both_tests).
+    run_isolated_coverage_session must refuse on its own, not rely on a
+    caller (e.g. _dispatch.py) to have checked isolated_coverage_session_safe()
+    beforehand -- a direct caller that skips that check must still be
+    protected from the fork-after-prime deadlock hazard."""
+    cwd = _write_coverage_fixture_project(tmp_path)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=cwd)
+    executor.prime()
+    assert "tach.pytest_plugin" in sys.modules, "prime() should have reloaded it; this test needs that to be true"
+    with pytest.raises(ForkingExecutorUnavailable):
+        executor.run_isolated_coverage_session(
+            "test_a.py::test_from_a", data_file=str(tmp_path / ".coverage.a"), pytest_args=["-q"], timeout=30.0
+        )
+
+
+@pytest.mark.integration
+def test_run_isolated_coverage_session_does_not_leak_child_stdout(tmp_path, capsys, monkeypatch):
+    """isolated_coverage_session_safe stubbed True: see the docstring on
+    test_run_isolated_coverage_session_narrows_shared_line_to_both_tests."""
+    monkeypatch.setattr(mutate4py._forking_executor, "isolated_coverage_session_safe", lambda: True)
+    cwd = _write_coverage_fixture_project(tmp_path)
+    (tmp_path / "test_a.py").write_text(
+        "from shared import shared\n\n\ndef test_from_a():\n    print('SHOULD_NOT_APPEAR')\n    assert shared() == 1\n"
+    )
+    executor = ForkingExecutor(cwd=cwd, guarded_path=cwd)
+    executor.prime()
+    executor.run_isolated_coverage_session(
+        "test_a.py::test_from_a", data_file=str(tmp_path / ".coverage.a"), pytest_args=["-q"], timeout=30.0
+    )
     captured = capsys.readouterr()
     assert "SHOULD_NOT_APPEAR" not in captured.out
     assert "SHOULD_NOT_APPEAR" not in captured.err

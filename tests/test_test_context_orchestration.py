@@ -14,7 +14,7 @@ def test_build_test_contexts_success_writes_db_and_returns_0(tmp_path, monkeypat
         assert cwd == str(tmp_path)
         return ["test_a.py::test_one", "test_b.py::test_two"]
 
-    def fake_build(node_ids, *, cwd, output_db_path, pytest_args=None):
+    def fake_build(node_ids, *, cwd, output_db_path, pytest_args=None, isolated_session_runner=None):
         assert node_ids == ["test_a.py::test_one", "test_b.py::test_two"]
         assert cwd == str(tmp_path)
         assert output_db_path == str(tmp_path / "out.db")
@@ -57,7 +57,7 @@ def test_build_test_contexts_build_failure_returns_1(tmp_path, monkeypatch, caps
     def fake_collect(*, cwd, pytest_args):
         return ["test_a.py::test_one"]
 
-    def fake_build(node_ids, *, cwd, output_db_path, pytest_args=None):
+    def fake_build(node_ids, *, cwd, output_db_path, pytest_args=None, isolated_session_runner=None):
         raise TestContextBuildError("combine failed")
 
     monkeypatch.setattr(orchestration_mod, "collect_test_node_ids", fake_collect)
@@ -88,7 +88,7 @@ def test_build_test_contexts_strips_a_scoping_path_before_the_isolated_run(tmp_p
         seen_collect_args["pytest_args"] = pytest_args
         return ["sub/test_a.py::test_one"]
 
-    def fake_build(node_ids, *, cwd, output_db_path, pytest_args=None):
+    def fake_build(node_ids, *, cwd, output_db_path, pytest_args=None, isolated_session_runner=None):
         seen_build_args["pytest_args"] = pytest_args
         return output_db_path
 

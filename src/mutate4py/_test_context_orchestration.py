@@ -6,14 +6,20 @@ size cap (see `tach.toml`'s header comment on single-module extractions).
 import logging
 
 from mutate4py._test_collection import TestCollectionError, collect_test_node_ids, isolated_run_pytest_args
-from mutate4py._test_context_build import TestContextBuildError, build_test_context_db
+from mutate4py._test_context_build import IsolatedSessionRunner, TestContextBuildError, build_test_context_db
 
 __all__ = ["build_test_contexts"]
 
 _logger = logging.getLogger(__name__)
 
 
-def build_test_contexts(*, output_db_path: str, cwd: str, pytest_args: list[str]) -> int:
+def build_test_contexts(
+    *,
+    output_db_path: str,
+    cwd: str,
+    pytest_args: list[str],
+    isolated_session_runner: IsolatedSessionRunner | None = None,
+) -> int:
     """Execute --build-test-contexts: collect every test pytest would run
     (scoped by pytest_args), then build an isolated-session test-context db
     at output_db_path (see docs/adr/0021). Returns 0 on success, 1 if
@@ -28,6 +34,9 @@ def build_test_contexts(*, output_db_path: str, cwd: str, pytest_args: list[str]
     filtered version instead — a path token forwarded to a per-test isolated
     run would make pytest run every test under that path, not just the one
     node ID names (see isolated_run_pytest_args' docstring).
+
+    isolated_session_runner is passed straight through to build_test_context_db
+    (see its docstring) — None keeps the existing cold subprocess path.
     """
     try:
         node_ids = collect_test_node_ids(cwd=cwd, pytest_args=pytest_args)
@@ -40,6 +49,7 @@ def build_test_contexts(*, output_db_path: str, cwd: str, pytest_args: list[str]
             cwd=cwd,
             output_db_path=output_db_path,
             pytest_args=isolated_run_pytest_args(pytest_args, cwd=cwd),
+            isolated_session_runner=isolated_session_runner,
         )
     except TestContextBuildError as exc:
         _logger.error(f"error: {exc}")

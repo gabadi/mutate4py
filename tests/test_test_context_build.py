@@ -17,6 +17,8 @@ import sys
 
 import pytest
 
+import mutate4py._forking_executor
+from mutate4py._forking_executor import ForkingExecutor
 from mutate4py._test_context_build import (
     TestContextBuildError,
     _combine_argv,
@@ -80,6 +82,130 @@ def test_isolated_session_build_narrows_to_every_covering_test(tmp_path):
         assert db.tests_for_line(SHARED_PY, ONLY_B_LINE) == ("narrowed", ["test_b.py::test_from_b"])
     finally:
         db.close()
+
+
+def test_isolated_session_runner_non_survived_raises_build_error(tmp_path):
+    """The seam _dispatch.py's forking path uses (issue #51): a runner
+    result other than "survived" must raise, same as a nonzero subprocess
+    exit does for the cold path."""
+
+    def fake_runner(node_id: str, data_file: str, pytest_args: list[str]) -> str:
+        return "killed"
+
+    with pytest.raises(TestContextBuildError, match="did not run cleanly"):
+        build_test_context_db(
+            ["test_a.py::test_from_a"],
+            cwd=FIXTURE_DIR,
+            output_db_path=str(tmp_path / "unused.coverage"),
+            isolated_session_runner=fake_runner,
+        )
+
+
+@pytest.mark.integration
+def test_isolated_session_runner_produces_same_narrowing_as_cold_build(tmp_path):
+    """Equivalence: injecting a runner (the seam _dispatch.py's forking path
+    uses) must narrow context db lines identically to the cold subprocess
+    build (see test_isolated_session_build_narrows_to_every_covering_test
+    above) -- proves build_test_context_db's per-node_id loop and its final
+    combine step behave the same regardless of which executor produced each
+    per-test data file."""
+    db_path = str(tmp_path / "combined.coverage")
+    calls: list[str] = []
+
+    def fake_runner(node_id: str, data_file: str, pytest_args: list[str]) -> str:
+        calls.append(node_id)
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "coverage",
+                "run",
+                f"--context={node_id}",
+                f"--data-file={data_file}",
+                "-m",
+                "pytest",
+                node_id,
+                *pytest_args,
+            ],
+            cwd=FIXTURE_DIR,
+            capture_output=True,
+            text=True,
+        )
+        return "survived" if result.returncode == 0 else "killed"
+
+    build_test_context_db(NODE_IDS, cwd=FIXTURE_DIR, output_db_path=db_path, isolated_session_runner=fake_runner)
+
+    assert calls == NODE_IDS
+
+    db = TestContextDB(db_path)
+    try:
+        assert db.tests_for_line(SHARED_PY, SHARED_LINE) == ("narrowed", sorted(NODE_IDS))
+        assert db.tests_for_line(SHARED_PY, ONLY_A_LINE) == ("narrowed", ["test_a.py::test_from_a"])
+        assert db.tests_for_line(SHARED_PY, ONLY_B_LINE) == ("narrowed", ["test_b.py::test_from_b"])
+    finally:
+        db.close()
+
+
+@pytest.mark.integration
+def test_real_forking_executor_narrows_identically_to_cold_build_on_one_target(tmp_path, monkeypatch):
+    """AC3 (issue #51), tightened: the real ForkingExecutor-backed runner
+    (not a stand-in subprocess) and the cold subprocess path must narrow
+    identically on the exact same target -- not just on two separately
+    constructed, structurally-identical fixtures.
+
+    Built under tmp_path, not tests/fixtures/overlapping_coverage/ (FIXTURE_DIR
+    above): priming then forking inside this repo's own tree deadlocks under
+    pytest-tach's fork-time lock (see
+    test_forking_executor._write_coverage_fixture_project's docstring) --
+    every real-ForkingExecutor test in this codebase uses a fresh tmp_path
+    fixture for the same reason.
+
+    isolated_coverage_session_safe stubbed True: tach.pytest_plugin is an
+    always-on plugin in this dev venv, loaded before this test module even
+    starts collecting, so the real gate would refuse unconditionally here --
+    that gate has its own dedicated tests in test_forking_executor.py; this
+    test isolates build_test_context_db's cold/warm equivalence instead.
+    """
+    monkeypatch.setattr(mutate4py._forking_executor, "isolated_coverage_session_safe", lambda: True)
+    cwd = str(tmp_path)
+    (tmp_path / ".coveragerc").write_text("[run]\nbranch = True\n")
+    (tmp_path / "shared.py").write_text(
+        "def shared():\n    return 1\n\n\ndef only_a():\n    return 'a'\n\n\ndef only_b():\n    return 'b'\n"
+    )
+    (tmp_path / "test_a.py").write_text(
+        "from shared import only_a, shared\n\n\ndef test_from_a():\n    assert shared() == 1\n"
+        "    assert only_a() == 'a'\n"
+    )
+    (tmp_path / "test_b.py").write_text(
+        "from shared import only_b, shared\n\n\ndef test_from_b():\n    assert shared() == 1\n"
+        "    assert only_b() == 'b'\n"
+    )
+    node_ids = ["test_a.py::test_from_a", "test_b.py::test_from_b"]
+    shared_py = str(tmp_path / "shared.py")
+    lines = (2, 6, 10)  # shared() / only_a() / only_b() return statements
+
+    cold_db_path = str(tmp_path / "cold.coverage")
+    build_test_context_db(node_ids, cwd=cwd, output_db_path=cold_db_path)
+
+    executor = ForkingExecutor(cwd=cwd, guarded_path=cwd)
+    executor.prime()
+
+    def real_runner(node_id: str, data_file: str, pytest_args: list[str]) -> str:
+        return executor.run_isolated_coverage_session(
+            node_id, data_file=data_file, pytest_args=pytest_args, timeout=30.0
+        )
+
+    warm_db_path = str(tmp_path / "warm.coverage")
+    build_test_context_db(node_ids, cwd=cwd, output_db_path=warm_db_path, isolated_session_runner=real_runner)
+
+    cold_db = TestContextDB(cold_db_path)
+    warm_db = TestContextDB(warm_db_path)
+    try:
+        for line in lines:
+            assert cold_db.tests_for_line(shared_py, line) == warm_db.tests_for_line(shared_py, line)
+    finally:
+        cold_db.close()
+        warm_db.close()
 
 
 @pytest.mark.integration
