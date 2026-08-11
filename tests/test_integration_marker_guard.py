@@ -1,10 +1,15 @@
-"""Guardrail: every test that spawns a fresh Python interpreter via
-subprocess must carry @pytest.mark.integration.
+"""Guardrail: every test whose work runs inside a spawned Python interpreter
+must carry @pytest.mark.integration.
 
-Unmarked interpreter-spawning tests silently end up in the mutation run's
-test command (which defaults to excluding `integration`-marked tests, see
-justfile's `mutate` recipe) and reintroduce the ~5-6s-per-invocation cost
-that made the full `src/` mutation sweep take ~28 minutes.
+A spawned interpreter is invisible to pytest-cov's --cov-context=test, so
+nothing that happens inside it can contribute per-Mutant test narrowing (see
+ADR 0018). That coverage-blindness, not the interpreter spawn itself, is why
+the marker exists — spawning is only how this guard detects it. Unmarked
+interpreter-spawning tests silently end up in the mutation run's test command
+(which defaults to excluding `integration`-marked tests, see justfile's
+`mutate` recipe) and reintroduce the ~5-6s-per-invocation cost that made the
+full `src/` mutation sweep take ~28 minutes — a symptom of the
+coverage-blindness, not the criterion for the marker.
 """
 
 import ast
