@@ -29,7 +29,7 @@ packages = ["src/mutate4py"]
 testpaths = ["tests"]
 addopts = "--tb=short --strict-markers --ignore=tests/fixtures/django_project"
 markers = [
-    "integration: spawns a real subprocess (fresh Python interpreter) via _run_cli_path/_run_cli_in; excluded from the mutation test command, run only by the full `test` gate.",
+    "integration: work runs inside a spawned interpreter (via _run_cli_path/_run_cli_in), so --cov-context=test can't see it and it contributes no per-Mutant test narrowing; excluded from the mutation test command, run only by the full `test` gate.",
 ]
 
 [tool.coverage.run]
