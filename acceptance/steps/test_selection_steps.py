@@ -232,6 +232,18 @@ def given_dir_files(m, params):
     _write_test(os.path.join(tests_dir, "test_qa.py"), "def test_qa():\n    pass\n")
 
 
+def _write_real_test_for_node_id(d: str, node_id: str) -> None:
+    """Write a real, always-passing test at node_id so the narrowed dispatch
+    it drives actually collects and runs (issue #55): pytest failing to find
+    the node ID now aborts the run (exit 4/5) instead of being silently
+    scored `killed`, so a fictional node ID can no longer stand in for a real
+    one here."""
+    rel_path, _, test_name = node_id.partition("::")
+    full_path = os.path.join(d, rel_path)
+    os.makedirs(os.path.dirname(full_path), exist_ok=True)
+    _write_test(full_path, f"def {test_name}():\n    pass\n")
+
+
 @step(r"a \.coverage db naming \"([^\"]*)\" as covering the mutated line")
 def given_db_naming_test(m, params):
     _reset_ctx()
@@ -247,6 +259,7 @@ def given_db_naming_test(m, params):
     _write_context_db(ctx.db_path, {ctx.src_path: {node_id: {2}}})
     ctx.log_path = os.path.join(d, "invocations.log")
     _write_arg_logging_fixture(d, ctx.log_path)
+    _write_real_test_for_node_id(d, node_id)
 
 
 @step(r"a \.coverage db showing the mutated line only under the empty context")

@@ -11,6 +11,7 @@ from mutate4py._coverage import CoverageError
 __all__ = [
     "CoverageError",
     "CoverageSource",
+    "NoTestsCollectedError",
     "RunMutationsRequest",
     "TestSelectionError",
     "check_manifest",
@@ -25,11 +26,7 @@ __all__ = [
 from mutate4py._discovery import Site, partition_sites
 from mutate4py._executor import Executor
 from mutate4py._executor_selection import select_executor
-from mutate4py._execution import (
-    MutantExecCtx,
-    TestSelectionError,
-    _execute_mutations,
-)
+from mutate4py._execution import MutantExecCtx, NoTestsCollectedError, TestSelectionError, _execute_mutations
 from mutate4py._manifest import (
     build_manifest,
     manifests_structurally_equal,
@@ -65,6 +62,7 @@ from mutate4py._source_loading import (
     _finalize_source,
     _prepare_run_setup,
 )
+from mutate4py._test_dispatch import _log_dispatch_abort
 
 _logger = logging.getLogger(__name__)
 
@@ -337,7 +335,8 @@ def run_mutations(request: RunMutationsRequest) -> int:
     """Execute the mutation run loop.
 
     Returns 0, 1 (coverage/baseline failure), or 2 (the test-context db and the
-    LCOV coverage disagree about a selected site).
+    LCOV coverage disagree about a selected site, or a selected site's test run
+    exercised no test at all).
     """
     test_ctx_db = _open_test_context_db(request.test_contexts_path)
     try:
@@ -392,9 +391,8 @@ def run_mutations(request: RunMutationsRequest) -> int:
             )
         )
         return 0
-    except TestSelectionError as exc:
-        _logger.error(f"error: test-context db disagrees with coverage: {exc}")
-        return 2
+    except (TestSelectionError, NoTestsCollectedError) as exc:
+        return _log_dispatch_abort(exc)
     finally:
         if test_ctx_db is not None:
             test_ctx_db.close()

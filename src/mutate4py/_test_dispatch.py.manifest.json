@@ -1,14 +1,28 @@
 {
   "version": 1,
-  "tested_at": "2026-08-11T02:30:13Z",
-  "module_hash": "1ff748739473721f86a8d3ca0add6a41a14b3827a0a672ae70143883fca9c50a",
-  "source_sha256": "6a3f25bb72a004f129f4d6c4e0b97baee48ebbad3e145543b0bc96a3077b0ef4",
+  "tested_at": "2026-08-11T04:51:41Z",
+  "module_hash": "df18326c13d895682141bf1e7b35a096db22bf17f68fbc1362d6176b06838f54",
+  "source_sha256": "e2cb6943e836869dfa602fc6f10e04fff43aa68f5ca1d7fbb9faebe741c8add0",
   "functions": [
+    {
+      "id": "func/_check_execution_status",
+      "name": "_check_execution_status",
+      "line": 52,
+      "end_line": 56,
+      "hash": "f129ab238daaf03b6bbf5522a05d812d0c382d32da5a7d4e7e7962fd438eac78"
+    },
+    {
+      "id": "func/_log_dispatch_abort",
+      "name": "_log_dispatch_abort",
+      "line": 59,
+      "end_line": 65,
+      "hash": "1944e590dc505407d3dd486aae69a08553d3dfba068498f461056bd66ff11cd5"
+    },
     {
       "id": "func/_build_mutant_args",
       "name": "_build_mutant_args",
-      "line": 28,
-      "end_line": 46,
+      "line": 68,
+      "end_line": 86,
       "hash": "cbb3b36d5361410b6ea05877cb4c1555865f2065d638d91472696ef32ded2a43"
     }
   ]

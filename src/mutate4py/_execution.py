@@ -11,9 +11,14 @@ import logging
 from mutate4py._discovery import Site, apply_mutant
 from mutate4py._executor import Executor
 from mutate4py._report import _on_parallel_result, _serial_progress_line
-from mutate4py._test_dispatch import TestSelectionError, _build_mutant_args
+from mutate4py._test_dispatch import (
+    NoTestsCollectedError,
+    TestSelectionError,
+    _build_mutant_args,
+    _check_execution_status,
+)
 
-__all__ = ["MutantExecCtx", "TestSelectionError"]
+__all__ = ["MutantExecCtx", "NoTestsCollectedError", "TestSelectionError"]
 
 _logger = logging.getLogger(__name__)
 
@@ -41,7 +46,8 @@ def _run_mutation_loop(
 ) -> tuple[dict, list[Site], dict[str, int] | None]:
     """Run each selected site through ctx.executor; the third return is the
     narrowed/static tally, or None when no context db is in play. Raises
-    TestSelectionError on a selection disagreement.
+    TestSelectionError on a selection disagreement, or NoTestsCollectedError
+    if a mutant's test run exercised no test at all.
 
     ctx.executor is always primed by the time this loop starts (whichever
     implementation _prepare_executor chose), so this loop never branches on
@@ -60,6 +66,10 @@ def _run_mutation_loop(
         with open(ctx.path, "w") as f:
             f.write(mutated)
         status = ctx.executor.run(args, ctx.mutant_timeout)
+        # Raises before tallying: a Mutant pytest never exercised must never
+        # reach the tally as `killed` (issue #55). The splice already
+        # happened, but the caller's finally block restores the source.
+        _check_execution_status(status, ctx.abs_source_path, site)
         counts[status] += 1
         if status == "survived":
             survivors.append(site)
@@ -74,9 +84,10 @@ def _run_parallel_workers(
 ) -> tuple[dict | None, list[Site] | None, dict[str, int] | None, str | None]:
     """Dispatch the parallel engine; return (counts, survivors, selection_counts, error_msg).
 
-    A TestSelectionError raised inside a Worker's dispatch propagates
-    uncaught, same as the serial loop — only WorkerFailureError/ParallelRunError
-    (real dispatch-mechanics failures) are translated into an error message here.
+    A TestSelectionError or NoTestsCollectedError raised inside a Worker's
+    dispatch propagates uncaught, same as the serial loop — only
+    WorkerFailureError/ParallelRunError (real dispatch-mechanics failures)
+    are translated into an error message here.
     """
     from mutate4py._workers import ParallelRunError, ParallelRunRequest, WorkerFailureError, run_parallel
 
@@ -128,8 +139,9 @@ def _execute_mutations(
     """Run serial or parallel mutations; return counts/survivors.
 
     The caller owns the final report and error output. A TestSelectionError
-    from the serial loop propagates to the caller, which must still finalize
-    the source exactly as a completed run would leave it.
+    or NoTestsCollectedError from the serial loop propagates to the caller,
+    which must still finalize the source exactly as a completed run would
+    leave it.
     """
     if ctx.use_parallel:
         counts, survivors, selection_counts, error_msg = _run_parallel_workers(selected_sites, clean_source, ctx)

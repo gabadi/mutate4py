@@ -1,78 +1,78 @@
 {
   "version": 1,
-  "tested_at": "2026-08-11T02:30:13Z",
-  "module_hash": "0eb6d5108aaf48912f726938a9a812d485e6f68397cee45ca035f6fe1581f114",
-  "source_sha256": "dac02cab575cfad05dffdcc4459c18d6e1d0bf03bb4307489f59e683c936c589",
+  "tested_at": "2026-08-11T04:51:41Z",
+  "module_hash": "d4cbf58dd9619bad9e85c57841e1a906bfe9db40347d78f158f4d0ff5ce67400",
+  "source_sha256": "070838ee68f4a1a3d8d543f95f19992cc671d0a0fda36e3ca3667b908016142a",
   "functions": [
     {
       "id": "func/is_available",
       "name": "is_available",
-      "line": 50,
-      "end_line": 52,
+      "line": 51,
+      "end_line": 53,
       "hash": "5de088524027f935fa5a9c9c536d318f189bcc175a56f57f0bb575ae0cf0a1d2"
     },
     {
       "id": "func/_leaked_modules",
       "name": "_leaked_modules",
-      "line": 55,
-      "end_line": 62,
+      "line": 56,
+      "end_line": 63,
       "hash": "adfe44856e110fd86da612fb594d943266512ada8559050952f1ad49241b87d5"
     },
     {
       "id": "func/assert_source_clean",
       "name": "assert_source_clean",
-      "line": 65,
-      "end_line": 80,
+      "line": 66,
+      "end_line": 81,
       "hash": "1b8138e155ba290ffc32e211b86df20c56a32627b39dc601fdcce0c4df24f90f"
     },
     {
       "id": "func/ForkingExecutor.__init__",
       "name": "__init__",
-      "line": 93,
-      "end_line": 96,
+      "line": 94,
+      "end_line": 97,
       "hash": "aa81716cee82c82302f38ed191009326cc7e66504513cb67a8b8a898e55897a6"
     },
     {
       "id": "func/ForkingExecutor.prime",
       "name": "prime",
-      "line": 98,
-      "end_line": 122,
+      "line": 99,
+      "end_line": 123,
       "hash": "33d88f0a67e5764a9fb9eba07346658c529d99fa73b4be6f9fecc9c653f9ddbf"
     },
     {
       "id": "func/ForkingExecutor.run",
       "name": "run",
-      "line": 124,
-      "end_line": 132,
+      "line": 125,
+      "end_line": 133,
       "hash": "b5d58f3d2c030f4224365e4971b1ea09d99f6b570f54dd21726ea338d80ecbb4"
     },
     {
       "id": "func/ForkingExecutor._run_child",
       "name": "_run_child",
-      "line": 134,
-      "end_line": 149,
+      "line": 135,
+      "end_line": 150,
       "hash": "2ded7a9e7b3900b05eb8f5fd92a0b33d520295073506ae19e6fd830bc81ab466"
     },
     {
       "id": "func/_invalidate_bytecode_cache",
       "name": "_invalidate_bytecode_cache",
-      "line": 152,
-      "end_line": 161,
+      "line": 153,
+      "end_line": 162,
       "hash": "0b5f0320a53d6eba74f70a54f72bf5cd84054b5a2458f4b19f2e78f309c1dbcd"
     },
     {
       "id": "func/_run_pytest_output_suppressed",
       "name": "_run_pytest_output_suppressed",
-      "line": 164,
-      "end_line": 193,
+      "line": 165,
+      "end_line": 194,
       "hash": "ca9418d0f6ff6fa8070b71287d6ea8a372aac4734a6a7eb851585a4554587779"
     },
     {
       "id": "func/_wait_for_child",
       "name": "_wait_for_child",
-      "line": 196,
+      "line": 197,
       "end_line": 210,
-      "hash": "b16e0dd06bd67e4656448a1d3e0caf528684309fe7574da8805c79e8ea8fa217"
+      "hash": "fe8dcd42a3b2263c5b0140a65e391c796187c1e414837cc43834f8a393abb423"
     }
   ]
 }

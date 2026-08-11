@@ -26,6 +26,7 @@ import sys
 import tempfile
 import time
 
+from mutate4py._cmd import classify_exit_code
 from mutate4py._plugin_neutralisation import neutralising_args
 
 __all__ = [
@@ -206,5 +207,4 @@ def _wait_for_child(pid: int, timeout: float) -> str:
         time.sleep(_POLL_INTERVAL)
     if os.WIFSIGNALED(status):
         return "killed"
-    exit_code = os.WEXITSTATUS(status)
-    return "survived" if exit_code == 0 else "killed"
+    return classify_exit_code(os.WEXITSTATUS(status))

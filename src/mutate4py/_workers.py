@@ -23,7 +23,7 @@ from typing import Callable
 
 from mutate4py._discovery import Site, apply_mutant
 from mutate4py._executor import Executor
-from mutate4py._test_dispatch import _build_mutant_args
+from mutate4py._test_dispatch import _build_mutant_args, _check_execution_status
 from mutate4py._worker_protocol import WorkerProcessError, WorkerProcessExecutor
 
 __all__ = ["ParallelRunError", "ParallelRunRequest", "WorkerFailureError", "run_parallel"]
@@ -186,6 +186,10 @@ def _run_one_site(assignment: SiteAssignment, executor: Executor, settings: Work
 
     try:
         status = executor.run(args, settings.mutant_timeout)
+        # Raises before the caller can tally: a Mutant pytest never
+        # exercised must never reach the tally as `killed` (issue #55).
+        # The finally clause below still restores the worker's file copy.
+        _check_execution_status(status, settings.abs_source_path, assignment.site)
     except WorkerProcessError as e:
         raise WorkerFailureError(f"worker-{assignment.worker_idx} process failed: {e}") from e
     finally:
@@ -310,7 +314,7 @@ def run_parallel(request: ParallelRunRequest) -> tuple[dict, list[Site], dict[st
     selection_counts is None unless a test-context db is in play.
     Raises WorkerFailureError on write/restore/dispatch failure.
     Raises ParallelRunError if collected results != selected site count.
-    A TestSelectionError from a disagreement (case 3) propagates uncaught.
+    A TestSelectionError (case 3) or NoTestsCollectedError (case 4) propagates uncaught.
     """
     real_source = os.path.realpath(request.source_path)
     real_cwd = os.path.realpath(request.cwd)

@@ -34,6 +34,24 @@ def test_run_killed_when_tests_fail(tmp_path):
     assert executor.run(["-q", "tests"], timeout=30.0) == "killed"
 
 
+def test_run_reports_no_tests_collected_when_filter_deselects_everything(tmp_path):
+    """A -k filter matching nothing is pytest exit 5 ("no tests were
+    collected") — must not be scored killed (issue #55)."""
+    cwd = _write_project(tmp_path, target_body="def add(a, b):\n    return a + b\n", test_body=_ADD_TEST_BODY)
+    executor = SubprocessExecutor(cwd=cwd)
+    assert executor.run(["-q", "tests", "-k", "no_such_test_name"], timeout=30.0) == "no-tests-collected"
+
+
+def test_run_reports_usage_error_for_a_stale_node_id(tmp_path):
+    """A stale/renamed node ID (e.g. from a stale test-context db) is pytest
+    exit 4 ("not found: ... no tests ran"), not exit 5 — must not be scored
+    killed either (issue #55)."""
+    cwd = _write_project(tmp_path, target_body="def add(a, b):\n    return a + b\n", test_body=_ADD_TEST_BODY)
+    executor = SubprocessExecutor(cwd=cwd)
+    status = executor.run(["-q", "tests/test_under_test.py::test_does_not_exist"], timeout=30.0)
+    assert status == "usage-error"
+
+
 def test_run_reports_timeout(tmp_path):
     cwd = _write_project(
         tmp_path,
