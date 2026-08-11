@@ -26,6 +26,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from mutate4py._glob_dialect import glob_match
+from mutate4py._py_tree import walkable_dirs
 
 
 class TargetResolutionError(Exception):
@@ -71,18 +72,6 @@ def _is_excluded(path: str, patterns: Sequence[str]) -> bool:
     return any(glob_match(path, pattern) for pattern in patterns)
 
 
-_PRUNED_DIR_NAMES = {"__pycache__", "venv", "node_modules"}
-
-
-def _walkable_dirs(dirs: list[str]) -> list[str]:
-    """Sorted subdirectories to descend into.
-
-    Prunes __pycache__, venv, node_modules, and any dot-directory (e.g.
-    .git, .venv). build/ and dist/ are deliberately left walkable.
-    """
-    return sorted(d for d in dirs if d not in _PRUNED_DIR_NAMES and not d.startswith("."))
-
-
 def _is_target_py_file(path: str, exclude: Sequence[str]) -> bool:
     """True for a .py file that no --exclude pattern drops."""
     return path.endswith(".py") and not _is_excluded(path, exclude)
@@ -90,7 +79,7 @@ def _is_target_py_file(path: str, exclude: Sequence[str]) -> bool:
 
 def _prune_walk_dirs(root: str, dirs: list[str], pruned_real: set[str]) -> list[str]:
     """Walkable subdirectories of root, minus any whose realpath is pruned."""
-    return [d for d in _walkable_dirs(dirs) if os.path.realpath(os.path.join(root, d)) not in pruned_real]
+    return [d for d in walkable_dirs(dirs) if os.path.realpath(os.path.join(root, d)) not in pruned_real]
 
 
 def _walk_py_files(directory: str, exclude: Sequence[str], pruned_real: set[str]) -> WalkResult:

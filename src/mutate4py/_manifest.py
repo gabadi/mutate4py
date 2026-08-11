@@ -6,6 +6,7 @@ import json
 import re
 
 from mutate4py._ids import function_unit_id
+from mutate4py._sidecar_io import parse_json_text
 
 _BEGIN = "# mutate4py-manifest-begin"
 _END = "# mutate4py-manifest-end"
@@ -60,13 +61,6 @@ def _find_manifest_block(source: str) -> str | None:
     return source[begin_m.end() : end_m.start()]
 
 
-def _parse_json_safe(text: str) -> tuple[dict | None, bool]:
-    try:
-        return json.loads(text), True
-    except (json.JSONDecodeError, ValueError):
-        return None, False
-
-
 def extract_manifest(source: str) -> tuple[dict | None, bool]:
     """Extract the manifest from source.
 
@@ -77,17 +71,7 @@ def extract_manifest(source: str) -> tuple[dict | None, bool]:
     if block is None:
         return None, False
     parts = [p for line in block.splitlines() if (p := _uncomment_line(line))]
-    return _parse_json_safe(" ".join(parts))
-
-
-def serialize_sidecar_manifest(manifest: dict) -> str:
-    """Render a manifest as sidecar-file JSON text: pretty-printed with a trailing newline."""
-    return json.dumps(manifest, indent=2) + "\n"
-
-
-def parse_sidecar_manifest(text: str) -> tuple[dict | None, bool]:
-    """Parse sidecar-file JSON text into a manifest. Parse failure => (None, False)."""
-    return _parse_json_safe(text)
+    return parse_json_text(" ".join(parts))
 
 
 def _sha256_ast(node: ast.AST) -> str:

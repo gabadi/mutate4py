@@ -6,14 +6,11 @@ import pytest
 
 from mutate4py._manifest import (
     _find_manifest_block,
-    _parse_json_safe,
     _uncomment_line,
     build_manifest,
     diff_manifests,
     embed_manifest,
     extract_manifest,
-    parse_sidecar_manifest,
-    serialize_sidecar_manifest,
     source_sha256,
     strip_manifest,
 )
@@ -146,21 +143,6 @@ def test_find_manifest_block_returns_between_markers():
     block = _find_manifest_block(src)
     assert block is not None
     assert "payload" in block
-
-
-# ── _parse_json_safe ──────────────────────────────────────────────────────────
-
-
-def test_parse_json_safe_valid():
-    result, ok = _parse_json_safe('{"a": 1}')
-    assert ok is True
-    assert result == {"a": 1}
-
-
-def test_parse_json_safe_invalid():
-    result, ok = _parse_json_safe("not-json")
-    assert ok is False
-    assert result is None
 
 
 # ── _uncomment_line ───────────────────────────────────────────────────────────
@@ -618,36 +600,6 @@ def test_find_manifest_block_find_vs_rfind_double_markers():
     # find returns first begin, first end → block is the first one: # {}
     assert block is not None
     assert "{}" in block
-
-
-# ── serialize_sidecar_manifest / parse_sidecar_manifest (pure) ────────────────
-
-
-def test_serialize_sidecar_manifest_is_pretty_printed():
-    m = _make_manifest(functions=[{"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "abc"}])
-    text = serialize_sidecar_manifest(m)
-    assert "\n" in text.strip()  # indent=2 spreads keys across lines
-    assert text.endswith("\n")
-
-
-def test_serialize_sidecar_manifest_round_trips_through_parse():
-    m = _make_manifest(functions=[{"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "abc"}])
-    result, ok = parse_sidecar_manifest(serialize_sidecar_manifest(m))
-    assert ok is True
-    assert result == m
-
-
-def test_parse_sidecar_manifest_invalid_json_returns_none_false():
-    result, ok = parse_sidecar_manifest("not-json")
-    assert ok is False
-    assert result is None
-
-
-def test_parse_sidecar_manifest_valid_returns_dict_true():
-    m = _make_manifest()
-    result, ok = parse_sidecar_manifest(json.dumps(m))
-    assert ok is True
-    assert result == m
 
 
 def test_find_manifest_block_rfind_end_includes_too_much():

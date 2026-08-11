@@ -1,0 +1,127 @@
+{
+  "version": 1,
+  "tested_at": "2026-08-11T17:13:41Z",
+  "module_hash": "5e4e2f945f559b8d9f399871542373ad13186a9be2f054eecebd9e291f76e6fc",
+  "source_sha256": "15c0c3df0cf44ddadf2c8ae5ed96b941eafe40b30197d1ae96c27af92e0af22e",
+  "functions": [
+    {
+      "id": "func/cache_path",
+      "name": "cache_path",
+      "line": 41,
+      "end_line": 43,
+      "hash": "a2816e72cfde58dcd9801c2398f7109aca14b1bfbdb8dd0ef42ea5740586d588"
+    },
+    {
+      "id": "func/_node_id_file",
+      "name": "_node_id_file",
+      "line": 46,
+      "end_line": 47,
+      "hash": "702d5a3c7980295fa2b00e53b61e75764b9e0a7ca33c3c52361631cfe4e4dbd9"
+    },
+    {
+      "id": "func/_resolve",
+      "name": "_resolve",
+      "line": 50,
+      "end_line": 51,
+      "hash": "e725fcfbe7f90538307f49606e133ea5913432f245d4f26886c586f1890ee311"
+    },
+    {
+      "id": "func/_project_py_files",
+      "name": "_project_py_files",
+      "line": 54,
+      "end_line": 80,
+      "hash": "df5abfef6f72851afd5fc958da2af706f68637c2bdf279c788d00d60ef8a2481"
+    },
+    {
+      "id": "func/_tracked_py_paths",
+      "name": "_tracked_py_paths",
+      "line": 83,
+      "end_line": 92,
+      "hash": "0adf48541919bc110c5fe5df39ccf588b8e44f63dc11b4ba327d92bf9cb57052"
+    },
+    {
+      "id": "func/_coverage_config_paths",
+      "name": "_coverage_config_paths",
+      "line": 95,
+      "end_line": 97,
+      "hash": "56980eb51c1bc76393d08c45b98bff4a1c24ee577166cedc242206d69632bae3"
+    },
+    {
+      "id": "func/_hash_file",
+      "name": "_hash_file",
+      "line": 100,
+      "end_line": 110,
+      "hash": "4c937b5d7d8a4f62bf0801cf0490a548a44ac7d91e1b1a275d986e3ae5e3df4c"
+    },
+    {
+      "id": "func/_hash_files",
+      "name": "_hash_files",
+      "line": 113,
+      "end_line": 123,
+      "hash": "1cef9c2a07f1e1ed0b2b10eb9402870aaf6c34771d3421f7f7f38ace5243b14b"
+    },
+    {
+      "id": "func/_covered_source_paths",
+      "name": "_covered_source_paths",
+      "line": 126,
+      "end_line": 134,
+      "hash": "c46bcbc8945ebfc31d112c7b0f1b864fb11717fbe9882e2bf38c46b0d62126e4"
+    },
+    {
+      "id": "func/_current_hashes",
+      "name": "_current_hashes",
+      "line": 137,
+      "end_line": 148,
+      "hash": "be22ebc41f20e99638cd7b00e37aa66befaeb51f6534b426df992cff2f7f90e9"
+    },
+    {
+      "id": "func/build_cache",
+      "name": "build_cache",
+      "line": 151,
+      "end_line": 162,
+      "hash": "a4575514dd4cd866707185f355ddfda6857471fd8a8d46f0f5887a1a44aec6ee"
+    },
+    {
+      "id": "func/_matches_build_identity",
+      "name": "_matches_build_identity",
+      "line": 165,
+      "end_line": 169,
+      "hash": "86c249c0e3d80ebcab2828e1b51dfa17d60f1d4cc5cc016440554e0e472e75d4"
+    },
+    {
+      "id": "func/is_cache_fresh",
+      "name": "is_cache_fresh",
+      "line": 172,
+      "end_line": 198,
+      "hash": "6880a90a78147d1637c8d59d8b233d76b659ee34a668fcd6a07ed3c1dd89937d"
+    },
+    {
+      "id": "func/should_skip_rebuild",
+      "name": "should_skip_rebuild",
+      "line": 201,
+      "end_line": 208,
+      "hash": "9fa385e12e22542f8e043661cf6fd458193c349d0929b32a75ab24302e2d50c2"
+    },
+    {
+      "id": "func/read_cache",
+      "name": "read_cache",
+      "line": 211,
+      "end_line": 213,
+      "hash": "4125fce30c55b4b99a7ac9a235ea6460ef6e465999f8889e2f231b917f27b5d5"
+    },
+    {
+      "id": "func/write_cache",
+      "name": "write_cache",
+      "line": 216,
+      "end_line": 218,
+      "hash": "0eb352200ac91251ad39c9c74d970ef7965bdddcf4e5e01e0db9d977117265bf"
+    },
+    {
+      "id": "func/discard_cache",
+      "name": "discard_cache",
+      "line": 221,
+      "end_line": 229,
+      "hash": "d7b32a7008b0de49643f01dbc12fdcd478d9981e4c9f1a9bf3b3fff03c30ffef"
+    }
+  ]
+}

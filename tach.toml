@@ -68,6 +68,16 @@ layer = "primitives"
 depends_on = []
 
 [[modules]]
+path = "mutate4py._py_tree"
+layer = "primitives"
+depends_on = []
+
+[[modules]]
+path = "mutate4py._sidecar_io"
+layer = "primitives"
+depends_on = []
+
+[[modules]]
 path = "mutate4py._discovery"
 layer = "domain"
 depends_on = []
@@ -98,9 +108,14 @@ layer = "domain"
 depends_on = []
 
 [[modules]]
+path = "mutate4py._test_context_cache"
+layer = "domain"
+depends_on = []
+
+[[modules]]
 path = "mutate4py._test_context_orchestration"
 layer = "domain"
-depends_on = ["mutate4py._test_collection", "mutate4py._test_context_build"]
+depends_on = ["mutate4py._test_collection", "mutate4py._test_context_build", "mutate4py._test_context_cache"]
 
 [[modules]]
 path = "mutate4py._workspace"

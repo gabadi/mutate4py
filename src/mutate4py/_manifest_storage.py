@@ -7,14 +7,9 @@ the one caller that decides it).
 """
 
 import dataclasses
-import os
 
-from mutate4py._manifest import (
-    embed_manifest,
-    extract_manifest,
-    parse_sidecar_manifest,
-    serialize_sidecar_manifest,
-)
+from mutate4py._manifest import embed_manifest, extract_manifest
+from mutate4py._sidecar_io import read_json_sidecar, write_json_sidecar
 
 __all__ = [
     "ManifestLocation",
@@ -42,19 +37,12 @@ def read_sidecar_manifest(source_path: str) -> tuple[dict | None, bool]:
     Missing sidecar, parse failure, or valid-but-non-dict JSON => (None, False),
     never an error (mirrors extract_manifest).
     """
-    sidecar_path = _sidecar_path(source_path)
-    if not os.path.isfile(sidecar_path):
-        return None, False
-    with open(sidecar_path) as f:
-        text = f.read()
-    parsed, ok = parse_sidecar_manifest(text)
-    return (parsed, True) if ok and isinstance(parsed, dict) else (None, False)
+    return read_json_sidecar(_sidecar_path(source_path))
 
 
 def write_sidecar_manifest(source_path: str, manifest: dict) -> None:
     """Write source_path's manifest to its own sidecar JSON file."""
-    with open(_sidecar_path(source_path), "w") as f:
-        f.write(serialize_sidecar_manifest(manifest))
+    write_json_sidecar(_sidecar_path(source_path), manifest)
 
 
 def _read_existing_manifest(source: str, loc: ManifestLocation) -> tuple[dict | None, bool]:

@@ -101,3 +101,16 @@ only by it ran at import time. A signal, not noise.
 The test-context db and the Coverage gate contradicting each other. Always an input
 defect — a stale db or a path mismatch — never uncovered code, so it aborts the run
 rather than falling back.
+
+**Test-context cache**:
+The sidecar fingerprint of the inputs a test-context db was built from, letting a
+later `--build-test-contexts` run skip the rebuild when none of them changed. Named
+*cache* — not *manifest* — deliberately: the Manifest is a durable record of what was
+mutation-tested and belongs in the repo, whereas this is disposable, gitignored, and
+rebuilt from scratch whenever it can't prove itself fresh.
+_Avoid_: test-context manifest, context manifest
+
+**Freshness / staleness**:
+Whether the Test-context cache can prove nothing that would change the db has
+changed. Deliberately one-way: fresh means proven unchanged, stale means anything
+else, including "couldn't tell".
