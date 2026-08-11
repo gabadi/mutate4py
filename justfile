@@ -234,7 +234,7 @@ perf:
     _run "crap"   uv run crap4py src/ --lcov lcov.info --max-crap 6
     DRYWALL="${DRYWALL:-$(command -v drywall 2>/dev/null || echo "$HOME/.local/bin/drywall")}"
     _run "dry"    "$DRYWALL" src/
-    _run "check-manifest" uv run mutate4py src/ --check-manifest
+    _run "check-manifest" uv run mutate4py src/ --check-manifest --manifest-file
     _run "acceptance" bash acceptance/run_acceptance.sh
     _run "mutation (src/, --test-contexts)" \
         just mutate src/ --mutate-all --mutation-warning 100000
