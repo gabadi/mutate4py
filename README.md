@@ -217,6 +217,31 @@ off, check the `Mutation workers: <n>` line against the `Selected mutation
 sites:` count in the run header and compare a serial run's wall time against a
 parallel one before assuming parallelism should always be on.
 
+## Building a test-context db
+
+`--test-contexts` needs a coverage.py context db to read; `--build-test-contexts
+OUTPUT_PATH` builds one:
+
+```
+mutate4py --build-test-contexts contexts.db --pytest-args '-q'
+mutate4py src/ --test-contexts contexts.db
+```
+
+It runs every test pytest would collect (scoped by `--pytest-args`, same as any
+other run) in its own isolated `coverage run` session, then combines the
+per-test data files into `OUTPUT_PATH`. That one-session-per-test approach
+costs one pytest startup per test, but it's the only sound way to build the
+db: a single shared `pytest --cov-context=test` session silently drops every
+test after the first to touch a shared line, so a line covered by several
+tests would narrow to only one of them. See
+[ADR 0021](docs/adr/0021-test-context-db-isolated-session-build.md) for the
+full failure mode and why it rules out the faster alternative.
+
+`--build-test-contexts` is a no-run mode like `--scan` or `--check-manifest`:
+it builds the db and exits, accepts no positional `PATH` target (it builds a
+db for whatever pytest collects, not for a mutation target), and can't be
+combined with an execution option.
+
 ## Test selection and the `static` outcome
 
 With `--test-contexts`, most Mutants get **narrowed** to just the tests that

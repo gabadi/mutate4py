@@ -11,6 +11,7 @@ from acceptance.steps.cli_surface_helpers import (
     accepted_flags_args,
     assert_accepted,
     assert_all_reported,
+    assert_db_narrows_shared_line,
     assert_dispatched_to,
     assert_no_analysis,
     assert_nonzero_exit,
@@ -21,12 +22,15 @@ from acceptance.steps.cli_surface_helpers import (
     assert_usage_printed,
     assert_worker_count,
     assert_zero_exit,
+    build_test_contexts_fixture_args,
     default_source,
     described_args,
     exclude_run_args,
     lcov_content,
+    overlapping_coverage_fixture_dir,
     require_result,
     single_flag_args,
+    source_file_run_args,
     two_flag_args,
     two_target_run_args,
 )
@@ -55,6 +59,8 @@ class Context:
         self.dispatch_max_workers: int | None = None
         self.dir_path: str | None = None
         self.file_pair: tuple[str, str] | None = None
+        self.build_db_path: str | None = None
+        self.fixture_dir: str | None = None
 
     def reset(self):
         self.tmpdir = None
@@ -64,6 +70,8 @@ class Context:
         self.dispatch_max_workers = None
         self.dir_path = None
         self.file_pair = None
+        self.build_db_path = None
+        self.fixture_dir = None
 
     def ensure_tmpdir(self) -> str:
         if self.tmpdir is None:
@@ -186,6 +194,20 @@ def when_run_on_both_files(m, params):
     ctx.cli_result = _run_mutate4py(*args, cwd=ctx.ensure_tmpdir())
 
 
+@step(r'I run mutate4py on that source file with "(.*)"')
+def when_run_on_source_file_with(m, params):
+    args = source_file_run_args(m.group(1).strip(), ctx.ensure_src())
+    ctx.cli_result = _run_mutate4py(*args, cwd=ctx.ensure_tmpdir())
+
+
+@step(r'I run mutate4py with the flag "--build-test-contexts" against the overlapping-coverage fixture')
+def when_run_build_test_contexts_against_fixture(m, params):
+    ctx.build_db_path = os.path.join(ctx.ensure_tmpdir(), "contexts.db")
+    ctx.fixture_dir = overlapping_coverage_fixture_dir(REPO_ROOT)
+    args = build_test_contexts_fixture_args(ctx.build_db_path)
+    ctx.cli_result = _run_mutate4py(*args, cwd=ctx.fixture_dir)
+
+
 @step(r'I run mutate4py described by "(.*)"')
 def when_run_described(m, params):
     args = described_args(m.group(1).strip(), ctx.ensure_src())
@@ -217,6 +239,13 @@ def then_option_set(m, params):
 def then_invocation_accepted(m, params):
     r = require_result(ctx.cli_result)
     assert_accepted(r.returncode, r.stdout, r.stderr)
+
+
+@step(r"the written test-context db narrows the shared line to both covering tests")
+def then_db_narrows_shared_line(m, params):
+    assert ctx.build_db_path is not None, "no --build-test-contexts run recorded"
+    assert ctx.fixture_dir is not None, "no --build-test-contexts run recorded"
+    assert_db_narrows_shared_line(ctx.build_db_path, ctx.fixture_dir)
 
 
 @step(r"the invocation is a usage error")

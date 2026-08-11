@@ -41,6 +41,8 @@ def _make_args(**kwargs):
         exclude=None,
         prune_dirs=(),
         no_fork=False,
+        build_test_contexts=None,
+        files=[],
     )
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -220,3 +222,42 @@ def test_validate_check_manifest_with_update_manifest_raises():
         _validate_mutual_exclusions(_make_args(check_manifest=True, update_manifest=True))
     assert exc.value.exit_code == 2
     assert "--check-manifest" in str(exc.value)
+
+
+# ── --build-test-contexts ──────────────────────────────────────────────────────
+
+
+def test_validate_build_test_contexts_alone_passes():
+    _validate_mutual_exclusions(_make_args(build_test_contexts="out.db"))  # must not raise
+
+
+@pytest.mark.parametrize("other", ["scan", "update_manifest", "check_manifest"])
+def test_validate_build_test_contexts_with_another_no_run_mode_raises(other):
+    with pytest.raises(ValidationError) as exc:
+        _validate_mutual_exclusions(_make_args(build_test_contexts="out.db", **{other: True}))
+    assert exc.value.exit_code == 2
+    assert "--build-test-contexts" in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"lines": "7"},
+        {"since_last_run": True},
+        {"mutate_all": True},
+        {"max_workers": 4},
+        {"test_contexts": ".coverage"},
+    ],
+)
+def test_validate_build_test_contexts_with_run_only_flag_raises(extra):
+    with pytest.raises(ValidationError) as exc:
+        _validate_mutual_exclusions(_make_args(build_test_contexts="out.db", **extra))
+    assert exc.value.exit_code == 2
+    assert "--build-test-contexts" in str(exc.value)
+
+
+def test_validate_build_test_contexts_with_positional_files_raises():
+    with pytest.raises(ValidationError) as exc:
+        _validate_mutual_exclusions(_make_args(build_test_contexts="out.db", files=["f.py"]))
+    assert exc.value.exit_code == 2
+    assert "--build-test-contexts" in str(exc.value)
