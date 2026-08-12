@@ -6,6 +6,8 @@ from mutate4py._site_selection import (
     _select_sites,
     _should_run_parallel,
 )
+import pytest
+
 
 # ── _select_sites ─────────────────────────────────────────────────────────────
 
@@ -24,6 +26,7 @@ def _make_site(index, line, fid="func/f") -> Site:
     )
 
 
+@pytest.mark.unit
 def test_select_sites_all_covered_non_differential():
     sites = [_make_site(0, 1, "func/f"), _make_site(1, 2, "func/g")]
     covered = {1, 2}
@@ -31,6 +34,7 @@ def test_select_sites_all_covered_non_differential():
     assert len(selected) == 2
 
 
+@pytest.mark.unit
 def test_select_sites_differential_filters_unchanged():
     sites = [_make_site(0, 1, "func/f"), _make_site(1, 2, "func/g")]
     covered = {1, 2}
@@ -40,6 +44,7 @@ def test_select_sites_differential_filters_unchanged():
     assert selected[0].function_id == "func/f"
 
 
+@pytest.mark.unit
 def test_select_sites_lines_filter():
     sites = [_make_site(0, 1, "func/f"), _make_site(1, 2, "func/g")]
     covered = {1, 2}
@@ -48,6 +53,7 @@ def test_select_sites_lines_filter():
     assert selected[0].line == 1
 
 
+@pytest.mark.unit
 def test_select_sites_uncovered_excluded():
     sites = [_make_site(0, 1, "func/f"), _make_site(1, 2, "func/g")]
     covered = {1}  # line 2 uncovered
@@ -59,26 +65,31 @@ def test_select_sites_uncovered_excluded():
 # ── _should_run_parallel boundary conditions ──────────────────────────────────
 
 
+@pytest.mark.unit
 def test_should_run_parallel_exact_boundary():
     """max_workers=2, n_selected=2 -> parallel (inclusive on both)."""
     assert _should_run_parallel(max_workers=2, n_selected=2) is True
 
 
+@pytest.mark.unit
 def test_should_run_parallel_one_worker():
     """max_workers=1 -> serial even with many sites."""
     assert _should_run_parallel(max_workers=1, n_selected=10) is False
 
 
+@pytest.mark.unit
 def test_should_run_parallel_one_site():
     """n_selected=1 -> serial even with many workers."""
     assert _should_run_parallel(max_workers=8, n_selected=1) is False
 
 
+@pytest.mark.unit
 def test_should_run_parallel_two_workers_one_site():
     """max_workers=2, n_selected=1 -> serial."""
     assert _should_run_parallel(max_workers=2, n_selected=1) is False
 
 
+@pytest.mark.unit
 def test_should_run_parallel_three_workers():
     """max_workers=3, n_selected=2 -> parallel."""
     assert _should_run_parallel(max_workers=3, n_selected=2) is True
@@ -87,6 +98,7 @@ def test_should_run_parallel_three_workers():
 # ── _is_effective_since_last_run logic ───────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_is_effective_since_last_run_explicit():
     """since_last_run=True -> effective regardless of other flags."""
     assert (
@@ -95,6 +107,7 @@ def test_is_effective_since_last_run_explicit():
     )
 
 
+@pytest.mark.unit
 def test_is_effective_since_last_run_implicit_all_conditions():
     """manifest exists, mutate_all=False, no lines_filter -> effective."""
     assert (
@@ -103,6 +116,7 @@ def test_is_effective_since_last_run_implicit_all_conditions():
     )
 
 
+@pytest.mark.unit
 def test_is_effective_since_last_run_no_manifest():
     """No manifest -> not effective via implicit path."""
     assert (
@@ -111,6 +125,7 @@ def test_is_effective_since_last_run_no_manifest():
     )
 
 
+@pytest.mark.unit
 def test_is_effective_since_last_run_mutate_all_disables():
     """mutate_all=True -> not effective via implicit path."""
     assert (
@@ -119,6 +134,7 @@ def test_is_effective_since_last_run_mutate_all_disables():
     )
 
 
+@pytest.mark.unit
 def test_is_effective_since_last_run_lines_filter_disables():
     """lines_filter present -> not effective via implicit path."""
     assert (

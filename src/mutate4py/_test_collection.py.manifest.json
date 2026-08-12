@@ -1,43 +1,57 @@
 {
   "version": 1,
-  "tested_at": "2026-08-11T05:46:53Z",
-  "module_hash": "3751b40580e56f29b16cb9870302111afcb478535e214cb4337bb03a0d751dad",
-  "source_sha256": "e27a4e29ad134c84f0fb31ac2ad3bc144951978379430fe2b1a7a7f75eb82067",
+  "tested_at": "2026-08-12T06:48:55Z",
+  "module_hash": "e213ad82cfea8194b34c334296184082bf6f8d2aa6142006d40aa0cfa657d4c8",
+  "source_sha256": "fa44cab9eb36cbaadcbde7d1462b2e1440048983fc369df59d86b83329520162",
   "functions": [
     {
       "id": "func/rootdir_pytest_args",
       "name": "rootdir_pytest_args",
-      "line": 38,
-      "end_line": 41,
+      "line": 40,
+      "end_line": 43,
       "hash": "bd19267a14c85c756795ccb5bf441142264a983c5697d80e4e003bd14188d2b0"
     },
     {
       "id": "func/isolated_run_pytest_args",
       "name": "isolated_run_pytest_args",
-      "line": 44,
-      "end_line": 61,
+      "line": 46,
+      "end_line": 63,
       "hash": "bb4a1fdf04045a4e1032fcb88605873981e088857a5ab8ff0253443fa115b59f"
     },
     {
       "id": "func/_collect_argv",
       "name": "_collect_argv",
-      "line": 64,
-      "end_line": 66,
+      "line": 66,
+      "end_line": 68,
       "hash": "27865456efbd531feb1bf0e51fca4e2fb7a126dfe00aab450c969de029e6170d"
     },
     {
       "id": "func/_is_node_id_line",
       "name": "_is_node_id_line",
-      "line": 69,
-      "end_line": 70,
+      "line": 71,
+      "end_line": 72,
       "hash": "03c1a0fb800d948f2522cfc0cb21444cd305a5a94eb9d4facf896e4654542518"
+    },
+    {
+      "id": "func/collect_pytest_args",
+      "name": "collect_pytest_args",
+      "line": 75,
+      "end_line": 78,
+      "hash": "dfe69479451778d55511fe924288d943023bf02f896ddcdc1342d90924737cd7"
+    },
+    {
+      "id": "func/node_ids_from_collect_result",
+      "name": "node_ids_from_collect_result",
+      "line": 81,
+      "end_line": 103,
+      "hash": "2daf2d2e6cd41b703edb6abe150beffb3137211897a7dd02b7f8b99add56bf3d"
     },
     {
       "id": "func/collect_test_node_ids",
       "name": "collect_test_node_ids",
-      "line": 73,
-      "end_line": 96,
-      "hash": "66ef3236ce87d88027b001127f5d402c0a0f9eecf83e4704e880b21e5eef7d5a"
+      "line": 106,
+      "end_line": 120,
+      "hash": "62d4318fa384d23d85e8c55756067a3e76e4448938389be0ff53dd5c754d9168"
     }
   ]
 }

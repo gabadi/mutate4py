@@ -20,6 +20,7 @@ from mutate4py._runner import (
     update_manifest,
 )
 
+
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 # ── run_mutations integration ─────────────────────────────────────────────────
@@ -32,6 +33,7 @@ def _write_lcov(path: str, source_abs: str, covered_lines: list[int]) -> None:
         f.write(content)
 
 
+@pytest.mark.component
 def test_run_mutations_killed_mutant(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "calc.py")
@@ -72,6 +74,7 @@ def test_run_mutations_killed_mutant(tmp_path):
     assert "Survived: 0" in output
 
 
+@pytest.mark.component
 def test_run_mutations_survived_mutant(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "calc.py")
@@ -114,6 +117,7 @@ def test_run_mutations_survived_mutant(tmp_path):
     assert f"[1/{n_sites}]" in output
 
 
+@pytest.mark.component
 def test_run_mutations_survives_project_addopts_that_enable_coverage(tmp_path):
     """A project whose own pytest.ini enables pytest-cov via addopts must
     still run to completion: --no-cov (issue 06's neutralisation) overrides
@@ -161,6 +165,7 @@ def test_run_mutations_survives_project_addopts_that_enable_coverage(tmp_path):
     assert "Survived: 1" in output
 
 
+@pytest.mark.component
 def test_run_mutations_sidecar_writes_manifest_file_and_footer_free_source(tmp_path):
     import json
 
@@ -211,6 +216,7 @@ def test_run_mutations_sidecar_writes_manifest_file_and_footer_free_source(tmp_p
     assert sidecar["functions"][0]["id"] == "func/f"
 
 
+@pytest.mark.component
 def test_run_mutations_restores_source_after_run(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "calc.py")
@@ -252,6 +258,7 @@ def test_run_mutations_restores_source_after_run(tmp_path):
     assert not os.path.exists(src_path + ".bak")
 
 
+@pytest.mark.component
 def test_run_mutations_crash_safety_restores_bak(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "calc.py")
@@ -294,6 +301,7 @@ def test_run_mutations_crash_safety_restores_bak(tmp_path):
     assert "Restored source from backup" in output
 
 
+@pytest.mark.component
 def test_run_mutations_preserves_tested_at_when_manifest_already_current(tmp_path):
     """A scored --mutate-all run against source whose embedded manifest already
     matches (module/function hashes unchanged) retains the OLD tested_at instead
@@ -349,6 +357,7 @@ def test_run_mutations_preserves_tested_at_when_manifest_already_current(tmp_pat
     assert content == source_with_manifest
 
 
+@pytest.mark.component
 def test_run_mutations_reuse_coverage_warns(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "calc.py")
@@ -391,6 +400,7 @@ def test_run_mutations_reuse_coverage_warns(tmp_path):
     assert warn_pos < header_pos
 
 
+@pytest.mark.component
 def test_run_mutations_header_counts(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "calc.py")
@@ -435,6 +445,7 @@ def test_run_mutations_header_counts(tmp_path):
     assert "Mutation workers:" not in output
 
 
+@pytest.mark.component
 def test_run_mutations_prints_uncovered_block_for_uncovered_sites(tmp_path):
     """Pins the exact "Uncovered mutations:" block text through run_mutations —
     gate 14 turned its production (_uncovered_lines_if_needed) from a print into
@@ -478,6 +489,7 @@ def test_run_mutations_prints_uncovered_block_for_uncovered_sites(tmp_path):
     assert f"  line {sites[1].line} {sites[1].desc} {sites[1].function_id}" in output
 
 
+@pytest.mark.component
 def test_run_mutations_timeout_counts_as_killed(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "calc.py")
@@ -530,6 +542,7 @@ def _source_with_current_manifest(tmp_path, src: str) -> tuple[str, str]:
     return str(p), p.read_text()
 
 
+@pytest.mark.unit
 def test_check_manifest_missing_returns_1(tmp_path, capsys):
     src = "def f(a, b):\n    return a > b\n"
     p = tmp_path / "mod.py"
@@ -538,6 +551,7 @@ def test_check_manifest_missing_returns_1(tmp_path, capsys):
     assert rc == 1
 
 
+@pytest.mark.unit
 def test_check_manifest_missing_prints_message(tmp_path, capsys):
     src = "def f(a, b):\n    return a > b\n"
     p = tmp_path / "mod.py"
@@ -546,6 +560,7 @@ def test_check_manifest_missing_prints_message(tmp_path, capsys):
     assert "Manifest missing:" in capsys.readouterr().out
 
 
+@pytest.mark.unit
 def test_check_manifest_current_returns_0(tmp_path, capsys):
     src = "def f(a, b):\n    return a > b\n"
     path, source_with_manifest = _source_with_current_manifest(tmp_path, src)
@@ -554,6 +569,7 @@ def test_check_manifest_current_returns_0(tmp_path, capsys):
     assert rc == 0
 
 
+@pytest.mark.unit
 def test_check_manifest_current_prints_message(tmp_path, capsys):
     src = "def f(a, b):\n    return a > b\n"
     path, source_with_manifest = _source_with_current_manifest(tmp_path, src)
@@ -562,6 +578,7 @@ def test_check_manifest_current_prints_message(tmp_path, capsys):
     assert "Manifest current:" in capsys.readouterr().out
 
 
+@pytest.mark.unit
 def test_check_manifest_stale_returns_1(tmp_path, capsys):
     src = "def f(a, b):\n    return a > b\n"
     path, source_with_manifest = _source_with_current_manifest(tmp_path, src)
@@ -571,6 +588,7 @@ def test_check_manifest_stale_returns_1(tmp_path, capsys):
     assert rc == 1
 
 
+@pytest.mark.unit
 def test_check_manifest_stale_prints_message(tmp_path, capsys):
     src = "def f(a, b):\n    return a > b\n"
     path, source_with_manifest = _source_with_current_manifest(tmp_path, src)
@@ -580,6 +598,7 @@ def test_check_manifest_stale_prints_message(tmp_path, capsys):
     assert "Manifest stale:" in capsys.readouterr().out
 
 
+@pytest.mark.unit
 def test_check_manifest_does_not_modify_file(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     p = tmp_path / "mod.py"
@@ -592,6 +611,7 @@ def test_check_manifest_does_not_modify_file(tmp_path):
 # ── check_manifest: fast path (source_sha256) ─────────────────────────────────
 
 
+@pytest.mark.unit
 def test_check_manifest_fast_path_does_not_parse(tmp_path, monkeypatch):
     """Matching source_sha256 must short-circuit before any AST parse."""
     import ast
@@ -608,6 +628,7 @@ def test_check_manifest_fast_path_does_not_parse(tmp_path, monkeypatch):
     assert rc == 0
 
 
+@pytest.mark.unit
 def test_check_manifest_fast_path_current_returns_0(tmp_path, capsys):
     src = "def f(a, b):\n    return a > b\n"
     path, source_with_manifest = _source_with_current_manifest(tmp_path, src)
@@ -619,6 +640,7 @@ def test_check_manifest_fast_path_current_returns_0(tmp_path, capsys):
     assert f"Manifest current: {path}" in capsys.readouterr().out
 
 
+@pytest.mark.unit
 def test_check_manifest_missing_source_sha256_falls_back_to_slow_path(tmp_path, capsys):
     """A manifest without source_sha256 (pre-existing, additive) still works via
     the full parse-and-compare path."""
@@ -636,6 +658,7 @@ def test_check_manifest_missing_source_sha256_falls_back_to_slow_path(tmp_path, 
     assert "Manifest current:" in capsys.readouterr().out
 
 
+@pytest.mark.unit
 def test_check_manifest_comment_only_edit_still_current_via_slow_path(tmp_path, capsys):
     """A byte-level source_sha256 mismatch (comment-only edit) must fall through
     to the structural (AST) comparison rather than reporting stale."""
@@ -657,6 +680,7 @@ def test_check_manifest_comment_only_edit_still_current_via_slow_path(tmp_path, 
 # is the layer responsible for catching it and keeping the batch going.
 
 
+@pytest.mark.unit
 def test_check_manifest_propagates_syntax_error_when_body_corrupted(tmp_path):
     """A manifest exists but the body underneath is unparseable (e.g. hand-edited
     after embedding) — this is the exact case that hid the bug (issue #35): with
@@ -668,6 +692,7 @@ def test_check_manifest_propagates_syntax_error_when_body_corrupted(tmp_path):
         check_manifest(path=path, source=broken_source)
 
 
+@pytest.mark.unit
 def test_update_manifest_propagates_syntax_error(tmp_path):
     p = tmp_path / "mod.py"
     src = "def f(a, b:\n    return a > b\n"
@@ -676,6 +701,7 @@ def test_update_manifest_propagates_syntax_error(tmp_path):
         update_manifest(path=str(p), source=src)
 
 
+@pytest.mark.unit
 def test_run_scan_propagates_syntax_error(tmp_path):
     p = tmp_path / "mod.py"
     src = "def f(a, b:\n    return a > b\n"
@@ -689,6 +715,7 @@ def test_run_scan_propagates_syntax_error(tmp_path):
         )
 
 
+@pytest.mark.unit
 def test_run_mutations_propagates_syntax_error(tmp_path):
     src = "def broken(:\n    pass\n"
     src_path = str(tmp_path / "bad.py")
@@ -717,6 +744,7 @@ def test_run_mutations_propagates_syntax_error(tmp_path):
 # ── update_manifest / check_manifest: sidecar mode (--manifest-file) ──────────
 
 
+@pytest.mark.unit
 def test_update_manifest_sidecar_writes_manifest_file(tmp_path):
     import json
 
@@ -733,6 +761,7 @@ def test_update_manifest_sidecar_writes_manifest_file(tmp_path):
     assert sidecar_data["functions"][0]["id"] == "func/f"
 
 
+@pytest.mark.unit
 def test_update_manifest_sidecar_overwrites_corrupted_sidecar(tmp_path):
     """A hand-corrupted sidecar (valid JSON, not a manifest object) reads as
     missing and gets replaced by --update-manifest, not left in place."""
@@ -750,6 +779,7 @@ def test_update_manifest_sidecar_overwrites_corrupted_sidecar(tmp_path):
     assert sidecar_data["functions"][0]["id"] == "func/f"
 
 
+@pytest.mark.unit
 def test_update_manifest_sidecar_does_not_touch_other_files_sidecars(tmp_path):
     """Each file's sidecar lives at its own <file>.manifest.json, so a directory
     run updating one file must not affect another file's sidecar or source."""
@@ -774,6 +804,7 @@ def test_update_manifest_sidecar_does_not_touch_other_files_sidecars(tmp_path):
     assert rc_b == 0
 
 
+@pytest.mark.unit
 def test_update_manifest_sidecar_leaves_source_free_of_footer(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     p = tmp_path / "mod.py"
@@ -785,6 +816,7 @@ def test_update_manifest_sidecar_leaves_source_free_of_footer(tmp_path):
     assert "mutate4py-manifest-begin" not in p.read_text()
 
 
+@pytest.mark.unit
 def test_update_manifest_sidecar_reports_updated(tmp_path, capsys):
     src = "def f(a, b):\n    return a > b\n"
     p = tmp_path / "mod.py"
@@ -795,6 +827,7 @@ def test_update_manifest_sidecar_reports_updated(tmp_path, capsys):
     assert f"Updated manifest: {p}" in capsys.readouterr().out
 
 
+@pytest.mark.unit
 def test_update_manifest_sidecar_second_run_is_unchanged(tmp_path, capsys):
     src = "def f(a, b):\n    return a > b\n"
     p = tmp_path / "mod.py"
@@ -813,6 +846,7 @@ def test_update_manifest_sidecar_second_run_is_unchanged(tmp_path, capsys):
     assert p.read_text() == source_before
 
 
+@pytest.mark.unit
 def test_update_manifest_sidecar_strips_stale_footer_even_when_sidecar_current(
     tmp_path,
 ):
@@ -836,6 +870,7 @@ def test_update_manifest_sidecar_strips_stale_footer_even_when_sidecar_current(
     assert "mutate4py-manifest-begin" not in p.read_text()
 
 
+@pytest.mark.unit
 def test_update_manifest_default_mode_unaffected_by_manifest_file_param(tmp_path):
     """manifest_file omitted (default False) => byte-identical to today's embed behavior."""
     src = "def f(a, b):\n    return a > b\n"
@@ -851,6 +886,7 @@ def test_update_manifest_default_mode_unaffected_by_manifest_file_param(tmp_path
     assert "mutate4py-manifest-begin" in p_default.read_text()
 
 
+@pytest.mark.unit
 def test_check_manifest_sidecar_missing_returns_1(tmp_path, capsys):
     src = "def f(a, b):\n    return a > b\n"
     p = tmp_path / "mod.py"
@@ -862,6 +898,7 @@ def test_check_manifest_sidecar_missing_returns_1(tmp_path, capsys):
     assert "Manifest missing:" in capsys.readouterr().out
 
 
+@pytest.mark.unit
 def test_check_manifest_sidecar_current_returns_0(tmp_path, capsys):
     src = "def f(a, b):\n    return a > b\n"
     p = tmp_path / "mod.py"
@@ -875,6 +912,7 @@ def test_check_manifest_sidecar_current_returns_0(tmp_path, capsys):
     assert "Manifest current:" in capsys.readouterr().out
 
 
+@pytest.mark.unit
 def test_check_manifest_sidecar_fast_path_does_not_parse(tmp_path, monkeypatch):
     """The source_sha256 fast path applies to sidecar storage too, not just the
     embedded footer — matching bytes must short-circuit before any AST parse."""
@@ -894,6 +932,7 @@ def test_check_manifest_sidecar_fast_path_does_not_parse(tmp_path, monkeypatch):
     assert rc == 0
 
 
+@pytest.mark.unit
 def test_check_manifest_sidecar_stale_returns_1(tmp_path, capsys):
     src = "def f(a, b):\n    return a > b\n"
     p = tmp_path / "mod.py"
@@ -908,6 +947,7 @@ def test_check_manifest_sidecar_stale_returns_1(tmp_path, capsys):
     assert "Manifest stale:" in capsys.readouterr().out
 
 
+@pytest.mark.unit
 def test_check_manifest_sidecar_ignores_embedded_footer_in_source(tmp_path, capsys):
     """A stray in-source footer must not satisfy a sidecar-mode check."""
     src = "def f(a, b):\n    return a > b\n"

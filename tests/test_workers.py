@@ -6,6 +6,7 @@ import pytest
 
 from mutate4py._discovery import Site, discover_sites
 from mutate4py._test_dispatch import NoTestsCollectedError
+from mutate4py._worker_protocol import WorkerProcessError
 from mutate4py._workers import (
     ParallelRunError,
     ParallelRunRequest,
@@ -13,7 +14,10 @@ from mutate4py._workers import (
     WorkerFailureError,
     WorkerRunSettings,
     _assign_sites_to_workers,
+    _close_worker_executor,
     _copy_tree,
+    _drop_one_result_if_injected,
+    _prime_worker_executor,
     _run_one_site,
     _summarize_results,
     run_parallel,
@@ -34,9 +38,79 @@ def _make_site(index: int, line: int, fid: str = "func/f") -> Site:
     )
 
 
+# ── per-Worker executor lifecycle ─────────────────────────────────────────────
+
+
+class _PrimeOnlyExecutor:
+    """Records prime()/close() without owning anything to dispatch to."""
+
+    def __init__(self, *, prime_error: Exception | None = None):
+        self._prime_error = prime_error
+        self.calls: list[str] = []
+
+    def prime(self):
+        self.calls.append("prime")
+        if self._prime_error is not None:
+            raise self._prime_error
+
+    def close(self):
+        self.calls.append("close")
+
+
+class _NoCloseExecutor:
+    """An `Executor` with no close(), like the injected test executor."""
+
+    def prime(self):  # pragma: no cover - not exercised by the close tests
+        pass
+
+
+@pytest.mark.unit
+def test_prime_worker_executor_primes_once():
+    executor = _PrimeOnlyExecutor()
+    _prime_worker_executor(executor, 2)
+    assert executor.calls == ["prime"]
+
+
+@pytest.mark.unit
+def test_prime_worker_executor_restates_a_protocol_failure_as_a_worker_failure():
+    executor = _PrimeOnlyExecutor(prime_error=WorkerProcessError("pipe died"))
+    with pytest.raises(WorkerFailureError, match="worker-2 could not start: pipe died") as exc:
+        _prime_worker_executor(executor, 2)
+    assert isinstance(exc.value.__cause__, WorkerProcessError)
+
+
+@pytest.mark.unit
+def test_close_worker_executor_closes_a_closable_executor():
+    executor = _PrimeOnlyExecutor()
+    _close_worker_executor(executor)
+    assert executor.calls == ["close"]
+
+
+@pytest.mark.unit
+def test_close_worker_executor_tolerates_an_executor_without_close():
+    _close_worker_executor(_NoCloseExecutor())
+
+
+@pytest.mark.unit
+def test_drop_one_result_if_injected_is_a_no_op_by_default():
+    results = [{"site_idx": 1}, {"site_idx": 2}]
+    assert _drop_one_result_if_injected(results, short_fail=False) == results
+
+
+@pytest.mark.unit
+def test_drop_one_result_if_injected_drops_the_last_result_when_armed():
+    assert _drop_one_result_if_injected([{"site_idx": 1}, {"site_idx": 2}], short_fail=True) == [{"site_idx": 1}]
+
+
+@pytest.mark.unit
+def test_drop_one_result_if_injected_leaves_an_empty_group_alone():
+    assert _drop_one_result_if_injected([], short_fail=True) == []
+
+
 # ── _copy_tree ────────────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_copy_tree_copies_files(tmp_path):
     src = tmp_path / "src"
     dst = tmp_path / "dst"
@@ -46,6 +120,7 @@ def test_copy_tree_copies_files(tmp_path):
     assert (dst / "a.py").read_text() == "hello"
 
 
+@pytest.mark.unit
 def test_copy_tree_recurses_into_subdirs(tmp_path):
     src = tmp_path / "src"
     sub = src / "sub"
@@ -56,6 +131,7 @@ def test_copy_tree_recurses_into_subdirs(tmp_path):
     assert (dst / "sub" / "b.py").read_text() == "world"
 
 
+@pytest.mark.unit
 def test_copy_tree_skips_venv(tmp_path):
     src = tmp_path / "src"
     (src / ".venv").mkdir(parents=True)
@@ -67,6 +143,7 @@ def test_copy_tree_skips_venv(tmp_path):
     assert (dst / "a.py").exists()
 
 
+@pytest.mark.unit
 def test_copy_tree_skips_pycache(tmp_path):
     src = tmp_path / "src"
     (src / "__pycache__").mkdir(parents=True)
@@ -78,6 +155,7 @@ def test_copy_tree_skips_pycache(tmp_path):
     assert (dst / "a.py").exists()
 
 
+@pytest.mark.unit
 def test_copy_tree_skips_git(tmp_path):
     src = tmp_path / "src"
     (src / ".git").mkdir(parents=True)
@@ -89,6 +167,7 @@ def test_copy_tree_skips_git(tmp_path):
     assert (dst / "a.py").exists()
 
 
+@pytest.mark.unit
 def test_copy_tree_skips_mutate4py_dir(tmp_path):
     src = tmp_path / "src"
     (src / ".mutate4py").mkdir(parents=True)
@@ -100,6 +179,7 @@ def test_copy_tree_skips_mutate4py_dir(tmp_path):
     assert (dst / "a.py").exists()
 
 
+@pytest.mark.unit
 def test_copy_tree_copies_regular_subdir(tmp_path):
     src = tmp_path / "src"
     (src / "src").mkdir(parents=True)
@@ -111,6 +191,7 @@ def test_copy_tree_copies_regular_subdir(tmp_path):
     assert (dst / "a.py").exists()
 
 
+@pytest.mark.unit
 def test_copy_tree_idempotent_to_existing_dst(tmp_path):
     """_copy_tree is callable twice to same dst (exist_ok=True required)."""
     src = tmp_path / "src"
@@ -122,6 +203,7 @@ def test_copy_tree_idempotent_to_existing_dst(tmp_path):
     assert (dst / "a.py").exists()
 
 
+@pytest.mark.unit
 def test_copy_tree_skips_all_skip_entries_copies_all_regular(tmp_path):
     """continue (not break): ALL regular files are copied even with multiple skip entries interspersed.
 
@@ -143,6 +225,7 @@ def test_copy_tree_skips_all_skip_entries_copies_all_regular(tmp_path):
         assert (dst / name).exists(), f"Regular file {name} should be copied"
 
 
+@pytest.mark.unit
 def test_copy_tree_symlink_to_file_is_copied(tmp_path):
     """follow_symlinks=False: a symlink to a regular file is treated as a file and copied."""
     src = tmp_path / "src"
@@ -160,6 +243,7 @@ def test_copy_tree_symlink_to_file_is_copied(tmp_path):
 # ── _assign_sites_to_workers ──────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_assign_sites_round_robins():
     sites = [_make_site(i, i + 1) for i in range(4)]
     by_worker = _assign_sites_to_workers(sites, n_workers=2)
@@ -171,6 +255,7 @@ def test_assign_sites_round_robins():
 # ── _provision_worker_executors ───────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_provision_worker_executors_assigns_distinct_worker_ids():
     """Each real WorkerProcessExecutor gets its own worker_id (issue 05) —
     the identity pytest-django needs to keep per-Worker test databases from
@@ -189,6 +274,7 @@ def test_provision_worker_executors_assigns_distinct_worker_ids():
     assert len({e._worker_id for e in executors}) == 3
 
 
+@pytest.mark.unit
 def test_provision_worker_executors_injected_fake_ignores_worker_id():
     from mutate4py._workers import _provision_worker_executors
 
@@ -205,6 +291,7 @@ def test_provision_worker_executors_injected_fake_ignores_worker_id():
 # ── _summarize_results ────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_summarize_results_counts_and_survivors():
     site_a = _make_site(0, 1)
     site_b = _make_site(1, 2)
@@ -217,6 +304,7 @@ def test_summarize_results_counts_and_survivors():
     assert survivors == [site_b]
 
 
+@pytest.mark.unit
 def test_summarize_results_timeout_tallied():
     site = _make_site(0, 1)
     results = [{"status": "timeout", "site": site}]
@@ -256,6 +344,7 @@ class _FakeExecutor:
         return self._status
 
 
+@pytest.mark.unit
 def test_run_one_site_survived(tmp_path, monkeypatch):
     src = "def f(a, b):\n    return a > b\n"
     sites = discover_sites(src)
@@ -285,6 +374,7 @@ def test_run_one_site_survived(tmp_path, monkeypatch):
     assert worker_file.read_text() == src
 
 
+@pytest.mark.unit
 def test_run_one_site_killed(tmp_path, monkeypatch):
     src = "def f(a, b):\n    return a > b\n"
     sites = discover_sites(src)
@@ -314,6 +404,7 @@ def test_run_one_site_killed(tmp_path, monkeypatch):
     assert worker_file.read_text() == src
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("status, hint", [("no-tests-collected", "collected no tests"), ("usage-error", "usage error")])
 def test_run_one_site_no_tests_collected_raises_and_still_restores(tmp_path, monkeypatch, status, hint):
     """A Mutant whose test run exercised no test at all must abort, not be
@@ -348,6 +439,7 @@ def test_run_one_site_no_tests_collected_raises_and_still_restores(tmp_path, mon
     assert worker_file.read_text() == src
 
 
+@pytest.mark.unit
 def test_run_one_site_write_fail_env_hook(tmp_path, monkeypatch):
     src = "def f(a, b):\n    return a > b\n"
     sites = discover_sites(src)
@@ -375,6 +467,7 @@ def test_run_one_site_write_fail_env_hook(tmp_path, monkeypatch):
         )
 
 
+@pytest.mark.unit
 def test_run_one_site_write_oserror(tmp_path, monkeypatch):
     src = "def f(a, b):\n    return a > b\n"
     sites = discover_sites(src)
@@ -419,6 +512,7 @@ def test_run_one_site_write_oserror(tmp_path, monkeypatch):
 # ── run_parallel: ParallelRunError on result count mismatch ──────────────────
 
 
+@pytest.mark.unit
 def test_run_parallel_short_result_raises(tmp_path, monkeypatch):
     """_MUTATE4PY_TEST_WORKER_SHORT_RESULT=1 drops one result → ParallelRunError."""
     import mutate4py._workers as workers_mod
@@ -458,6 +552,7 @@ class _FakeTestContextDB:
         return self._result
 
 
+@pytest.mark.unit
 def test_run_parallel_composes_narrowed_dispatch_with_workers(tmp_path, monkeypatch):
     """A test-context db in play must reach each Worker's dispatch args, not
     just the serial loop's — the old parallel engine never called
@@ -493,6 +588,7 @@ def test_run_parallel_composes_narrowed_dispatch_with_workers(tmp_path, monkeypa
     assert executor.calls == [["-q", "tests/test_calc.py::test_f"]] * 2
 
 
+@pytest.mark.unit
 def test_run_parallel_composes_static_dispatch_with_workers(tmp_path, monkeypatch):
     import mutate4py._workers as workers_mod
 
@@ -559,6 +655,7 @@ def test_run_parallel_composes_degraded_dispatch_with_workers(tmp_path, monkeypa
 # ── run_parallel: one Worker is primed once and serves every assigned site ───
 
 
+@pytest.mark.unit
 def test_run_parallel_primes_worker_executor_once_for_multiple_sites(tmp_path, monkeypatch):
     """max_workers=1 keeps everything in one Worker/one thread, so prime()
     and run() call counts are deterministic without reasoning about
@@ -592,6 +689,7 @@ def test_run_parallel_primes_worker_executor_once_for_multiple_sites(tmp_path, m
     assert len(executor.calls) == 3
 
 
+@pytest.mark.unit
 def test_run_parallel_shared_injected_executor_primed_per_worker_thread(tmp_path, monkeypatch):
     """A single injected fake executor handed to multiple Worker threads
     (max_workers>=2) is primed once per Worker thread that uses it, and

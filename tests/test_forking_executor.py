@@ -26,13 +26,16 @@ from mutate4py._test_selection import TestContextDB
 
 from ._fork_unsafe_plugin_helpers import skip_unless_fork_unsafe_plugin_loaded
 
+
 # --- is_available ------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_is_available_true_on_posix():
     assert is_available() is True
 
 
+@pytest.mark.unit
 def test_is_available_false_without_os_fork(monkeypatch):
     monkeypatch.delattr(os, "fork", raising=False)
     assert is_available() is False
@@ -41,12 +44,14 @@ def test_is_available_false_without_os_fork(monkeypatch):
 # --- assert_source_clean / _leaked_modules ----------------------------------
 
 
+@pytest.mark.unit
 def test_assert_source_clean_passes_when_target_not_imported(tmp_path):
     target = tmp_path / "not_imported.py"
     target.write_text("x = 1\n")
     assert_source_clean(str(target))
 
 
+@pytest.mark.unit
 def test_assert_source_clean_raises_when_target_already_imported(tmp_path, monkeypatch):
     target = tmp_path / "leaked_target.py"
     target.write_text("x = 1\n")
@@ -57,6 +62,7 @@ def test_assert_source_clean_raises_when_target_already_imported(tmp_path, monke
         assert_source_clean(str(target))
 
 
+@pytest.mark.unit
 def test_assert_source_clean_ignores_modules_without_file(monkeypatch, tmp_path):
     target = tmp_path / "no_file_module.py"
     target.write_text("x = 1\n")
@@ -65,6 +71,7 @@ def test_assert_source_clean_ignores_modules_without_file(monkeypatch, tmp_path)
     assert_source_clean(str(target))
 
 
+@pytest.mark.unit
 def test_assert_source_clean_ignores_unrelated_modules(tmp_path):
     unrelated = tmp_path / "unrelated.py"
     unrelated.write_text("x = 1\n")
@@ -106,7 +113,7 @@ _ADD_TEST_BODY = "from {mod} import add\ndef test_add():\n    assert add(2, 2) =
 _ARGS = ["-q", "tests"]
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_prime_succeeds_when_target_not_pre_imported(tmp_path):
     cwd, target = _write_fixture_project(
         tmp_path,
@@ -117,7 +124,7 @@ def test_prime_succeeds_when_target_not_pre_imported(tmp_path):
     executor.prime()  # must not raise
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_prime_neutralises_plugins_on_its_own_collect_only_call(tmp_path, monkeypatch):
     """Regression: prime()'s internal collect-only pytest.main() call is
     itself an in-process, pre-fork pytest re-entry, so it must carry the
@@ -147,7 +154,7 @@ def test_prime_neutralises_plugins_on_its_own_collect_only_call(tmp_path, monkey
     assert set(neutralising_args()) <= set(captured_args[0])
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_prime_raises_module_leak_when_conftest_imports_target(tmp_path):
     cwd, target = _write_fixture_project(
         tmp_path,
@@ -160,7 +167,7 @@ def test_prime_raises_module_leak_when_conftest_imports_target(tmp_path):
         executor.prime()
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_prime_leak_does_not_poison_a_later_same_named_file(tmp_path):
     """Regression: a leaked module from one file's prime() must not survive
     to fool a *different* file's leak check later in the same process —
@@ -192,7 +199,7 @@ def test_prime_leak_does_not_poison_a_later_same_named_file(tmp_path):
     executor_b.prime()  # must not raise: file a's leak must not have persisted
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_survives_when_tests_pass(tmp_path):
     cwd, target = _write_fixture_project(
         tmp_path,
@@ -205,7 +212,7 @@ def test_run_survives_when_tests_pass(tmp_path):
     assert status == "survived"
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_killed_when_tests_fail(tmp_path):
     cwd, target = _write_fixture_project(
         tmp_path,
@@ -218,7 +225,7 @@ def test_run_killed_when_tests_fail(tmp_path):
     assert status == "killed"
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_reports_no_tests_collected_when_filter_deselects_everything(tmp_path):
     """A -k filter matching nothing is pytest exit 5 ("no tests were
     collected") — must not be scored killed (issue #55), same as the
@@ -234,7 +241,7 @@ def test_run_reports_no_tests_collected_when_filter_deselects_everything(tmp_pat
     assert status == "no-tests-collected"
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_reports_usage_error_for_a_bad_argument(tmp_path):
     """An unrecognized pytest option is exit 4 (usage error) — must not be
     scored killed either (issue #55)."""
@@ -249,7 +256,7 @@ def test_run_reports_usage_error_for_a_bad_argument(tmp_path):
     assert status == "usage-error"
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_picks_up_post_prime_mutation_from_disk(tmp_path):
     """The central correctness property: priming before the file is mutated
     must not leave a stale pre-mutation module cached for the child."""
@@ -281,7 +288,7 @@ def test_run_picks_up_post_prime_mutation_from_disk(tmp_path):
     assert status == "survived"
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_reports_timeout_and_kills_child(tmp_path):
     cwd, target = _write_fixture_project(
         tmp_path,
@@ -296,13 +303,14 @@ def test_run_reports_timeout_and_kills_child(tmp_path):
     assert status == "timeout"
 
 
+@pytest.mark.unit
 def test_run_before_prime_raises():
     executor = ForkingExecutor(cwd="/tmp", guarded_path="/tmp/x.py")
     with pytest.raises(ForkingExecutorUnavailable):
         executor.run(["-q"], timeout=1.0)
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_does_not_leak_child_stdout(tmp_path, capsys):
     cwd, target = _write_fixture_project(
         tmp_path,
@@ -322,6 +330,7 @@ def test_run_does_not_leak_child_stdout(tmp_path, capsys):
 # --- isolated_coverage_session_safe -------------------------------------------
 
 
+@pytest.mark.unit
 def test_isolated_coverage_session_safe_false_when_a_known_unsafe_plugin_is_loaded(monkeypatch):
     """Regression for the acceptance-suite hang this precheck exists to
     prevent: tach.pytest_plugin is genuinely loaded in this test process
@@ -331,6 +340,7 @@ def test_isolated_coverage_session_safe_false_when_a_known_unsafe_plugin_is_load
     assert isolated_coverage_session_safe() is False
 
 
+@pytest.mark.unit
 def test_isolated_coverage_session_safe_true_when_no_unsafe_plugin_is_loaded(monkeypatch):
     monkeypatch.delitem(sys.modules, "tach.pytest_plugin", raising=False)
     assert isolated_coverage_session_safe() is True
@@ -372,7 +382,7 @@ _ONLY_A_LINE = 6
 _ONLY_B_LINE = 10
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_isolated_coverage_session_narrows_shared_line_to_both_tests(tmp_path, monkeypatch):
     """Central correctness property (ADR 0021): two isolated per-test
     sessions, combined, must narrow a shared line to both covering tests and
@@ -420,7 +430,7 @@ def test_run_isolated_coverage_session_narrows_shared_line_to_both_tests(tmp_pat
         db.close()
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_isolated_coverage_session_killed_when_test_fails(tmp_path, monkeypatch):
     """isolated_coverage_session_safe stubbed True: see the docstring on
     test_run_isolated_coverage_session_narrows_shared_line_to_both_tests."""
@@ -437,7 +447,7 @@ def test_run_isolated_coverage_session_killed_when_test_fails(tmp_path, monkeypa
     assert status == "killed"
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_isolated_coverage_session_reports_timeout_and_kills_child(tmp_path, monkeypatch):
     """isolated_coverage_session_safe stubbed True: see the docstring on
     test_run_isolated_coverage_session_narrows_shared_line_to_both_tests."""
@@ -454,8 +464,11 @@ def test_run_isolated_coverage_session_reports_timeout_and_kills_child(tmp_path,
     assert status == "timeout"
 
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_run_isolated_coverage_session_before_prime_raises(tmp_path):
+    """Unit, not component: the unprimed guard returns before any fork, so
+    nothing here reaches an Executor subprocess — same reasoning as
+    test_run_before_prime_raises above."""
     executor = ForkingExecutor(cwd=str(tmp_path), guarded_path=str(tmp_path))
     with pytest.raises(ForkingExecutorUnavailable):
         executor.run_isolated_coverage_session(
@@ -463,7 +476,23 @@ def test_run_isolated_coverage_session_before_prime_raises(tmp_path):
         )
 
 
-@pytest.mark.integration
+@pytest.mark.unit
+def test_run_isolated_coverage_session_refuses_a_fork_unsafe_process(tmp_path, monkeypatch):
+    """The fork-unsafe-plugin guard is the second precondition, so reaching it
+    needs a primed executor — set directly here rather than paying for a real
+    prime(), since the guard returns before any fork either way. The
+    component-level companion below proves the same refusal after a real
+    prime()."""
+    monkeypatch.setattr(mutate4py._forking_executor, "isolated_coverage_session_safe", lambda: False)
+    executor = ForkingExecutor(cwd=str(tmp_path), guarded_path=str(tmp_path))
+    executor._primed = True
+    with pytest.raises(ForkingExecutorUnavailable, match="fork-unsafe pytest plugin"):
+        executor.run_isolated_coverage_session(
+            "test_a.py::test_from_a", data_file=str(tmp_path / ".coverage.a"), pytest_args=[], timeout=1.0
+        )
+
+
+@pytest.mark.component
 def test_run_isolated_coverage_session_raises_when_a_fork_unsafe_plugin_is_loaded_after_prime(tmp_path):
     """Self-enforcement regression (issue #51 Standards review): a fork-unsafe
     plugin (e.g. tach.pytest_plugin) can get loaded into sys.modules by
@@ -485,7 +514,7 @@ def test_run_isolated_coverage_session_raises_when_a_fork_unsafe_plugin_is_loade
         )
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_isolated_coverage_session_does_not_leak_child_stdout(tmp_path, capsys, monkeypatch):
     """isolated_coverage_session_safe stubbed True: see the docstring on
     test_run_isolated_coverage_session_narrows_shared_line_to_both_tests."""
@@ -507,6 +536,7 @@ def test_run_isolated_coverage_session_does_not_leak_child_stdout(tmp_path, caps
 # --- _wait_for_child ---------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_wait_for_child_reports_killed_when_child_dies_by_signal():
     """A child that dies from an external signal (not its own os._exit, e.g. a
     mutant that crashes the interpreter) must still resolve to "killed", not

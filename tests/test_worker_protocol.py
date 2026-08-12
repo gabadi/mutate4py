@@ -1,19 +1,143 @@
-"""Integration tests for issue 04b: the Worker subprocess protocol
-(`_worker_protocol.WorkerProcessExecutor` <-> `_worker_server.main`) — real
-subprocesses, real pytest, no fakes. Companion to the fake-executor unit
-tests in test_workers.py, which cover the same dispatch logic without paying
-for a real subprocess spawn.
+"""Tests for issue 04b: the Worker subprocess protocol
+(`_worker_protocol.WorkerProcessExecutor` <-> `_worker_server.main`).
+
+Two layers. The unit section below covers the protocol's pure pieces — argv,
+request encoding, response decoding, shutdown — against fakes. Everything
+after it is component-level: real subprocesses, real pytest, no fakes.
+Companion to the fake-executor unit tests in test_workers.py, which cover the
+same dispatch logic without paying for a real subprocess spawn.
 """
 
 import io
 import json
 import os
+import subprocess
 import sys
 import types
 
 import pytest
 
-from mutate4py._worker_protocol import WorkerProcessExecutor
+from mutate4py._worker_protocol import (
+    WorkerProcessError,
+    WorkerProcessExecutor,
+    _decode_ready,
+    _decode_status,
+    _shutdown_process,
+    encode_request,
+    worker_server_argv,
+)
+
+
+# ── argv and request encoding ─────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_worker_server_argv_names_the_worker_server_module():
+    argv = worker_server_argv(worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, worker_id="gw1")
+    assert argv == [sys.executable, "-m", "mutate4py._worker_server", "/w", "/w/calc.py", "1", "gw1"]
+
+
+@pytest.mark.unit
+def test_worker_server_argv_encodes_a_declined_fork_request_as_zero():
+    argv = worker_server_argv(worker_root="/w", guarded_path="/w/calc.py", forking_requested=False, worker_id="gw1")
+    assert argv[5] == "0"
+
+
+@pytest.mark.unit
+def test_worker_server_argv_encodes_an_absent_worker_id_as_an_empty_string():
+    argv = worker_server_argv(worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, worker_id=None)
+    assert argv[6] == ""
+
+
+@pytest.mark.unit
+def test_encode_request_is_one_newline_terminated_json_line():
+    line = encode_request(["-q", "tests"], 30.0)
+    assert line.endswith("\n")
+    assert json.loads(line) == {"args": ["-q", "tests"], "timeout": 30.0}
+
+
+# ── response decoding ─────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_decode_ready_accepts_the_handshake_line():
+    assert _decode_ready(json.dumps({"ready": True}) + "\n", worker_root="/w") is None
+
+
+@pytest.mark.unit
+def test_decode_ready_raises_when_the_worker_died_before_the_handshake():
+    with pytest.raises(WorkerProcessError, match="exited before signaling ready"):
+        _decode_ready("", worker_root="/w")
+
+
+@pytest.mark.unit
+def test_decode_status_returns_the_classification():
+    assert _decode_status(json.dumps({"status": "killed"}) + "\n", worker_root="/w") == "killed"
+
+
+@pytest.mark.unit
+def test_decode_status_raises_when_the_pipe_closed_mid_run():
+    with pytest.raises(WorkerProcessError, match="closed its output unexpectedly"):
+        _decode_status("", worker_root="/w")
+
+
+# ── shutdown ──────────────────────────────────────────────────────────────
+
+
+class _FakeStdin:
+    def __init__(self):
+        self.closed = False
+
+    def close(self):
+        self.closed = True
+
+
+class _FakeProc:
+    """A Popen stand-in that records the shutdown sequence it was put through."""
+
+    def __init__(self, *, waits_time_out: bool):
+        self.stdin = _FakeStdin()
+        self._waits_time_out = waits_time_out
+        self.calls: list[str] = []
+
+    def wait(self, timeout=None):
+        self.calls.append("wait")
+        if self._waits_time_out and len(self.calls) == 1:
+            raise subprocess.TimeoutExpired(cmd="worker", timeout=timeout)
+
+    def kill(self):
+        self.calls.append("kill")
+
+
+@pytest.mark.unit
+def test_shutdown_process_closes_stdin_and_waits_for_a_cooperative_worker():
+    proc = _FakeProc(waits_time_out=False)
+    _shutdown_process(proc)
+    assert proc.stdin.closed
+    assert proc.calls == ["wait"]
+
+
+@pytest.mark.unit
+def test_shutdown_process_kills_a_worker_that_outstays_the_grace_period():
+    proc = _FakeProc(waits_time_out=True)
+    _shutdown_process(proc)
+    assert proc.calls == ["wait", "kill", "wait"]
+
+
+# ── priming preconditions ─────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_run_before_prime_is_rejected():
+    executor = WorkerProcessExecutor(worker_root="/w", guarded_path="/w/calc.py", forking_requested=True)
+    with pytest.raises(WorkerProcessError, match="prime\\(\\) must succeed before run\\(\\)"):
+        executor.run(["-q"], timeout=1.0)
+
+
+@pytest.mark.unit
+def test_close_before_prime_is_a_no_op():
+    executor = WorkerProcessExecutor(worker_root="/w", guarded_path="/w/calc.py", forking_requested=True)
+    executor.close()
 
 
 def _write_add_sub_project(tmp_path):
@@ -33,7 +157,7 @@ def _write_add_sub_project(tmp_path):
 # --- WorkerProcessExecutor/_worker_server round trip --------------------------
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_worker_process_executor_round_trip(tmp_path):
     """Formalizes the manual verification from the session that fixed the
     stdout-flush leak: one primed Worker subprocess serves multiple, distinct
@@ -49,7 +173,7 @@ def test_worker_process_executor_round_trip(tmp_path):
         executor.close()
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_worker_process_executor_subprocess_forced(tmp_path):
     """Same round trip with forking_requested=False: the Worker's own
     _prepare_executor call must fall back to the subprocess executor and
@@ -82,7 +206,7 @@ def _write_workerinput_probe_project(tmp_path):
     return target
 
 
-@pytest.mark.integration
+@pytest.mark.component
 @pytest.mark.parametrize("forking_requested", [True, False])
 def test_worker_process_executor_supplies_worker_id(tmp_path, forking_requested):
     """A Worker constructed with worker_id="gw3" makes config.workerinput
@@ -100,7 +224,7 @@ def test_worker_process_executor_supplies_worker_id(tmp_path, forking_requested)
         executor.close()
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_worker_process_executor_without_worker_id_leaves_workerinput_unset(tmp_path):
     (tmp_path / "conftest.py").write_text("")
     target = tmp_path / "calc.py"
@@ -124,7 +248,7 @@ def test_worker_process_executor_without_worker_id_leaves_workerinput_unset(tmp_
 # --- forking vs. subprocess parity within a Worker -----------------------------
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_worker_forking_and_subprocess_parity(tmp_path):
     """Two real Worker subprocesses, one forced to the subprocess executor,
     must classify an identical mutant identically."""
@@ -157,6 +281,7 @@ def test_worker_forking_and_subprocess_parity(tmp_path):
 # --- a leaked target inside a Worker degrades to the subprocess executor ------
 
 
+@pytest.mark.component
 def test_worker_server_degrades_to_subprocess_on_leaked_target(tmp_path, monkeypatch, capfd):
     """A module-leak has to happen in the Worker subprocess's own
     sys.modules; a real subprocess boundary can't be seeded from outside, so

@@ -17,6 +17,7 @@ __all__ = [
     "CoverageSource",
     "OverheadInfo",
     "RunStats",
+    "overhead_info",
     "scan_report",
     "scan_report_with_coverage",
 ]
@@ -112,6 +113,17 @@ class OverheadInfo:
 
     overhead_duration: float
     baseline_duration: float
+
+
+def overhead_info(overhead_duration: float | None, baseline_duration: float | None) -> OverheadInfo | None:
+    """Pair a measured overhead with its Baseline, or None when there is no
+    overhead to report — a pre-supplied Baseline skips the probe entirely
+    (see `_baseline.resolve_baseline_and_overhead`), so the run has a
+    baseline_duration but nothing to pair it with.
+    """
+    if overhead_duration is None:
+        return None
+    return OverheadInfo(overhead_duration, baseline_duration)
 
 
 def _overhead_report_lines(overhead_duration: float, baseline_duration: float) -> list[str]:

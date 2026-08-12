@@ -21,6 +21,7 @@ import pytest
 
 from mutate4py._manifest import build_manifest
 
+
 _TESTED_AT = "2026-01-01T00:00:00Z"
 
 
@@ -197,6 +198,7 @@ STABLE_CORPUS: dict[str, tuple[str, str]] = {
 }
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("name", sorted(STABLE_CORPUS))
 def test_stable_corpus_digest_is_pinned(name):
     src, expected = STABLE_CORPUS[name]
@@ -229,6 +231,7 @@ QUOTE_REUSE_CORPUS: dict[str, tuple[str, str, str]] = {
 }
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("name", sorted(QUOTE_REUSE_CORPUS))
 def test_quote_reuse_corpus_digest_is_pinned_per_minor(name):
     src, reuse_digest, escaped_digest = QUOTE_REUSE_CORPUS[name]
@@ -236,6 +239,7 @@ def test_quote_reuse_corpus_digest_is_pinned_per_minor(name):
     assert _hashes(src) == (expected, expected)
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("name", sorted(QUOTE_REUSE_CORPUS))
 def test_quote_reuse_corpus_genuinely_diverges(name):
     _, reuse_digest, escaped_digest = QUOTE_REUSE_CORPUS[name]

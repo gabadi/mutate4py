@@ -1,19 +1,24 @@
-"""Guardrail: every test whose work runs inside a spawned Python interpreter
-must carry @pytest.mark.integration.
+"""Guardrail: every test whose work spawns a fresh Python interpreter must
+carry @pytest.mark.integration or @pytest.mark.component.
 
-A spawned interpreter is invisible to pytest-cov's --cov-context=test, so
-nothing that happens inside it can contribute per-Mutant test narrowing (see
-ADR 0018). That coverage-blindness, not the interpreter spawn itself, is why
-the marker exists — spawning is only how this guard detects it. Unmarked
-interpreter-spawning tests silently end up in the mutation run's test command
-(which defaults to excluding `integration`-marked tests, see justfile's
-`mutate` recipe) and reintroduce the ~5-6s-per-invocation cost that made the
-full `src/` mutation sweep take ~28 minutes — a symptom of the
-coverage-blindness, not the criterion for the marker.
+A spawned interpreter's *own* work is invisible to pytest-cov's
+--cov-context=test (see ADR 0018) — that coverage-blindness is why
+`integration` exists, and it's excluded from the mutation run's default test
+command (see justfile's `mutate` recipe) so its ~5-6s-per-invocation cost
+doesn't reintroduce the ~28-minute full `src/` sweep issue #18 fixed.
+`component` tests (ADR 0023) may also spawn an interpreter as an incidental
+implementation detail (e.g. a fake runner injected into otherwise in-process
+orchestration code, see tests/test_test_context_build.py) while the test's
+*own* meaningful work stays in-process and cov-context-visible; they are
+excluded from the fast `test-unit` loop but stay eligible for narrowing, so
+either marker satisfies this guard's real concern — keeping spawn cost out of
+the fast dev-loop gate — while only `unit` (unmarked here) is disqualifying.
 """
 
 import ast
 import os
+import pytest
+
 
 TESTS_DIR = os.path.dirname(__file__)
 
@@ -21,11 +26,14 @@ SPAWN_FUNCS = {"run", "Popen", "call", "check_output", "check_call"}
 KNOWN_INTERPRETER_HELPERS = {"_run_cli_path", "_run_cli_in"}
 
 
+_NON_DISQUALIFYING_MARKERS = {"integration", "component"}
+
+
 def _has_integration_marker(node: ast.FunctionDef) -> bool:
     for dec in node.decorator_list:
         if (
             isinstance(dec, ast.Attribute)
-            and dec.attr == "integration"
+            and dec.attr in _NON_DISQUALIFYING_MARKERS
             and isinstance(dec.value, ast.Attribute)
             and dec.value.attr == "mark"
         ):
@@ -59,6 +67,7 @@ def _find_unmarked_interpreter_spawning_tests(path: str) -> list[str]:
     return violations
 
 
+@pytest.mark.unit
 def test_no_unmarked_interpreter_spawning_tests():
     violations = {}
     for fname in sorted(os.listdir(TESTS_DIR)):
@@ -72,6 +81,6 @@ def test_no_unmarked_interpreter_spawning_tests():
     assert not violations, (
         "Test(s) spawn a fresh Python interpreter (subprocess.run/Popen/... "
         "with sys.executable, or _run_cli_path/_run_cli_in) without "
-        "@pytest.mark.integration, which will silently re-enter the "
-        "mutation run's test command:\n" + "\n".join(f"  {f}: {names}" for f, names in violations.items())
+        "@pytest.mark.integration or @pytest.mark.component, which will "
+        "silently re-enter the fast test-unit loop:\n" + "\n".join(f"  {f}: {names}" for f, names in violations.items())
     )

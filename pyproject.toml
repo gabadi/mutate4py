@@ -30,7 +30,9 @@ testpaths = ["tests"]
 pythonpath = ["scripts"]
 addopts = "--tb=short --strict-markers --ignore=tests/fixtures/django_project --ignore=tests/fixtures/overlapping_coverage"
 markers = [
-    "integration: work runs inside a spawned interpreter (via _run_cli_path/_run_cli_in), so --cov-context=test can't see it and it contributes no per-Mutant test narrowing; excluded from the mutation test command, run only by the full `test` gate.",
+    "unit: fast, fully isolated test; no real subprocess/fork execution. Runs in the test-unit gate, which is also where the coverage measurement is taken.",
+    "component: exercises mutate4py's own pipeline in-process (real subprocess/fork spawns via an Executor), so it is slow -- but it still runs in this interpreter, so --cov-context=test sees it and it stays eligible for per-Mutant test narrowing. Excluded from test-unit's fast gate and, with it, from the coverage measurement; runs in test-component.",
+    "integration: work runs inside a spawned interpreter (via _run_cli_path/_run_cli_in), so --cov-context=test can't see it and it contributes no per-Mutant test narrowing; excluded from the mutation test command, and coverage-blind, so it is outside the coverage measurement too. Runs in test-integration.",
 ]
 
 [tool.coverage.run]

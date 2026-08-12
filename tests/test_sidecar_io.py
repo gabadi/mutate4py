@@ -8,16 +8,20 @@ from mutate4py._sidecar_io import (
     serialize_json_sidecar,
     write_json_sidecar,
 )
+import pytest
+
 
 # ── parse_json_text ───────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_parse_json_text_valid():
     result, ok = parse_json_text('{"a": 1}')
     assert ok is True
     assert result == {"a": 1}
 
 
+@pytest.mark.unit
 def test_parse_json_text_invalid():
     result, ok = parse_json_text("not-json")
     assert ok is False
@@ -27,12 +31,14 @@ def test_parse_json_text_invalid():
 # ── serialize_json_sidecar (pure) ─────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_serialize_json_sidecar_is_pretty_printed():
     text = serialize_json_sidecar({"schema": 1, "functions": [{"id": "func/foo"}]})
     assert "\n" in text.strip()  # indent=2 spreads keys across lines
     assert text.endswith("\n")
 
 
+@pytest.mark.unit
 def test_serialize_json_sidecar_round_trips_through_parse():
     data = {"schema": 1, "functions": [{"id": "func/foo", "hash": "abc"}]}
     result, ok = parse_json_text(serialize_json_sidecar(data))
@@ -43,10 +49,12 @@ def test_serialize_json_sidecar_round_trips_through_parse():
 # ── read_json_sidecar / write_json_sidecar (file IO) ──────────────────────────
 
 
+@pytest.mark.unit
 def test_read_json_sidecar_missing_file_returns_none_false(tmp_path):
     assert read_json_sidecar(str(tmp_path / "absent.json")) == (None, False)
 
 
+@pytest.mark.unit
 def test_read_json_sidecar_invalid_json_returns_none_false(tmp_path):
     p = tmp_path / "sidecar.json"
     p.write_text("{not valid json")
@@ -54,6 +62,7 @@ def test_read_json_sidecar_invalid_json_returns_none_false(tmp_path):
     assert read_json_sidecar(str(p)) == (None, False)
 
 
+@pytest.mark.unit
 def test_read_json_sidecar_non_dict_json_returns_none_false(tmp_path):
     p = tmp_path / "sidecar.json"
     p.write_text(json.dumps([1, 2, 3]))
@@ -61,6 +70,7 @@ def test_read_json_sidecar_non_dict_json_returns_none_false(tmp_path):
     assert read_json_sidecar(str(p)) == (None, False)
 
 
+@pytest.mark.unit
 def test_write_json_sidecar_round_trips_through_read(tmp_path):
     p = str(tmp_path / "sidecar.json")
     data = {"schema": 1, "functions": []}
@@ -72,6 +82,7 @@ def test_write_json_sidecar_round_trips_through_read(tmp_path):
     assert result == data
 
 
+@pytest.mark.unit
 def test_write_json_sidecar_overwrites_previous_content(tmp_path):
     p = str(tmp_path / "sidecar.json")
 

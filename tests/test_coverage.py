@@ -29,6 +29,7 @@ def _site(line: int) -> Site:
     )
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "lcov,sf",
     [
@@ -41,6 +42,7 @@ def test_parse_lcov_line_5_covered(lcov, sf):
     assert 5 in parse_lcov(lcov, sf)
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "lcov",
     [
@@ -53,6 +55,7 @@ def test_parse_lcov_line_5_not_covered(lcov):
     assert 5 not in parse_lcov(lcov, "src/foo.py")
 
 
+@pytest.mark.unit
 def test_parse_lcov_absent_line_is_uncovered():
     lcov = "SF:src/foo.py\nDA:3,1\nend_of_record\n"
     result = parse_lcov(lcov, "src/foo.py")
@@ -60,6 +63,7 @@ def test_parse_lcov_absent_line_is_uncovered():
     assert 3 in result
 
 
+@pytest.mark.unit
 def test_parse_lcov_brda_does_not_mark_covered_when_no_da():
     lcov = "SF:src/foo.py\nBRDA:5,0,0,1\nDA:3,2\nend_of_record\n"
     result = parse_lcov(lcov, "src/foo.py")
@@ -67,6 +71,7 @@ def test_parse_lcov_brda_does_not_mark_covered_when_no_da():
     assert 3 in result
 
 
+@pytest.mark.unit
 def test_parse_lcov_multiple_files_only_matching_counted():
     lcov = "SF:other.py\nDA:5,1\nend_of_record\nSF:src/foo.py\nDA:3,2\nend_of_record\n"
     result = parse_lcov(lcov, "src/foo.py")
@@ -74,6 +79,7 @@ def test_parse_lcov_multiple_files_only_matching_counted():
     assert 5 not in result
 
 
+@pytest.mark.unit
 def test_parse_lcov_multiple_da_records():
     lcov = "SF:foo.py\nDA:3,1\nDA:5,2\nDA:7,0\nend_of_record\n"
     result = parse_lcov(lcov, "foo.py")
@@ -82,6 +88,7 @@ def test_parse_lcov_multiple_da_records():
     assert 7 not in result
 
 
+@pytest.mark.unit
 def test_parse_lcov_empty_text_returns_empty():
     result = parse_lcov("", "foo.py")
     assert result == set()
@@ -90,6 +97,7 @@ def test_parse_lcov_empty_text_returns_empty():
 # ── partition_sites ───────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_partition_all_covered():
     sites = [_site(3), _site(5), _site(7)]
     covered, uncovered = partition_sites(sites, {3, 5, 7})
@@ -97,6 +105,7 @@ def test_partition_all_covered():
     assert uncovered == 0
 
 
+@pytest.mark.unit
 def test_partition_none_covered():
     sites = [_site(3), _site(5), _site(7)]
     covered, uncovered = partition_sites(sites, set())
@@ -104,6 +113,7 @@ def test_partition_none_covered():
     assert uncovered == 3
 
 
+@pytest.mark.unit
 def test_partition_partial():
     sites = [_site(3), _site(5), _site(7)]
     covered, uncovered = partition_sites(sites, {3, 7})
@@ -111,6 +121,7 @@ def test_partition_partial():
     assert uncovered == 1
 
 
+@pytest.mark.unit
 def test_partition_covered_plus_uncovered_equals_total():
     sites = [_site(i) for i in range(10)]
     covered_lines = {0, 2, 4, 6, 8}
@@ -118,6 +129,7 @@ def test_partition_covered_plus_uncovered_equals_total():
     assert covered + uncovered == len(sites)
 
 
+@pytest.mark.unit
 def test_partition_empty_sites():
     covered, uncovered = partition_sites([], {3, 5})
     assert covered == 0
@@ -127,6 +139,7 @@ def test_partition_empty_sites():
 # ── acquire_coverage ──────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_acquire_from_lcov_path():
     with tempfile.TemporaryDirectory() as d:
         src = os.path.join(d, "foo.py")
@@ -139,6 +152,7 @@ def test_acquire_from_lcov_path():
         assert 1 in result
 
 
+@pytest.mark.unit
 def test_acquire_missing_lcov_path_raises():
     with tempfile.TemporaryDirectory() as d:
         with pytest.raises(CoverageError):
@@ -151,6 +165,7 @@ def test_acquire_missing_lcov_path_raises():
             )
 
 
+@pytest.mark.unit
 def test_acquire_reuse_reads_coverage_lcov():
     with tempfile.TemporaryDirectory() as d:
         src = os.path.join(d, "foo.py")
@@ -163,12 +178,14 @@ def test_acquire_reuse_reads_coverage_lcov():
         assert 1 in result
 
 
+@pytest.mark.unit
 def test_acquire_reuse_missing_default_raises():
     with tempfile.TemporaryDirectory() as d:
         with pytest.raises(CoverageError):
             acquire_coverage(cov_cmd=None, lcov_path=None, reuse=True, cwd=d, source_path="foo.py")
 
 
+@pytest.mark.unit
 def test_acquire_cov_cmd_runs_and_reads_coverage_lcov():
     with tempfile.TemporaryDirectory() as d:
         src = os.path.join(d, "foo.py")
@@ -181,6 +198,7 @@ def test_acquire_cov_cmd_runs_and_reads_coverage_lcov():
         assert 1 in result
 
 
+@pytest.mark.unit
 def test_acquire_cov_cmd_runs_exactly_once():
     with tempfile.TemporaryDirectory() as d:
         src = os.path.join(d, "foo.py")
@@ -199,6 +217,7 @@ def test_acquire_cov_cmd_runs_exactly_once():
 from mutate4py._coverage import _read_lcov_file, _resolve_lcov_path, _update_lcov_state  # noqa: E402
 
 
+@pytest.mark.unit
 def test_update_lcov_state_sf_strips_sf_prefix_not_extra_char():
     # _update_lcov_state: line[3:] strips "SF:" (3 chars), not line[4:]
     # line[4:] would give "oo.py" for "SF:foo.py" and "foo.py".endswith("oo.py") is True,
@@ -210,12 +229,14 @@ def test_update_lcov_state_sf_strips_sf_prefix_not_extra_char():
     assert result is False, "SF:afile.py must not match source_path=bfile.py"
 
 
+@pytest.mark.unit
 def test_update_lcov_state_sf_absolute_path_suffix_match():
     covered: set[int] = set()
     result = _update_lcov_state("SF:/abs/foo.py", in_matching_file=False, source_path="foo.py", covered=covered)
     assert result is True
 
 
+@pytest.mark.unit
 def test_update_lcov_state_end_of_record_resets_to_false():
     # end_of_record always returns False regardless of in_matching_file
     covered: set[int] = set()
@@ -223,6 +244,7 @@ def test_update_lcov_state_end_of_record_resets_to_false():
     assert _update_lcov_state("end_of_record", in_matching_file=False, source_path="foo.py", covered=covered) is False
 
 
+@pytest.mark.unit
 def test_parse_lcov_da_before_first_sf_not_collected():
     # DA before any SF: in_matching_file=False, line must not be collected
     lcov = "DA:5,3\nSF:foo.py\nend_of_record\n"
@@ -230,6 +252,7 @@ def test_parse_lcov_da_before_first_sf_not_collected():
     assert 5 not in result
 
 
+@pytest.mark.unit
 def test_parse_lcov_matched_sf_then_end_of_record_then_unmatched():
     # After end_of_record, subsequent SF for unmatched file must not contribute lines
     lcov = "SF:foo.py\nDA:3,1\nend_of_record\nSF:other.py\nDA:5,1\nend_of_record\n"
@@ -238,6 +261,7 @@ def test_parse_lcov_matched_sf_then_end_of_record_then_unmatched():
     assert 5 not in result
 
 
+@pytest.mark.unit
 def test_read_lcov_file_error_message_contains_path():
     # Error message must reference the missing path
     with tempfile.TemporaryDirectory() as d:
@@ -247,6 +271,7 @@ def test_read_lcov_file_error_message_contains_path():
         assert missing in str(exc_info.value)
 
 
+@pytest.mark.unit
 def test_resolve_lcov_path_cov_cmd_uses_cwd_for_default():
     # default lcov path is os.path.join(cwd, DEFAULT_LCOV_PATH)
     # mutant_5: cwd=None → subprocess.run with cwd=None uses process cwd, not our d
@@ -261,12 +286,14 @@ def test_resolve_lcov_path_cov_cmd_uses_cwd_for_default():
         assert os.path.isfile(expected), "coverage.lcov was not created in cwd"
 
 
+@pytest.mark.unit
 def test_resolve_lcov_path_reuse_uses_cwd():
     # reuse path joins cwd with DEFAULT_LCOV_PATH
     result = _resolve_lcov_path(cov_cmd=None, lcov_path=None, reuse=True, cwd="/some/dir")
     assert result == "/some/dir/coverage.lcov"
 
 
+@pytest.mark.unit
 def test_parse_lcov_initial_in_matching_file_is_false_not_none():
     # mutant_2: in_matching_file = None vs False
     # None is falsy so first DA lines before any SF would be skipped (same behavior).
@@ -283,6 +310,7 @@ def test_parse_lcov_initial_in_matching_file_is_false_not_none():
 from mutate4py._coverage import _paths_match_by_suffix, _parse_da_line  # noqa: E402
 
 
+@pytest.mark.unit
 def test_paths_match_by_suffix_backslash_normalized():
     # mutant_6/7/13/14: replace("\\", "/") changes backslashes to forward slashes
     # Windows-style paths use backslash; normalization ensures suffix match works
@@ -292,11 +320,13 @@ def test_paths_match_by_suffix_backslash_normalized():
     assert _paths_match_by_suffix("path\\to\\foo.py", "path/to/foo.py") is True
 
 
+@pytest.mark.unit
 def test_paths_match_by_suffix_backslash_in_sf_no_match_without_normalization():
     # Non-matching: different files — must remain False even after normalization
     assert _paths_match_by_suffix("path\\to\\bar.py", "path/to/foo.py") is False
 
 
+@pytest.mark.unit
 def test_paths_match_by_suffix_backslash_in_source_path():
     # mutant_13/14: b = source_path.replace("XX\\XX", "/") or replace("\\", "XX/XX")
     # When source_path has backslash but sf_path uses forward slash, normalization is required
@@ -308,6 +338,7 @@ def test_paths_match_by_suffix_backslash_in_source_path():
 # ── _parse_da_line: split maxsplit ────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_parse_da_line_extra_comma_in_count_field():
     # mutant_5: split(",",) vs split(",", 1) — without maxsplit, extra comma splits further
     # mutant_9: split(",", 2) — allows extra split, giving 3 parts; len != 2 check fails
@@ -333,6 +364,7 @@ def test_parse_da_line_extra_comma_in_count_field():
     assert result == 7
 
 
+@pytest.mark.unit
 def test_parse_da_line_rsplit_vs_split_distinguishing():
     # mutant_6: rsplit(",", 1) vs split(",", 1) — differs for "DA:5,3,0"
     # split(",", 1) on "5,3,0" → ["5", "3,0"] → int("3,0") → ValueError → None
@@ -353,6 +385,7 @@ def test_parse_da_line_rsplit_vs_split_distinguishing():
     assert _parse_da_line("DA:10,5") == 10
 
 
+@pytest.mark.unit
 def test_parse_da_line_split_maxsplit_1_limits_to_two_parts():
     # mutant_5: split(",",) has no maxsplit limit — extra commas produce >2 parts → None
     # mutant_9: split(",", 2) allows 3 parts → len != 2 → None for "DA:5,3,x"

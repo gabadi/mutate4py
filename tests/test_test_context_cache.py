@@ -15,6 +15,7 @@ from mutate4py._test_context_cache import (
 )
 
 from ._coverage_db_helpers import make_coverage_db, write_text
+import pytest
 
 
 def _unreadable_py(path):
@@ -23,10 +24,12 @@ def _unreadable_py(path):
     os.symlink(str(path) + ".nonexistent-target", path)
 
 
+@pytest.mark.unit
 def test_cache_path_appends_suffix():
     assert cache_path("/tmp/out.db") == "/tmp/out.db.test-context-cache.json"
 
 
+@pytest.mark.unit
 def test_build_cache_hashes_test_and_source_files(tmp_path):
     cwd = str(tmp_path)
     write_text(tmp_path / "test_a.py", "def test_one(): pass\n")
@@ -42,6 +45,7 @@ def test_build_cache_hashes_test_and_source_files(tmp_path):
     assert set(cache["source_files"]) == {str(tmp_path / "shared.py")}
 
 
+@pytest.mark.unit
 def test_build_cache_includes_conftest_in_an_ancestor_directory(tmp_path):
     cwd = str(tmp_path)
     sub = tmp_path / "sub"
@@ -56,6 +60,7 @@ def test_build_cache_includes_conftest_in_an_ancestor_directory(tmp_path):
     assert str(tmp_path / "conftest.py") in cache["py_files"]
 
 
+@pytest.mark.unit
 def test_build_cache_includes_test_support_files_beside_the_test(tmp_path):
     cwd = str(tmp_path)
     sub = tmp_path / "sub"
@@ -70,6 +75,7 @@ def test_build_cache_includes_test_support_files_beside_the_test(tmp_path):
     assert str(sub / "helpers.py") in cache["py_files"]
 
 
+@pytest.mark.unit
 def test_build_cache_includes_test_support_files_in_a_subdirectory(tmp_path):
     """tests/helpers/factories.py imported by tests/test_a.py — a child of the
     test's own directory, not an ancestor of it."""
@@ -87,6 +93,7 @@ def test_build_cache_includes_test_support_files_in_a_subdirectory(tmp_path):
     assert str(helpers_dir / "factories.py") in cache["py_files"]
 
 
+@pytest.mark.unit
 def test_build_cache_includes_test_support_files_in_a_sibling_subdirectory(tmp_path):
     """tests/helpers/factories.py imported by tests/unit/test_a.py — neither an
     ancestor of the test's directory nor a child of it."""
@@ -105,6 +112,7 @@ def test_build_cache_includes_test_support_files_in_a_sibling_subdirectory(tmp_p
     assert str(helpers_dir / "factories.py") in cache["py_files"]
 
 
+@pytest.mark.unit
 def test_build_cache_prunes_dot_directories_and_bytecode_caches(tmp_path):
     cwd = str(tmp_path)
     write_text(tmp_path / "test_a.py", "def test_one(): pass\n")
@@ -119,6 +127,7 @@ def test_build_cache_prunes_dot_directories_and_bytecode_caches(tmp_path):
     assert [p for p in cache["py_files"] if "vendored.py" in p] == []
 
 
+@pytest.mark.unit
 def test_build_cache_hashes_non_utf8_test_file_without_crashing(tmp_path):
     cwd = str(tmp_path)
     with open(tmp_path / "test_a.py", "wb") as f:
@@ -131,6 +140,7 @@ def test_build_cache_hashes_non_utf8_test_file_without_crashing(tmp_path):
     assert cache["py_files"][str(tmp_path / "test_a.py")] is not None
 
 
+@pytest.mark.unit
 def test_build_cache_records_a_missing_test_file_as_unhashable(tmp_path):
     cwd = str(tmp_path)
     db_path = str(tmp_path / "out.db")
@@ -141,6 +151,7 @@ def test_build_cache_records_a_missing_test_file_as_unhashable(tmp_path):
     assert cache["py_files"][str(tmp_path / "missing.py")] is None
 
 
+@pytest.mark.unit
 def test_build_cache_records_an_unhashable_config_file_without_dropping_the_rest(tmp_path, monkeypatch):
     cwd = str(tmp_path)
     write_text(tmp_path / "test_a.py", "def test_one(): pass\n")
@@ -154,6 +165,7 @@ def test_build_cache_records_an_unhashable_config_file_without_dropping_the_rest
     assert cache["py_files"][str(tmp_path / "test_a.py")] is not None
 
 
+@pytest.mark.unit
 def test_build_cache_records_an_unhashable_covered_source_file_as_none(tmp_path, monkeypatch):
     cwd = str(tmp_path)
     write_text(tmp_path / "test_a.py", "def test_one(): pass\n")
@@ -167,6 +179,7 @@ def test_build_cache_records_an_unhashable_covered_source_file_as_none(tmp_path,
     assert cache["source_files"] == {missing_source: None}
 
 
+@pytest.mark.unit
 def test_an_unreadable_project_file_does_not_disable_caching(tmp_path):
     """One permission-denied .py file must cost a single unhashable entry, not
     the whole fingerprint — otherwise caching is off for good."""
@@ -181,6 +194,7 @@ def test_an_unreadable_project_file_does_not_disable_caching(tmp_path):
     assert should_skip_rebuild(output_db_path=db_path, node_ids=["test_a.py::test_one"], cwd=cwd) is True
 
 
+@pytest.mark.unit
 def test_build_cache_tracks_a_test_file_outside_the_cwd_tree(tmp_path):
     cwd = str(tmp_path / "project")
     os.makedirs(cwd)
@@ -196,6 +210,7 @@ def test_build_cache_tracks_a_test_file_outside_the_cwd_tree(tmp_path):
     assert cache["py_files"][str(test_file)] is not None
 
 
+@pytest.mark.unit
 def test_write_and_read_cache_round_trip(tmp_path):
     db_path = str(tmp_path / "out.db")
     cache = {"version": 2, "node_ids": ["a.py::t"], "py_files": {"a.py": "h1"}, "source_files": {"b.py": "h2"}}
@@ -208,6 +223,7 @@ def test_write_and_read_cache_round_trip(tmp_path):
     assert os.path.isfile(cache_path(db_path))
 
 
+@pytest.mark.unit
 def test_write_and_read_cache_round_trips_unhashable_entries(tmp_path):
     """An unhashable entry must survive JSON as None, or every run after one
     would see a spurious difference and rebuild forever."""
@@ -219,11 +235,13 @@ def test_write_and_read_cache_round_trips_unhashable_entries(tmp_path):
     assert parsed["py_files"] == {"a.py": None}
 
 
+@pytest.mark.unit
 def test_read_cache_missing_file_returns_not_ok(tmp_path):
     parsed, ok = read_cache(str(tmp_path / "out.db"))
     assert (parsed, ok) == (None, False)
 
 
+@pytest.mark.unit
 def test_read_cache_corrupt_json_returns_not_ok(tmp_path):
     db_path = str(tmp_path / "out.db")
     write_text(cache_path(db_path), "{not valid json")
@@ -233,6 +251,7 @@ def test_read_cache_corrupt_json_returns_not_ok(tmp_path):
     assert (parsed, ok) == (None, False)
 
 
+@pytest.mark.unit
 def test_read_cache_non_dict_json_returns_not_ok(tmp_path):
     db_path = str(tmp_path / "out.db")
     write_text(cache_path(db_path), json.dumps([1, 2, 3]))
@@ -242,6 +261,7 @@ def test_read_cache_non_dict_json_returns_not_ok(tmp_path):
     assert (parsed, ok) == (None, False)
 
 
+@pytest.mark.unit
 def test_is_cache_fresh_true_when_nothing_changed(tmp_path):
     cwd = str(tmp_path)
     write_text(tmp_path / "test_a.py", "def test_one(): pass\n")
@@ -253,6 +273,7 @@ def test_is_cache_fresh_true_when_nothing_changed(tmp_path):
     assert is_cache_fresh(cache, node_ids=["test_a.py::test_one"], cwd=cwd) is True
 
 
+@pytest.mark.unit
 def test_is_cache_fresh_false_for_a_cache_written_by_an_older_version(tmp_path):
     cwd = str(tmp_path)
     write_text(tmp_path / "test_a.py", "def test_one(): pass\n")
@@ -263,6 +284,7 @@ def test_is_cache_fresh_false_for_a_cache_written_by_an_older_version(tmp_path):
     assert is_cache_fresh(v1_cache, node_ids=["test_a.py::test_one"], cwd=cwd) is False
 
 
+@pytest.mark.unit
 def test_is_cache_fresh_false_for_a_newer_version_reusing_todays_key_names(tmp_path):
     """A future format that keeps the same keys must still be rejected — what
     the fields mean is version-specific."""
@@ -278,6 +300,7 @@ def test_is_cache_fresh_false_for_a_newer_version_reusing_todays_key_names(tmp_p
     assert is_cache_fresh(cache, node_ids=["test_a.py::test_one"], cwd=cwd) is False
 
 
+@pytest.mark.unit
 def test_is_cache_fresh_false_when_node_ids_changed(tmp_path):
     cwd = str(tmp_path)
     write_text(tmp_path / "test_a.py", "def test_one(): pass\ndef test_two(): pass\n")
@@ -290,6 +313,7 @@ def test_is_cache_fresh_false_when_node_ids_changed(tmp_path):
     assert fresh is False
 
 
+@pytest.mark.unit
 def test_is_cache_fresh_false_when_test_file_content_changed(tmp_path):
     cwd = str(tmp_path)
     test_file = tmp_path / "test_a.py"
@@ -303,6 +327,7 @@ def test_is_cache_fresh_false_when_test_file_content_changed(tmp_path):
     assert is_cache_fresh(cache, node_ids=["test_a.py::test_one"], cwd=cwd) is False
 
 
+@pytest.mark.unit
 def test_is_cache_fresh_false_when_source_file_content_changed(tmp_path):
     cwd = str(tmp_path)
     write_text(tmp_path / "test_a.py", "def test_one(): pass\n")
@@ -317,6 +342,7 @@ def test_is_cache_fresh_false_when_source_file_content_changed(tmp_path):
     assert is_cache_fresh(cache, node_ids=["test_a.py::test_one"], cwd=cwd) is False
 
 
+@pytest.mark.unit
 def test_is_cache_fresh_false_when_conftest_content_changed(tmp_path):
     cwd = str(tmp_path)
     sub = tmp_path / "sub"
@@ -333,6 +359,7 @@ def test_is_cache_fresh_false_when_conftest_content_changed(tmp_path):
     assert is_cache_fresh(cache, node_ids=["sub/test_a.py::test_one"], cwd=cwd) is False
 
 
+@pytest.mark.unit
 def test_is_cache_fresh_false_when_a_subdirectory_support_file_changed(tmp_path):
     cwd = str(tmp_path)
     helpers_dir = tmp_path / "tests" / "helpers"
@@ -349,6 +376,7 @@ def test_is_cache_fresh_false_when_a_subdirectory_support_file_changed(tmp_path)
     assert is_cache_fresh(cache, node_ids=["tests/test_a.py::test_one"], cwd=cwd) is False
 
 
+@pytest.mark.unit
 def test_is_cache_fresh_false_when_a_project_file_is_added(tmp_path):
     cwd = str(tmp_path)
     write_text(tmp_path / "test_a.py", "def test_one(): pass\n")
@@ -361,6 +389,7 @@ def test_is_cache_fresh_false_when_a_project_file_is_added(tmp_path):
     assert is_cache_fresh(cache, node_ids=["test_a.py::test_one"], cwd=cwd) is False
 
 
+@pytest.mark.unit
 def test_is_cache_fresh_false_when_an_unreadable_file_becomes_readable(tmp_path):
     cwd = str(tmp_path)
     write_text(tmp_path / "test_a.py", "def test_one(): pass\n")
@@ -374,6 +403,7 @@ def test_is_cache_fresh_false_when_an_unreadable_file_becomes_readable(tmp_path)
     assert is_cache_fresh(cache, node_ids=["test_a.py::test_one"], cwd=cwd) is False
 
 
+@pytest.mark.unit
 def test_is_cache_fresh_false_when_coverage_config_added(tmp_path):
     cwd = str(tmp_path)
     write_text(tmp_path / "test_a.py", "def test_one(): pass\n")
@@ -386,6 +416,7 @@ def test_is_cache_fresh_false_when_coverage_config_added(tmp_path):
     assert is_cache_fresh(cache, node_ids=["test_a.py::test_one"], cwd=cwd) is False
 
 
+@pytest.mark.unit
 def test_is_cache_fresh_false_when_a_covered_source_file_outside_cwd_changed(tmp_path):
     cwd = str(tmp_path / "project")
     os.makedirs(cwd)
@@ -406,6 +437,7 @@ def test_is_cache_fresh_false_when_a_covered_source_file_outside_cwd_changed(tmp
     assert is_cache_fresh(cache, node_ids=["test_a.py::test_one"], cwd=cwd) is False
 
 
+@pytest.mark.unit
 def test_is_cache_fresh_false_when_source_file_removed(tmp_path):
     cwd = str(tmp_path)
     write_text(tmp_path / "test_a.py", "def test_one(): pass\n")
@@ -420,11 +452,13 @@ def test_is_cache_fresh_false_when_source_file_removed(tmp_path):
     assert is_cache_fresh(cache, node_ids=["test_a.py::test_one"], cwd=cwd) is False
 
 
+@pytest.mark.unit
 def test_should_skip_rebuild_false_when_db_does_not_exist(tmp_path):
     result = should_skip_rebuild(output_db_path=str(tmp_path / "out.db"), node_ids=["a.py::t"], cwd=str(tmp_path))
     assert result is False
 
 
+@pytest.mark.unit
 def test_should_skip_rebuild_false_when_cache_is_stale(tmp_path):
     cwd = str(tmp_path)
     write_text(tmp_path / "test_a.py", "def test_one(): pass\n")
@@ -435,6 +469,7 @@ def test_should_skip_rebuild_false_when_cache_is_stale(tmp_path):
     assert should_skip_rebuild(output_db_path=db_path, node_ids=["test_a.py::test_one"], cwd=cwd) is False
 
 
+@pytest.mark.unit
 def test_should_skip_rebuild_true_when_cache_is_fresh(tmp_path):
     cwd = str(tmp_path)
     write_text(tmp_path / "test_a.py", "def test_one(): pass\n")
@@ -445,6 +480,7 @@ def test_should_skip_rebuild_true_when_cache_is_fresh(tmp_path):
     assert should_skip_rebuild(output_db_path=db_path, node_ids=["test_a.py::test_one"], cwd=cwd) is True
 
 
+@pytest.mark.unit
 def test_should_skip_rebuild_false_when_db_exists_but_cache_is_absent(tmp_path):
     cwd = str(tmp_path)
     db_path = str(tmp_path / "out.db")
@@ -455,6 +491,7 @@ def test_should_skip_rebuild_false_when_db_exists_but_cache_is_absent(tmp_path):
     assert result is False
 
 
+@pytest.mark.unit
 def test_discard_cache_removes_existing_cache_file(tmp_path):
     db_path = str(tmp_path / "out.db")
     write_cache(db_path, {"version": 2, "node_ids": [], "py_files": {}, "source_files": {}})
@@ -464,6 +501,7 @@ def test_discard_cache_removes_existing_cache_file(tmp_path):
     assert os.path.isfile(cache_path(db_path)) is False
 
 
+@pytest.mark.unit
 def test_discard_cache_is_a_noop_when_cache_is_absent(tmp_path):
     db_path = str(tmp_path / "out.db")
 

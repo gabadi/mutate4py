@@ -22,6 +22,8 @@ to enforce).
 from pathlib import Path
 
 from ._module_size_guard import Caps, check_file, check_files
+import pytest
+
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -33,6 +35,7 @@ def _py_files(directory: Path) -> dict[str, Path]:
     return {p.relative_to(REPO_ROOT).as_posix(): p for p in sorted(directory.glob("*.py"))}
 
 
+@pytest.mark.unit
 def test_no_module_exceeds_its_size_cap():
     violations = check_files(_py_files(REPO_ROOT / "src" / "mutate4py"), SRC_CAPS)
     for test_dir in (REPO_ROOT / "tests", REPO_ROOT / "acceptance" / "steps"):
@@ -53,6 +56,7 @@ def _write_module(path: Path, *, lines: int, defs: int) -> None:
     path.write_text("\n".join(body) + "\n")
 
 
+@pytest.mark.unit
 def test_file_over_cap_on_lines_fails(tmp_path):
     path = tmp_path / "mod.py"
     _write_module(path, lines=11, defs=1)
@@ -64,6 +68,7 @@ def test_file_over_cap_on_lines_fails(tmp_path):
     assert "lines=11" in violation
 
 
+@pytest.mark.unit
 def test_file_over_cap_on_defs_fails(tmp_path):
     path = tmp_path / "mod.py"
     _write_module(path, lines=8, defs=4)
@@ -75,6 +80,7 @@ def test_file_over_cap_on_defs_fails(tmp_path):
     assert "defs=4" in violation
 
 
+@pytest.mark.unit
 def test_file_under_cap_passes(tmp_path):
     path = tmp_path / "mod.py"
     _write_module(path, lines=5, defs=1)
@@ -84,6 +90,7 @@ def test_file_under_cap_passes(tmp_path):
     assert violation is None
 
 
+@pytest.mark.unit
 def test_file_exactly_at_cap_passes(tmp_path):
     path = tmp_path / "mod.py"
     _write_module(path, lines=10, defs=3)
@@ -93,6 +100,7 @@ def test_file_exactly_at_cap_passes(tmp_path):
     assert violation is None
 
 
+@pytest.mark.unit
 def test_check_files_aggregates_every_offending_file(tmp_path):
     good = tmp_path / "good.py"
     _write_module(good, lines=5, defs=1)

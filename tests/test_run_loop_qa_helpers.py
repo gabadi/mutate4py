@@ -10,17 +10,20 @@ from acceptance.steps.run_loop_qa_helpers import (
     n_survivors_body,
     one_timeout_rest_killed_body,
 )
+import pytest
 
 
 # ── constants ─────────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_body_always_pass_compiles_and_passes():
     ns = {}
     exec(compile(BODY_ALWAYS_PASS, "<test>", "exec"), ns)
     ns["test_qa"]()
 
 
+@pytest.mark.unit
 def test_body_always_fail_compiles_and_raises():
     ns = {}
     exec(compile(BODY_ALWAYS_FAIL, "<test>", "exec"), ns)
@@ -34,6 +37,7 @@ def test_body_always_fail_compiles_and_raises():
 # ── make_lcov ────────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_make_lcov_format():
     text = make_lcov("/src/foo.py", [3, 1])
     assert "SF:/src/foo.py" in text
@@ -42,6 +46,7 @@ def test_make_lcov_format():
     assert "end_of_record" in text
 
 
+@pytest.mark.unit
 def test_make_lcov_sorts_lines():
     text = make_lcov("/src/foo.py", [5, 2])
     da_lines = [ln for ln in text.splitlines() if ln.startswith("DA:")]
@@ -51,11 +56,13 @@ def test_make_lcov_sorts_lines():
 # ── mutated_run_exits_nonzero_body ───────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_mutated_run_exits_nonzero_body_compiles():
     body = mutated_run_exits_nonzero_body("/tmp/calc.py")
     compile(body, "<test>", "exec")
 
 
+@pytest.mark.unit
 def test_mutated_run_exits_nonzero_body_interpolates_path():
     body = mutated_run_exits_nonzero_body("/tmp/calc.py")
     assert "'/tmp/calc.py'" in body
@@ -65,11 +72,13 @@ def test_mutated_run_exits_nonzero_body_interpolates_path():
 # ── mutated_run_sleeps_past_timeout_body ─────────────────────────────────
 
 
+@pytest.mark.unit
 def test_mutated_run_sleeps_past_timeout_body_compiles():
     body = mutated_run_sleeps_past_timeout_body("/tmp/calc.py")
     compile(body, "<test>", "exec")
 
 
+@pytest.mark.unit
 def test_mutated_run_sleeps_past_timeout_body_interpolates_path():
     body = mutated_run_sleeps_past_timeout_body("/tmp/calc.py")
     assert "'/tmp/calc.py'" in body
@@ -79,11 +88,13 @@ def test_mutated_run_sleeps_past_timeout_body_interpolates_path():
 # ── one_timeout_rest_killed_body ─────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_one_timeout_rest_killed_body_compiles():
     body = one_timeout_rest_killed_body("/tmp/counter.log")
     compile(body, "<test>", "exec")
 
 
+@pytest.mark.unit
 def test_one_timeout_rest_killed_body_interpolates_path():
     body = one_timeout_rest_killed_body("/tmp/counter.log")
     assert "'/tmp/counter.log'" in body
@@ -94,11 +105,13 @@ def test_one_timeout_rest_killed_body_interpolates_path():
 # ── n_survivors_body ──────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_n_survivors_body_compiles():
     body = n_survivors_body("/tmp/counter.log", 3)
     compile(body, "<test>", "exec")
 
 
+@pytest.mark.unit
 def test_n_survivors_body_interpolates_params():
     body = n_survivors_body("/tmp/counter.log", 3)
     assert "'/tmp/counter.log'" in body
@@ -108,11 +121,13 @@ def test_n_survivors_body_interpolates_params():
 # ── all_killed_body ───────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_all_killed_body_compiles():
     body = all_killed_body("/tmp/counter.log")
     compile(body, "<test>", "exec")
 
 
+@pytest.mark.unit
 def test_all_killed_body_interpolates_path():
     body = all_killed_body("/tmp/counter.log")
     assert "'/tmp/counter.log'" in body

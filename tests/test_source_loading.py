@@ -4,10 +4,13 @@ import os
 
 from mutate4py._manifest_storage import ManifestLocation
 from mutate4py._source_loading import _finalize_source
+import pytest
+
 
 # ── _finalize_source manifest content ────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_finalize_source_embeds_manifest_with_tested_at(tmp_path):
     """_finalize_source writes the file with a manifest containing the tested_at timestamp."""
     import json
@@ -30,6 +33,7 @@ def test_finalize_source_embeds_manifest_with_tested_at(tmp_path):
     assert manifest["tested_at"] == tested_at
 
 
+@pytest.mark.unit
 def test_finalize_source_removes_bak_when_present(tmp_path):
     """_finalize_source removes the .bak file if it exists after writing."""
     src = "def f(a, b):\n    return a > b\n"
@@ -45,6 +49,7 @@ def test_finalize_source_removes_bak_when_present(tmp_path):
     assert not os.path.isfile(bak_path)
 
 
+@pytest.mark.unit
 def test_finalize_source_manifest_is_valid_dict(tmp_path):
     """The embedded manifest is valid JSON dict (not null, not a string)."""
     import json
@@ -66,6 +71,7 @@ def test_finalize_source_manifest_is_valid_dict(tmp_path):
     assert "sites" in manifest or "ast_hash" in manifest or "tested_at" in manifest
 
 
+@pytest.mark.unit
 def test_finalize_source_sidecar_writes_manifest_file_not_footer(tmp_path):
     """manifest_file=True => sidecar JSON gets the manifest; source stays footer-free."""
     import json
@@ -90,6 +96,7 @@ def test_finalize_source_sidecar_writes_manifest_file_not_footer(tmp_path):
     assert sidecar["functions"][0]["id"] == "func/f"
 
 
+@pytest.mark.unit
 def test_finalize_source_sidecar_removes_bak_when_present(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "f.py")
@@ -104,6 +111,7 @@ def test_finalize_source_sidecar_removes_bak_when_present(tmp_path):
     assert not os.path.isfile(bak_path)
 
 
+@pytest.mark.unit
 def test_finalize_source_retains_existing_manifest_when_structurally_equal(tmp_path):
     """When existing_manifest matches the candidate built from clean_source, the OLD
     tested_at is kept in the written file rather than being bumped to the new one."""
@@ -135,6 +143,7 @@ def test_finalize_source_retains_existing_manifest_when_structurally_equal(tmp_p
     assert manifest["tested_at"] == old_tested_at
 
 
+@pytest.mark.unit
 def test_finalize_source_bumps_tested_at_when_existing_manifest_differs(tmp_path):
     """When existing_manifest is structurally different from the candidate, a fresh
     manifest with the new tested_at is embedded (today's default behavior)."""

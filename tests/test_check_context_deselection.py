@@ -62,6 +62,7 @@ def _make_coverage_db(db_path, arcs, *, has_arcs=True):
 # --- named_contexts ---------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_named_contexts_strips_run_suffix_and_excludes_empty(tmp_path):
     db_path = tmp_path / ".coverage"
     _make_coverage_db(
@@ -79,6 +80,7 @@ def test_named_contexts_strips_run_suffix_and_excludes_empty(tmp_path):
     assert set(result.keys()) == {"tests/test_a.py::test_one", "tests/test_b.py::test_two"}
 
 
+@pytest.mark.unit
 def test_named_contexts_missing_db_raises_gate_error(tmp_path):
     with pytest.raises(GateError, match="does not exist"):
         named_contexts(tmp_path / "nope.coverage")
@@ -87,6 +89,7 @@ def test_named_contexts_missing_db_raises_gate_error(tmp_path):
 # --- collect_node_ids --------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_collect_node_ids_parses_unindented_double_colon_lines(monkeypatch, tmp_path):
     stdout = (
         "tests/test_a.py::test_one\n"
@@ -106,6 +109,7 @@ def test_collect_node_ids_parses_unindented_double_colon_lines(monkeypatch, tmp_
     assert result == ["tests/test_a.py::test_one", "tests/test_a.py::test_two[param]"]
 
 
+@pytest.mark.unit
 def test_collect_node_ids_raises_on_pytest_failure(monkeypatch, tmp_path):
     def fake_run(cmd, cwd, capture_output, text, check):
         return subprocess.CompletedProcess(cmd, 4, stdout="", stderr="usage error")
@@ -119,6 +123,7 @@ def test_collect_node_ids_raises_on_pytest_failure(monkeypatch, tmp_path):
 # --- files_for_context_ids ---------------------------------------------------
 
 
+@pytest.mark.unit
 def test_files_for_context_ids_joins_distinct_files(tmp_path):
     db_path = tmp_path / ".coverage"
     context_ids = _make_coverage_db(
@@ -137,6 +142,7 @@ def test_files_for_context_ids_joins_distinct_files(tmp_path):
 # --- check --------------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_check_reports_no_violations_when_every_named_context_is_selected(monkeypatch, tmp_path):
     db_path = tmp_path / ".coverage"
     _make_coverage_db(
@@ -145,14 +151,15 @@ def test_check_reports_no_violations_when_every_named_context_is_selected(monkey
     )
     monkeypatch.setattr(
         "check_context_deselection.collect_node_ids",
-        lambda args, cwd: ["tests/test_a.py::test_one"] if "not integration" in " ".join(args) else [],
+        lambda args, cwd: ["tests/test_a.py::test_one"],
     )
 
-    violations = check(db_path, ["-m", "not integration"], ["-m", "integration"], tmp_path)
+    violations = check(db_path, ["-m", "not integration"], tmp_path)
 
     assert violations == []
 
 
+@pytest.mark.unit
 def test_check_reports_violation_with_affected_files(monkeypatch, tmp_path):
     db_path = tmp_path / ".coverage"
     _make_coverage_db(
@@ -166,17 +173,23 @@ def test_check_reports_violation_with_affected_files(monkeypatch, tmp_path):
     # but still shows up as a named context (the Finding 1 bug).
     monkeypatch.setattr(
         "check_context_deselection.collect_node_ids",
-        lambda args, cwd: (
-            ["tests/test_a.py::test_one"] if "not integration" in " ".join(args) else ["tests/test_hybrid.py::test_two"]
-        ),
+        lambda args, cwd: ["tests/test_a.py::test_one"],
     )
 
-    violations = check(db_path, ["-m", "not integration"], ["-m", "integration"], tmp_path)
+    violations = check(db_path, ["-m", "not integration"], tmp_path)
 
     assert violations == [Violation("tests/test_hybrid.py::test_two", ["/repo/src/mutate4py/_b.py"])]
 
 
-def test_check_refuses_when_integration_half_missing(monkeypatch, tmp_path):
+@pytest.mark.unit
+def test_check_no_violation_when_an_integration_test_has_no_named_context(monkeypatch, tmp_path):
+    """`integration` (ADR 0018) means invisible to --cov-context=test by
+    definition, so an integration-marked test collected but never recorded
+    as a named context is the correct, expected state -- not a partial
+    `.coverage` build. `check` must not treat this as a GateError (there
+    used to be a "no integration test overlaps a named context" sanity
+    check here; it was removed for being backwards, see `check`'s
+    docstring)."""
     db_path = tmp_path / ".coverage"
     _make_coverage_db(
         db_path,
@@ -184,17 +197,15 @@ def test_check_refuses_when_integration_half_missing(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         "check_context_deselection.collect_node_ids",
-        lambda args, cwd: (
-            ["tests/test_a.py::test_one"]
-            if "not integration" in " ".join(args)
-            else ["tests/test_hybrid.py::test_two"]  # collected, but never a named context
-        ),
+        lambda args, cwd: ["tests/test_a.py::test_one"],
     )
 
-    with pytest.raises(GateError, match="integration"):
-        check(db_path, ["-m", "not integration"], ["-m", "integration"], tmp_path)
+    violations = check(db_path, ["-m", "not integration"], tmp_path)
+
+    assert violations == []
 
 
+@pytest.mark.unit
 def test_check_refuses_when_unit_half_missing(monkeypatch, tmp_path):
     db_path = tmp_path / ".coverage"
     _make_coverage_db(
@@ -203,25 +214,23 @@ def test_check_refuses_when_unit_half_missing(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         "check_context_deselection.collect_node_ids",
-        lambda args, cwd: (
-            ["tests/test_a.py::test_one"]  # collected, but never a named context
-            if "not integration" in " ".join(args)
-            else ["tests/test_hybrid.py::test_two"]
-        ),
+        lambda args, cwd: ["tests/test_a.py::test_one"],  # collected, but never a named context
     )
 
     with pytest.raises(GateError, match="unit|not integration"):
-        check(db_path, ["-m", "not integration"], ["-m", "integration"], tmp_path)
+        check(db_path, ["-m", "not integration"], tmp_path)
 
 
+@pytest.mark.unit
 def test_check_refuses_when_coverage_db_missing(tmp_path):
     with pytest.raises(GateError, match="does not exist"):
-        check(tmp_path / "nope.coverage", ["-m", "not integration"], ["-m", "integration"], tmp_path)
+        check(tmp_path / "nope.coverage", ["-m", "not integration"], tmp_path)
 
 
 # --- main (CLI) ---------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_main_exits_0_and_prints_ok_when_no_violations(monkeypatch, tmp_path, capsys):
     db_path = tmp_path / ".coverage"
     _make_coverage_db(
@@ -239,6 +248,7 @@ def test_main_exits_0_and_prints_ok_when_no_violations(monkeypatch, tmp_path, ca
     assert "no context-deselection violations" in capsys.readouterr().out
 
 
+@pytest.mark.unit
 def test_main_exits_1_and_names_offenders_when_violations_found(monkeypatch, tmp_path, capsys):
     db_path = tmp_path / ".coverage"
     _make_coverage_db(
@@ -258,6 +268,7 @@ def test_main_exits_1_and_names_offenders_when_violations_found(monkeypatch, tmp
     assert "_b.py" in captured.err
 
 
+@pytest.mark.unit
 def test_main_exits_1_with_clear_message_on_gate_error(tmp_path, capsys):
     exit_code = main(["--coverage-db", str(tmp_path / "nope.coverage"), "--cwd", str(tmp_path)])
 

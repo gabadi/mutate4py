@@ -115,26 +115,32 @@ def _make_coverage_db_arcs(db_path: str, files: dict[str, dict[str, list[tuple[i
 # ── numbits decoding ───────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_numbits_empty_bytes():
     assert _numbits_to_lines(b"") == set()
 
 
+@pytest.mark.unit
 def test_numbits_single_byte_first_bit():
     assert _numbits_to_lines(bytes([0b00000001])) == {1}
 
 
+@pytest.mark.unit
 def test_numbits_single_byte_last_bit():
     assert _numbits_to_lines(bytes([0b10000000])) == {8}
 
 
+@pytest.mark.unit
 def test_numbits_second_byte_first_bit():
     assert _numbits_to_lines(bytes([0, 0b00000001])) == {9}
 
 
+@pytest.mark.unit
 def test_numbits_multiple_lines_same_byte():
     assert _numbits_to_lines(bytes([0b00000101])) == {1, 3}
 
 
+@pytest.mark.unit
 def test_numbits_roundtrip(tmp_path):
     lines = {1, 5, 8, 9, 16}
     assert _numbits_to_lines(_make_numbits(lines)) == lines
@@ -143,14 +149,17 @@ def test_numbits_roundtrip(tmp_path):
 # ── context stripping ──────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_strip_context_no_pipe():
     assert _strip_context_suffix("tests/foo.py::test_bar") == "tests/foo.py::test_bar"
 
 
+@pytest.mark.unit
 def test_strip_context_run_suffix():
     assert _strip_context_suffix("tests/foo.py::test_bar|run") == "tests/foo.py::test_bar"
 
 
+@pytest.mark.unit
 def test_strip_context_other_suffix():
     assert _strip_context_suffix("tests/foo.py::test_bar|something") == "tests/foo.py::test_bar"
 
@@ -158,32 +167,39 @@ def test_strip_context_other_suffix():
 # ── dynamic-context detection (issue #69) ──────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_is_dynamic_context_no_pipe_is_static():
     assert _is_dynamic_context("tests/foo.py::test_bar") is False
 
 
+@pytest.mark.unit
 def test_is_dynamic_context_run_suffix_is_dynamic():
     assert _is_dynamic_context("tests/foo.py::test_bar|run") is True
 
 
+@pytest.mark.unit
 def test_is_dynamic_context_setup_suffix_is_dynamic():
     assert _is_dynamic_context("tests/foo.py::test_bar|setup") is True
 
 
+@pytest.mark.unit
 def test_is_dynamic_context_teardown_suffix_is_dynamic():
     assert _is_dynamic_context("tests/foo.py::test_bar|teardown") is True
 
 
+@pytest.mark.unit
 def test_is_dynamic_context_unrecognized_suffix_is_not_dynamic():
     """Only pytest-cov's own phase vocabulary counts -- an unrelated '|' in a
     node id (however unlikely) must not be mistaken for it."""
     assert _is_dynamic_context("tests/foo.py::test_bar|something") is False
 
 
+@pytest.mark.unit
 def test_is_dynamic_context_empty_string_is_static():
     assert _is_dynamic_context("") is False
 
 
+@pytest.mark.unit
 def test_classify_defaults_dynamic_to_false():
     """Every real caller passes dynamic= explicitly (see _tests_for_line_bits/
     _tests_for_line_arcs); this pins the default's own contract -- omitting
@@ -195,6 +211,7 @@ def test_classify_defaults_dynamic_to_false():
 # ── TestContextDB queries ──────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_tests_for_line_returns_matching_test(tmp_path):
     """Static (isolated-session) context strings carry no |<phase> suffix --
     see the "under-listed" tests below for the dynamic-context case."""
@@ -216,6 +233,7 @@ def test_tests_for_line_returns_matching_test(tmp_path):
     ctx_db.close()
 
 
+@pytest.mark.unit
 def test_tests_for_line_returns_multiple_tests(tmp_path):
     db = tmp_path / ".coverage"
     _make_coverage_db(
@@ -234,6 +252,7 @@ def test_tests_for_line_returns_multiple_tests(tmp_path):
     ctx_db.close()
 
 
+@pytest.mark.unit
 def test_tests_for_line_line_absent_when_no_context_recorded_the_line(tmp_path):
     db = tmp_path / ".coverage"
     _make_coverage_db(
@@ -245,6 +264,7 @@ def test_tests_for_line_line_absent_when_no_context_recorded_the_line(tmp_path):
     ctx_db.close()
 
 
+@pytest.mark.unit
 def test_tests_for_line_file_absent_when_file_not_in_db(tmp_path):
     db = tmp_path / ".coverage"
     _make_coverage_db(
@@ -256,6 +276,7 @@ def test_tests_for_line_file_absent_when_file_not_in_db(tmp_path):
     ctx_db.close()
 
 
+@pytest.mark.unit
 def test_empty_context_only_is_static(tmp_path):
     """A line seen only under the empty (whole-run) context is import-time code."""
     db = tmp_path / ".coverage"
@@ -273,6 +294,7 @@ def test_empty_context_only_is_static(tmp_path):
     ctx_db.close()
 
 
+@pytest.mark.unit
 def test_empty_context_does_not_suppress_a_covering_test(tmp_path):
     """A named test wins over the empty context when both recorded the line."""
     db = tmp_path / ".coverage"
@@ -296,6 +318,7 @@ def test_empty_context_does_not_suppress_a_covering_test(tmp_path):
 # ── under-listed detection (issue #69): dynamic-context contamination ──────────
 
 
+@pytest.mark.unit
 def test_single_dynamic_context_is_under_listed_not_narrowed(tmp_path):
     """A line named by exactly one pytest-cov dynamic context can't be trusted
     complete -- the switch_context() session that produced it is exactly the
@@ -315,6 +338,7 @@ def test_single_dynamic_context_is_under_listed_not_narrowed(tmp_path):
     ctx_db.close()
 
 
+@pytest.mark.unit
 def test_one_dynamic_context_among_several_taints_the_whole_line(tmp_path):
     """Even when other covering tests are named by sound static contexts, one
     dynamic context in the mix is enough evidence the list may be incomplete."""
@@ -335,6 +359,7 @@ def test_one_dynamic_context_among_several_taints_the_whole_line(tmp_path):
     ctx_db.close()
 
 
+@pytest.mark.unit
 def test_all_static_contexts_still_narrow_cleanly(tmp_path):
     """No false positive: two covering tests named by static (isolated-session)
     contexts stay "narrowed", not "under-listed"."""
@@ -355,11 +380,13 @@ def test_all_static_contexts_still_narrow_cleanly(tmp_path):
     ctx_db.close()
 
 
+@pytest.mark.unit
 def test_missing_db_raises_test_context_error(tmp_path):
     with pytest.raises(TestContextError):
         TestContextDB(str(tmp_path / "nonexistent.coverage"))
 
 
+@pytest.mark.unit
 def test_tests_for_line_is_safe_across_concurrent_threads(tmp_path):
     """Regression: parallel Worker dispatch shares one TestContextDB across
     worker threads (see _workers.py::WorkerRunSettings). sqlite3 connections
@@ -406,6 +433,7 @@ def test_tests_for_line_is_safe_across_concurrent_threads(tmp_path):
 # ── TestContextDB queries: branch-coverage mode (arc table, has_arcs=1) ─────────
 
 
+@pytest.mark.unit
 def test_tests_for_line_arc_mode_matches_fromno(tmp_path):
     db = tmp_path / ".coverage"
     _make_coverage_db_arcs(
@@ -424,6 +452,7 @@ def test_tests_for_line_arc_mode_matches_fromno(tmp_path):
     ctx_db.close()
 
 
+@pytest.mark.unit
 def test_tests_for_line_arc_mode_matches_tono(tmp_path):
     db = tmp_path / ".coverage"
     _make_coverage_db_arcs(
@@ -442,6 +471,7 @@ def test_tests_for_line_arc_mode_matches_tono(tmp_path):
     ctx_db.close()
 
 
+@pytest.mark.unit
 def test_tests_for_line_arc_mode_returns_multiple_tests(tmp_path):
     db = tmp_path / ".coverage"
     _make_coverage_db_arcs(
@@ -460,6 +490,7 @@ def test_tests_for_line_arc_mode_returns_multiple_tests(tmp_path):
     ctx_db.close()
 
 
+@pytest.mark.unit
 def test_tests_for_line_arc_mode_line_absent_for_unrecorded_line(tmp_path):
     db = tmp_path / ".coverage"
     _make_coverage_db_arcs(
@@ -471,6 +502,7 @@ def test_tests_for_line_arc_mode_line_absent_for_unrecorded_line(tmp_path):
     ctx_db.close()
 
 
+@pytest.mark.unit
 def test_tests_for_line_arc_mode_excludes_synthetic_entry_exit_sentinels(tmp_path):
     """Negative fromno/tono are code-object entry/exit markers, not real lines.
 
@@ -488,6 +520,7 @@ def test_tests_for_line_arc_mode_excludes_synthetic_entry_exit_sentinels(tmp_pat
     ctx_db.close()
 
 
+@pytest.mark.unit
 def test_tests_for_line_arc_mode_rejects_line_zero_even_when_an_arc_carries_it(
     tmp_path,
 ):
@@ -502,6 +535,7 @@ def test_tests_for_line_arc_mode_rejects_line_zero_even_when_an_arc_carries_it(
     ctx_db.close()
 
 
+@pytest.mark.unit
 def test_tests_for_line_arc_mode_matches_line_one(tmp_path):
     """Line 1 is a real line, on the far side of the <= 0 guard's boundary."""
     db = tmp_path / ".coverage"
@@ -517,6 +551,7 @@ def test_tests_for_line_arc_mode_matches_line_one(tmp_path):
     ctx_db.close()
 
 
+@pytest.mark.unit
 def test_tests_for_line_arc_mode_empty_context_only_is_static(tmp_path):
     """A line seen only under the empty (whole-run) context is import-time code."""
     db = tmp_path / ".coverage"
@@ -534,6 +569,7 @@ def test_tests_for_line_arc_mode_empty_context_only_is_static(tmp_path):
     ctx_db.close()
 
 
+@pytest.mark.unit
 def test_tests_for_line_arc_mode_empty_context_does_not_suppress_a_test(tmp_path):
     """A named test wins over the empty context when both recorded the line."""
     db = tmp_path / ".coverage"
@@ -554,6 +590,7 @@ def test_tests_for_line_arc_mode_empty_context_does_not_suppress_a_test(tmp_path
     ctx_db.close()
 
 
+@pytest.mark.unit
 def test_tests_for_line_arc_mode_file_absent_when_file_not_in_db(tmp_path):
     db = tmp_path / ".coverage"
     _make_coverage_db_arcs(
@@ -568,6 +605,7 @@ def test_tests_for_line_arc_mode_file_absent_when_file_not_in_db(tmp_path):
 # ── under-listed detection, arc mode (issue #69) ────────────────────────────────
 
 
+@pytest.mark.unit
 def test_arc_mode_single_dynamic_context_is_under_listed_not_narrowed(tmp_path):
     db = tmp_path / ".coverage"
     _make_coverage_db_arcs(
@@ -582,6 +620,7 @@ def test_arc_mode_single_dynamic_context_is_under_listed_not_narrowed(tmp_path):
     ctx_db.close()
 
 
+@pytest.mark.unit
 def test_arc_mode_one_dynamic_context_among_several_taints_the_line(tmp_path):
     db = tmp_path / ".coverage"
     _make_coverage_db_arcs(
