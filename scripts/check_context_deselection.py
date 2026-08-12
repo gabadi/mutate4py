@@ -41,7 +41,6 @@ __all__ = [
 ]
 
 DEFAULT_PYTEST_ARGS = "-p no:tach -m 'not integration'"
-DEFAULT_INTEGRATION_PYTEST_ARGS = "-m integration"
 
 
 class GateError(Exception):
@@ -111,18 +110,23 @@ def files_for_context_ids(db_path: Path, context_ids: list[int]) -> list[str]:
         conn.close()
 
 
-def check(db_path: Path, not_integration_args: list[str], integration_args: list[str], cwd: Path) -> list[Violation]:
-    """Return every named context deselected by not_integration_args, or raise GateError."""
+def check(db_path: Path, not_integration_args: list[str], cwd: Path) -> list[Violation]:
+    """Return every named context deselected by not_integration_args, or raise GateError.
+
+    There is deliberately no "integration tests must overlap with named
+    contexts" sanity check here (there was one; it was removed). It assumed
+    at least one `integration`-marked test would show up as a named context,
+    which is backwards: `integration` (ADR 0018) means "invisible to
+    --cov-context=test" by definition, so once classification is accurate
+    zero overlap is the correct, expected state -- the very thing this gate
+    exists to converge on -- not evidence of a partial `.coverage` build.
+    The justfile's own append-order guards (`needs_test` et al.) are what
+    catch a genuinely partial build (e.g. `test-unit` run without
+    `test-integration`); this script doesn't need to re-detect that too.
+    """
     contexts = named_contexts(db_path)
     selected = set(collect_node_ids(not_integration_args, cwd))
-    integration_collected = set(collect_node_ids(integration_args, cwd))
 
-    if integration_collected and not (integration_collected & contexts.keys()):
-        raise GateError(
-            f"{db_path} has no named context for any of the {len(integration_collected)} "
-            "collected integration test(s); looks like only the unit half was recorded. "
-            "Run `just check test-unit test-integration`."
-        )
     if selected and not (selected & contexts.keys()):
         raise GateError(
             f"{db_path} has no named context for any of the {len(selected)} collected "
@@ -157,7 +161,6 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_PYTEST_ARGS,
         help="Same value as the `mutate` recipe's --pytest-args (justfile).",
     )
-    parser.add_argument("--integration-pytest-args", default=DEFAULT_INTEGRATION_PYTEST_ARGS)
     parser.add_argument("--cwd", default=Path.cwd(), type=Path)
     args = parser.parse_args(argv)
 
@@ -165,7 +168,6 @@ def main(argv: list[str] | None = None) -> int:
         violations = check(
             args.coverage_db,
             shlex.split(args.pytest_args),
-            shlex.split(args.integration_pytest_args),
             args.cwd,
         )
     except GateError as exc:

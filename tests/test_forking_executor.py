@@ -113,7 +113,7 @@ _ADD_TEST_BODY = "from {mod} import add\ndef test_add():\n    assert add(2, 2) =
 _ARGS = ["-q", "tests"]
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_prime_succeeds_when_target_not_pre_imported(tmp_path):
     cwd, target = _write_fixture_project(
         tmp_path,
@@ -124,7 +124,7 @@ def test_prime_succeeds_when_target_not_pre_imported(tmp_path):
     executor.prime()  # must not raise
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_prime_neutralises_plugins_on_its_own_collect_only_call(tmp_path, monkeypatch):
     """Regression: prime()'s internal collect-only pytest.main() call is
     itself an in-process, pre-fork pytest re-entry, so it must carry the
@@ -154,7 +154,7 @@ def test_prime_neutralises_plugins_on_its_own_collect_only_call(tmp_path, monkey
     assert set(neutralising_args()) <= set(captured_args[0])
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_prime_raises_module_leak_when_conftest_imports_target(tmp_path):
     cwd, target = _write_fixture_project(
         tmp_path,
@@ -167,7 +167,7 @@ def test_prime_raises_module_leak_when_conftest_imports_target(tmp_path):
         executor.prime()
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_prime_leak_does_not_poison_a_later_same_named_file(tmp_path):
     """Regression: a leaked module from one file's prime() must not survive
     to fool a *different* file's leak check later in the same process —
@@ -199,7 +199,7 @@ def test_prime_leak_does_not_poison_a_later_same_named_file(tmp_path):
     executor_b.prime()  # must not raise: file a's leak must not have persisted
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_survives_when_tests_pass(tmp_path):
     cwd, target = _write_fixture_project(
         tmp_path,
@@ -212,7 +212,7 @@ def test_run_survives_when_tests_pass(tmp_path):
     assert status == "survived"
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_killed_when_tests_fail(tmp_path):
     cwd, target = _write_fixture_project(
         tmp_path,
@@ -225,7 +225,7 @@ def test_run_killed_when_tests_fail(tmp_path):
     assert status == "killed"
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_reports_no_tests_collected_when_filter_deselects_everything(tmp_path):
     """A -k filter matching nothing is pytest exit 5 ("no tests were
     collected") — must not be scored killed (issue #55), same as the
@@ -241,7 +241,7 @@ def test_run_reports_no_tests_collected_when_filter_deselects_everything(tmp_pat
     assert status == "no-tests-collected"
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_reports_usage_error_for_a_bad_argument(tmp_path):
     """An unrecognized pytest option is exit 4 (usage error) — must not be
     scored killed either (issue #55)."""
@@ -256,7 +256,7 @@ def test_run_reports_usage_error_for_a_bad_argument(tmp_path):
     assert status == "usage-error"
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_picks_up_post_prime_mutation_from_disk(tmp_path):
     """The central correctness property: priming before the file is mutated
     must not leave a stale pre-mutation module cached for the child."""
@@ -288,7 +288,7 @@ def test_run_picks_up_post_prime_mutation_from_disk(tmp_path):
     assert status == "survived"
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_reports_timeout_and_kills_child(tmp_path):
     cwd, target = _write_fixture_project(
         tmp_path,
@@ -303,13 +303,14 @@ def test_run_reports_timeout_and_kills_child(tmp_path):
     assert status == "timeout"
 
 
+@pytest.mark.unit
 def test_run_before_prime_raises():
     executor = ForkingExecutor(cwd="/tmp", guarded_path="/tmp/x.py")
     with pytest.raises(ForkingExecutorUnavailable):
         executor.run(["-q"], timeout=1.0)
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_does_not_leak_child_stdout(tmp_path, capsys):
     cwd, target = _write_fixture_project(
         tmp_path,
@@ -381,7 +382,7 @@ _ONLY_A_LINE = 6
 _ONLY_B_LINE = 10
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_isolated_coverage_session_narrows_shared_line_to_both_tests(tmp_path, monkeypatch):
     """Central correctness property (ADR 0021): two isolated per-test
     sessions, combined, must narrow a shared line to both covering tests and
@@ -429,7 +430,7 @@ def test_run_isolated_coverage_session_narrows_shared_line_to_both_tests(tmp_pat
         db.close()
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_isolated_coverage_session_killed_when_test_fails(tmp_path, monkeypatch):
     """isolated_coverage_session_safe stubbed True: see the docstring on
     test_run_isolated_coverage_session_narrows_shared_line_to_both_tests."""
@@ -446,7 +447,7 @@ def test_run_isolated_coverage_session_killed_when_test_fails(tmp_path, monkeypa
     assert status == "killed"
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_isolated_coverage_session_reports_timeout_and_kills_child(tmp_path, monkeypatch):
     """isolated_coverage_session_safe stubbed True: see the docstring on
     test_run_isolated_coverage_session_narrows_shared_line_to_both_tests."""
@@ -463,7 +464,7 @@ def test_run_isolated_coverage_session_reports_timeout_and_kills_child(tmp_path,
     assert status == "timeout"
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_isolated_coverage_session_before_prime_raises(tmp_path):
     executor = ForkingExecutor(cwd=str(tmp_path), guarded_path=str(tmp_path))
     with pytest.raises(ForkingExecutorUnavailable):
@@ -472,7 +473,7 @@ def test_run_isolated_coverage_session_before_prime_raises(tmp_path):
         )
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_isolated_coverage_session_raises_when_a_fork_unsafe_plugin_is_loaded_after_prime(tmp_path):
     """Self-enforcement regression (issue #51 Standards review): a fork-unsafe
     plugin (e.g. tach.pytest_plugin) can get loaded into sys.modules by
@@ -494,7 +495,7 @@ def test_run_isolated_coverage_session_raises_when_a_fork_unsafe_plugin_is_loade
         )
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_run_isolated_coverage_session_does_not_leak_child_stdout(tmp_path, capsys, monkeypatch):
     """isolated_coverage_session_safe stubbed True: see the docstring on
     test_run_isolated_coverage_session_narrows_shared_line_to_both_tests."""

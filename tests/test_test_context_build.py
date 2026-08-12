@@ -67,12 +67,13 @@ def test_combine_argv_lists_every_data_file():
     ]
 
 
+@pytest.mark.unit
 def test_empty_node_ids_raises_before_touching_coverage():
     with pytest.raises(TestContextBuildError, match="no test node IDs"):
         build_test_context_db([], cwd=FIXTURE_DIR, output_db_path="unused.coverage")
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_isolated_session_build_narrows_to_every_covering_test(tmp_path):
     db_path = str(tmp_path / "combined.coverage")
 
@@ -105,7 +106,7 @@ def test_isolated_session_runner_non_survived_raises_build_error(tmp_path):
         )
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_isolated_session_runner_produces_same_narrowing_as_cold_build(tmp_path):
     """Equivalence: injecting a runner (the seam _dispatch.py's forking path
     uses) must narrow context db lines identically to the cold subprocess
@@ -150,7 +151,7 @@ def test_isolated_session_runner_produces_same_narrowing_as_cold_build(tmp_path)
         db.close()
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_real_forking_executor_narrows_identically_to_cold_build_on_one_target(tmp_path, monkeypatch):
     """AC3 (issue #51), tightened: the real ForkingExecutor-backed runner
     (not a stand-in subprocess) and the cold subprocess path must narrow
@@ -212,7 +213,7 @@ def test_real_forking_executor_narrows_identically_to_cold_build_on_one_target(t
         warm_db.close()
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_single_shared_session_under_lists_covering_tests(tmp_path):
     """Regression test for the rejected alternative: one shared
     `pytest --cov-context=test` session drops every test after the first

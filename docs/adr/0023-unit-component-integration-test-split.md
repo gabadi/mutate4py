@@ -70,6 +70,59 @@ tests already marked `integration` were untouched. Applied as an explicit
 module-level `pytestmark` default anywhere, per the `own_markers` decision
 above.
 
+## Addendum: `context-deselection` root-cause fix (session 3)
+
+The migration above left `just check context-deselection` (issue #54's gate)
+failing with violations, initially assumed pre-existing/unrelated. Investigation
+found the violations were a direct consequence of this ADR's own migration: it
+deliberately left every pre-existing `@pytest.mark.integration` test untouched
+(see "Migration" above), but a subset of those tests don't actually match
+`integration`'s definition — they call mutate4py's own Executor/orchestration
+code (`ForkingExecutor`, `WorkerProcessExecutor`, `build_test_context_db`,
+`TestContextDB`, `_prepare_executor`) directly in-process. That's this ADR's
+`component` definition, not `integration`.
+
+Fixing only the initially-flagged tests whack-a-moled: coverage.py's
+`.coverage` context table is session/order-dependent, so a rebuild after a
+partial fix surfaced a *different* set of violations each time (18 → 12 → 2).
+The only durable fix was a full static sweep of every `@pytest.mark.integration`
+test, using the same spawned-interpreter detection `test_integration_marker_guard.py`
+already used (a literal `subprocess.run/Popen/call/check_output/check_call` with
+a `sys.executable` arg, or the `_run_cli_path`/`_run_cli_in` helpers). 22 tests
+with no such call were reclassified `integration` → `component` (all of
+`test_forking_executor.py`'s remaining integration tests, plus tests across
+`test_dispatch.py`, `test_executor_composition.py`, `test_executor_selection.py`,
+`test_test_collection.py`, `test_test_context_build.py`,
+`test_test_context_orchestration.py`, `test_worker_protocol.py`). 2 more in
+`test_test_context_build.py` contain a literal spawn only as a fixture-generation
+detail inside a nested helper, with the test's actual subject in-process — also
+reclassified. 4 tests (`test_dispatch_cli.py` x3, `test_main_cli_flags.py` x1)
+were genuinely `integration`-shaped but had an incidental in-process
+`mutate4py.__main__.main()` call used only for setup (writing a manifest) before
+the real subprocess assertion — fixed by replacing that setup call with the same
+subprocess-based `_run_cli_path(..., "--update-manifest")` pattern the rest of
+each file already uses, rather than reclassifying them.
+
+`test_integration_marker_guard.py` was widened to accept `@pytest.mark.component`
+as well as `@pytest.mark.integration` on any test with a literal interpreter-spawn
+call: the guard's real concern (keep spawn cost out of the fast `test-unit` loop)
+is equally satisfied by either non-`unit` marker, and the guard predates
+`component`'s existence.
+
+**A second, independent bug** was found in `scripts/check_context_deselection.py`
+itself: after the sweep above converged, the 56 remaining genuine `integration`
+tests have zero overlap with named `.coverage` contexts — fully invisible to
+`--cov-context=test`, exactly this ADR's own `integration` definition. The
+script's defensive sanity check assumed the opposite: it raised `GateError` if
+no `integration`-marked test was visible in `.coverage`, treating that as
+evidence of a broken build. That assumption only ever held because the
+misclassified tests above accidentally kept some `integration`-marked test
+visible; once classification is correct, zero overlap is the gate's own goal,
+not a failure signal. The check was backwards and was removed (the correctly-
+directioned "unit half missing" check was kept). Its only consumer,
+`--integration-pytest-args`/`integration_args`, was removed with it — confirmed
+unreferenced elsewhere in the repo.
+
 ## Rejected alternatives
 
 - **Repurpose `integration`/`unit` as the only two categories** (redefine

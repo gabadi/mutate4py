@@ -33,7 +33,7 @@ def _write_add_sub_project(tmp_path):
 # --- WorkerProcessExecutor/_worker_server round trip --------------------------
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_worker_process_executor_round_trip(tmp_path):
     """Formalizes the manual verification from the session that fixed the
     stdout-flush leak: one primed Worker subprocess serves multiple, distinct
@@ -49,7 +49,7 @@ def test_worker_process_executor_round_trip(tmp_path):
         executor.close()
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_worker_process_executor_subprocess_forced(tmp_path):
     """Same round trip with forking_requested=False: the Worker's own
     _prepare_executor call must fall back to the subprocess executor and
@@ -82,7 +82,7 @@ def _write_workerinput_probe_project(tmp_path):
     return target
 
 
-@pytest.mark.integration
+@pytest.mark.component
 @pytest.mark.parametrize("forking_requested", [True, False])
 def test_worker_process_executor_supplies_worker_id(tmp_path, forking_requested):
     """A Worker constructed with worker_id="gw3" makes config.workerinput
@@ -100,7 +100,7 @@ def test_worker_process_executor_supplies_worker_id(tmp_path, forking_requested)
         executor.close()
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_worker_process_executor_without_worker_id_leaves_workerinput_unset(tmp_path):
     (tmp_path / "conftest.py").write_text("")
     target = tmp_path / "calc.py"
@@ -124,7 +124,7 @@ def test_worker_process_executor_without_worker_id_leaves_workerinput_unset(tmp_
 # --- forking vs. subprocess parity within a Worker -----------------------------
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_worker_forking_and_subprocess_parity(tmp_path):
     """Two real Worker subprocesses, one forced to the subprocess executor,
     must classify an identical mutant identically."""

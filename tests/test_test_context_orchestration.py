@@ -209,7 +209,7 @@ def test_build_test_contexts_discards_the_cache_when_the_rebuild_fails(tmp_path,
     assert os.path.isfile(cache_path(db_path)) is False
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_build_test_contexts_second_run_skips_rebuild_then_invalidates_on_change(tmp_path):
     from mutate4py._test_context_orchestration import build_test_contexts
 
@@ -240,7 +240,7 @@ def test_build_test_contexts_second_run_skips_rebuild_then_invalidates_on_change
     assert os.path.getmtime(db_path) != second_mtime, "a changed source file must trigger a rebuild"
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_build_test_contexts_end_to_end_narrows_to_every_covering_test(tmp_path):
     from mutate4py._test_context_orchestration import build_test_contexts
     from mutate4py._test_selection import TestContextDB

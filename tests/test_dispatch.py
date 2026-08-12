@@ -946,7 +946,7 @@ def test_build_isolated_session_runner_returns_none_when_a_fork_unsafe_plugin_is
     assert runner is None
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_build_isolated_session_runner_forks_and_runs_when_eligible(tmp_path, monkeypatch):
     """With the fork-unsafe-plugin precheck stubbed out (this dev venv always
     has tach loaded once ForkingExecutor.prime()'s own collect-only

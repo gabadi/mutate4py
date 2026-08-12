@@ -36,7 +36,7 @@ def test_prepare_executor_falls_back_to_subprocess_when_platform_unavailable(tmp
     assert isinstance(executor, SubprocessExecutor)
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_prepare_executor_returns_forking_executor_when_requested_and_available(tmp_path):
     from mutate4py._forking_executor import ForkingExecutor
 
@@ -45,7 +45,7 @@ def test_prepare_executor_returns_forking_executor_when_requested_and_available(
     assert isinstance(executor, ForkingExecutor)
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_prepare_executor_falls_back_when_target_already_leaked(tmp_path, monkeypatch):
     """A module-leak during priming must fall back to the subprocess
     executor rather than propagate."""
@@ -64,7 +64,7 @@ def test_prepare_executor_falls_back_when_target_already_leaked(tmp_path, monkey
     assert isinstance(executor, SubprocessExecutor)
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_prepare_executor_does_not_import_subprocess_module_when_forking_succeeds(tmp_path, monkeypatch):
     """Self-scanning a leaf module that only the subprocess executor needs
     must keep the forking fast path: when forking succeeds, the subprocess
