@@ -88,7 +88,7 @@ def test_run_mutations_reports_per_mutant_overhead(tmp_path):
     assert match, f"no 'Per-Mutant overhead:' line found in:\n{output}"
 
 
-@pytest.mark.unit
+@pytest.mark.component
 def test_run_mutations_omits_overhead_when_baseline_duration_is_pre_supplied(tmp_path):
     """A pre-supplied baseline_duration means no fresh Baseline ran, so there
     is nothing to attach the extra collect-only pass to — the report must not
