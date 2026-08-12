@@ -8,6 +8,8 @@ import pytest
 from mutate4py._test_selection import (
     TestContextDB,
     TestContextError,
+    _classify,
+    _is_dynamic_context,
     _numbits_to_lines,
     _strip_context_suffix,
 )
@@ -162,18 +164,64 @@ def test_strip_context_other_suffix():
     assert _strip_context_suffix("tests/foo.py::test_bar|something") == "tests/foo.py::test_bar"
 
 
+# ── dynamic-context detection (issue #69) ──────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_is_dynamic_context_no_pipe_is_static():
+    assert _is_dynamic_context("tests/foo.py::test_bar") is False
+
+
+@pytest.mark.unit
+def test_is_dynamic_context_run_suffix_is_dynamic():
+    assert _is_dynamic_context("tests/foo.py::test_bar|run") is True
+
+
+@pytest.mark.unit
+def test_is_dynamic_context_setup_suffix_is_dynamic():
+    assert _is_dynamic_context("tests/foo.py::test_bar|setup") is True
+
+
+@pytest.mark.unit
+def test_is_dynamic_context_teardown_suffix_is_dynamic():
+    assert _is_dynamic_context("tests/foo.py::test_bar|teardown") is True
+
+
+@pytest.mark.unit
+def test_is_dynamic_context_unrecognized_suffix_is_not_dynamic():
+    """Only pytest-cov's own phase vocabulary counts -- an unrelated '|' in a
+    node id (however unlikely) must not be mistaken for it."""
+    assert _is_dynamic_context("tests/foo.py::test_bar|something") is False
+
+
+@pytest.mark.unit
+def test_is_dynamic_context_empty_string_is_static():
+    assert _is_dynamic_context("") is False
+
+
+@pytest.mark.unit
+def test_classify_defaults_dynamic_to_false():
+    """Every real caller passes dynamic= explicitly (see _tests_for_line_bits/
+    _tests_for_line_arcs); this pins the default's own contract -- omitting
+    dynamic must still classify covering tests as "narrowed", never
+    "under-listed"."""
+    assert _classify(["tests/foo.py::test_bar"], static=False) == ("narrowed", ["tests/foo.py::test_bar"])
+
+
 # ── TestContextDB queries ──────────────────────────────────────────────────────
 
 
 @pytest.mark.unit
 def test_tests_for_line_returns_matching_test(tmp_path):
+    """Static (isolated-session) context strings carry no |<phase> suffix --
+    see the "under-listed" tests below for the dynamic-context case."""
     db = tmp_path / ".coverage"
     _make_coverage_db(
         str(db),
         {
             "/src/foo.py": {
-                "tests/test_foo.py::test_bar|run": {10, 11, 12},
-                "tests/test_foo.py::test_baz|run": {20, 21},
+                "tests/test_foo.py::test_bar": {10, 11, 12},
+                "tests/test_foo.py::test_baz": {20, 21},
             }
         },
     )
@@ -192,8 +240,8 @@ def test_tests_for_line_returns_multiple_tests(tmp_path):
         str(db),
         {
             "/src/foo.py": {
-                "tests/test_foo.py::test_bar|run": {10},
-                "tests/test_foo.py::test_baz|run": {10},
+                "tests/test_foo.py::test_bar": {10},
+                "tests/test_foo.py::test_baz": {10},
             }
         },
     )
@@ -209,7 +257,7 @@ def test_tests_for_line_line_absent_when_no_context_recorded_the_line(tmp_path):
     db = tmp_path / ".coverage"
     _make_coverage_db(
         str(db),
-        {"/src/foo.py": {"tests/test_foo.py::test_bar|run": {10}}},
+        {"/src/foo.py": {"tests/test_foo.py::test_bar": {10}}},
     )
     ctx_db = TestContextDB(str(db))
     assert ctx_db.tests_for_line("/src/foo.py", 999) == ("line-absent", [])
@@ -221,7 +269,7 @@ def test_tests_for_line_file_absent_when_file_not_in_db(tmp_path):
     db = tmp_path / ".coverage"
     _make_coverage_db(
         str(db),
-        {"/src/foo.py": {"tests/test_foo.py::test_bar|run": {10}}},
+        {"/src/foo.py": {"tests/test_foo.py::test_bar": {10}}},
     )
     ctx_db = TestContextDB(str(db))
     assert ctx_db.tests_for_line("/src/bar.py", 10) == ("file-absent", [])
@@ -237,7 +285,7 @@ def test_empty_context_only_is_static(tmp_path):
         {
             "/src/foo.py": {
                 "": {10},
-                "tests/test_foo.py::test_bar|run": {20},
+                "tests/test_foo.py::test_bar": {20},
             }
         },
     )
@@ -255,7 +303,7 @@ def test_empty_context_does_not_suppress_a_covering_test(tmp_path):
         {
             "/src/foo.py": {
                 "": {10},
-                "tests/test_foo.py::test_bar|run": {10},
+                "tests/test_foo.py::test_bar": {10},
             }
         },
     )
@@ -264,6 +312,71 @@ def test_empty_context_does_not_suppress_a_covering_test(tmp_path):
         "narrowed",
         ["tests/test_foo.py::test_bar"],
     )
+    ctx_db.close()
+
+
+# ── under-listed detection (issue #69): dynamic-context contamination ──────────
+
+
+@pytest.mark.unit
+def test_single_dynamic_context_is_under_listed_not_narrowed(tmp_path):
+    """A line named by exactly one pytest-cov dynamic context can't be trusted
+    complete -- the switch_context() session that produced it is exactly the
+    method ADR 0021 proved silently drops every covering test but the first
+    to reach a shared line, so even a single-test result must not be
+    returned as "narrowed"."""
+    db = tmp_path / ".coverage"
+    _make_coverage_db(
+        str(db),
+        {"/src/foo.py": {"tests/test_foo.py::test_bar|run": {10}}},
+    )
+    ctx_db = TestContextDB(str(db))
+    assert ctx_db.tests_for_line("/src/foo.py", 10) == (
+        "under-listed",
+        ["tests/test_foo.py::test_bar"],
+    )
+    ctx_db.close()
+
+
+@pytest.mark.unit
+def test_one_dynamic_context_among_several_taints_the_whole_line(tmp_path):
+    """Even when other covering tests are named by sound static contexts, one
+    dynamic context in the mix is enough evidence the list may be incomplete."""
+    db = tmp_path / ".coverage"
+    _make_coverage_db(
+        str(db),
+        {
+            "/src/foo.py": {
+                "tests/test_foo.py::test_bar": {10},
+                "tests/test_foo.py::test_baz|run": {10},
+            }
+        },
+    )
+    ctx_db = TestContextDB(str(db))
+    outcome, tests = ctx_db.tests_for_line("/src/foo.py", 10)
+    assert outcome == "under-listed"
+    assert sorted(tests) == sorted(["tests/test_foo.py::test_bar", "tests/test_foo.py::test_baz"])
+    ctx_db.close()
+
+
+@pytest.mark.unit
+def test_all_static_contexts_still_narrow_cleanly(tmp_path):
+    """No false positive: two covering tests named by static (isolated-session)
+    contexts stay "narrowed", not "under-listed"."""
+    db = tmp_path / ".coverage"
+    _make_coverage_db(
+        str(db),
+        {
+            "/src/foo.py": {
+                "tests/test_foo.py::test_bar": {10},
+                "tests/test_foo.py::test_baz": {10},
+            }
+        },
+    )
+    ctx_db = TestContextDB(str(db))
+    outcome, tests = ctx_db.tests_for_line("/src/foo.py", 10)
+    assert outcome == "narrowed"
+    assert sorted(tests) == sorted(["tests/test_foo.py::test_bar", "tests/test_foo.py::test_baz"])
     ctx_db.close()
 
 
@@ -285,8 +398,8 @@ def test_tests_for_line_is_safe_across_concurrent_threads(tmp_path):
         str(db),
         {
             "/src/foo.py": {
-                "tests/test_foo.py::test_bar|run": {10},
-                "tests/test_foo.py::test_baz|run": {20},
+                "tests/test_foo.py::test_bar": {10},
+                "tests/test_foo.py::test_baz": {20},
             }
         },
     )
@@ -327,7 +440,7 @@ def test_tests_for_line_arc_mode_matches_fromno(tmp_path):
         str(db),
         {
             "/src/foo.py": {
-                "tests/test_foo.py::test_bar|run": [(-1, 10), (10, 11), (11, -1)],
+                "tests/test_foo.py::test_bar": [(-1, 10), (10, 11), (11, -1)],
             }
         },
     )
@@ -346,7 +459,7 @@ def test_tests_for_line_arc_mode_matches_tono(tmp_path):
         str(db),
         {
             "/src/foo.py": {
-                "tests/test_foo.py::test_bar|run": [(-1, 10), (10, 11), (11, -1)],
+                "tests/test_foo.py::test_bar": [(-1, 10), (10, 11), (11, -1)],
             }
         },
     )
@@ -365,8 +478,8 @@ def test_tests_for_line_arc_mode_returns_multiple_tests(tmp_path):
         str(db),
         {
             "/src/foo.py": {
-                "tests/test_foo.py::test_bar|run": [(-1, 10), (10, -1)],
-                "tests/test_foo.py::test_baz|run": [(-1, 10), (10, -1)],
+                "tests/test_foo.py::test_bar": [(-1, 10), (10, -1)],
+                "tests/test_foo.py::test_baz": [(-1, 10), (10, -1)],
             }
         },
     )
@@ -382,7 +495,7 @@ def test_tests_for_line_arc_mode_line_absent_for_unrecorded_line(tmp_path):
     db = tmp_path / ".coverage"
     _make_coverage_db_arcs(
         str(db),
-        {"/src/foo.py": {"tests/test_foo.py::test_bar|run": [(-1, 10), (10, -1)]}},
+        {"/src/foo.py": {"tests/test_foo.py::test_bar": [(-1, 10), (10, -1)]}},
     )
     ctx_db = TestContextDB(str(db))
     assert ctx_db.tests_for_line("/src/foo.py", 999) == ("line-absent", [])
@@ -399,7 +512,7 @@ def test_tests_for_line_arc_mode_excludes_synthetic_entry_exit_sentinels(tmp_pat
     db = tmp_path / ".coverage"
     _make_coverage_db_arcs(
         str(db),
-        {"/src/foo.py": {"tests/test_foo.py::test_bar|run": [(-1, 10), (10, -1)]}},
+        {"/src/foo.py": {"tests/test_foo.py::test_bar": [(-1, 10), (10, -1)]}},
     )
     ctx_db = TestContextDB(str(db))
     assert ctx_db.tests_for_line("/src/foo.py", -1) == ("line-absent", [])
@@ -415,7 +528,7 @@ def test_tests_for_line_arc_mode_rejects_line_zero_even_when_an_arc_carries_it(
     db = tmp_path / ".coverage"
     _make_coverage_db_arcs(
         str(db),
-        {"/src/foo.py": {"tests/test_foo.py::test_bar|run": [(0, 10), (10, 0)]}},
+        {"/src/foo.py": {"tests/test_foo.py::test_bar": [(0, 10), (10, 0)]}},
     )
     ctx_db = TestContextDB(str(db))
     assert ctx_db.tests_for_line("/src/foo.py", 0) == ("line-absent", [])
@@ -428,7 +541,7 @@ def test_tests_for_line_arc_mode_matches_line_one(tmp_path):
     db = tmp_path / ".coverage"
     _make_coverage_db_arcs(
         str(db),
-        {"/src/foo.py": {"tests/test_foo.py::test_bar|run": [(-1, 1), (1, -1)]}},
+        {"/src/foo.py": {"tests/test_foo.py::test_bar": [(-1, 1), (1, -1)]}},
     )
     ctx_db = TestContextDB(str(db))
     assert ctx_db.tests_for_line("/src/foo.py", 1) == (
@@ -447,7 +560,7 @@ def test_tests_for_line_arc_mode_empty_context_only_is_static(tmp_path):
         {
             "/src/foo.py": {
                 "": [(-1, 10), (10, -1)],
-                "tests/test_foo.py::test_bar|run": [(-1, 20), (20, -1)],
+                "tests/test_foo.py::test_bar": [(-1, 20), (20, -1)],
             }
         },
     )
@@ -465,7 +578,7 @@ def test_tests_for_line_arc_mode_empty_context_does_not_suppress_a_test(tmp_path
         {
             "/src/foo.py": {
                 "": [(-1, 10), (10, -1)],
-                "tests/test_foo.py::test_bar|run": [(-1, 10), (10, -1)],
+                "tests/test_foo.py::test_bar": [(-1, 10), (10, -1)],
             }
         },
     )
@@ -482,8 +595,45 @@ def test_tests_for_line_arc_mode_file_absent_when_file_not_in_db(tmp_path):
     db = tmp_path / ".coverage"
     _make_coverage_db_arcs(
         str(db),
-        {"/src/foo.py": {"tests/test_foo.py::test_bar|run": [(-1, 10), (10, -1)]}},
+        {"/src/foo.py": {"tests/test_foo.py::test_bar": [(-1, 10), (10, -1)]}},
     )
     ctx_db = TestContextDB(str(db))
     assert ctx_db.tests_for_line("/src/bar.py", 10) == ("file-absent", [])
+    ctx_db.close()
+
+
+# ── under-listed detection, arc mode (issue #69) ────────────────────────────────
+
+
+@pytest.mark.unit
+def test_arc_mode_single_dynamic_context_is_under_listed_not_narrowed(tmp_path):
+    db = tmp_path / ".coverage"
+    _make_coverage_db_arcs(
+        str(db),
+        {"/src/foo.py": {"tests/test_foo.py::test_bar|run": [(-1, 10), (10, -1)]}},
+    )
+    ctx_db = TestContextDB(str(db))
+    assert ctx_db.tests_for_line("/src/foo.py", 10) == (
+        "under-listed",
+        ["tests/test_foo.py::test_bar"],
+    )
+    ctx_db.close()
+
+
+@pytest.mark.unit
+def test_arc_mode_one_dynamic_context_among_several_taints_the_line(tmp_path):
+    db = tmp_path / ".coverage"
+    _make_coverage_db_arcs(
+        str(db),
+        {
+            "/src/foo.py": {
+                "tests/test_foo.py::test_bar": [(-1, 10), (10, -1)],
+                "tests/test_foo.py::test_baz|run": [(-1, 10), (10, -1)],
+            }
+        },
+    )
+    ctx_db = TestContextDB(str(db))
+    outcome, tests = ctx_db.tests_for_line("/src/foo.py", 10)
+    assert outcome == "under-listed"
+    assert sorted(tests) == sorted(["tests/test_foo.py::test_bar", "tests/test_foo.py::test_baz"])
     ctx_db.close()

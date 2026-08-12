@@ -584,7 +584,7 @@ def test_run_parallel_composes_narrowed_dispatch_with_workers(tmp_path, monkeypa
     )
     assert counts == {"killed": 2, "timeout": 0, "survived": 0}
     assert survivors == []
-    assert selection_counts == {"narrowed": 2, "static": 0}
+    assert selection_counts == {"narrowed": 2, "static": 0, "degraded": 0}
     assert executor.calls == [["-q", "tests/test_calc.py::test_f"]] * 2
 
 
@@ -615,7 +615,41 @@ def test_run_parallel_composes_static_dispatch_with_workers(tmp_path, monkeypatc
             executor=executor,
         )
     )
-    assert selection_counts == {"narrowed": 0, "static": 2}
+    assert selection_counts == {"narrowed": 0, "static": 2, "degraded": 0}
+    assert executor.calls == [["-q"]] * 2
+
+
+@pytest.mark.unit
+def test_run_parallel_composes_degraded_dispatch_with_workers(tmp_path, monkeypatch):
+    """An under-listed line (issue #69) must reach every Worker's tally as
+    "degraded", not "narrowed" -- the parallel engine mirrors the serial
+    loop's _build_mutant_args dispatch exactly."""
+    import mutate4py._workers as workers_mod
+
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+
+    src = "def f(a, b):\n    return a > b\ndef g(a, b):\n    return a < b\n"
+    sites = discover_sites(src)
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(src)
+    executor = _FakeExecutor("killed")
+
+    _, _, selection_counts = run_parallel(
+        ParallelRunRequest(
+            selected_sites=sites,
+            clean_source=src,
+            source_path=str(src_file),
+            cwd=str(tmp_path),
+            pytest_args=["-q"],
+            mutant_timeout=5.0,
+            max_workers=2,
+            on_result=_noop_on_result,
+            test_ctx_db=_FakeTestContextDB("under-listed", ("tests/test_calc.py::test_f",)),
+            abs_source_path=str(src_file),
+            executor=executor,
+        )
+    )
+    assert selection_counts == {"narrowed": 0, "static": 0, "degraded": 2}
     assert executor.calls == [["-q"]] * 2
 
 

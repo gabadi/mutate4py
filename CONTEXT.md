@@ -91,16 +91,34 @@ _Avoid_: result, status, outcome (reserve *outcome* for Selection outcome)
 **Selection outcome**:
 What the test-context db says about a Site's line — **narrowed** (named tests cover
 it, so only those run), **static** (import-time code no single test owns, so the
-full test set runs), or a disagreement.
+full test set runs), **under-listed** (see below; also runs the full test set), or
+a disagreement.
 
 **Empty context**:
 Coverage.py's whole-run context, as opposed to a named per-test one. A line matched
 only by it ran at import time. A signal, not noise.
 
+**Under-listed**:
+A Selection outcome (issue #69): the test-context db names covering tests for a
+Site's line, but at least one was recorded by a *dynamic* (`pytest
+--cov-context=test`, i.e. `switch_context()`) context rather than a static
+(isolated-session) one. ADR 0021 proved a dynamic-context collector session
+silently drops every covering test but the first to reach a shared line or arc, so
+such a list can never be trusted complete — it is never returned as `narrowed`.
+mutate4py runs the full test set instead, same dispatch as `static` but tallied
+apart from it (`degraded` in the run summary) so the report can't claim `static 0`
+while Sites were actually rejected. Detected by the `|setup`/`|run`/`|teardown`
+suffix pytest-cov appends to a dynamic context's name — an isolated-session build
+(`--build-test-contexts`) never produces that suffix.
+_Avoid_: stale context, incomplete narrowing
+
 **Selection disagreement**:
 The test-context db and the Coverage gate contradicting each other. Always an input
 defect — a stale db or a path mismatch — never uncovered code, so it aborts the run
-rather than falling back.
+rather than falling back. Distinct from **under-listed**: a disagreement means the db
+can't account for the line at all (no safe fallback exists); under-listed means it
+names some tests but can't prove the list complete (falling back to the full test set
+is safe).
 
 **Test-context cache**:
 The sidecar fingerprint of the inputs a test-context db was built from, letting a

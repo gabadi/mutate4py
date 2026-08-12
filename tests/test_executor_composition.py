@@ -37,8 +37,13 @@ def _write_lcov(path: str, source_abs: str, covered_lines: list[int]) -> None:
 
 def _make_coverage_db(db_path: str, source_abs: str, tests_by_line: dict[int, str]) -> None:
     """Minimal .coverage SQLite db (line-only coverage, has_arcs=0): one named
-    test context per line, mirroring what coverage.py's dynamic-context mode
-    actually records for a project with one test per function under test."""
+    test context per line, mirroring what an isolated-session build
+    (--build-test-contexts) records for a project with one test per function
+    under test -- a static context per test, no dynamic-switch phase suffix.
+    A |<phase>-suffixed context is a dynamic (pytest-cov switch_context)
+    context and downgrades to "degraded" (issue #69); these tests exercise
+    narrowed dispatch through a real executor, not that detection path, which
+    test_test_selection.py covers directly."""
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
     cur.executescript("""
@@ -51,7 +56,7 @@ def _make_coverage_db(db_path: str, source_abs: str, tests_by_line: dict[int, st
     cur.execute("INSERT INTO file(path) VALUES (?)", (source_abs,))
     file_id = cur.lastrowid
     for line, test_id in tests_by_line.items():
-        cur.execute("INSERT INTO context(context) VALUES (?)", (f"{test_id}|run",))
+        cur.execute("INSERT INTO context(context) VALUES (?)", (test_id,))
         context_id = cur.lastrowid
         n_bytes = (line + 7) // 8
         data = bytearray(n_bytes)
@@ -167,7 +172,7 @@ def test_forking_executor_composes_with_real_test_context_db(tmp_path, monkeypat
         )
     output = buf.getvalue()
     assert rc == 0
-    assert "Test selection: narrowed 3, static 0" in output
+    assert "Test selection: narrowed 3, static 0, degraded 0" in output
     assert len(created) == 1, "expected the real forking executor to be instantiated exactly once"
 
 
@@ -233,7 +238,7 @@ def test_leaked_target_degrades_to_subprocess_and_still_narrows_correctly(tmp_pa
         )
     output = buf.getvalue()
     assert rc == 0
-    assert "Test selection: narrowed 2, static 0" in output
+    assert "Test selection: narrowed 2, static 0, degraded 0" in output
     assert len(created) == 1, "expected the subprocess fallback to actually be used"
 
 

@@ -250,6 +250,12 @@ def test_single_shared_session_under_lists_covering_tests(tmp_path):
     """Regression test for the rejected alternative: one shared
     `pytest --cov-context=test` session drops every test after the first
     to reach a shared line -- the exact defect isolated sessions fix.
+
+    Issue #69: TestContextDB itself now detects this and refuses to return
+    "narrowed" for a line whose covering tests include a dynamic
+    (switch_context) context -- see test_test_selection.py's under-listed
+    tests for the unit-level coverage of the detection rule this exercises
+    end-to-end, against a real coverage.py db.
     """
     db_path = tmp_path / ".coverage"
     result = subprocess.run(
@@ -277,14 +283,18 @@ def test_single_shared_session_under_lists_covering_tests(tmp_path):
     db = TestContextDB(str(db_path))
     try:
         outcome, node_ids = db.tests_for_line(SHARED_PY, SHARED_LINE)
-        assert outcome == "narrowed"
         # The bug: only one of the two tests that cover this line survives,
         # not both -- an isolated-session build (see the test above) would
         # list both. Which one survives is whichever pytest happened to run
-        # first, not something this test should pin down. pytest computes
-        # this context's nodeid relative to the rootdir it discovers by
-        # walking up from FIXTURE_DIR (this repo's own pyproject.toml), so
-        # only the suffix is checked, not the exact string.
+        # first, not something this test should pin down. Issue #69: this is
+        # exactly why the outcome is "under-listed", not "narrowed" -- a
+        # single dynamic-context test in the list is enough evidence the
+        # list may be incomplete, so mutate4py must not run only it. pytest
+        # computes this context's nodeid relative to the rootdir it
+        # discovers by walking up from FIXTURE_DIR (this repo's own
+        # pyproject.toml), so only the suffix is checked, not the exact
+        # string.
+        assert outcome == "under-listed"
         assert len(node_ids) == 1
         assert node_ids[0].endswith("test_from_a") or node_ids[0].endswith("test_from_b")
     finally:

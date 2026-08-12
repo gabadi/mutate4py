@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-08-12T06:34:56Z",
-  "module_hash": "1a6b9078d8f9c344e1104cd6ed4b2bdb1a3da6d125491870de89e800ad6b8d1c",
-  "source_sha256": "bbcf82829d639984a8803e8f3e436c98a0d9c1ada0b87cd55d1bfc2ffccab759",
+  "tested_at": "2026-08-12T19:00:19Z",
+  "module_hash": "30a2e59eccbcdd3862fe8b01e8382509d938bb90b0eb4490fe0e8d1ba83f756f",
+  "source_sha256": "7c05e49a604a3da5a42c425b381c77905f3122a0e0c3ece67e1d36c241ec5b27",
   "functions": [
     {
       "id": "func/_run_header_lines",
@@ -54,38 +54,45 @@
       "hash": "4af028337280a721b91b0f1466a4138dcfda53fad2c511ea1e136681e445f7e6"
     },
     {
+      "id": "func/_selection_report_lines",
+      "name": "_selection_report_lines",
+      "line": 142,
+      "end_line": 158,
+      "hash": "6bcf25d58fb61a693f2a57601d487d9de07d6472be22ffb362cb4f7bb4e81881"
+    },
+    {
       "id": "func/_mutation_report_lines",
       "name": "_mutation_report_lines",
-      "line": 142,
-      "end_line": 168,
-      "hash": "229cf498f90ad2564ddb5bd8d938b7a6b9ba97d6dacb6abd8204898afab15af5"
+      "line": 161,
+      "end_line": 187,
+      "hash": "2252a3653828be2299f05ca8097631b15eb2afd26d485675ec80173880eb1a7f"
     },
     {
       "id": "func/_workers_header_lines",
       "name": "_workers_header_lines",
-      "line": 171,
-      "end_line": 175,
+      "line": 190,
+      "end_line": 194,
       "hash": "45a887b31e2142ea6ee16ac8585dbe9ed7ee256035aa668275994ec504e3bfd8"
     },
     {
       "id": "func/_scan_manifest_state",
       "name": "_scan_manifest_state",
-      "line": 178,
-      "end_line": 196,
+      "line": 197,
+      "end_line": 215,
       "hash": "8866f3fc9d4c5fd02c6263bdcce7e9fbadceb020feb92a9497515effd0c3a7ab"
     },
     {
       "id": "func/scan_report",
       "name": "scan_report",
-      "line": 199,
-      "end_line": 215,
+      "line": 218,
+      "end_line": 234,
       "hash": "266a66f3c40d09563d5b6c962ec8afa5a233c6e855e551c745fd890d23afe504"
     },
     {
       "id": "func/scan_report_with_coverage",
       "name": "scan_report_with_coverage",
-      "line": 218,
-      "end_line": 249,
+      "line": 237,
+      "end_line": 268,
       "hash": "abbfcdf392bd6616b157f900ae3be8cd28db869d65552ad60ae9502e76cc5078"
     }
   ]

@@ -45,9 +45,9 @@ def _run_mutation_loop(
     ctx: MutantExecCtx,
 ) -> tuple[dict, list[Site], dict[str, int] | None]:
     """Run each selected site through ctx.executor; the third return is the
-    narrowed/static tally, or None when no context db is in play. Raises
-    TestSelectionError on a selection disagreement, or NoTestsCollectedError
-    if a mutant's test run exercised no test at all.
+    narrowed/static/degraded tally, or None when no context db is in play.
+    Raises TestSelectionError on a selection disagreement, or
+    NoTestsCollectedError if a mutant's test run exercised no test at all.
 
     ctx.executor is always primed by the time this loop starts (whichever
     implementation _prepare_executor chose), so this loop never branches on
@@ -55,7 +55,7 @@ def _run_mutation_loop(
     """
     total_selected = len(selected_sites)
     counts: dict[str, int] = {"killed": 0, "timeout": 0, "survived": 0}
-    selection_counts: dict[str, int] = {"narrowed": 0, "static": 0}
+    selection_counts: dict[str, int] = {"narrowed": 0, "static": 0, "degraded": 0}
     survivors: list[Site] = []
     for i, site in enumerate(selected_sites, 1):
         # Built before the splice so a disagreement aborts with the source untouched.

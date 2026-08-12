@@ -88,3 +88,14 @@ it.
 This ADR does not change `TestContextDB` or the three-case classifier (ADR
 0018) — both already read a `coverage combine`d db correctly regardless of
 how it was produced. It only replaces the missing *build* step.
+
+**Update (issue #69):** the read path did need to change after all — a user
+who points `--test-contexts` at their own single-session `.coverage` (not at
+a db this ADR's build produced) hits the exact bug diagnosed above, and
+nothing said so; the run reported `narrowed N, static 0` as if the db were
+sound. ADR 0018 now records a fourth Selection outcome, `under-listed`, that
+`TestContextDB.tests_for_line()` returns instead of `narrowed` whenever a
+line's covering tests include one recorded by a dynamic (`switch_context`)
+context — see ADR 0018 for the detection rule and why it's per-line, not
+whole-db. `_DISAGREEMENT_HINTS` and the `--test-contexts` CLI help no longer
+recommend the single shared `--cov-context=test` session this ADR rejected.

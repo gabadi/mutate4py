@@ -139,6 +139,25 @@ def _overhead_report_lines(overhead_duration: float, baseline_duration: float) -
     return lines
 
 
+def _selection_report_lines(selection_counts: dict[str, int]) -> list[str]:
+    """The Test selection summary line, plus a Warning once any Site degraded."""
+    degraded = selection_counts.get("degraded", 0)
+    lines = [
+        f"Test selection: narrowed {selection_counts['narrowed']}, "
+        f"static {selection_counts['static']}, degraded {degraded}"
+    ]
+    if degraded:
+        lines.append(
+            f"Warning: {degraded} Site(s) had test-context data rejected as incomplete "
+            "(named covering tests came from a single shared --cov-context=test session, "
+            "which docs/adr/0021 established silently drops every covering test but the "
+            "first to reach a shared line) -- their Mutants ran the full test set instead "
+            "of the narrowed one. Rebuild the db with --build-test-contexts for sound "
+            "narrowing."
+        )
+    return lines
+
+
 def _mutation_report_lines(
     counts: dict[str, int],
     survivors: list[Site],
@@ -156,7 +175,7 @@ def _mutation_report_lines(
         f"Uncovered: {uncovered_count}",
     ]
     if selection_counts is not None:
-        lines.append(f"Test selection: narrowed {selection_counts['narrowed']}, static {selection_counts['static']}")
+        lines.extend(_selection_report_lines(selection_counts))
     if overhead is not None:
         lines.extend(_overhead_report_lines(overhead.overhead_duration, overhead.baseline_duration))
     if survivors:
