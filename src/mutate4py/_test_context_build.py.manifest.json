@@ -1,36 +1,43 @@
 {
   "version": 1,
-  "tested_at": "2026-08-11T13:14:08Z",
-  "module_hash": "9ee24d1d6e8829be4d199a10ff2da443338151b51ffaf8c66a3cc6bbb56856cb",
-  "source_sha256": "432b104ca163f3c1b86d2d42fa188707a3ff7bf4a01dfbfd1c1370afc36f6172",
+  "tested_at": "2026-08-12T06:48:55Z",
+  "module_hash": "da3fa97497320f252080e974c71ea9d8b02dd12decd070c09090cf12fbb5f7cd",
+  "source_sha256": "ea28b95227639a92bf38a4d3c91e158c23e971cc5229706a6f1dd90e50b065e4",
   "functions": [
     {
       "id": "func/_run_argv",
       "name": "_run_argv",
-      "line": 25,
-      "end_line": 38,
+      "line": 32,
+      "end_line": 45,
       "hash": "2a26f5ef7136e5fb9d4076b734eeb3ac00f1120cb39f0508d6d80715a1ffeef3"
     },
     {
       "id": "func/_combine_argv",
       "name": "_combine_argv",
-      "line": 41,
-      "end_line": 43,
+      "line": 48,
+      "end_line": 50,
       "hash": "45f91074fa1f94a5a57468cbb92d2f2935e709b70f26afb644bcaf74d945a02f"
     },
     {
       "id": "func/_run_and_check",
       "name": "_run_and_check",
-      "line": 46,
-      "end_line": 49,
+      "line": 53,
+      "end_line": 56,
       "hash": "5049ce1024e4d23f85c454b0da71b1f155c80fe2c8a4ea28dea9ccf1318dd0a8"
+    },
+    {
+      "id": "func/dispatch_isolated_session",
+      "name": "dispatch_isolated_session",
+      "line": 59,
+      "end_line": 80,
+      "hash": "da89004abfa23276f2794fd120cf5571f3320290c72c22c6ca3ee10f4d484184"
     },
     {
       "id": "func/build_test_context_db",
       "name": "build_test_context_db",
-      "line": 52,
-      "end_line": 106,
-      "hash": "134a899a03c4cf3b74b784f0467b6560cc91e824a99a7afe1f4e78a7684a7ba9"
+      "line": 83,
+      "end_line": 133,
+      "hash": "80320b7f230d615ef75f88aed66facf56a9338b9fd6641dc5cc920fa0c752f24"
     }
   ]
 }

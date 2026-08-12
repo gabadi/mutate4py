@@ -41,10 +41,12 @@ def _one_site(src="def f(a, b):\n    return a > b\n"):
     return discover_sites(src)[0]
 
 
+@pytest.mark.unit
 def test_build_mutant_args_no_ctx_db_returns_full_args():
     assert _build_mutant_args(["-q"], None, "/src/calc.py", _one_site()) == (["-q"], None)
 
 
+@pytest.mark.unit
 def test_build_mutant_args_narrows_to_covering_tests():
     ctx_db = _FakeTestContextDB("narrowed", ["tests/test_calc.py::test_gt"])
     assert _build_mutant_args(["-q"], ctx_db, "/src/calc.py", _one_site()) == (
@@ -53,11 +55,13 @@ def test_build_mutant_args_narrows_to_covering_tests():
     )
 
 
+@pytest.mark.unit
 def test_build_mutant_args_static_line_runs_full_args():
     ctx_db = _FakeTestContextDB("static")
     assert _build_mutant_args(["-q"], ctx_db, "/src/calc.py", _one_site()) == (["-q"], "static")
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "outcome, hint",
     [
@@ -74,6 +78,7 @@ def test_build_mutant_args_disagreement_raises(outcome, hint):
     assert hint in message
 
 
+@pytest.mark.unit
 def test_build_mutant_args_unrecognized_outcome_raises():
     """No outcome may fall through to a full-suite run counted as narrowed."""
     ctx_db = _FakeTestContextDB("something-new")
@@ -84,6 +89,7 @@ def test_build_mutant_args_unrecognized_outcome_raises():
 # ── _run_mutation_loop ────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_run_mutation_loop_empty_sites_returns_zero_counts(tmp_path):
     """Zero selected sites means all counts start and stay at zero — kills initial-value mutants."""
     src_file = tmp_path / "calc.py"
@@ -123,6 +129,7 @@ def _loop_over_two_sites(tmp_path, ctx_db):
     )
 
 
+@pytest.mark.unit
 def test_run_mutation_loop_tallies_narrowed_selections(tmp_path):
     _, _, selection_counts = _loop_over_two_sites(
         tmp_path, _FakeTestContextDB("narrowed", ["tests/test_calc.py::test_f"])
@@ -130,11 +137,13 @@ def test_run_mutation_loop_tallies_narrowed_selections(tmp_path):
     assert selection_counts == {"narrowed": 2, "static": 0}
 
 
+@pytest.mark.unit
 def test_run_mutation_loop_tallies_static_selections(tmp_path):
     _, _, selection_counts = _loop_over_two_sites(tmp_path, _FakeTestContextDB("static"))
     assert selection_counts == {"narrowed": 0, "static": 2}
 
 
+@pytest.mark.unit
 def test_run_mutation_loop_calls_executor_with_built_args_and_timeout(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_file = tmp_path / "calc.py"
@@ -157,6 +166,7 @@ def test_run_mutation_loop_calls_executor_with_built_args_and_timeout(tmp_path):
     assert executor.calls == [(["-q"], 7.5)]
 
 
+@pytest.mark.unit
 def test_run_mutation_loop_disagreement_aborts_before_applying_the_mutant(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_file = tmp_path / "calc.py"
@@ -178,6 +188,7 @@ def test_run_mutation_loop_disagreement_aborts_before_applying_the_mutant(tmp_pa
     assert src_file.read_text() == src
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "status, hint",
     [
@@ -212,6 +223,7 @@ def test_run_mutation_loop_no_tests_collected_raises(tmp_path, status, hint):
 # ── _run_parallel_workers passes mutant_timeout ───────────────────────────────
 
 
+@pytest.mark.unit
 def test_run_parallel_workers_passes_timeout(tmp_path, monkeypatch):
     """mutant_timeout is forwarded to run_parallel (not silently replaced with None)."""
     import mutate4py._workers as workers_mod

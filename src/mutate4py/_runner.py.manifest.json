@@ -1,64 +1,64 @@
 {
   "version": 1,
-  "tested_at": "2026-08-11T05:31:33Z",
-  "module_hash": "230dd75ae01a573768c1da8116488e629ef6ec3acec331bb060cfa6728443d34",
-  "source_sha256": "7f226b3e7cd29a1af298fbac3c00200ca33d051240e703e20874ee583cd125a3",
+  "tested_at": "2026-08-12T06:34:56Z",
+  "module_hash": "52b2ca04e1c321015054ff6c27527f2bf87910a3d5c5372a19e10034f8511286",
+  "source_sha256": "d2b6ac36f5dad599225b9e3a17699af83338f445682883e29cd1d44b2ba8f232",
   "functions": [
     {
       "id": "func/_print_lines",
       "name": "_print_lines",
-      "line": 102,
-      "end_line": 105,
+      "line": 97,
+      "end_line": 100,
       "hash": "293a679429a50caa6e29b9629d5412338bb3d9541f0affa9c5d5669ac0e09682"
     },
     {
       "id": "func/run_scan",
       "name": "run_scan",
-      "line": 108,
-      "end_line": 122,
+      "line": 103,
+      "end_line": 117,
       "hash": "a5b01cc0f8dd5d9bb0b0adb9504bac885c5a880163d74f8492d5bc97d739f0e7"
     },
     {
       "id": "func/update_manifest",
       "name": "update_manifest",
-      "line": 125,
-      "end_line": 155,
+      "line": 120,
+      "end_line": 150,
       "hash": "d25363552434a27b16f1edad7d68c90aab1a8dba9407042dc4a854ed8d59b9d3"
     },
     {
       "id": "func/check_manifest",
       "name": "check_manifest",
-      "line": 158,
-      "end_line": 176,
+      "line": 153,
+      "end_line": 171,
       "hash": "1510d10e45dfd73ddfbe0180da04f82f131ab42cf6cacf14a9fea0d863789d14"
     },
     {
       "id": "func/_prepare_baseline_and_executor",
       "name": "_prepare_baseline_and_executor",
-      "line": 209,
-      "end_line": 239,
+      "line": 204,
+      "end_line": 234,
       "hash": "44ef57b7a2958e24802718ba95f15760cb5b0fb9d5a89f72e17a3cd1ac6b84da"
     },
     {
       "id": "func/_select_and_prepare",
       "name": "_select_and_prepare",
-      "line": 242,
-      "end_line": 322,
+      "line": 237,
+      "end_line": 317,
       "hash": "4a4e01c13d24f42cf51591d1f276931c556baade6ec098b1e105cd9576e2d0cd"
     },
     {
       "id": "func/_open_test_context_db",
       "name": "_open_test_context_db",
-      "line": 325,
-      "end_line": 336,
+      "line": 320,
+      "end_line": 331,
       "hash": "d7317e54209542288bb6254c8c0a052bcedb65927cd52c5e1fe5ee8a4d2e08ec"
     },
     {
       "id": "func/run_mutations",
       "name": "run_mutations",
-      "line": 339,
-      "end_line": 403,
-      "hash": "bed0ac48ed45903e568206c0013411bad2cb0d4cfef36be059752b23a366becf"
+      "line": 334,
+      "end_line": 393,
+      "hash": "e3f55f783233f681ef80678155b8316932dac9f0b64447580612927ed61a8850"
     }
   ]
 }

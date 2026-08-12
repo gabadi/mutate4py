@@ -57,6 +57,7 @@ def _make_pkg_tree(tmp_path) -> str:
 # ── _run_scan direct unit tests ───────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_run_scan_no_coverage(tmp_path, capsys):
     import argparse
 
@@ -77,6 +78,7 @@ def test_run_scan_no_coverage(tmp_path, capsys):
     assert "Total mutation sites: 1" in out
 
 
+@pytest.mark.unit
 def test_run_scan_with_lcov(tmp_path, capsys):
     import argparse
 
@@ -110,6 +112,7 @@ def test_run_scan_with_lcov(tmp_path, capsys):
 # this section is only about proving the wiring is correct.
 
 
+@pytest.mark.unit
 def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
     import dataclasses
 
@@ -161,6 +164,7 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
     }
 
 
+@pytest.mark.unit
 def test_run_on_file_mutate_all_wired_when_lines_and_since_last_run_absent(
     monkeypatch,
 ):
@@ -184,6 +188,7 @@ def test_run_on_file_mutate_all_wired_when_lines_and_since_last_run_absent(
     assert request.baseline_duration is None
 
 
+@pytest.mark.unit
 def test_run_on_file_scan_coverage_error_exits_2(monkeypatch, capsys):
     """The --scan branch's own try/except (distinct from _run_scan's) must exit(2)."""
     from mutate4py._coverage import CoverageError
@@ -201,6 +206,7 @@ def test_run_on_file_scan_coverage_error_exits_2(monkeypatch, capsys):
     assert "no coverage source" in capsys.readouterr().err
 
 
+@pytest.mark.unit
 def test_run_on_file_forking_requested_defaults_true(monkeypatch):
     """Default (no --no-fork): run_mutations is asked to use the fast path."""
     from mutate4py._dispatch import _run_on_file
@@ -215,6 +221,7 @@ def test_run_on_file_forking_requested_defaults_true(monkeypatch):
     assert captured["request"].forking_requested is True
 
 
+@pytest.mark.unit
 def test_run_on_file_forking_requested_false_when_disabled(monkeypatch):
     from mutate4py._dispatch import _run_on_file
 
@@ -231,6 +238,7 @@ def test_run_on_file_forking_requested_false_when_disabled(monkeypatch):
 # ── _needs_directory_baseline / _prepare_directory_baseline ───────────────────
 
 
+@pytest.mark.unit
 def test_needs_directory_baseline_true_for_normal_run():
     from mutate4py._dispatch import _needs_directory_baseline
 
@@ -238,6 +246,7 @@ def test_needs_directory_baseline_true_for_normal_run():
     assert _needs_directory_baseline(["a.py"], args) is True
 
 
+@pytest.mark.unit
 def test_needs_directory_baseline_false_when_no_files():
     from mutate4py._dispatch import _needs_directory_baseline
 
@@ -245,6 +254,7 @@ def test_needs_directory_baseline_false_when_no_files():
     assert _needs_directory_baseline([], args) is False
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("extra", [{"scan": True}, {"update_manifest": True}, {"check_manifest": True}])
 def test_needs_directory_baseline_false_for_no_run_modes(extra):
     from mutate4py._dispatch import _needs_directory_baseline
@@ -253,6 +263,7 @@ def test_needs_directory_baseline_false_for_no_run_modes(extra):
     assert _needs_directory_baseline(["a.py"], args) is False
 
 
+@pytest.mark.unit
 def test_prepare_directory_baseline_returns_duration(monkeypatch):
     from mutate4py._dispatch import _prepare_directory_baseline
 
@@ -265,6 +276,7 @@ def test_prepare_directory_baseline_returns_duration(monkeypatch):
     assert duration == 1.23
 
 
+@pytest.mark.unit
 def test_prepare_directory_baseline_coverage_error_exits_1(monkeypatch, capsys):
     from mutate4py._coverage import CoverageError
     from mutate4py._dispatch import _prepare_directory_baseline
@@ -281,6 +293,7 @@ def test_prepare_directory_baseline_coverage_error_exits_1(monkeypatch, capsys):
     assert "no coverage source" in capsys.readouterr().err
 
 
+@pytest.mark.unit
 def test_prepare_directory_baseline_baseline_failure_exits_1(monkeypatch, capsys):
     from mutate4py._dispatch import _prepare_directory_baseline
 
@@ -297,6 +310,7 @@ def test_prepare_directory_baseline_baseline_failure_exits_1(monkeypatch, capsys
 # ── Mutant-killing gap tests: _load_source / _run_scan ─────────────────────────
 
 
+@pytest.mark.unit
 def test_load_source_missing_file_exits_2(tmp_path):
     # mutant_6,_7: sys.exit(2) on missing file
     from mutate4py._dispatch import _load_source
@@ -306,6 +320,7 @@ def test_load_source_missing_file_exits_2(tmp_path):
     assert exc.value.code == 2
 
 
+@pytest.mark.unit
 def test_load_source_error_on_stderr(tmp_path, capsys):
     # mutant_2,3,4,5: print(f"error: {exc}", file=sys.stderr)
     from mutate4py._dispatch import _load_source
@@ -316,6 +331,7 @@ def test_load_source_error_on_stderr(tmp_path, capsys):
     assert "error" in err.lower()
 
 
+@pytest.mark.unit
 def test_run_scan_coverage_error_exits_2(tmp_path):
     # mutant_21-26: CoverageError → sys.exit(2) exactly
     import argparse
@@ -337,6 +353,7 @@ def test_run_scan_coverage_error_exits_2(tmp_path):
     assert exc.value.code == 2
 
 
+@pytest.mark.unit
 def test_run_scan_coverage_error_goes_to_stderr(tmp_path, capsys):
     # mutant_21-26: error message goes to stderr
     import argparse
@@ -359,6 +376,7 @@ def test_run_scan_coverage_error_goes_to_stderr(tmp_path, capsys):
     assert "error" in err.lower()
 
 
+@pytest.mark.unit
 def test_run_scan_output_newline_separated(tmp_path, capsys):
     # mutant_28,_36: print("\n".join(lines)) — output lines are newline-separated
     import argparse
@@ -383,6 +401,7 @@ def test_run_scan_output_newline_separated(tmp_path, capsys):
     assert "\n" in out
 
 
+@pytest.mark.unit
 def test_run_scan_passes_cov_cmd_to_coverage(tmp_path, capsys):
     # mutant_10: cov_cmd=None vs args.cov_cmd — cov_cmd must be passed through
     import argparse
@@ -407,6 +426,7 @@ def test_run_scan_passes_cov_cmd_to_coverage(tmp_path, capsys):
     assert "Covered mutation sites:" in out
 
 
+@pytest.mark.unit
 def test_run_scan_reuse_coverage_with_cwd(tmp_path, capsys):
     # mutant_12/13: reuse_coverage and cwd are passed through to acquire_coverage;
     # coverage.lcov in cwd is found only when cwd is correct
@@ -431,6 +451,7 @@ def test_run_scan_reuse_coverage_with_cwd(tmp_path, capsys):
     assert "Covered mutation sites:" in out
 
 
+@pytest.mark.unit
 def test_run_scan_passes_args_file_path(tmp_path, capsys):
     # mutant_28: scan_report(None, ...) vs scan_report(path, ...)
     # Path in header must match the path argument
@@ -453,6 +474,7 @@ def test_run_scan_passes_args_file_path(tmp_path, capsys):
     assert "mymod.py" in out
 
 
+@pytest.mark.unit
 def test_run_scan_separator_is_newline_not_other_string(tmp_path, capsys):
     # mutant_36: "XX\nXX".join(lines) vs "\n".join(lines)
     import argparse
@@ -480,24 +502,28 @@ def test_run_scan_separator_is_newline_not_other_string(tmp_path, capsys):
 # ── _parse_lines ──────────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_parse_lines_none():
     from mutate4py._dispatch import _parse_lines
 
     assert _parse_lines(None) is None
 
 
+@pytest.mark.unit
 def test_parse_lines_single():
     from mutate4py._dispatch import _parse_lines
 
     assert _parse_lines("5") == {5}
 
 
+@pytest.mark.unit
 def test_parse_lines_multiple():
     from mutate4py._dispatch import _parse_lines
 
     assert _parse_lines("3,7,12") == {3, 7, 12}
 
 
+@pytest.mark.unit
 def test_parse_lines_with_spaces():
     from mutate4py._dispatch import _parse_lines
 
@@ -507,6 +533,7 @@ def test_parse_lines_with_spaces():
 # ── _parse_lines: error branches ──────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_parse_lines_non_integer_exits(capsys):
     from mutate4py._dispatch import _parse_lines
 
@@ -519,6 +546,7 @@ def test_parse_lines_non_integer_exits(capsys):
     assert "not a valid integer" in err
 
 
+@pytest.mark.unit
 def test_parse_lines_zero_exits(capsys):
     from mutate4py._dispatch import _parse_lines
 
@@ -531,6 +559,7 @@ def test_parse_lines_zero_exits(capsys):
     assert "positive integer" in err
 
 
+@pytest.mark.unit
 def test_parse_lines_negative_exits(capsys):
     from mutate4py._dispatch import _parse_lines
 
@@ -546,30 +575,35 @@ def test_parse_lines_negative_exits(capsys):
 # ── _parse_pytest_args ──────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_parse_pytest_args_none():
     from mutate4py._dispatch import _parse_pytest_args
 
     assert _parse_pytest_args(None) == []
 
 
+@pytest.mark.unit
 def test_parse_pytest_args_empty_string():
     from mutate4py._dispatch import _parse_pytest_args
 
     assert _parse_pytest_args("") == []
 
 
+@pytest.mark.unit
 def test_parse_pytest_args_splits_tokens():
     from mutate4py._dispatch import _parse_pytest_args
 
     assert _parse_pytest_args("-x -k foo") == ["-x", "-k", "foo"]
 
 
+@pytest.mark.unit
 def test_parse_pytest_args_respects_quoting():
     from mutate4py._dispatch import _parse_pytest_args
 
     assert _parse_pytest_args("-k 'foo bar'") == ["-k", "foo bar"]
 
 
+@pytest.mark.unit
 def test_parse_pytest_args_malformed_quoting_exits_2(capsys):
     from mutate4py._dispatch import _parse_pytest_args
 
@@ -585,6 +619,7 @@ def test_parse_pytest_args_malformed_quoting_exits_2(capsys):
 # ── --exclude: dispatch-level reporting and exits ─────────────────────────────
 
 
+@pytest.mark.unit
 def test_report_excluded_prints_one_line_per_file(capsys):
     from mutate4py._dispatch import _report_excluded
 
@@ -592,6 +627,7 @@ def test_report_excluded_prints_one_line_per_file(capsys):
     assert capsys.readouterr().out == "Excluded: a.py\nExcluded: b.py\n"
 
 
+@pytest.mark.unit
 def test_report_excluded_prints_nothing_for_an_empty_list(capsys):
     from mutate4py._dispatch import _report_excluded
 
@@ -599,6 +635,7 @@ def test_report_excluded_prints_nothing_for_an_empty_list(capsys):
     assert capsys.readouterr().out == ""
 
 
+@pytest.mark.unit
 def test_collect_union_files_single_root_returns_survivors(tmp_path):
     from mutate4py._dispatch import _collect_union_files
 
@@ -610,6 +647,7 @@ def test_collect_union_files_single_root_returns_survivors(tmp_path):
     ]
 
 
+@pytest.mark.unit
 def test_collect_union_files_single_root_raises_when_all_excluded(tmp_path):
     from mutate4py._dispatch import _collect_union_files
     from mutate4py._target_resolution import NoFilesToProcessError
@@ -620,6 +658,7 @@ def test_collect_union_files_single_root_raises_when_all_excluded(tmp_path):
         _collect_union_files(args, [d])
 
 
+@pytest.mark.unit
 def test_collect_union_files_single_root_verbose_reports_before_raising(tmp_path, capsys):
     from mutate4py._dispatch import _collect_union_files
     from mutate4py._target_resolution import NoFilesToProcessError
@@ -631,6 +670,7 @@ def test_collect_union_files_single_root_verbose_reports_before_raising(tmp_path
     assert capsys.readouterr().out.count("Excluded: ") == 4
 
 
+@pytest.mark.unit
 def test_raise_if_target_excluded_returns_when_no_match(tmp_path):
     from mutate4py._dispatch import _raise_if_target_excluded
 
@@ -638,6 +678,7 @@ def test_raise_if_target_excluded_returns_when_no_match(tmp_path):
     _raise_if_target_excluded(args)  # must not raise
 
 
+@pytest.mark.unit
 def test_raise_if_target_excluded_raises_on_match(capsys):
     from mutate4py._dispatch import _raise_if_target_excluded
     from mutate4py._target_resolution import NoFilesToProcessError
@@ -648,6 +689,7 @@ def test_raise_if_target_excluded_raises_on_match(capsys):
     assert capsys.readouterr().out == ""
 
 
+@pytest.mark.unit
 def test_raise_if_target_excluded_verbose_names_the_target(capsys):
     from mutate4py._dispatch import _raise_if_target_excluded
     from mutate4py._target_resolution import NoFilesToProcessError
@@ -682,6 +724,7 @@ def _run_batch(monkeypatch, codes):
     return exc.value.code
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "codes,expected",
     [
@@ -703,6 +746,7 @@ def test_run_files_and_exit_reports_worst_code(monkeypatch, codes, expected):
 # ── unparseable files never stop the batch (issue #35) ────────────────────────
 
 
+@pytest.mark.unit
 def test_syntax_error_reason_includes_line_number():
     import mutate4py._dispatch as m
 
@@ -710,6 +754,7 @@ def test_syntax_error_reason_includes_line_number():
     assert m._syntax_error_reason(exc) == "invalid syntax (line 3)"
 
 
+@pytest.mark.unit
 def test_syntax_error_reason_without_line_number_omits_it():
     import mutate4py._dispatch as m
 
@@ -718,6 +763,7 @@ def test_syntax_error_reason_without_line_number_omits_it():
     assert m._syntax_error_reason(exc) == "invalid syntax"
 
 
+@pytest.mark.unit
 def test_run_files_and_exit_continues_past_syntax_error(monkeypatch, capsys):
     """A SyntaxError on one file must not stop the rest of the batch from running."""
     import mutate4py._dispatch as m
@@ -741,6 +787,7 @@ def test_run_files_and_exit_continues_past_syntax_error(monkeypatch, capsys):
     assert exc.value.code == 2
 
 
+@pytest.mark.unit
 def test_run_files_and_exit_syntax_error_message_on_stderr(monkeypatch, capsys):
     import mutate4py._dispatch as m
 
@@ -758,6 +805,7 @@ def test_run_files_and_exit_syntax_error_message_on_stderr(monkeypatch, capsys):
     assert "Traceback" not in err
 
 
+@pytest.mark.unit
 def test_run_files_and_exit_reports_parse_failure_count(monkeypatch, capsys):
     import mutate4py._dispatch as m
 
@@ -776,6 +824,7 @@ def test_run_files_and_exit_reports_parse_failure_count(monkeypatch, capsys):
     assert "error: 2 files could not be parsed" in capsys.readouterr().err
 
 
+@pytest.mark.unit
 def test_run_files_and_exit_no_parse_failure_summary_when_all_parse(monkeypatch, capsys):
     import mutate4py._dispatch as m
 
@@ -789,6 +838,7 @@ def test_run_files_and_exit_no_parse_failure_summary_when_all_parse(monkeypatch,
     assert "could not be parsed" not in capsys.readouterr().err
 
 
+@pytest.mark.unit
 def test_run_files_and_exit_syntax_error_worst_code_wins_either_order(
     monkeypatch,
 ):
@@ -811,6 +861,7 @@ def test_run_files_and_exit_syntax_error_worst_code_wins_either_order(
         assert exc.value.code == 2
 
 
+@pytest.mark.unit
 def test_run_on_file_propagates_syntax_error(monkeypatch):
     """_run_on_file itself lets SyntaxError propagate — it's _dispatch (one of
     its callers) that catches and reports it (issue #35), so this stays a
@@ -830,6 +881,7 @@ def test_run_on_file_propagates_syntax_error(monkeypatch):
 # ── multi-root positionals (issue #22): _collect_union_files (direct unit) ─────
 
 
+@pytest.mark.unit
 def test_collect_union_files_unions_and_dedups_across_roots(tmp_path):
     from mutate4py._dispatch import _collect_union_files
 
@@ -844,6 +896,7 @@ def test_collect_union_files_unions_and_dedups_across_roots(tmp_path):
     assert files == [str(a_dir / "a.py"), str(b_dir / "b.py")]
 
 
+@pytest.mark.unit
 def test_collect_union_files_raises_when_the_whole_union_is_empty(tmp_path):
     from mutate4py._dispatch import _collect_union_files
     from mutate4py._target_resolution import NoFilesToProcessError
@@ -857,6 +910,7 @@ def test_collect_union_files_raises_when_the_whole_union_is_empty(tmp_path):
         _collect_union_files(args, [str(a_dir), str(b_dir)])
 
 
+@pytest.mark.unit
 def test_collect_union_files_verbose_reports_excluded_per_root(tmp_path, capsys):
     from mutate4py._dispatch import _collect_union_files
 
@@ -875,6 +929,7 @@ def test_collect_union_files_verbose_reports_excluded_per_root(tmp_path, capsys)
 # --- _build_isolated_session_runner (issue #51) -------------------------------
 
 
+@pytest.mark.unit
 def test_build_isolated_session_runner_returns_none_when_a_fork_unsafe_plugin_is_loaded(tmp_path):
     """Regression: this repo's own acceptance suite hung for 36+ minutes
     (real, observed) because --build-test-contexts unconditionally engaged
@@ -891,7 +946,7 @@ def test_build_isolated_session_runner_returns_none_when_a_fork_unsafe_plugin_is
     assert runner is None
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_build_isolated_session_runner_forks_and_runs_when_eligible(tmp_path, monkeypatch):
     """With the fork-unsafe-plugin precheck stubbed out (this dev venv always
     has tach loaded once ForkingExecutor.prime()'s own collect-only

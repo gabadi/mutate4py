@@ -1,22 +1,36 @@
 {
   "version": 1,
-  "tested_at": "2026-08-11T02:30:13Z",
-  "module_hash": "9b2bec3913993dfb7ba3cd75aaba2bae3d822106e05664d3bb81e0f83f240c35",
-  "source_sha256": "328207b73db6223eadb9251f43af8b18fb5ab27fddbe728762005011093eaf07",
+  "tested_at": "2026-08-12T06:34:58Z",
+  "module_hash": "5c85998c110c5ca2d5d9fc23e3b9f411d8bec5d69121b375932b70f73798fab1",
+  "source_sha256": "897c8acd096d48e480c4f26bf9c35fff6bbdc8042e6fdd1c9164c2010b848371",
   "functions": [
+    {
+      "id": "func/parse_worker_argv",
+      "name": "parse_worker_argv",
+      "line": 44,
+      "end_line": 55,
+      "hash": "fe64a064d874828795129f1ba61194dca349776716494c526b56e8687b9c4730"
+    },
+    {
+      "id": "func/worker_environ_updates",
+      "name": "worker_environ_updates",
+      "line": 58,
+      "end_line": 64,
+      "hash": "50f7085bd370cf2ca19d5beaec689cd65677624786938cdf78d83b0499bf4ec7"
+    },
     {
       "id": "func/_serve",
       "name": "_serve",
-      "line": 33,
-      "end_line": 45,
+      "line": 67,
+      "end_line": 79,
       "hash": "4e13843cc9be5d4e8549f614d7515ccab4ad45013be116331e90eee81e8b4f6a"
     },
     {
       "id": "func/main",
       "name": "main",
-      "line": 48,
-      "end_line": 62,
-      "hash": "b285d72cbd5f3d6a3b04c26262b8f8ca819102d62d8a8312655d8f069f01946a"
+      "line": 82,
+      "end_line": 96,
+      "hash": "227a1dcdc242c9983f8ab982e04f3127e64f254f1c483b7b9279de72fcf33cc3"
     }
   ]
 }

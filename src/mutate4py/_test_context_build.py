@@ -13,7 +13,14 @@ import sys
 import tempfile
 from typing import Callable
 
-__all__ = ["IsolatedSessionRunner", "TestContextBuildError", "_combine_argv", "_run_argv", "build_test_context_db"]
+__all__ = [
+    "IsolatedSessionRunner",
+    "TestContextBuildError",
+    "_combine_argv",
+    "_run_argv",
+    "build_test_context_db",
+    "dispatch_isolated_session",
+]
 
 IsolatedSessionRunner = Callable[[str, str, list[str]], str]
 
@@ -47,6 +54,30 @@ def _run_and_check(argv: list[str], *, cwd: str, error_prefix: str) -> None:
     result = subprocess.run(argv, cwd=cwd, capture_output=True, text=True)
     if result.returncode != 0:
         raise TestContextBuildError(f"{error_prefix} (exit {result.returncode}):\n{result.stdout}\n{result.stderr}")
+
+
+def dispatch_isolated_session(
+    node_id: str,
+    *,
+    data_file: str,
+    cwd: str,
+    pytest_args: list[str],
+    isolated_session_runner: IsolatedSessionRunner | None,
+) -> None:
+    """Run exactly node_id into its own data_file, warm or cold.
+
+    Warm is the injected runner (the forking path); cold is a fresh
+    `coverage run -m pytest` subprocess. Either way a session that did not
+    complete cleanly raises TestContextBuildError, so the two paths are
+    indistinguishable to the caller — see build_test_context_db's docstring.
+    """
+    if isolated_session_runner is None:
+        argv = _run_argv(node_id, data_file=data_file, pytest_args=pytest_args, python_executable=sys.executable)
+        _run_and_check(argv, cwd=cwd, error_prefix=f"isolated coverage session for {node_id!r} failed")
+        return
+    outcome = isolated_session_runner(node_id, data_file, pytest_args)
+    if outcome != "survived":
+        raise TestContextBuildError(f"isolated coverage session for {node_id!r} did not run cleanly: {outcome}")
 
 
 def build_test_context_db(
@@ -84,22 +115,18 @@ def build_test_context_db(
     """
     if not test_node_ids:
         raise TestContextBuildError("no test node IDs given; nothing to build")
-    pytest_args = list(pytest_args or [])
+    session_args = list(pytest_args or [])
     with tempfile.TemporaryDirectory(prefix=".mutate4py-test-ctx-") as tmp_dir:
         data_files = []
         for i, node_id in enumerate(test_node_ids):
             data_file = os.path.join(tmp_dir, f".coverage.{i}")
-            if isolated_session_runner is not None:
-                outcome = isolated_session_runner(node_id, data_file, pytest_args)
-                if outcome != "survived":
-                    raise TestContextBuildError(
-                        f"isolated coverage session for {node_id!r} did not run cleanly: {outcome}"
-                    )
-            else:
-                argv = _run_argv(
-                    node_id, data_file=data_file, pytest_args=pytest_args, python_executable=sys.executable
-                )
-                _run_and_check(argv, cwd=cwd, error_prefix=f"isolated coverage session for {node_id!r} failed")
+            dispatch_isolated_session(
+                node_id,
+                data_file=data_file,
+                cwd=cwd,
+                pytest_args=session_args,
+                isolated_session_runner=isolated_session_runner,
+            )
             data_files.append(data_file)
         argv = _combine_argv(data_files, output_db_path=output_db_path, python_executable=sys.executable)
         _run_and_check(argv, cwd=cwd, error_prefix="coverage combine failed")

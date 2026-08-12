@@ -25,6 +25,7 @@ import signal
 import sys
 import tempfile
 import time
+from typing import Callable
 
 from mutate4py._cmd import classify_exit_code
 from mutate4py._plugin_neutralisation import neutralising_args
@@ -149,15 +150,24 @@ class ForkingExecutor:
         assert_source_clean(self._guarded_path)
         self._primed = True
 
+    def _fork_and_wait(self, child: Callable[[], None], timeout: float) -> str:
+        """Fork, run `child` in the forked process, and classify how it ended.
+
+        `child` never returns — every child entry point ends in os._exit —
+        so the trailing exit is only there to make an escaped return fatal
+        rather than let a second copy of the parent run on.
+        """
+        pid = os.fork()
+        if pid == 0:
+            child()
+            os._exit(70)  # pragma: no cover - every child entry point calls os._exit
+        return _wait_for_child(pid, timeout)
+
     def run(self, args: list[str], timeout: float) -> str:
         """Fork a child that runs pytest.main(args) once; return the classification."""
         if not self._primed:
             raise ForkingExecutorUnavailable("prime() must succeed before run()")
-        pid = os.fork()
-        if pid == 0:
-            self._run_child(args)
-            os._exit(70)  # pragma: no cover - _run_child always calls os._exit
-        return _wait_for_child(pid, timeout)
+        return self._fork_and_wait(lambda: self._run_child(args), timeout)
 
     def run_isolated_coverage_session(
         self, node_id: str, *, data_file: str, pytest_args: list[str], timeout: float
@@ -184,11 +194,9 @@ class ForkingExecutor:
                 "a fork-unsafe pytest plugin is loaded (see _FORK_UNSAFE_PLUGIN_MODULES); "
                 "the caller must fall back to the subprocess executor"
             )
-        pid = os.fork()
-        if pid == 0:
-            self._run_coverage_child(node_id, data_file=data_file, pytest_args=pytest_args)
-            os._exit(70)  # pragma: no cover - _run_coverage_child always calls os._exit
-        return _wait_for_child(pid, timeout)
+        return self._fork_and_wait(
+            lambda: self._run_coverage_child(node_id, data_file=data_file, pytest_args=pytest_args), timeout
+        )
 
     def _run_child(self, args: list[str]) -> None:
         import pytest

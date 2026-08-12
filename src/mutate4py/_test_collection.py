@@ -23,8 +23,10 @@ import sys
 __all__ = [
     "TestCollectionError",
     "_collect_argv",
+    "collect_pytest_args",
     "collect_test_node_ids",
     "isolated_run_pytest_args",
+    "node_ids_from_collect_result",
     "rootdir_pytest_args",
 ]
 
@@ -70,22 +72,27 @@ def _is_node_id_line(line: str) -> bool:
     return "::" in line.strip()
 
 
-def collect_test_node_ids(
-    *,
-    cwd: str,
-    pytest_args: list[str] | None = None,
-    python_executable: str = sys.executable,
-) -> list[str]:
-    """Every node ID `pytest --collect-only` finds, scoped by pytest_args.
+def collect_pytest_args(pytest_args: list[str] | None, *, cwd: str) -> list[str]:
+    """The caller's pytest_args with the pinned --rootdir appended; see the
+    module docstring for why every collection pass needs that pin."""
+    return [*(pytest_args or []), *rootdir_pytest_args(cwd)]
 
-    Raises TestCollectionError if the collection pass itself fails (e.g. a
-    collection-time import error) or finds zero tests — an empty result is
+
+def node_ids_from_collect_result(
+    result: subprocess.CompletedProcess[str], *, cwd: str, pytest_args: list[str]
+) -> list[str]:
+    """Every node ID a finished `--collect-only` pass printed.
+
+    Raises TestCollectionError if the pass itself failed (e.g. a
+    collection-time import error) or printed no node ID — an empty result is
     never silently passed through to build_test_context_db, which would
-    raise its own less specific "no test node IDs given" error instead.
+    raise its own less specific "no test node IDs given" error instead. Exit
+    5 (`_NO_TESTS_COLLECTED_EXIT_CODE`) is not a failure here: `-q` still
+    prints whatever was collected, and the emptiness check below is the one
+    that decides.
+
+    cwd and pytest_args name the collection scope in the error messages only.
     """
-    pytest_args = [*(pytest_args or []), *rootdir_pytest_args(cwd)]
-    argv = _collect_argv(pytest_args, python_executable=python_executable)
-    result = subprocess.run(argv, cwd=cwd, capture_output=True, text=True)
     if result.returncode not in (0, _NO_TESTS_COLLECTED_EXIT_CODE):
         raise TestCollectionError(
             f"pytest collection failed (exit {result.returncode}):\n{result.stdout}\n{result.stderr}"
@@ -94,3 +101,20 @@ def collect_test_node_ids(
     if not node_ids:
         raise TestCollectionError(f"no tests collected in {cwd!r} with pytest_args={pytest_args!r}")
     return node_ids
+
+
+def collect_test_node_ids(
+    *,
+    cwd: str,
+    pytest_args: list[str] | None = None,
+    python_executable: str = sys.executable,
+) -> list[str]:
+    """Every node ID `pytest --collect-only` finds, scoped by pytest_args.
+
+    The `--collect-only` subprocess is all this wrapper owns; every decision
+    about what came back lives in `node_ids_from_collect_result`.
+    """
+    scoped_args = collect_pytest_args(pytest_args, cwd=cwd)
+    argv = _collect_argv(scoped_args, python_executable=python_executable)
+    result = subprocess.run(argv, cwd=cwd, capture_output=True, text=True)
+    return node_ids_from_collect_result(result, cwd=cwd, pytest_args=scoped_args)

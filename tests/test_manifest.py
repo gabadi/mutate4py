@@ -33,16 +33,19 @@ def _make_manifest(**overrides) -> dict:
 # ── strip_manifest ────────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_strip_no_marker_returns_source_unchanged():
     src = "x = 1\n"
     assert strip_manifest(src) == src
 
 
+@pytest.mark.unit
 def test_strip_no_marker_trailing_newlines_preserved():
     src = "x = 1\n\n"
     assert strip_manifest(src) == src
 
 
+@pytest.mark.unit
 def test_strip_removes_footer():
     src = "x = 1\n"
     marker = "# mutate4py-manifest-begin\n# {}\n# mutate4py-manifest-end\n"
@@ -50,6 +53,7 @@ def test_strip_removes_footer():
     assert strip_manifest(embedded) == "x = 1\n"
 
 
+@pytest.mark.unit
 def test_strip_leaves_trailing_single_newline():
     marker = "# mutate4py-manifest-begin\n# {}\n# mutate4py-manifest-end\n"
     embedded = "x = 1\n\n" + marker
@@ -60,6 +64,7 @@ def test_strip_leaves_trailing_single_newline():
 # ── embed_manifest ────────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_embed_appends_begin_end_markers():
     src = "x = 1\n"
     m = _make_manifest()
@@ -68,6 +73,7 @@ def test_embed_appends_begin_end_markers():
     assert "# mutate4py-manifest-end\n" in result
 
 
+@pytest.mark.unit
 def test_embed_json_line_starts_with_hash_space():
     src = "x = 1\n"
     m = _make_manifest()
@@ -79,6 +85,7 @@ def test_embed_json_line_starts_with_hash_space():
     json.loads(json_line[2:])  # must parse
 
 
+@pytest.mark.unit
 def test_embed_json_is_compact_no_spaces():
     src = "x = 1\n"
     m = _make_manifest(functions=[{"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "x"}])
@@ -89,6 +96,7 @@ def test_embed_json_is_compact_no_spaces():
     assert '", "' not in json_line and '": "' not in json_line
 
 
+@pytest.mark.unit
 def test_embed_body_above_footer_is_trimmed_original():
     src = "x = 1\n\n\n"
     m = _make_manifest()
@@ -98,6 +106,7 @@ def test_embed_body_above_footer_is_trimmed_original():
     assert body == "x = 1\n\n\n"
 
 
+@pytest.mark.unit
 def test_embed_strip_then_re_embed_is_idempotent_body():
     src = "def foo():\n    return 1\n"
     m = _make_manifest()
@@ -110,6 +119,7 @@ def test_embed_strip_then_re_embed_is_idempotent_body():
     assert first[:begin_first] == second[:begin_second]
 
 
+@pytest.mark.unit
 def test_embed_exactly_one_begin_marker_after_re_embed():
     src = "x = 1\n"
     m = _make_manifest()
@@ -121,23 +131,28 @@ def test_embed_exactly_one_begin_marker_after_re_embed():
 # ── _find_manifest_block ──────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_find_manifest_block_no_markers_returns_none():
     assert _find_manifest_block("x = 1\n") is None
 
 
+@pytest.mark.unit
 def test_find_manifest_block_begin_only_returns_none():
     assert _find_manifest_block("x = 1\n# mutate4py-manifest-begin\n") is None
 
 
+@pytest.mark.unit
 def test_find_manifest_block_end_only_returns_none():
     assert _find_manifest_block("x = 1\n# mutate4py-manifest-end\n") is None
 
 
+@pytest.mark.unit
 def test_find_manifest_block_end_before_begin_returns_none():
     src = "# mutate4py-manifest-end\n# mutate4py-manifest-begin\n"
     assert _find_manifest_block(src) is None
 
 
+@pytest.mark.unit
 def test_find_manifest_block_returns_between_markers():
     src = "# mutate4py-manifest-begin\n# payload\n# mutate4py-manifest-end\n"
     block = _find_manifest_block(src)
@@ -148,26 +163,32 @@ def test_find_manifest_block_returns_between_markers():
 # ── _uncomment_line ───────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_uncomment_line_empty_returns_empty():
     assert _uncomment_line("") == ""
 
 
+@pytest.mark.unit
 def test_uncomment_line_whitespace_only_returns_empty():
     assert _uncomment_line("   ") == ""
 
 
+@pytest.mark.unit
 def test_uncomment_line_hash_only_returns_empty():
     assert _uncomment_line("#") == ""
 
 
+@pytest.mark.unit
 def test_uncomment_line_strips_hash_prefix():
     assert _uncomment_line("# hello") == "hello"
 
 
+@pytest.mark.unit
 def test_uncomment_line_hash_no_space_strips_single_hash():
     assert _uncomment_line("#hello") == "hello"
 
 
+@pytest.mark.unit
 def test_uncomment_line_non_comment_returns_stripped():
     assert _uncomment_line("  hello  ") == "hello"
 
@@ -175,25 +196,30 @@ def test_uncomment_line_non_comment_returns_stripped():
 # ── extract_manifest ──────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_extract_no_markers_returns_none_false():
     assert extract_manifest("x = 1\n") == (None, False)
 
 
+@pytest.mark.unit
 def test_extract_begin_only_returns_none_false():
     src = "x = 1\n# mutate4py-manifest-begin\n"
     assert extract_manifest(src) == (None, False)
 
 
+@pytest.mark.unit
 def test_extract_end_before_begin_returns_none_false():
     src = "# mutate4py-manifest-end\n# mutate4py-manifest-begin\n"
     assert extract_manifest(src) == (None, False)
 
 
+@pytest.mark.unit
 def test_extract_bad_json_returns_none_false():
     src = "x = 1\n# mutate4py-manifest-begin\n# not-json\n# mutate4py-manifest-end\n"
     assert extract_manifest(src) == (None, False)
 
 
+@pytest.mark.unit
 def test_extract_valid_returns_manifest_true():
     src = "x = 1\n"
     m = _make_manifest()
@@ -203,6 +229,7 @@ def test_extract_valid_returns_manifest_true():
     assert result is not None
 
 
+@pytest.mark.unit
 def test_extract_is_inverse_of_embed():
     src = "def foo():\n    return 1\n"
     m = _make_manifest(functions=[{"id": "func/foo", "name": "foo", "line": 1, "end_line": 2, "hash": "abc"}])
@@ -217,30 +244,35 @@ def test_extract_is_inverse_of_embed():
 # ── build_manifest ────────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_build_manifest_version_is_1():
     src = "x = 1\n"
     m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
     assert m["version"] == 1
 
 
+@pytest.mark.unit
 def test_build_manifest_tested_at_is_passed_value():
     src = "x = 1\n"
     m = build_manifest(src, tested_at="2026-06-26T00:00:00Z")
     assert m["tested_at"] == "2026-06-26T00:00:00Z"
 
 
+@pytest.mark.unit
 def test_build_manifest_functions_empty_for_no_defs():
     src = "x = 1\n"
     m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
     assert m["functions"] == []
 
 
+@pytest.mark.unit
 def test_build_manifest_module_hash_non_empty():
     src = "x = 1\n"
     m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
     assert isinstance(m["module_hash"], str) and len(m["module_hash"]) > 0
 
 
+@pytest.mark.unit
 def test_build_manifest_records_def_function():
     src = "def foo():\n    return 1\n"
     m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
@@ -250,6 +282,7 @@ def test_build_manifest_records_def_function():
     assert fn["name"] == "foo"
 
 
+@pytest.mark.unit
 def test_build_manifest_records_async_def():
     src = "async def foo():\n    return 1\n"
     m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
@@ -257,6 +290,7 @@ def test_build_manifest_records_async_def():
     assert m["functions"][0]["id"] == "func/foo"
 
 
+@pytest.mark.unit
 def test_build_manifest_method_id():
     src = "class C:\n    def m(self):\n        return 1\n"
     m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
@@ -264,6 +298,7 @@ def test_build_manifest_method_id():
     assert m["functions"][0]["name"] == "m"
 
 
+@pytest.mark.unit
 def test_build_manifest_line_is_def_line_not_decorator():
     src = "@decorator\ndef foo():\n    return 1\n"
     m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
@@ -271,6 +306,7 @@ def test_build_manifest_line_is_def_line_not_decorator():
     assert fn["line"] == 2
 
 
+@pytest.mark.unit
 def test_build_manifest_function_has_line_end_line_hash():
     src = "def foo():\n    return 1\n"
     m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
@@ -280,6 +316,7 @@ def test_build_manifest_function_has_line_end_line_hash():
     assert "hash" in fn
 
 
+@pytest.mark.unit
 def test_build_manifest_hash_stable_across_whitespace_reformat():
     src1 = "def foo():\n    return 1\n"
     src2 = "def foo():\n    return   1\n"
@@ -289,6 +326,7 @@ def test_build_manifest_hash_stable_across_whitespace_reformat():
     assert m1["functions"][0]["hash"] == m2["functions"][0]["hash"]
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "src1,src2",
     [
@@ -302,6 +340,7 @@ def test_build_manifest_hash_changes_for_semantic_edit(src1, src2):
     assert m1["functions"][0]["hash"] != m2["functions"][0]["hash"]
 
 
+@pytest.mark.unit
 def test_build_manifest_hash_stable_for_comment_edit():
     src1 = "def foo():\n    return 1\n"
     src2 = "def foo():\n    # a comment\n    return 1\n"
@@ -310,6 +349,7 @@ def test_build_manifest_hash_stable_for_comment_edit():
     assert m1["functions"][0]["hash"] == m2["functions"][0]["hash"]
 
 
+@pytest.mark.unit
 def test_build_manifest_module_hash_stable_for_comment_edit():
     src1 = "x = 1\n"
     src2 = "# comment\nx = 1\n"
@@ -318,6 +358,7 @@ def test_build_manifest_module_hash_stable_for_comment_edit():
     assert m1["module_hash"] == m2["module_hash"]
 
 
+@pytest.mark.unit
 def test_build_manifest_functions_ordered_by_line():
     src = "def foo():\n    return 1\n\ndef bar():\n    return 2\n"
     m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
@@ -325,6 +366,7 @@ def test_build_manifest_functions_ordered_by_line():
     assert m["functions"][0]["line"] <= m["functions"][1]["line"]
 
 
+@pytest.mark.unit
 def test_build_manifest_nested_function_not_recorded():
     src = "def outer():\n    def inner():\n        pass\n    return inner\n"
     m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
@@ -333,12 +375,14 @@ def test_build_manifest_nested_function_not_recorded():
     assert "func/inner" not in ids
 
 
+@pytest.mark.unit
 def test_build_manifest_source_sha256_matches_raw_bytes():
     src = "def foo():\n    return 1\n"
     m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
     assert m["source_sha256"] == hashlib.sha256(src.encode()).hexdigest()
 
 
+@pytest.mark.unit
 def test_build_manifest_source_sha256_changes_for_comment_only_edit():
     """Byte-level, unlike module_hash/functions[*].hash which are AST-level."""
     src1 = "def foo():\n    return 1\n"
@@ -348,6 +392,7 @@ def test_build_manifest_source_sha256_changes_for_comment_only_edit():
     assert m1["source_sha256"] != m2["source_sha256"]
 
 
+@pytest.mark.unit
 def test_build_manifest_source_sha256_stable_for_identical_bytes():
     src = "def foo():\n    return 1\n"
     m1 = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
@@ -358,11 +403,13 @@ def test_build_manifest_source_sha256_stable_for_identical_bytes():
 # ── source_sha256 ─────────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_source_sha256_matches_hashlib_directly():
     src = "x = 1\n"
     assert source_sha256(src) == hashlib.sha256(src.encode()).hexdigest()
 
 
+@pytest.mark.unit
 def test_source_sha256_differs_for_different_source():
     assert source_sha256("x = 1\n") != source_sha256("x = 2\n")
 
@@ -380,36 +427,42 @@ def _fn(id_: str, hash_: str) -> dict:
     }
 
 
+@pytest.mark.unit
 def test_diff_none_previous_returns_all_current_ids():
     current = _make_manifest(functions=[_fn("func/a", "h1"), _fn("func/b", "h2")])
     changed = diff_manifests(None, current)
     assert changed == {"func/a", "func/b"}
 
 
+@pytest.mark.unit
 def test_diff_same_hash_no_change():
     prev = _make_manifest(functions=[_fn("func/a", "h1")])
     curr = _make_manifest(functions=[_fn("func/a", "h1")])
     assert diff_manifests(prev, curr) == set()
 
 
+@pytest.mark.unit
 def test_diff_changed_hash_reports_id():
     prev = _make_manifest(functions=[_fn("func/a", "h1")])
     curr = _make_manifest(functions=[_fn("func/a", "h2")])
     assert diff_manifests(prev, curr) == {"func/a"}
 
 
+@pytest.mark.unit
 def test_diff_new_id_in_current_is_changed():
     prev = _make_manifest(functions=[_fn("func/a", "h1")])
     curr = _make_manifest(functions=[_fn("func/a", "h1"), _fn("func/b", "h3")])
     assert diff_manifests(prev, curr) == {"func/b"}
 
 
+@pytest.mark.unit
 def test_diff_removed_id_silently_dropped():
     prev = _make_manifest(functions=[_fn("func/a", "h1"), _fn("func/b", "h2")])
     curr = _make_manifest(functions=[_fn("func/a", "h1")])
     assert diff_manifests(prev, curr) == set()
 
 
+@pytest.mark.unit
 def test_diff_module_hash_not_in_changed_set():
     prev = _make_manifest(module_hash="old", functions=[_fn("func/a", "h1")])
     curr = _make_manifest(module_hash="new", functions=[_fn("func/a", "h1")])
@@ -421,6 +474,7 @@ def test_diff_module_hash_not_in_changed_set():
 # ── Mutant-killing gap tests ──────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_strip_source_with_double_trailing_newline_before_marker():
     # mutant_5,_6: strip_manifest body = source[:idx].rstrip("\n") + "\n"
     # With double newline before begin marker, result is still exactly one newline
@@ -433,6 +487,7 @@ def test_strip_source_with_double_trailing_newline_before_marker():
     assert not stripped.endswith("\n\n")
 
 
+@pytest.mark.unit
 def test_embed_compact_json_no_space_after_colon():
     # mutant_8,_10: json.dumps with separators=(",",":") means no space after colon or comma
     src = "x = 1\n"
@@ -445,17 +500,20 @@ def test_embed_compact_json_no_space_after_colon():
     assert ", " not in json_line, "No space after comma (compact separators)"
 
 
+@pytest.mark.unit
 def test_uncomment_line_hash_no_space_returns_payload():
     # mutant_7: _uncomment_line("#hello") → stripped[1:].strip() = "hello"
     assert _uncomment_line("#hello") == "hello"
 
 
+@pytest.mark.unit
 def test_find_manifest_block_end_only_is_none():
     # mutant_8: only end_of_record marker → begin_idx == -1 → None
     src = "x = 1\n# mutate4py-manifest-end\n"
     assert _find_manifest_block(src) is None
 
 
+@pytest.mark.unit
 def test_extract_functions_two_functions_ordered_by_line():
     # mutmut _28: _extract_functions results.sort(key=lambda f: f["line"])
     # Two functions: second defined first but at higher line number → sorted ascending
@@ -467,6 +525,7 @@ def test_extract_functions_two_functions_ordered_by_line():
     assert m["functions"][1]["name"] == "bar"
 
 
+@pytest.mark.unit
 def test_strip_manifest_rstrip_only_newlines_not_spaces():
     # mutant_9: rstrip(None) vs rstrip("\n")
     # rstrip(None) strips ALL whitespace including spaces; rstrip("\n") only strips newlines
@@ -479,6 +538,7 @@ def test_strip_manifest_rstrip_only_newlines_not_spaces():
     assert stripped == "x = 1   \n", f"Expected spaces preserved, got {stripped!r}"
 
 
+@pytest.mark.unit
 def test_strip_manifest_rstrip_only_newlines_not_x_chars():
     # mutant_11: rstrip("XX\nXX") strips X and \n chars; rstrip("\n") only strips \n
     # If content ends with X before the marker, mutant would strip trailing X too
@@ -491,6 +551,7 @@ def test_strip_manifest_rstrip_only_newlines_not_x_chars():
     assert stripped == "varX\n", f"Expected trailing X preserved, got {stripped!r}"
 
 
+@pytest.mark.unit
 def test_embed_manifest_rstrip_only_newlines_not_spaces():
     # mutant_2: embed calls strip_manifest(source).rstrip("\n")
     # rstrip(None) would strip spaces too, giving different body
@@ -504,6 +565,7 @@ def test_embed_manifest_rstrip_only_newlines_not_spaces():
     assert "   " in body, f"Trailing spaces should be preserved in body: {body!r}"
 
 
+@pytest.mark.unit
 def test_embed_manifest_rstrip_only_newlines_not_x_chars():
     # mutant_5: rstrip("XX\nXX") strips X and \n chars; rstrip("\n") only strips \n
     src = "varX\n"  # content ending with X
@@ -515,6 +577,7 @@ def test_embed_manifest_rstrip_only_newlines_not_x_chars():
     assert "varX" in body, f"Expected trailing X preserved in body: {body!r}"
 
 
+@pytest.mark.unit
 def test_find_manifest_block_rfind_vs_find_single_marker():
     # mutant_3,6: find vs rfind — same result when only one begin/end marker
     src = "x = 1\n# mutate4py-manifest-begin\n# {}\n# mutate4py-manifest-end\n"
@@ -523,6 +586,7 @@ def test_find_manifest_block_rfind_vs_find_single_marker():
     assert "{}" in block
 
 
+@pytest.mark.unit
 def test_find_manifest_block_end_idx_sentinel():
     # mutant_13,14: end_idx == +1 or -2 vs == -1
     # When end marker is absent, source.find() returns -1, not +1 or -2
@@ -531,6 +595,7 @@ def test_find_manifest_block_end_idx_sentinel():
     assert _find_manifest_block(src) is None
 
 
+@pytest.mark.unit
 def test_find_manifest_block_begin_equals_end_returns_none():
     # mutant_15: end_idx < begin_idx vs end_idx <= begin_idx
     # This would only differ if begin and end marker are at the SAME position,
@@ -542,6 +607,7 @@ def test_find_manifest_block_begin_equals_end_returns_none():
     assert _find_manifest_block(src) is None
 
 
+@pytest.mark.unit
 def test_extract_manifest_space_join_matters():
     # mutant_9: " ".join(parts) vs "XX XX".join(parts)
     # With a single-part manifest, join separator doesn't matter.
@@ -553,6 +619,7 @@ def test_extract_manifest_space_join_matters():
     assert result == {"a": 1}
 
 
+@pytest.mark.unit
 def test_extract_manifest_multiline_json_space_join():
     # mutant_9: join separator matters when JSON is split across multiple comment lines.
     # Build a manifest where the JSON object spans two comment lines:
@@ -564,6 +631,7 @@ def test_extract_manifest_multiline_json_space_join():
     assert result == {"version": 1}
 
 
+@pytest.mark.unit
 def test_strip_manifest_find_vs_rfind_double_begin():
     # mutant_3: find vs rfind for strip_manifest
     # With two begin markers, find returns the first (correct: strip from earliest marker).
@@ -581,6 +649,7 @@ def test_strip_manifest_find_vs_rfind_double_begin():
     assert "# mutate4py-manifest-begin" not in result
 
 
+@pytest.mark.unit
 def test_find_manifest_block_find_vs_rfind_double_markers():
     # mutant_3 (_find_manifest_block): find vs rfind for begin marker
     # mutant_6 (_find_manifest_block): find vs rfind for end marker
@@ -602,6 +671,7 @@ def test_find_manifest_block_find_vs_rfind_double_markers():
     assert "{}" in block
 
 
+@pytest.mark.unit
 def test_find_manifest_block_rfind_end_includes_too_much():
     # mutant_6: rfind for end marker returns the LAST end marker position.
     # With two end markers, rfind would extend the block past the first end,

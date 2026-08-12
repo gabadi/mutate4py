@@ -24,8 +24,10 @@ from mutate4py._test_context_build import (
     _combine_argv,
     _run_argv,
     build_test_context_db,
+    dispatch_isolated_session,
 )
 from mutate4py._test_selection import TestContextDB
+
 
 FIXTURE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "overlapping_coverage")
 SHARED_PY = os.path.join(FIXTURE_DIR, "shared.py")
@@ -35,6 +37,7 @@ ONLY_A_LINE = 6  # `return "a"` inside only_a() -- test_from_a only
 ONLY_B_LINE = 10  # `return "b"` inside only_b() -- test_from_b only
 
 
+@pytest.mark.unit
 def test_run_argv_names_one_static_context_per_test():
     argv = _run_argv("test_a.py::test_from_a", data_file=".coverage.0", pytest_args=["-q"], python_executable="python")
     assert argv == [
@@ -51,6 +54,7 @@ def test_run_argv_names_one_static_context_per_test():
     ]
 
 
+@pytest.mark.unit
 def test_combine_argv_lists_every_data_file():
     argv = _combine_argv([".coverage.0", ".coverage.1"], output_db_path="combined.coverage", python_executable="python")
     assert argv == [
@@ -64,12 +68,13 @@ def test_combine_argv_lists_every_data_file():
     ]
 
 
+@pytest.mark.unit
 def test_empty_node_ids_raises_before_touching_coverage():
     with pytest.raises(TestContextBuildError, match="no test node IDs"):
         build_test_context_db([], cwd=FIXTURE_DIR, output_db_path="unused.coverage")
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_isolated_session_build_narrows_to_every_covering_test(tmp_path):
     db_path = str(tmp_path / "combined.coverage")
 
@@ -84,6 +89,38 @@ def test_isolated_session_build_narrows_to_every_covering_test(tmp_path):
         db.close()
 
 
+@pytest.mark.unit
+def test_dispatch_isolated_session_forwards_the_whole_request_to_an_injected_runner():
+    calls = []
+
+    def fake_runner(node_id: str, data_file: str, pytest_args: list[str]) -> str:
+        calls.append((node_id, data_file, pytest_args))
+        return "survived"
+
+    dispatch_isolated_session(
+        "test_a.py::test_from_a",
+        data_file=".coverage.0",
+        cwd=FIXTURE_DIR,
+        pytest_args=["-q"],
+        isolated_session_runner=fake_runner,
+    )
+    assert calls == [("test_a.py::test_from_a", ".coverage.0", ["-q"])]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("outcome", ["killed", "timeout", "no-tests-collected", "usage-error"])
+def test_dispatch_isolated_session_raises_on_any_non_survived_outcome(outcome):
+    with pytest.raises(TestContextBuildError, match=f"did not run cleanly: {outcome}"):
+        dispatch_isolated_session(
+            "test_a.py::test_from_a",
+            data_file=".coverage.0",
+            cwd=FIXTURE_DIR,
+            pytest_args=[],
+            isolated_session_runner=lambda *_: outcome,
+        )
+
+
+@pytest.mark.unit
 def test_isolated_session_runner_non_survived_raises_build_error(tmp_path):
     """The seam _dispatch.py's forking path uses (issue #51): a runner
     result other than "survived" must raise, same as a nonzero subprocess
@@ -101,7 +138,7 @@ def test_isolated_session_runner_non_survived_raises_build_error(tmp_path):
         )
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_isolated_session_runner_produces_same_narrowing_as_cold_build(tmp_path):
     """Equivalence: injecting a runner (the seam _dispatch.py's forking path
     uses) must narrow context db lines identically to the cold subprocess
@@ -146,7 +183,7 @@ def test_isolated_session_runner_produces_same_narrowing_as_cold_build(tmp_path)
         db.close()
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_real_forking_executor_narrows_identically_to_cold_build_on_one_target(tmp_path, monkeypatch):
     """AC3 (issue #51), tightened: the real ForkingExecutor-backed runner
     (not a stand-in subprocess) and the cold subprocess path must narrow
@@ -208,7 +245,7 @@ def test_real_forking_executor_narrows_identically_to_cold_build_on_one_target(t
         warm_db.close()
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_single_shared_session_under_lists_covering_tests(tmp_path):
     """Regression test for the rejected alternative: one shared
     `pytest --cov-context=test` session drops every test after the first

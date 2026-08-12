@@ -84,7 +84,7 @@ def _write_per_function_pytest_project(cwd: str, n: int) -> None:
 # --- per-call args vary within one primed forking session ---------------------
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_forking_executor_honors_different_args_within_one_primed_session(tmp_path):
     """The composition property this ticket is about: one primed session must
     run a *different* argv per run() call, not a fixed args list — otherwise
@@ -111,7 +111,7 @@ def test_forking_executor_honors_different_args_within_one_primed_session(tmp_pa
 # --- real ForkingExecutor + real TestContextDB via run_mutations --------------
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_forking_executor_composes_with_real_test_context_db(tmp_path, monkeypatch):
     """End-to-end: run_mutations selects the forking executor (default,
     unguarded now that the test_ctx_db exclusion is gone) and narrows each
@@ -174,6 +174,7 @@ def test_forking_executor_composes_with_real_test_context_db(tmp_path, monkeypat
 # --- leaked-target degrades to subprocess, still classifies correctly ---------
 
 
+@pytest.mark.component
 def test_leaked_target_degrades_to_subprocess_and_still_narrows_correctly(tmp_path, monkeypatch):
     """A module-leak (forking ineligible for safety, not composition) must
     still fall back cleanly to the subprocess executor and preserve correct
@@ -239,7 +240,7 @@ def test_leaked_target_degrades_to_subprocess_and_still_narrows_correctly(tmp_pa
 # --- executor parity: forking vs subprocess classify an identical mutant the same
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_forking_and_subprocess_executors_classify_the_same_mutant_identically(tmp_path):
     from mutate4py._subprocess_executor import SubprocessExecutor
 
@@ -270,7 +271,7 @@ def test_forking_and_subprocess_executors_classify_the_same_mutant_identically(t
 # --- self-scan on the project's own orchestrator modules ----------------------
 
 
-@pytest.mark.integration
+@pytest.mark.component
 def test_self_scan_on_worker_server_degrades_to_subprocess_and_kills_correctly(tmp_path, monkeypatch):
     """mutate4py._worker_server — issue 04b's Worker subprocess entry point —
     is already imported by this test process (module-level import above), so

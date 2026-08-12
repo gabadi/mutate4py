@@ -16,6 +16,7 @@ per request, because a forked child inherits it for free; see
 `_django_worker_plugin` for what reads it back and why.
 """
 
+import dataclasses
 import json
 import logging
 import os
@@ -25,9 +26,42 @@ from typing import TextIO
 from mutate4py._executor import Executor
 from mutate4py._executor_selection import _prepare_executor
 
-__all__ = ["main"]
+__all__ = ["WorkerServerArgs", "main", "parse_worker_argv", "worker_environ_updates"]
 
 _DJANGO_WORKER_PLUGIN_ARGS = ["-p", "mutate4py._django_worker_plugin"]
+
+
+@dataclasses.dataclass(frozen=True)
+class WorkerServerArgs:
+    """One Worker's startup parameters, as they crossed the process boundary."""
+
+    cwd: str
+    guarded_path: str
+    forking_requested: bool
+    worker_id: str | None
+
+
+def parse_worker_argv(argv: list[str]) -> WorkerServerArgs:
+    """Read back what `_worker_protocol.worker_server_argv` encoded.
+
+    The worker_id slot is optional and may be present but empty (that is how
+    the encoder spells "this Worker has no id"); both spellings decode to None.
+    """
+    return WorkerServerArgs(
+        cwd=argv[0],
+        guarded_path=argv[1],
+        forking_requested=argv[2] == "1",
+        worker_id=argv[3] if len(argv) > 3 and argv[3] else None,
+    )
+
+
+def worker_environ_updates(worker_id: str | None) -> dict[str, str]:
+    """The environment entries this Worker's forked children must inherit;
+    empty for a Worker with no id. See the module docstring for why this
+    travels in the environment rather than per request."""
+    if worker_id is None:
+        return {}
+    return {"MUTATE4PY_WORKER_ID": worker_id}
 
 
 def _serve(executor: Executor, instream: TextIO, outstream: TextIO, *, worker_id: str | None) -> None:
@@ -52,14 +86,12 @@ def main(argv: list[str]) -> None:
     # forking-unavailable fallback note) would corrupt framing exactly like
     # the unflushed-pytest-output bug already fixed for this protocol.
     logging.getLogger("mutate4py").setLevel(logging.WARNING)
-    cwd, guarded_path, forking_flag = argv[0], argv[1], argv[2]
-    worker_id = argv[3] if len(argv) > 3 and argv[3] else None
-    if worker_id is not None:
-        os.environ["MUTATE4PY_WORKER_ID"] = worker_id
-    executor = _prepare_executor(requested=forking_flag == "1", cwd=cwd, guarded_path=guarded_path)
+    args = parse_worker_argv(argv)
+    os.environ.update(worker_environ_updates(args.worker_id))
+    executor = _prepare_executor(requested=args.forking_requested, cwd=args.cwd, guarded_path=args.guarded_path)
     sys.stdout.write(json.dumps({"ready": True}) + "\n")
     sys.stdout.flush()
-    _serve(executor, sys.stdin, sys.stdout, worker_id=worker_id)
+    _serve(executor, sys.stdin, sys.stdout, worker_id=args.worker_id)
 
 
 if __name__ == "__main__":

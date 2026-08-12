@@ -48,6 +48,7 @@ def _make_args(**kwargs):
     return argparse.Namespace(**defaults)
 
 
+@pytest.mark.unit
 def test_check_no_run_incompatibilities_test_contexts_raises():
     """--test-contexts paired with --scan (a no-run flag) must raise."""
     args = _make_args(scan=True, test_contexts=".coverage")
@@ -60,12 +61,14 @@ def test_check_no_run_incompatibilities_test_contexts_raises():
 # ── Mutant-killing gap tests ──────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_check_coverage_flags_single_flag_allowed():
     # mutant_5: sum(cov_flags) > 1 — with only one flag, sum=1, must NOT raise
     args = argparse.Namespace(cov_cmd="echo hi", lcov=None, reuse_coverage=False)
     _check_coverage_flags(args)  # must not raise
 
 
+@pytest.mark.unit
 def test_check_coverage_flags_two_flags_raises():
     # mutant_2,3,6: sum > 1 → raise
     args = argparse.Namespace(cov_cmd="echo hi", lcov="/some/path", reuse_coverage=False)
@@ -74,6 +77,7 @@ def test_check_coverage_flags_two_flags_raises():
     assert exc.value.exit_code == 2
 
 
+@pytest.mark.unit
 def test_check_coverage_flags_all_three_raises():
     args = argparse.Namespace(cov_cmd="echo", lcov="/f", reuse_coverage=True)
     with pytest.raises(ValidationError) as exc:
@@ -81,6 +85,7 @@ def test_check_coverage_flags_all_three_raises():
     assert exc.value.exit_code == 2
 
 
+@pytest.mark.unit
 def test_check_coverage_flags_error_text():
     args = argparse.Namespace(cov_cmd="echo", lcov="/f", reuse_coverage=False)
     with pytest.raises(ValidationError) as exc:
@@ -88,6 +93,7 @@ def test_check_coverage_flags_error_text():
     assert "mutually exclusive" in str(exc.value)
 
 
+@pytest.mark.unit
 def test_max_workers_with_lines_parse_accepted():
     from mutate4py.__main__ import _build_parser
 
@@ -97,6 +103,7 @@ def test_max_workers_with_lines_parse_accepted():
     _validate_mutual_exclusions(args)
 
 
+@pytest.mark.unit
 def test_max_workers_with_since_last_run_parse_accepted():
     from mutate4py.__main__ import _build_parser
 
@@ -105,6 +112,7 @@ def test_max_workers_with_since_last_run_parse_accepted():
     _validate_mutual_exclusions(args)
 
 
+@pytest.mark.unit
 def test_max_workers_with_mutate_all_parse_accepted():
     from mutate4py.__main__ import _build_parser
 
@@ -116,6 +124,7 @@ def test_max_workers_with_mutate_all_parse_accepted():
 # ── _validate_mutual_exclusions: direct unit coverage ─────────────────────────
 
 
+@pytest.mark.unit
 def test_validate_scan_and_update_manifest_raises():
     with pytest.raises(ValidationError) as exc:
         _validate_mutual_exclusions(_make_args(scan=True, update_manifest=True))
@@ -123,6 +132,7 @@ def test_validate_scan_and_update_manifest_raises():
     assert "--scan" in str(exc.value)
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "extra",
     [
@@ -139,6 +149,7 @@ def test_validate_scan_with_run_only_flag_raises(extra):
     assert "--scan" in str(exc.value)
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "extra",
     [
@@ -155,6 +166,7 @@ def test_validate_check_manifest_with_run_only_flag_raises(extra):
     assert "--check-manifest" in str(exc.value)
 
 
+@pytest.mark.unit
 def test_validate_update_manifest_with_lines_raises():
     with pytest.raises(ValidationError) as exc:
         _validate_mutual_exclusions(_make_args(update_manifest=True, lines="5"))
@@ -162,6 +174,7 @@ def test_validate_update_manifest_with_lines_raises():
     assert "--update-manifest" in str(exc.value)
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "extra",
     [
@@ -177,6 +190,7 @@ def test_validate_update_manifest_with_run_only_flag_raises(extra):
     assert "--update-manifest" in str(exc.value)
 
 
+@pytest.mark.unit
 def test_validate_scan_with_timeout_factor_raises():
     with pytest.raises(ValidationError) as exc:
         _validate_mutual_exclusions(_make_args(scan=True, timeout_factor=5))
@@ -184,6 +198,7 @@ def test_validate_scan_with_timeout_factor_raises():
     assert "--timeout-factor" in str(exc.value)
 
 
+@pytest.mark.unit
 def test_validate_scan_with_pytest_args_raises():
     with pytest.raises(ValidationError) as exc:
         _validate_mutual_exclusions(_make_args(scan=True, pytest_args="-k foo"))
@@ -191,6 +206,7 @@ def test_validate_scan_with_pytest_args_raises():
     assert "--pytest-args" in str(exc.value)
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "extra",
     [
@@ -206,10 +222,12 @@ def test_validate_pairwise_selection_raises(extra):
     assert "pairwise exclusive" in str(exc.value)
 
 
+@pytest.mark.unit
 def test_validate_no_flags_passes():
     _validate_mutual_exclusions(_make_args())  # must not raise
 
 
+@pytest.mark.unit
 def test_validate_check_manifest_with_scan_raises():
     with pytest.raises(ValidationError) as exc:
         _validate_mutual_exclusions(_make_args(check_manifest=True, scan=True))
@@ -217,6 +235,7 @@ def test_validate_check_manifest_with_scan_raises():
     assert "--check-manifest" in str(exc.value)
 
 
+@pytest.mark.unit
 def test_validate_check_manifest_with_update_manifest_raises():
     with pytest.raises(ValidationError) as exc:
         _validate_mutual_exclusions(_make_args(check_manifest=True, update_manifest=True))
@@ -227,10 +246,12 @@ def test_validate_check_manifest_with_update_manifest_raises():
 # ── --build-test-contexts ──────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_validate_build_test_contexts_alone_passes():
     _validate_mutual_exclusions(_make_args(build_test_contexts="out.db"))  # must not raise
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("other", ["scan", "update_manifest", "check_manifest"])
 def test_validate_build_test_contexts_with_another_no_run_mode_raises(other):
     with pytest.raises(ValidationError) as exc:
@@ -239,6 +260,7 @@ def test_validate_build_test_contexts_with_another_no_run_mode_raises(other):
     assert "--build-test-contexts" in str(exc.value)
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "extra",
     [
@@ -256,6 +278,7 @@ def test_validate_build_test_contexts_with_run_only_flag_raises(extra):
     assert "--build-test-contexts" in str(exc.value)
 
 
+@pytest.mark.unit
 def test_validate_build_test_contexts_with_positional_files_raises():
     with pytest.raises(ValidationError) as exc:
         _validate_mutual_exclusions(_make_args(build_test_contexts="out.db", files=["f.py"]))

@@ -36,18 +36,21 @@ def _make_pkg_tree(tmp_path) -> str:
 # ── error types ────────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_pattern_no_match_error_carries_message_and_exit_code():
     exc = PatternNoMatchError("*.py")
     assert str(exc) == "pattern '*.py' matched no files."
     assert exc.exit_code == 2
 
 
+@pytest.mark.unit
 def test_path_not_found_error_carries_message_and_exit_code():
     exc = PathNotFoundError("mod.py")
     assert str(exc) == "[Errno 2] No such file or directory: 'mod.py'"
     assert exc.exit_code == 2
 
 
+@pytest.mark.unit
 def test_no_files_to_process_error_carries_message_and_exit_code():
     exc = NoFilesToProcessError()
     assert str(exc) == "no Python files to process."
@@ -57,6 +60,7 @@ def test_no_files_to_process_error_carries_message_and_exit_code():
 # ── _collect_py_files: kept/excluded bucketing ──────────────────────────────
 
 
+@pytest.mark.unit
 def test_collect_py_files_skips_pycache(tmp_path):
     d = tmp_path / "pkg"
     d.mkdir()
@@ -69,6 +73,7 @@ def test_collect_py_files_skips_pycache(tmp_path):
     assert any("mod.py" in f for f in result.kept)
 
 
+@pytest.mark.unit
 def test_collect_py_files_ignores_non_py_files(tmp_path):
     d = tmp_path / "pkg"
     d.mkdir()
@@ -83,6 +88,7 @@ def test_collect_py_files_ignores_non_py_files(tmp_path):
 # ── multi-root union (issue #22): _collect_py_files also accepts a file root ──
 
 
+@pytest.mark.unit
 def test_collect_py_files_root_may_be_a_single_py_file(tmp_path):
     """Issue #22 item 15's union formula calls _collect_py_files uniformly over
     every resolved root, whether the root is a directory or a single file."""
@@ -91,12 +97,14 @@ def test_collect_py_files_root_may_be_a_single_py_file(tmp_path):
     assert _collect_py_files(str(p)) == WalkResult(kept=[str(p)], excluded=[])
 
 
+@pytest.mark.unit
 def test_collect_py_files_file_root_respects_exclude():
     result = _collect_py_files("pkg/mod.py", ["**/mod.py"])
     assert result.kept == []
     assert result.excluded == ["pkg/mod.py"]
 
 
+@pytest.mark.unit
 def test_collect_py_files_file_root_non_py_is_neither_kept_nor_excluded(tmp_path):
     p = tmp_path / "README.md"
     p.write_text("docs\n")
@@ -112,6 +120,7 @@ def test_collect_py_files_file_root_non_py_is_neither_kept_nor_excluded(tmp_path
 # a synthesized f"{d}/**" glob pattern would.
 
 
+@pytest.mark.unit
 def test_collect_py_files_prune_dirs_skips_the_whole_subtree(tmp_path):
     d = tmp_path / "pkg"
     vendor = d / "vendor"
@@ -122,6 +131,7 @@ def test_collect_py_files_prune_dirs_skips_the_whole_subtree(tmp_path):
     assert result.kept == [str(d / "a.py")]
 
 
+@pytest.mark.unit
 def test_collect_py_files_prune_dirs_does_not_use_glob_matching(tmp_path):
     """A pruned directory containing a glob metacharacter must not affect
     an unrelated sibling whose name happens to match it as a pattern."""
@@ -136,6 +146,7 @@ def test_collect_py_files_prune_dirs_does_not_use_glob_matching(tmp_path):
     assert result.kept == [str(sibling / "b.py")]
 
 
+@pytest.mark.unit
 def test_collect_py_files_prune_dirs_defaults_to_no_pruning(tmp_path):
     d = tmp_path / "pkg"
     d.mkdir()
@@ -146,6 +157,7 @@ def test_collect_py_files_prune_dirs_defaults_to_no_pruning(tmp_path):
 # ── --exclude: collector filtering, one walk producing kept + excluded ─────────
 
 
+@pytest.mark.unit
 def test_collect_py_files_exclude_matches_nested_path(tmp_path):
     d = _make_pkg_tree(tmp_path)
     result = _collect_py_files(d, ["**/sub/deep.py"])
@@ -155,6 +167,7 @@ def test_collect_py_files_exclude_matches_nested_path(tmp_path):
     assert os.path.join(d, "sub", "__init__.py") in result.kept
 
 
+@pytest.mark.unit
 def test_collect_py_files_exclude_patterns_union_not_intersect(tmp_path):
     d = _make_pkg_tree(tmp_path)
     result = _collect_py_files(d, ["**/__init__.py", "**/sub/*.py"])
@@ -162,11 +175,13 @@ def test_collect_py_files_exclude_patterns_union_not_intersect(tmp_path):
     assert result.kept == [os.path.join(d, "mod.py")]
 
 
+@pytest.mark.unit
 def test_collect_py_files_exclude_no_match_is_a_no_op(tmp_path):
     d = _make_pkg_tree(tmp_path)
     assert _collect_py_files(d, ["*/nothing_here.py"]).kept == _collect_py_files(d).kept
 
 
+@pytest.mark.unit
 def test_collect_py_files_exclude_still_skips_pycache(tmp_path):
     d = tmp_path / "pkg"
     d.mkdir()
@@ -178,6 +193,7 @@ def test_collect_py_files_exclude_still_skips_pycache(tmp_path):
     assert result.kept == [str(d / "mod.py")]
 
 
+@pytest.mark.unit
 def test_collect_py_files_single_walk_produces_kept_and_excluded_together(tmp_path):
     """The old implementation walked the tree a second time (without
     --exclude or prune_dirs applied) to discover what the first walk had
@@ -192,11 +208,13 @@ def test_collect_py_files_single_walk_produces_kept_and_excluded_together(tmp_pa
     }
 
 
+@pytest.mark.unit
 def test_is_excluded_is_case_sensitive():
     assert _is_excluded("src/Mod.py", ["src/Mod.py"])
     assert not _is_excluded("src/Mod.py", ["src/mod.py"])
 
 
+@pytest.mark.unit
 def test_is_excluded_single_star_does_not_cross_a_slash():
     """New dialect (issue #22 item 5): '*' matches one segment; '**/' is
     required to match at arbitrary depth, unlike the old fnmatch behavior."""
@@ -204,6 +222,7 @@ def test_is_excluded_single_star_does_not_cross_a_slash():
     assert _is_excluded("a/b/tests/mod.py", ["**/tests/*"])
 
 
+@pytest.mark.unit
 def test_is_target_py_file_requires_a_py_suffix():
     assert _is_target_py_file("pkg/mod.py", ())
     assert not _is_target_py_file("pkg/README.md", ())
@@ -213,18 +232,21 @@ def test_is_target_py_file_requires_a_py_suffix():
 # ── multi-root positionals (issue #22): _expand_roots ──────────────────────────
 
 
+@pytest.mark.unit
 def test_expand_roots_literal_directory_is_kept_as_is(tmp_path):
     d = tmp_path / "pkg"
     d.mkdir()
     assert _expand_roots([str(d)]) == [str(d)]
 
 
+@pytest.mark.unit
 def test_expand_roots_literal_file_is_kept_as_is(tmp_path):
     p = tmp_path / "mod.py"
     p.write_text("x = 1\n")
     assert _expand_roots([str(p)]) == [str(p)]
 
 
+@pytest.mark.unit
 def test_expand_roots_literal_missing_path_raises_naming_it():
     with pytest.raises(PathNotFoundError) as exc:
         _expand_roots(["/no/such/path.py"])
@@ -233,6 +255,7 @@ def test_expand_roots_literal_missing_path_raises_naming_it():
     assert exc.value.exit_code == 2
 
 
+@pytest.mark.unit
 def test_expand_roots_glob_pattern_expands_to_matches(tmp_path):
     d = tmp_path / "pkg"
     d.mkdir()
@@ -242,6 +265,7 @@ def test_expand_roots_glob_pattern_expands_to_matches(tmp_path):
     assert sorted(roots) == sorted([str(d / "a.py"), str(d / "b.py")])
 
 
+@pytest.mark.unit
 def test_expand_roots_glob_pattern_keeps_directories_and_py_only(tmp_path):
     """Issue #22 item 6: a directory and .py files matched by a pattern
     survive; a non-.py file matched by the same pattern is dropped silently."""
@@ -254,6 +278,7 @@ def test_expand_roots_glob_pattern_keeps_directories_and_py_only(tmp_path):
     assert sorted(roots) == sorted([str(d / "a.py"), str(sub)])
 
 
+@pytest.mark.unit
 def test_expand_roots_glob_pattern_matching_nothing_raises_naming_pattern():
     with pytest.raises(PatternNoMatchError) as exc:
         _expand_roots(["/no/such/dir/*.py"])
@@ -261,6 +286,7 @@ def test_expand_roots_glob_pattern_matching_nothing_raises_naming_pattern():
     assert exc.value.exit_code == 2
 
 
+@pytest.mark.unit
 def test_expand_roots_pattern_matching_only_non_py_files_raises(tmp_path):
     """Every glob match filtered out (all non-.py, non-dir) counts as no match."""
     d = tmp_path / "pkg"
@@ -270,6 +296,7 @@ def test_expand_roots_pattern_matching_only_non_py_files_raises(tmp_path):
         _expand_roots([str(d / "*.md")])
 
 
+@pytest.mark.unit
 def test_expand_roots_preserves_argument_order(tmp_path):
     first = tmp_path / "first.py"
     second = tmp_path / "second.py"
@@ -281,10 +308,12 @@ def test_expand_roots_preserves_argument_order(tmp_path):
 # ── multi-root positionals (issue #22): dedup by realpath ──────────────────────
 
 
+@pytest.mark.unit
 def test_dedup_by_realpath_drops_a_repeated_path_keeping_the_first():
     assert _dedup_by_realpath(["a.py", "b.py", "a.py"]) == ["a.py", "b.py"]
 
 
+@pytest.mark.unit
 def test_dedup_by_realpath_collapses_symlink_aliases(tmp_path):
     real = tmp_path / "real.py"
     real.write_text("x = 1\n")
