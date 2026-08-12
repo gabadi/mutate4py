@@ -151,6 +151,7 @@ def test_run_mutation_loop_tallies_static_selections(tmp_path):
     assert selection_counts == {"narrowed": 0, "static": 2, "degraded": 0}
 
 
+@pytest.mark.unit
 def test_run_mutation_loop_tallies_degraded_selections(tmp_path):
     _, _, selection_counts = _loop_over_two_sites(
         tmp_path, _FakeTestContextDB("under-listed", ["tests/test_calc.py::test_f"])

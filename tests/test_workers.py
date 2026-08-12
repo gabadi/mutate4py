@@ -619,6 +619,7 @@ def test_run_parallel_composes_static_dispatch_with_workers(tmp_path, monkeypatc
     assert executor.calls == [["-q"]] * 2
 
 
+@pytest.mark.unit
 def test_run_parallel_composes_degraded_dispatch_with_workers(tmp_path, monkeypatch):
     """An under-listed line (issue #69) must reach every Worker's tally as
     "degraded", not "narrowed" -- the parallel engine mirrors the serial
