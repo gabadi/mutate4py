@@ -172,12 +172,39 @@ def test_mutation_report_lines_selection_counts_included():
         uncovered_count=0,
         selection_counts={"narrowed": 3, "static": 1},
     )
-    assert "Test selection: narrowed 3, static 1" in lines
+    assert "Test selection: narrowed 3, static 1, degraded 0" in lines
 
 
 def test_mutation_report_lines_omits_selection_line_without_a_context_db():
     lines = _mutation_report_lines({"killed": 1, "timeout": 0, "survived": 0}, [], uncovered_count=0)
     assert not any(ln.startswith("Test selection:") for ln in lines)
+
+
+def test_mutation_report_lines_degraded_sites_reported_not_silent():
+    """issue #69: a run with degraded Sites must not print a summary
+    indistinguishable from a fully-narrowed run -- static must stop reading 0
+    while Sites were actually rejected, and the reason must be named."""
+    lines = _mutation_report_lines(
+        {"killed": 1, "timeout": 0, "survived": 0},
+        [],
+        uncovered_count=0,
+        selection_counts={"narrowed": 0, "static": 0, "degraded": 5},
+    )
+    assert "Test selection: narrowed 0, static 0, degraded 5" in lines
+    warning = next(ln for ln in lines if ln.startswith("Warning:"))
+    assert "5 Site(s)" in warning
+    assert "--cov-context=test" in warning
+    assert "--build-test-contexts" in warning
+
+
+def test_mutation_report_lines_no_degraded_warning_when_zero():
+    lines = _mutation_report_lines(
+        {"killed": 1, "timeout": 0, "survived": 0},
+        [],
+        uncovered_count=0,
+        selection_counts={"narrowed": 3, "static": 1, "degraded": 0},
+    )
+    assert not any("rejected as incomplete" in ln for ln in lines)
 
 
 # ── _overhead_report_lines (issue 06) ─────────────────────────────────────────

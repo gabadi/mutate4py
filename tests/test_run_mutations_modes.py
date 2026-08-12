@@ -369,13 +369,13 @@ def test_report_counts_narrowed_selections(tmp_path, monkeypatch, capsys):
     # now correctly abort the run instead of silently reporting `narrowed 3`.
     rc, _, _ = _run_with_stub_ctx_db(tmp_path, monkeypatch, "narrowed", ["tests/test_always_passes.py::test_ok"])
     assert rc == 0
-    assert "Test selection: narrowed 3, static 0" in capsys.readouterr().out
+    assert "Test selection: narrowed 3, static 0, degraded 0" in capsys.readouterr().out
 
 
 def test_report_counts_static_selections(tmp_path, monkeypatch, capsys):
     rc, _, _ = _run_with_stub_ctx_db(tmp_path, monkeypatch, "static")
     assert rc == 0
-    assert "Test selection: narrowed 0, static 3" in capsys.readouterr().out
+    assert "Test selection: narrowed 0, static 3, degraded 0" in capsys.readouterr().out
 
 
 def test_report_omits_test_selection_line_without_a_context_db(tmp_path, monkeypatch, capsys):
@@ -621,7 +621,7 @@ def test_test_context_db_and_parallel_workers_compose_in_one_run(tmp_path, monke
     output = capsys.readouterr().out
     assert rc == 0
     assert "Mutation workers: 3" in output
-    assert "Test selection: narrowed 3, static 0" in output
+    assert "Test selection: narrowed 3, static 0, degraded 0" in output
     for line in output.splitlines():
         if line.startswith("["):
             assert "worker-" in line, f"Expected worker token, forced serial: {line}"

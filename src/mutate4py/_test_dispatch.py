@@ -31,9 +31,14 @@ class NoTestsCollectedError(Exception):
 
 # The selected sites are LCOV-covered by construction, so a miss is always an
 # input defect, never uncovered code — hence a hard error rather than a fallback.
+#
+# Not `pytest --cov-context=test`: that single shared session under-lists
+# covering tests for any line more than one test reaches (ADR 0021) and is
+# never the fix for a stale/absent line either — --build-test-contexts'
+# isolated per-test sessions are the sound way to (re)build the db.
 _DISAGREEMENT_HINTS = {
     "line-absent": "line is LCOV-covered but absent from the test-context db "
-    "(stale db: regenerate it with pytest --cov-context=test)",
+    "(stale db: regenerate it with --build-test-contexts)",
     "file-absent": "file is not in the test-context db at all "
     "(path-format mismatch, or its coverage was recorded in a subprocess)",
 }
@@ -71,7 +76,13 @@ def _build_mutant_args(
     """Return (args, selection) for site; selection is None without a context db.
 
     "narrowed" runs only the tests covering site.line; "static" runs the full
-    pytest_args because the line executes at import time and no test owns it.
+    pytest_args because the line executes at import time and no test owns it;
+    "degraded" also runs the full pytest_args — the db named covering tests
+    for site.line, but at least one came from a dynamic (pytest-cov
+    switch_context) session that ADR 0021 proved can silently drop covering
+    tests, so the named list can't be trusted to run alone. Tallied apart
+    from "static" so the run summary can't claim static 0 while sites were
+    actually degraded (issue #69).
     """
     if test_ctx_db is None:
         return pytest_args, None
@@ -80,6 +91,8 @@ def _build_mutant_args(
         return [*pytest_args, *node_ids], "narrowed"
     if outcome == "static":
         return pytest_args, "static"
+    if outcome == "under-listed":
+        return pytest_args, "degraded"
     # Every other outcome raises, so an unrecognized one can never fall through to
     # a full-suite run that the report would then miscount as narrowed.
     hint = _DISAGREEMENT_HINTS.get(outcome, f"unrecognized selection outcome {outcome!r}")

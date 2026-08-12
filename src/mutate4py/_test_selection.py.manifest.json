@@ -1,63 +1,77 @@
 {
   "version": 1,
-  "tested_at": "2026-08-10T13:42:28Z",
-  "module_hash": "b4972ee08b622ec86fc9a1cad8f3a5f67593583b4ca811472b679a7b80b48145",
-  "source_sha256": "7608dba4d213854c69776fb59a5f7717384b620a4e8a940c2bae1509fd1d27e5",
+  "tested_at": "2026-08-12T16:00:43Z",
+  "module_hash": "c5565c3009e293133a70033f5db28dd19a2717e5aa9bf7adadfae7ccba34ba15",
+  "source_sha256": "b8717faaa21cc2d2614418863a3f47146db4f13d798c57a3fb42ad1b8f86f2a5",
   "functions": [
     {
       "id": "func/_numbits_to_lines",
       "name": "_numbits_to_lines",
-      "line": 19,
-      "end_line": 29,
+      "line": 32,
+      "end_line": 42,
       "hash": "912b98473a0e7a1305cf5a792a31275f64f058a25dbbc624651b15fa239a855b"
+    },
+    {
+      "id": "func/_is_dynamic_context",
+      "name": "_is_dynamic_context",
+      "line": 45,
+      "end_line": 53,
+      "hash": "e41f97a6dcade1f94511ae5b2a4339c0696ae342aa76e81d61d8bb3f385be5b3"
     },
     {
       "id": "func/_classify",
       "name": "_classify",
-      "line": 32,
-      "end_line": 38,
-      "hash": "d1181c54fe462d6eb155d5cc0073ab7c5b485c9a044c466332f4b1e817652729"
+      "line": 56,
+      "end_line": 72,
+      "hash": "b89c3138c25e364c8dbdc0a44363868d57279a2f128176ec8cb75f5d8ffe2943"
     },
     {
       "id": "func/_strip_context_suffix",
       "name": "_strip_context_suffix",
-      "line": 41,
-      "end_line": 45,
+      "line": 75,
+      "end_line": 79,
       "hash": "9cc4dfeab6b850139b00a28136df950b84c2f12383783d28478f69209deb5b0a"
+    },
+    {
+      "id": "func/_tally_contexts",
+      "name": "_tally_contexts",
+      "line": 82,
+      "end_line": 99,
+      "hash": "06e112337eec83424dcb23936b2bdd8fddf2fd4ceae8d96c7d856dc1d62111fa"
     },
     {
       "id": "func/TestContextDB.__init__",
       "name": "__init__",
-      "line": 51,
-      "end_line": 63,
+      "line": 105,
+      "end_line": 117,
       "hash": "7438ef734e4f42aceb584f60d1786fbad840743fed338953cf94ffa7bf02f57b"
     },
     {
       "id": "func/TestContextDB.tests_for_line",
       "name": "tests_for_line",
-      "line": 65,
-      "end_line": 85,
-      "hash": "8af2fe1fe262d1deef51963e440efd4d4695e881f8d65dd2a2c4f6af9c8d475a"
+      "line": 119,
+      "end_line": 145,
+      "hash": "d329a20bfe6a87eeb280b6a068742d3ffef9a5ffe2fe80d813d0a58c706f5c37"
     },
     {
       "id": "func/TestContextDB._tests_for_line_bits",
       "name": "_tests_for_line_bits",
-      "line": 87,
-      "end_line": 103,
-      "hash": "49e3cfd81067f219a87c374aa2d30dc86f43ba3e85b91cf1b00370da01e41f45"
+      "line": 147,
+      "end_line": 156,
+      "hash": "6e9cb23414750c6a8c45bd0d0bbdd38dc2e5f304471a0997fcf0a4286f71b2d2"
     },
     {
       "id": "func/TestContextDB._tests_for_line_arcs",
       "name": "_tests_for_line_arcs",
-      "line": 105,
-      "end_line": 125,
-      "hash": "d4d63dc2566f885133233f3ee7151e56d10e6de5b49c74a5150f3e160fa5c1ec"
+      "line": 158,
+      "end_line": 178,
+      "hash": "df0d93083f57a24e3d223d114b589cc21003d81db7c568b3e5cfd1e1b422528a"
     },
     {
       "id": "func/TestContextDB.close",
       "name": "close",
-      "line": 127,
-      "end_line": 129,
+      "line": 180,
+      "end_line": 182,
       "hash": "e5dbd64a9381ecdac9c5a6fd0aec6ce2f3f9967d27645bf9f748349b2942c06f"
     }
   ]

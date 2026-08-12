@@ -58,6 +58,13 @@ def test_build_mutant_args_static_line_runs_full_args():
     assert _build_mutant_args(["-q"], ctx_db, "/src/calc.py", _one_site()) == (["-q"], "static")
 
 
+def test_build_mutant_args_under_listed_runs_full_args_tallied_as_degraded():
+    """An under-listed line (issue #69) degrades to a full-suite run, same
+    dispatch as "static", but tallied separately so the report can name it."""
+    ctx_db = _FakeTestContextDB("under-listed", ["tests/test_calc.py::test_gt"])
+    assert _build_mutant_args(["-q"], ctx_db, "/src/calc.py", _one_site()) == (["-q"], "degraded")
+
+
 @pytest.mark.parametrize(
     "outcome, hint",
     [
@@ -127,12 +134,19 @@ def test_run_mutation_loop_tallies_narrowed_selections(tmp_path):
     _, _, selection_counts = _loop_over_two_sites(
         tmp_path, _FakeTestContextDB("narrowed", ["tests/test_calc.py::test_f"])
     )
-    assert selection_counts == {"narrowed": 2, "static": 0}
+    assert selection_counts == {"narrowed": 2, "static": 0, "degraded": 0}
 
 
 def test_run_mutation_loop_tallies_static_selections(tmp_path):
     _, _, selection_counts = _loop_over_two_sites(tmp_path, _FakeTestContextDB("static"))
-    assert selection_counts == {"narrowed": 0, "static": 2}
+    assert selection_counts == {"narrowed": 0, "static": 2, "degraded": 0}
+
+
+def test_run_mutation_loop_tallies_degraded_selections(tmp_path):
+    _, _, selection_counts = _loop_over_two_sites(
+        tmp_path, _FakeTestContextDB("under-listed", ["tests/test_calc.py::test_f"])
+    )
+    assert selection_counts == {"narrowed": 0, "static": 0, "degraded": 2}
 
 
 def test_run_mutation_loop_calls_executor_with_built_args_and_timeout(tmp_path):

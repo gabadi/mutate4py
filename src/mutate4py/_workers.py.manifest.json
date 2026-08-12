@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-08-11T04:51:41Z",
-  "module_hash": "147bfcf4908bb1f38c5edabcb1a8824ed5379b9171c58486e27f56d0e8ee254a",
-  "source_sha256": "31d2e3fdb358b88291ad8f258c040400cc2d6438e4b8debb4f309b9e0e52c0c5",
+  "tested_at": "2026-08-12T15:49:32Z",
+  "module_hash": "bc9f5014b599e70aafdcf9c98c91b1e002aa703bbcac7b1e2de80c0636418047",
+  "source_sha256": "50e7c0bee9b5c1c90dcf71bf5bad0271f470f15257dfa45f6fbb49b938260bec",
   "functions": [
     {
       "id": "func/_copy_tree",
@@ -58,7 +58,7 @@
       "name": "_summarize_selection",
       "line": 246,
       "end_line": 253,
-      "hash": "f6f2a670384ec5358b5f0be84f9b77b503897335b9363bf8eefb63b67c93c4f8"
+      "hash": "11a4354b6c8bd6ff98a2905019aec59f9abd1cc1490515aa74fbe25d3f78ebef"
     },
     {
       "id": "func/_dispatch_worker_groups",

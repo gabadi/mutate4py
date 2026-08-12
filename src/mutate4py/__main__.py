@@ -155,7 +155,9 @@ def _build_parser() -> argparse.ArgumentParser:
         "--test-contexts",
         dest="test_contexts",
         default=None,
-        help="Path to a .coverage SQLite db (pytest --cov-context=test); enables per-mutant test selection",
+        help="Path to a .coverage SQLite db (build one with --build-test-contexts); enables per-mutant "
+        "test selection. A db built by a single shared `pytest --cov-context=test` session cannot be "
+        "trusted to narrow (issue #69) and degrades to the full test set instead",
     )
     parser.add_argument(
         "--build-test-contexts",
