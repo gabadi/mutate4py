@@ -34,7 +34,7 @@ TEST_CONTEXT_DB := "contexts.db"
 # exactly those, in the order given: `just check lint test`.
 #
 # Each gate's own stdout/stderr goes to LOG, not the terminal — only a ✓/✗ line
-# per gate is printed, with the log tailed on failure. This is the pattern
+# per gate is printed, plus LOG's size and how to read it. This is the pattern
 # issue 03 asked for: agents (the hardener loop in particular) driving this
 # through a Bash tool pay for one line per gate, not one line per mutant —
 # see `mutate` below, which applies the same shape to a single mutate4py run.
@@ -110,19 +110,46 @@ check *gates:
         exit 1
     fi
     : > "{{LOG}}"
+    # An agent driving this through a Bash tool sees only the ✓/✗ lines, then
+    # has to decide whether to read {{LOG}} — and a bare path says nothing
+    # about whether that costs 200 tokens or 50k. Print the size AND the read
+    # command that fits it, so the decision needs no exploratory `wc` round
+    # trip. Sizes are the whole run's log, since `check` truncates it above.
+    _log_hint() {
+        local bytes lines tokens size how
+        bytes=$(($(wc -c < "{{LOG}}")))
+        lines=$(($(wc -l < "{{LOG}}")))
+        tokens=$((bytes / 4))
+        if ((bytes < 1024)); then size="${bytes} B"; else size="$((bytes / 1024)) KB"; fi
+        if ((tokens >= 1000)); then tokens="~$((tokens / 1000))k tokens"; else tokens="~${tokens} tokens"; fi
+        # Thresholds are budgets, not file facts, and the advice is a place to
+        # START, never the whole read: tail lands on the last gate's output,
+        # which is the failing one, but a gate that failed because an earlier
+        # one left bad state needs the reader to keep going backwards. Erring
+        # small — under ~6k chars whole-file is cheap enough not to bother
+        # narrowing; past that, open a window first and widen it as needed.
+        if ((bytes < 6000)); then
+            how="fine to read whole"
+        elif ((bytes < 40960)); then
+            how="start with: tail -80 {{LOG}}"
+        else
+            how="start with: grep {{LOG}} — too big to read whole"
+        fi
+        echo "log: {{LOG}}, ${lines} lines, ${size}, ${tokens}; ${how}"
+    }
     _run() {
         printf '\n=== %s ===\n' "$1" >> "{{LOG}}"
         if just --no-deps "$1" >> "{{LOG}}" 2>&1; then
             echo "  ✓ $1"
         else
-            echo "  ✗ $1  (log: {{LOG}})"
+            echo "  ✗ $1  ($(_log_hint))"
             exit 1
         fi
     }
     for gate in "${selected[@]}"; do
         _run "$gate"
     done
-    echo "✓ check OK  (log: {{LOG}})"
+    echo "✓ check OK  ($(_log_hint))"
 
 [private]
 lint:
