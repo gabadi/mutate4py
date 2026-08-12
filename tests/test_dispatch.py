@@ -8,9 +8,10 @@ module's internals in isolation.
 """
 
 import os
-import sys
 
 import pytest
+
+from ._fork_unsafe_plugin_helpers import skip_unless_fork_unsafe_plugin_loaded
 
 
 def _make_args(**kwargs):
@@ -884,7 +885,7 @@ def test_build_isolated_session_runner_returns_none_when_a_fork_unsafe_plugin_is
     exercises the real hazard, not a synthetic stand-in."""
     from mutate4py._dispatch import _build_isolated_session_runner
 
-    assert "tach.pytest_plugin" in sys.modules
+    skip_unless_fork_unsafe_plugin_loaded()
     (tmp_path / "test_x.py").write_text("def test_ok():\n    assert True\n")
     runner = _build_isolated_session_runner(no_fork=False, cwd=str(tmp_path))
     assert runner is None

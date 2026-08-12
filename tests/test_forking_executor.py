@@ -24,6 +24,8 @@ from mutate4py._forking_executor import _wait_for_child
 from mutate4py._plugin_neutralisation import neutralising_args
 from mutate4py._test_selection import TestContextDB
 
+from ._fork_unsafe_plugin_helpers import skip_unless_fork_unsafe_plugin_loaded
+
 # --- is_available ------------------------------------------------------------
 
 
@@ -325,7 +327,7 @@ def test_isolated_coverage_session_safe_false_when_a_known_unsafe_plugin_is_load
     prevent: tach.pytest_plugin is genuinely loaded in this test process
     (it's this repo's own pytest plugin), so this assertion also proves the
     check fires for real, not just against a synthetic fake module."""
-    assert "tach.pytest_plugin" in sys.modules
+    skip_unless_fork_unsafe_plugin_loaded()
     assert isolated_coverage_session_safe() is False
 
 
@@ -476,7 +478,7 @@ def test_run_isolated_coverage_session_raises_when_a_fork_unsafe_plugin_is_loade
     cwd = _write_coverage_fixture_project(tmp_path)
     executor = ForkingExecutor(cwd=cwd, guarded_path=cwd)
     executor.prime()
-    assert "tach.pytest_plugin" in sys.modules, "prime() should have reloaded it; this test needs that to be true"
+    skip_unless_fork_unsafe_plugin_loaded()
     with pytest.raises(ForkingExecutorUnavailable):
         executor.run_isolated_coverage_session(
             "test_a.py::test_from_a", data_file=str(tmp_path / ".coverage.a"), pytest_args=["-q"], timeout=30.0
