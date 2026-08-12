@@ -41,7 +41,7 @@ TEST_CONTEXT_DB := "contexts.db"
 check *gates:
     #!/usr/bin/env bash
     set -euo pipefail
-    all=(lint format-check test-unit test-integration context-deselection crap dry manifest acceptance)
+    all=(lint format-check test-unit test-component test-integration context-deselection crap dry manifest acceptance)
     extra=(gherkin-mutation mutate-sample test-context-db)
     known=("${all[@]}" "${extra[@]}")
     selected=({{gates}})
@@ -69,9 +69,9 @@ check *gates:
         if [[ " ${selected[*]} " == *" ${needs_test} "* && " ${selected[*]} " != *" test-integration "* ]]; then
             echo "  ✗ ${needs_test} reads lcov.info/.coverage, which only \`test-integration\` writes" >&2
             if [[ "${needs_test}" == "mutate-sample" ]]; then
-                echo "    run:  just check test-unit test-integration test-context-db mutate-sample" >&2
+                echo "    run:  just check test-unit test-component test-integration test-context-db mutate-sample" >&2
             else
-                echo "    run:  just check test-unit test-integration ${needs_test}" >&2
+                echo "    run:  just check test-unit test-component test-integration ${needs_test}" >&2
             fi
             exit 1
         fi
@@ -85,15 +85,21 @@ check *gates:
     # `test-context-db` explicitly makes that cost visible up front instead.
     if [[ " ${selected[*]} " == *" mutate-sample "* && " ${selected[*]} " != *" test-context-db "* ]]; then
         echo "  ✗ mutate-sample builds the test-context db via \`mutate\`'s own dependency; make that cost visible as its own gate" >&2
-        echo "    run:  just check test-unit test-integration test-context-db mutate-sample" >&2
+        echo "    run:  just check test-unit test-component test-integration test-context-db mutate-sample" >&2
         exit 1
     fi
-    # test-integration appends to test-unit's coverage data. Running it alone
-    # would measure 80 tests and fail --cov-fail-under, which reads as a
-    # coverage regression rather than the missing half it is.
-    if [[ " ${selected[*]} " == *" test-integration "* && " ${selected[*]} " != *" test-unit "* ]]; then
-        echo "  ✗ test-integration appends to test-unit's coverage; run both" >&2
-        echo "    run:  just check test-unit test-integration" >&2
+    # test-component and test-integration append to test-unit's coverage data,
+    # in that order. Running either alone would measure a partial suite and
+    # fail --cov-fail-under, which reads as a coverage regression rather than
+    # the missing slice it is.
+    if [[ " ${selected[*]} " == *" test-component "* && " ${selected[*]} " != *" test-unit "* ]]; then
+        echo "  ✗ test-component appends to test-unit's coverage; run both" >&2
+        echo "    run:  just check test-unit test-component" >&2
+        exit 1
+    fi
+    if [[ " ${selected[*]} " == *" test-integration "* && ( " ${selected[*]} " != *" test-unit "* || " ${selected[*]} " != *" test-component "* ) ]]; then
+        echo "  ✗ test-integration appends to test-unit's and test-component's coverage; run all three" >&2
+        echo "    run:  just check test-unit test-component test-integration" >&2
         exit 1
     fi
     : > "{{LOG}}"
@@ -124,32 +130,46 @@ format-check:
 format:
     uv run ruff format src/ tests/
 
-# The suite runs in two halves so a slow or flaky integration test is visible
-# as itself rather than as "tests took a while": 80 integration tests are 9% of
-# the suite and about half its wall clock, because each one spawns a fresh
-# interpreter.
+# The suite runs in three parts so a slow or flaky test is visible as itself
+# rather than as "tests took a while": 80 integration tests are 9% of the
+# suite and about half its wall clock, because each one spawns a fresh
+# interpreter; @pytest.mark.component tests are the slowest of the remainder
+# (real subprocess/fork execution via an Executor, but in-process, so unlike
+# integration tests they stay --cov-context=test visible) and were previously
+# indistinguishable from genuinely fast unit tests in the same gate (issue
+# #71) -- test-unit now only runs the fast remainder.
 #
-# They are two halves of ONE coverage measurement, not two measurements.
-# test-unit writes the data; test-integration appends to it and only then
-# writes lcov.info and applies the threshold. Splitting the data instead would
-# turn the `crap` gate red: those 80 tests cover 2 statements nothing else
-# reaches, and without them `_wait_for_child` scores 6.2 against a cap of 6.
-# The two halves must therefore stay in the same job, on the same machine,
-# in this order.
+# The three are parts of ONE coverage measurement, not three measurements.
+# test-unit writes the data; test-component and test-integration each append
+# to it in turn, and only test-integration writes lcov.info and applies the
+# threshold. Splitting the data instead would turn the `crap` gate red: those
+# 80 integration tests cover 2 statements nothing else reaches, and without
+# them `_wait_for_child` scores 6.2 against a cap of 6. All three must
+# therefore stay in the same job, on the same machine, in this order.
 #
 # --cov-context=test records which test covers which line in .coverage
 # (sqlite). `context-deselection` (below) is the current reader of that
 # context data. `mutate`'s --test-contexts no longer reads .coverage — it
 # reads the isolated-session `contexts.db` `test-context-db` builds instead
 # (see docs/adr/0021: a single shared-session .coverage under-lists covering
-# tests for any line more than one test reaches).
+# tests for any line more than one test reaches). `mutate`'s default
+# --pytest-args (MUTATE_PYTEST_ARGS) only excludes `integration` (component
+# tests stay eligible for narrowing), so moving a test to `component` costs
+# it its place in the fast gate, not its place in narrowing -- see
+# docs/adr/0023-unit-component-integration-test-split.md.
 [private]
 test-unit:
-    uv run pytest -m 'not integration' --cov --cov-context=test \
+    uv run pytest -m 'not integration and not component' --cov --cov-context=test \
         --cov-report= --cov-fail-under=0
 
-# Appends to test-unit's coverage data, then reports on the total. The
-# threshold and lcov.info always describe the whole suite.
+# Appends to test-unit's coverage data.
+[private]
+test-component:
+    uv run pytest -m component --cov --cov-append --cov-context=test \
+        --cov-report= --cov-fail-under=0
+
+# Appends to test-unit's and test-component's coverage data, then reports on
+# the total. The threshold and lcov.info always describe the whole suite.
 [private]
 test-integration:
     uv run pytest -m integration --cov --cov-append --cov-context=test \
@@ -314,7 +334,9 @@ perf:
     _run "lint"   uv run ruff check src/ tests/
     _run "tach"   uv run tach check
     _run "format" uv run ruff format --check src/ tests/
-    _run "test (unit)" uv run pytest -m 'not integration' --cov \
+    _run "test (unit)" uv run pytest -m 'not integration and not component' --cov \
+                      --cov-context=test --cov-report= --cov-fail-under=0 -q
+    _run "test (component)" uv run pytest -m component --cov --cov-append \
                       --cov-context=test --cov-report= --cov-fail-under=0 -q
     _run "test (integration)" uv run pytest -m integration --cov --cov-append \
                       --cov-context=test --cov-report=lcov:lcov.info \

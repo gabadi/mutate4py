@@ -7,6 +7,7 @@ import io
 import json
 
 from mutate4py._worker_server import _serve
+import pytest
 
 
 class _RecordingExecutor:
@@ -25,18 +26,21 @@ def _drive(executor, worker_id, *requests):
     return [json.loads(line)["status"] for line in outstream.getvalue().splitlines()]
 
 
+@pytest.mark.unit
 def test_serve_appends_plugin_args_when_worker_id_set():
     executor = _RecordingExecutor()
     _drive(executor, "gw2", {"args": ["-q", "tests"], "timeout": 5.0})
     assert executor.calls == [["-q", "tests", "-p", "mutate4py._django_worker_plugin"]]
 
 
+@pytest.mark.unit
 def test_serve_leaves_args_untouched_without_worker_id():
     executor = _RecordingExecutor()
     _drive(executor, None, {"args": ["-q", "tests"], "timeout": 5.0})
     assert executor.calls == [["-q", "tests"]]
 
 
+@pytest.mark.unit
 def test_serve_appends_plugin_args_on_every_dispatch():
     executor = _RecordingExecutor()
     _drive(

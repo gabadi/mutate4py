@@ -174,6 +174,7 @@ def test_forking_executor_composes_with_real_test_context_db(tmp_path, monkeypat
 # --- leaked-target degrades to subprocess, still classifies correctly ---------
 
 
+@pytest.mark.component
 def test_leaked_target_degrades_to_subprocess_and_still_narrows_correctly(tmp_path, monkeypatch):
     """A module-leak (forking ineligible for safety, not composition) must
     still fall back cleanly to the subprocess executor and preserve correct

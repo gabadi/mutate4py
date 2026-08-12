@@ -7,9 +7,11 @@ import pytest
 
 from ._coverage_db_helpers import make_coverage_db, write_text
 
+
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 
+@pytest.mark.unit
 def test_build_test_contexts_success_writes_db_and_returns_0(tmp_path, monkeypatch, capsys):
     import mutate4py._test_context_orchestration as orchestration_mod
 
@@ -37,6 +39,7 @@ def test_build_test_contexts_success_writes_db_and_returns_0(tmp_path, monkeypat
     assert "2" in out
 
 
+@pytest.mark.unit
 def test_build_test_contexts_collection_failure_returns_1(tmp_path, monkeypatch, capsys):
     import mutate4py._test_context_orchestration as orchestration_mod
     from mutate4py._test_collection import TestCollectionError
@@ -54,6 +57,7 @@ def test_build_test_contexts_collection_failure_returns_1(tmp_path, monkeypatch,
     assert "no tests collected" in capsys.readouterr().err
 
 
+@pytest.mark.unit
 def test_build_test_contexts_build_failure_returns_1(tmp_path, monkeypatch, capsys):
     import mutate4py._test_context_orchestration as orchestration_mod
     from mutate4py._test_context_build import TestContextBuildError
@@ -75,6 +79,7 @@ def test_build_test_contexts_build_failure_returns_1(tmp_path, monkeypatch, caps
     assert "combine failed" in capsys.readouterr().err
 
 
+@pytest.mark.unit
 def test_build_test_contexts_strips_a_scoping_path_before_the_isolated_run(tmp_path, monkeypatch):
     """A path passed via pytest_args (the sanctioned way to scope
     --build-test-contexts, since it rejects a positional PATH target) must
@@ -111,6 +116,7 @@ def test_build_test_contexts_strips_a_scoping_path_before_the_isolated_run(tmp_p
     assert seen_build_args["pytest_args"] == ["-p", "no:tach"]
 
 
+@pytest.mark.unit
 def test_build_test_contexts_skips_rebuild_on_a_fresh_cache(tmp_path, monkeypatch):
     import mutate4py._test_context_orchestration as orchestration_mod
 
@@ -136,6 +142,7 @@ def test_build_test_contexts_skips_rebuild_on_a_fresh_cache(tmp_path, monkeypatc
     assert rc == 0
 
 
+@pytest.mark.unit
 def test_build_test_contexts_rebuilds_and_refreshes_the_cache_when_stale(tmp_path, monkeypatch):
     import mutate4py._test_context_orchestration as orchestration_mod
 
@@ -173,6 +180,7 @@ def test_build_test_contexts_rebuilds_and_refreshes_the_cache_when_stale(tmp_pat
     assert refreshed["node_ids"] == ["test_a.py::test_one"]
 
 
+@pytest.mark.unit
 def test_build_test_contexts_discards_the_cache_when_the_rebuild_fails(tmp_path, monkeypatch, capsys):
     """A build that dies partway may have already overwritten the db, so the
     old cache must not survive to vouch for it."""

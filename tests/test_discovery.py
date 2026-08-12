@@ -13,6 +13,7 @@ def scan(src: str):
 # ── Catalogued operators each yield exactly one site ──────────────────────────
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "expr,count",
     [
@@ -45,6 +46,7 @@ def test_catalogued_construct_yields_one_site(expr, count):
 # ── Excluded constructs yield no site ─────────────────────────────────────────
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "expr",
     [
@@ -62,6 +64,7 @@ def test_excluded_construct_yields_no_site(expr):
 # ── Sites are sorted by (line, col) with stable Index ─────────────────────────
 
 
+@pytest.mark.unit
 def test_sites_sorted_by_line_col():
     src = """\
         x = a + b
@@ -77,6 +80,7 @@ def test_sites_sorted_by_line_col():
 # ── Function attribution ───────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "src,expected_id",
     [
@@ -90,12 +94,14 @@ def test_basic_function_attribution(src, expected_id):
     assert sites[0].function_id == expected_id
 
 
+@pytest.mark.unit
 def test_module_level_no_def():
     src = "x = a + b\n"
     sites = scan(src)
     assert sites[0].function_id == ""
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "src",
     [
@@ -111,10 +117,12 @@ def test_nested_constructs_fold_into_outer(src):
 # ── Large integer literals are excluded ───────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_integer_2_excluded():
     assert scan("x = 2") == []
 
 
+@pytest.mark.unit
 def test_integer_3_excluded():
     assert scan("x = 3") == []
 
@@ -122,6 +130,7 @@ def test_integer_3_excluded():
 # ── Division is excluded ──────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_division_excluded():
     assert scan("x = a / b") == []
 
@@ -129,10 +138,12 @@ def test_division_excluded():
 # ── AugAssign is excluded ─────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_augassign_plus_excluded():
     assert scan("a += b") == []
 
 
+@pytest.mark.unit
 def test_augassign_minus_excluded():
     assert scan("a -= b") == []
 
@@ -140,6 +151,7 @@ def test_augassign_minus_excluded():
 # ── Unary minus is excluded ───────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_unary_minus_excluded():
     assert scan("x = -a") == []
 
@@ -147,6 +159,7 @@ def test_unary_minus_excluded():
 # ── Multiple sites in one file ────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_multiple_sites():
     src = "x = a + b\ny = c > d\nz = True\n"
     sites = scan(src)
@@ -156,6 +169,7 @@ def test_multiple_sites():
 # ── Determinism ───────────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_deterministic():
     src = "x = a + b\ny = c - d\n"
     assert scan(src) == scan(src)
@@ -164,6 +178,7 @@ def test_deterministic():
 # ── Site fields: col is preserved exactly ─────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_site_col_is_set():
     # "x = a + b": the BinOp node starts at col 4 (after "x = ")
     sites = scan("x = a + b")
@@ -171,6 +186,7 @@ def test_site_col_is_set():
     assert sites[0].col == 4
 
 
+@pytest.mark.unit
 def test_site_col_distinguishes_same_line_sites():
     # Two ops on same line: col must differ and be the actual column offsets
     src = "x = (a + b) > (c - d)\n"
@@ -183,6 +199,7 @@ def test_site_col_distinguishes_same_line_sites():
 # ── Sort key is (line, col) — not (line, function_id) ────────────────────────
 
 
+@pytest.mark.unit
 def test_sort_key_uses_col_not_function_id():
     # Two module-level sites on the same line; their order must follow col position.
     # We construct two BinOps on one line where left op has higher col than right.
@@ -200,6 +217,7 @@ def test_sort_key_uses_col_not_function_id():
 # keeping all three outermost_idx branches covered.
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "src,expected_id",
     [
@@ -219,6 +237,7 @@ def test_format_function_id_outermost_idx_boundary(src, expected_id):
 # ── _classify: Compare with non-catalogue op emits no site ───────────────────
 
 
+@pytest.mark.unit
 def test_classify_compare_with_non_catalogue_op_emits_nothing():
     # Use discover_sites to exercise the non-catalogue op branch end-to-end.
     # ast.Div is not in _COMPARE_OPS so a Compare with only Div emits nothing.
@@ -227,6 +246,7 @@ def test_classify_compare_with_non_catalogue_op_emits_nothing():
     assert sites == []
 
 
+@pytest.mark.unit
 def test_top_level_function_not_mistakenly_attributed_to_class():
     # Module-level function followed by a class with a method.
     # The module function must not be attributed to the class.
@@ -249,6 +269,7 @@ class C:
 from mutate4py._discovery import _format_function_id, _is_mutable  # noqa: E402
 
 
+@pytest.mark.unit
 def test_format_function_id_top_level_function_parent_is_none():
     # mutant_14: outermost_idx=0 → parent = None (not ancestors[-1])
     # Top-level def: ancestors = [Module]; outermost_idx=0; parent = None → func/foo
@@ -262,6 +283,7 @@ def test_format_function_id_top_level_function_parent_is_none():
     assert result == "func/foo"
 
 
+@pytest.mark.unit
 def test_format_function_id_outermost_idx_zero_means_no_parent():
     # outermost_idx=0 means ancestors[0] is the function itself
     # parent = ancestors[outermost_idx - 1] if outermost_idx > 0 else None
@@ -272,6 +294,7 @@ def test_format_function_id_outermost_idx_zero_means_no_parent():
     assert result == "func/foo"
 
 
+@pytest.mark.unit
 def test_format_function_id_method_in_class_outermost_idx_1():
     # mutant_15: ancestors = [Module, ClassDef, FunctionDef] for site inside method
     # outermost_fn=FunctionDef, outermost_idx=2, parent=ancestors[1]=ClassDef → func/C.m
@@ -283,35 +306,41 @@ def test_format_function_id_method_in_class_outermost_idx_1():
     assert result == "func/C.m"
 
 
+@pytest.mark.unit
 def test_is_mutable_compare_in_operator():
     # mutant_3,4: Compare with In op → _is_mutable = True
     node = ast.parse("a in b").body[0].value
     assert _is_mutable(node) is True
 
 
+@pytest.mark.unit
 def test_is_mutable_compare_not_in_operator():
     # mutant_5,6: Compare with NotIn op → _is_mutable = True
     node = ast.parse("a not in b").body[0].value
     assert _is_mutable(node) is True
 
 
+@pytest.mark.unit
 def test_is_mutable_boolop_or():
     # mutant_7: BoolOp with Or → _is_mutable = True (isinstance check)
     node = ast.parse("a or b").body[0].value
     assert _is_mutable(node) is True
 
 
+@pytest.mark.unit
 def test_is_mutable_boolop_and():
     node = ast.parse("a and b").body[0].value
     assert _is_mutable(node) is True
 
 
+@pytest.mark.unit
 def test_is_mutable_non_arith_binop_returns_false():
     # BinOp with Div → not in _ARITH_OPS → False
     node = ast.parse("a / b").body[0].value
     assert _is_mutable(node) is False
 
 
+@pytest.mark.unit
 def test_format_function_id_outermost_idx_sentinel_not_used_when_no_fn():
     # mutant_2,3,4: outermost_idx=-1/None/+1/-2 initial value
     # If no FunctionDef in ancestors, outermost_fn stays None → return ""
@@ -322,6 +351,7 @@ def test_format_function_id_outermost_idx_sentinel_not_used_when_no_fn():
     assert result == ""
 
 
+@pytest.mark.unit
 def test_format_function_id_outermost_idx_zero_parent_is_none_not_ancestors_minus_one():
     # mutant_14: >= 0 vs > 0
     # outermost_idx=0 means ancestors[0] is the function (no parent before it)
@@ -334,6 +364,7 @@ def test_format_function_id_outermost_idx_zero_parent_is_none_not_ancestors_minu
     assert result == "func/foo"
 
 
+@pytest.mark.unit
 def test_format_function_id_outermost_idx_1_parent_is_module_not_class():
     # mutant_15: > 1 vs > 0
     # outermost_idx=1 → parent = ancestors[0]
@@ -349,6 +380,7 @@ def test_format_function_id_outermost_idx_1_parent_is_module_not_class():
     assert result == "func/foo"
 
 
+@pytest.mark.unit
 def test_discover_sites_sort_key_uses_line_and_col():
     # mutant_8: sort(key=None) vs sort(key=lambda x: (x[0], x[1]))
     # Default tuple sort IS (x[0], x[1], x[2]) which includes function_id string.
@@ -371,6 +403,7 @@ def test_discover_sites_sort_key_uses_line_and_col():
 from mutate4py._discovery import apply_mutant  # noqa: E402
 
 
+@pytest.mark.unit
 def test_apply_mutant_compare_only_first_operator_mutated():
     # mutant_7/8: replace(orig_op, mutant_op,) vs replace(orig_op, mutant_op, 1)
     # With multiple identical operators in the between region, maxsplit=1 mutates only the first.
@@ -387,6 +420,7 @@ def test_apply_mutant_compare_only_first_operator_mutated():
     assert mutated.count(">=") == 1
 
 
+@pytest.mark.unit
 def test_apply_mutant_compare_double_operator_in_source_mutates_only_first():
     # mutant_7/8: replace maxsplit=1 vs unlimited
     # Source where the text between left and right contains the operator token twice.
@@ -416,6 +450,7 @@ def test_apply_mutant_compare_double_operator_in_source_mutates_only_first():
 from mutate4py._discovery import _mutate_constant  # noqa: E402  # type: ignore[attr-defined]
 
 
+@pytest.mark.unit
 def test_mutate_constant_false_returns_false_to_true():
     # mutant_2: if node.value is False → if node.value is True
     # Mutant: the False check becomes a True check, so x=False falls through to int check
@@ -426,6 +461,7 @@ def test_mutate_constant_false_returns_false_to_true():
     assert result == ("False", "True")
 
 
+@pytest.mark.unit
 def test_mutate_constant_true_returns_true_to_false():
     # Baseline: x=True must return ("True", "False")
     node = ast.parse("x = True").body[0].value
@@ -436,6 +472,7 @@ def test_mutate_constant_true_returns_true_to_false():
 # ── apply_mutant ────────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_apply_mutant_replaces_operator():
     src = "def f(a, b):\n    return a > b\n"
     sites = discover_sites(src)
@@ -445,6 +482,7 @@ def test_apply_mutant_replaces_operator():
     assert "a > b" not in mutated
 
 
+@pytest.mark.unit
 def test_apply_mutant_restores_via_orig_text():
     src = "def f(a, b):\n    return a + b\n"
     sites = discover_sites(src)
@@ -455,6 +493,7 @@ def test_apply_mutant_restores_via_orig_text():
     assert sites[0].mutant_text in mutated
 
 
+@pytest.mark.unit
 def test_apply_mutant_constant_true_to_false():
     src = "x = True\n"
     sites = discover_sites(src)
@@ -463,6 +502,7 @@ def test_apply_mutant_constant_true_to_false():
     assert mutated.strip() == "x = False"
 
 
+@pytest.mark.unit
 def test_apply_mutant_integer_0_to_1():
     src = "x = 0\n"
     sites = discover_sites(src)
@@ -476,6 +516,7 @@ def test_apply_mutant_integer_0_to_1():
 # computed span off the operator.
 
 
+@pytest.mark.unit
 def test_discover_sites_accented_chars_before_compare_operator():
     src = 'def f(t):\n    u = "éééé"; return len(t) > 2\n'
     sites = discover_sites(src)
@@ -483,6 +524,7 @@ def test_discover_sites_accented_chars_before_compare_operator():
     assert sites[0].orig_text == "len(t) > 2"
 
 
+@pytest.mark.unit
 def test_discover_sites_cjk_chars_before_binop_operator():
     # CJK characters are 3 bytes each in UTF-8 (vs 1 char), same class of bug
     # as the accented-Latin case but with a larger byte/char divergence.
@@ -492,6 +534,7 @@ def test_discover_sites_cjk_chars_before_binop_operator():
     assert sites[0].orig_text == "x + 5"
 
 
+@pytest.mark.unit
 def test_discover_sites_emoji_before_boolop_operator():
     # Astral-plane emoji are 4 bytes in UTF-8 but a single Python str codepoint,
     # so no UTF-16 surrogate-pair handling is needed — only byte accounting.
@@ -501,6 +544,7 @@ def test_discover_sites_emoji_before_boolop_operator():
     assert sites[0].orig_text == "a and b"
 
 
+@pytest.mark.unit
 def test_discover_sites_combining_character_before_compare_operator():
     # "e" + combining acute accent (U+0301) is two codepoints, each contributing
     # its own UTF-8 byte count, regardless of Unicode normalization form.
@@ -510,6 +554,7 @@ def test_discover_sites_combining_character_before_compare_operator():
     assert sites[0].orig_text == "len(t) > 2"
 
 
+@pytest.mark.unit
 def test_apply_mutant_splices_correctly_with_non_ascii_before_mutation_column():
     src = 'def f(t):\n    u = "éééé"; return len(t) > 2\n'
     sites = discover_sites(src)

@@ -33,12 +33,15 @@ jobs:
         run: just lint
       - name: Format check
         run: just format-check
-      # Two steps, one job, one coverage measurement: test-integration appends
-      # to test-unit's data and only then applies the threshold. They cannot be
-      # moved to separate jobs without merging coverage first — the `crap` gate
-      # below reads lcov.info and needs both halves. See the justfile.
+      # Three steps, one job, one coverage measurement: test-component and
+      # test-integration each append to the previous step's data, and only
+      # test-integration applies the threshold. They cannot be moved to
+      # separate jobs without merging coverage first — the `crap` gate below
+      # reads lcov.info and needs all three. See the justfile.
       - name: Tests (unit)
         run: just test-unit
+      - name: Tests (component)
+        run: just test-component
       - name: Tests (integration)
         run: just test-integration
       - name: Install lcov

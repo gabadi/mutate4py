@@ -14,6 +14,7 @@ from mutate4py._manifest import (
     manifests_structurally_equal,
     strip_manifest,
 )
+import pytest
 
 
 # ── strip / embed round-trip ──────────────────────────────────────────────────
@@ -34,6 +35,7 @@ _MANIFEST = st.fixed_dictionaries(
 )
 
 
+@pytest.mark.unit
 @given(body=_BODY, manifest=_MANIFEST)
 def test_extract_is_inverse_of_embed(body, manifest):
     embedded = embed_manifest(body, manifest)
@@ -43,6 +45,7 @@ def test_extract_is_inverse_of_embed(body, manifest):
     assert recovered["module_hash"] == manifest["module_hash"]
 
 
+@pytest.mark.unit
 @given(body=_BODY, manifest=_MANIFEST)
 def test_strip_after_embed_recovers_normalised_body(body, manifest):
     embedded = embed_manifest(body, manifest)
@@ -52,6 +55,7 @@ def test_strip_after_embed_recovers_normalised_body(body, manifest):
     assert not stripped.endswith("\n\n")
 
 
+@pytest.mark.unit
 @given(body=_BODY, manifest=_MANIFEST)
 def test_embed_idempotent_body_section(body, manifest):
     first = embed_manifest(body, manifest)
@@ -61,6 +65,7 @@ def test_embed_idempotent_body_section(body, manifest):
     assert first[:begin1] == second[:begin2]
 
 
+@pytest.mark.unit
 @given(body=_BODY, manifest=_MANIFEST)
 def test_embed_exactly_one_begin_marker(body, manifest):
     result = embed_manifest(body, manifest)
@@ -86,11 +91,13 @@ _MANIFEST_WITH_FNS = st.fixed_dictionaries(
 )
 
 
+@pytest.mark.unit
 @given(m=_MANIFEST_WITH_FNS)
 def test_manifest_equal_to_itself(m):
     assert manifests_structurally_equal(m, m)
 
 
+@pytest.mark.unit
 @given(m=_MANIFEST_WITH_FNS, tested_at=st.text(min_size=1, max_size=30))
 def test_manifest_equal_ignores_tested_at(m, tested_at):
     import copy
@@ -103,6 +110,7 @@ def test_manifest_equal_ignores_tested_at(m, tested_at):
 # ── diff_manifests ────────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 @given(m=_MANIFEST_WITH_FNS)
 def test_diff_none_previous_returns_all_ids(m):
     changed = diff_manifests(None, m)
@@ -110,6 +118,7 @@ def test_diff_none_previous_returns_all_ids(m):
     assert changed == expected
 
 
+@pytest.mark.unit
 @given(m=_MANIFEST_WITH_FNS)
 def test_diff_same_manifest_no_changes(m):
     import copy
@@ -117,6 +126,7 @@ def test_diff_same_manifest_no_changes(m):
     assert diff_manifests(m, copy.deepcopy(m)) == set()
 
 
+@pytest.mark.unit
 @given(m=_MANIFEST_WITH_FNS)
 def test_diff_result_subset_of_current_ids(m):
     import copy
@@ -139,6 +149,7 @@ _SIMPLE_PY = st.sampled_from(
 )
 
 
+@pytest.mark.unit
 @given(src=_SIMPLE_PY)
 def test_build_then_embed_then_extract_roundtrip(src):
     m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
@@ -149,12 +160,14 @@ def test_build_then_embed_then_extract_roundtrip(src):
     assert recovered["functions"] == m["functions"]
 
 
+@pytest.mark.unit
 @given(src=_SIMPLE_PY)
 def test_build_manifest_version_always_1(src):
     m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
     assert m["version"] == 1
 
 
+@pytest.mark.unit
 @given(src=_SIMPLE_PY)
 def test_build_manifest_module_hash_stable(src):
     m1 = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
@@ -186,6 +199,7 @@ def _sites_from_lines(lines: list[int]) -> list[Site]:
     ]
 
 
+@pytest.mark.unit
 @given(lines=_SITE_LINES, covered=_COVERED_LINES)
 def test_partition_sites_count_conserved(lines, covered):
     sites = _sites_from_lines(lines)
@@ -193,6 +207,7 @@ def test_partition_sites_count_conserved(lines, covered):
     assert c + u == len(sites)
 
 
+@pytest.mark.unit
 @given(lines=_SITE_LINES, covered=_COVERED_LINES)
 def test_partition_sites_covered_non_negative(lines, covered):
     sites = _sites_from_lines(lines)
@@ -200,6 +215,7 @@ def test_partition_sites_covered_non_negative(lines, covered):
     assert c >= 0 and u >= 0
 
 
+@pytest.mark.unit
 @given(lines=_SITE_LINES)
 def test_partition_sites_empty_covered_all_uncovered(lines):
     sites = _sites_from_lines(lines)
@@ -207,6 +223,7 @@ def test_partition_sites_empty_covered_all_uncovered(lines):
     assert c == 0 and u == len(sites)
 
 
+@pytest.mark.unit
 @given(lines=_SITE_LINES)
 def test_partition_sites_full_covered_all_covered(lines):
     sites = _sites_from_lines(lines)
@@ -248,6 +265,7 @@ _PYTHON_SOURCES = st.sampled_from(
 )
 
 
+@pytest.mark.unit
 @given(_PYTHON_SOURCES)
 @settings(max_examples=60)
 def test_apply_mutant_always_differs_from_clean(source: str) -> None:
@@ -260,6 +278,7 @@ def test_apply_mutant_always_differs_from_clean(source: str) -> None:
         )
 
 
+@pytest.mark.unit
 @given(_PYTHON_SOURCES)
 @settings(max_examples=60)
 def test_apply_mutant_contains_mutant_text(source: str) -> None:
@@ -272,6 +291,7 @@ def test_apply_mutant_contains_mutant_text(source: str) -> None:
         )
 
 
+@pytest.mark.unit
 @given(_PYTHON_SOURCES)
 @settings(max_examples=60)
 def test_discover_sites_indices_are_unique_and_zero_based(source: str) -> None:
@@ -281,6 +301,7 @@ def test_discover_sites_indices_are_unique_and_zero_based(source: str) -> None:
     assert indices == list(range(len(sites))), f"Non-contiguous or duplicate indices: {indices}"
 
 
+@pytest.mark.unit
 @given(_PYTHON_SOURCES)
 @settings(max_examples=60)
 def test_discover_sites_sorted_by_line_col(source: str) -> None:
@@ -307,6 +328,7 @@ def _make_indexed_site(index: int) -> Site:
     )
 
 
+@pytest.mark.unit
 @given(
     n_sites=st.integers(min_value=1, max_value=50),
     n_workers=st.integers(min_value=1, max_value=10),
@@ -327,6 +349,7 @@ def test_assign_sites_every_site_appears_exactly_once(n_sites: int, n_workers: i
     assert sorted(assigned_indices) == list(range(n_sites))
 
 
+@pytest.mark.unit
 @given(
     n_sites=st.integers(min_value=1, max_value=50),
     n_workers=st.integers(min_value=1, max_value=10),
@@ -342,6 +365,7 @@ def test_assign_sites_worker_keys_in_bounds(n_sites: int, n_workers: int) -> Non
         assert 1 <= worker_key <= n_workers
 
 
+@pytest.mark.unit
 @given(
     n_sites=st.integers(min_value=1, max_value=50),
     n_workers=st.integers(min_value=1, max_value=10),

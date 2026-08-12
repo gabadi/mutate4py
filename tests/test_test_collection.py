@@ -14,18 +14,22 @@ from mutate4py._test_collection import (
     rootdir_pytest_args,
 )
 
+
 FIXTURE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "overlapping_coverage")
 
 
+@pytest.mark.unit
 def test_collect_argv_names_the_collect_only_quiet_pass():
     argv = _collect_argv(["-k", "foo"], python_executable="python")
     assert argv == ["python", "-m", "pytest", "--collect-only", "-q", "-k", "foo"]
 
 
+@pytest.mark.unit
 def test_rootdir_pytest_args_pins_rootdir_to_cwd():
     assert rootdir_pytest_args("/some/dir") == ["--rootdir=/some/dir"]
 
 
+@pytest.mark.unit
 def test_isolated_run_pytest_args_drops_an_existing_path(tmp_path):
     scoped_dir = tmp_path / "sub"
     scoped_dir.mkdir()

@@ -11,10 +11,13 @@ from ._pytest_project_helpers import (
 from mutate4py._baseline import _baseline_reason
 from mutate4py._discovery import discover_sites
 from mutate4py._runner import RunMutationsRequest, run_mutations
+import pytest
+
 
 # ── _baseline_reason ────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_baseline_reason_uses_stderr_first():
     import subprocess
 
@@ -22,6 +25,7 @@ def test_baseline_reason_uses_stderr_first():
     assert _baseline_reason(result) == "test suite crashed"
 
 
+@pytest.mark.unit
 def test_baseline_reason_falls_back_to_exit_code():
     import subprocess
 
@@ -39,6 +43,7 @@ def _write_lcov(path: str, source_abs: str, covered_lines: list[int]) -> None:
         f.write(content)
 
 
+@pytest.mark.component
 def test_run_mutations_reports_per_mutant_overhead(tmp_path):
     """A real run (no pre-supplied baseline_duration) measures the fixed
     per-Mutant overhead via the extra collect-only pass and prints it in the
@@ -83,6 +88,7 @@ def test_run_mutations_reports_per_mutant_overhead(tmp_path):
     assert match, f"no 'Per-Mutant overhead:' line found in:\n{output}"
 
 
+@pytest.mark.unit
 def test_run_mutations_omits_overhead_when_baseline_duration_is_pre_supplied(tmp_path):
     """A pre-supplied baseline_duration means no fresh Baseline ran, so there
     is nothing to attach the extra collect-only pass to — the report must not
@@ -125,6 +131,7 @@ def test_run_mutations_omits_overhead_when_baseline_duration_is_pre_supplied(tmp
     assert "Per-Mutant overhead:" not in output
 
 
+@pytest.mark.component
 def test_run_mutations_baseline_failure_exits_1(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "calc.py")

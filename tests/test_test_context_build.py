@@ -27,6 +27,7 @@ from mutate4py._test_context_build import (
 )
 from mutate4py._test_selection import TestContextDB
 
+
 FIXTURE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "overlapping_coverage")
 SHARED_PY = os.path.join(FIXTURE_DIR, "shared.py")
 NODE_IDS = ["test_a.py::test_from_a", "test_b.py::test_from_b"]
@@ -35,6 +36,7 @@ ONLY_A_LINE = 6  # `return "a"` inside only_a() -- test_from_a only
 ONLY_B_LINE = 10  # `return "b"` inside only_b() -- test_from_b only
 
 
+@pytest.mark.unit
 def test_run_argv_names_one_static_context_per_test():
     argv = _run_argv("test_a.py::test_from_a", data_file=".coverage.0", pytest_args=["-q"], python_executable="python")
     assert argv == [
@@ -51,6 +53,7 @@ def test_run_argv_names_one_static_context_per_test():
     ]
 
 
+@pytest.mark.unit
 def test_combine_argv_lists_every_data_file():
     argv = _combine_argv([".coverage.0", ".coverage.1"], output_db_path="combined.coverage", python_executable="python")
     assert argv == [
@@ -84,6 +87,7 @@ def test_isolated_session_build_narrows_to_every_covering_test(tmp_path):
         db.close()
 
 
+@pytest.mark.unit
 def test_isolated_session_runner_non_survived_raises_build_error(tmp_path):
     """The seam _dispatch.py's forking path uses (issue #51): a runner
     result other than "survived" must raise, same as a nonzero subprocess

@@ -13,9 +13,11 @@ import pytest
 
 from mutate4py._executor_selection import _prepare_executor
 
+
 # ── _prepare_executor ─────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_prepare_executor_returns_subprocess_executor_when_not_requested(tmp_path):
     from mutate4py._subprocess_executor import SubprocessExecutor
 
@@ -23,6 +25,7 @@ def test_prepare_executor_returns_subprocess_executor_when_not_requested(tmp_pat
     assert isinstance(executor, SubprocessExecutor)
 
 
+@pytest.mark.unit
 def test_prepare_executor_falls_back_to_subprocess_when_platform_unavailable(tmp_path, monkeypatch):
     from mutate4py._subprocess_executor import SubprocessExecutor
 
@@ -75,6 +78,7 @@ def test_prepare_executor_does_not_import_subprocess_module_when_forking_succeed
     assert "mutate4py._subprocess_executor" not in sys.modules
 
 
+@pytest.mark.unit
 def test_prepare_executor_imports_subprocess_module_when_falling_back(tmp_path, monkeypatch):
     import mutate4py
 

@@ -26,13 +26,16 @@ from mutate4py._test_selection import TestContextDB
 
 from ._fork_unsafe_plugin_helpers import skip_unless_fork_unsafe_plugin_loaded
 
+
 # --- is_available ------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_is_available_true_on_posix():
     assert is_available() is True
 
 
+@pytest.mark.unit
 def test_is_available_false_without_os_fork(monkeypatch):
     monkeypatch.delattr(os, "fork", raising=False)
     assert is_available() is False
@@ -41,12 +44,14 @@ def test_is_available_false_without_os_fork(monkeypatch):
 # --- assert_source_clean / _leaked_modules ----------------------------------
 
 
+@pytest.mark.unit
 def test_assert_source_clean_passes_when_target_not_imported(tmp_path):
     target = tmp_path / "not_imported.py"
     target.write_text("x = 1\n")
     assert_source_clean(str(target))
 
 
+@pytest.mark.unit
 def test_assert_source_clean_raises_when_target_already_imported(tmp_path, monkeypatch):
     target = tmp_path / "leaked_target.py"
     target.write_text("x = 1\n")
@@ -57,6 +62,7 @@ def test_assert_source_clean_raises_when_target_already_imported(tmp_path, monke
         assert_source_clean(str(target))
 
 
+@pytest.mark.unit
 def test_assert_source_clean_ignores_modules_without_file(monkeypatch, tmp_path):
     target = tmp_path / "no_file_module.py"
     target.write_text("x = 1\n")
@@ -65,6 +71,7 @@ def test_assert_source_clean_ignores_modules_without_file(monkeypatch, tmp_path)
     assert_source_clean(str(target))
 
 
+@pytest.mark.unit
 def test_assert_source_clean_ignores_unrelated_modules(tmp_path):
     unrelated = tmp_path / "unrelated.py"
     unrelated.write_text("x = 1\n")
@@ -322,6 +329,7 @@ def test_run_does_not_leak_child_stdout(tmp_path, capsys):
 # --- isolated_coverage_session_safe -------------------------------------------
 
 
+@pytest.mark.unit
 def test_isolated_coverage_session_safe_false_when_a_known_unsafe_plugin_is_loaded(monkeypatch):
     """Regression for the acceptance-suite hang this precheck exists to
     prevent: tach.pytest_plugin is genuinely loaded in this test process
@@ -331,6 +339,7 @@ def test_isolated_coverage_session_safe_false_when_a_known_unsafe_plugin_is_load
     assert isolated_coverage_session_safe() is False
 
 
+@pytest.mark.unit
 def test_isolated_coverage_session_safe_true_when_no_unsafe_plugin_is_loaded(monkeypatch):
     monkeypatch.delitem(sys.modules, "tach.pytest_plugin", raising=False)
     assert isolated_coverage_session_safe() is True
@@ -507,6 +516,7 @@ def test_run_isolated_coverage_session_does_not_leak_child_stdout(tmp_path, caps
 # --- _wait_for_child ---------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_wait_for_child_reports_killed_when_child_dies_by_signal():
     """A child that dies from an external signal (not its own os._exit, e.g. a
     mutant that crashes the interpreter) must still resolve to "killed", not

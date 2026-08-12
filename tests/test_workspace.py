@@ -40,11 +40,13 @@ def _package_pyproject(name: str = "pkg") -> str:
 # ── _find_pyproject: the ancestor climb ────────────────────────────────────────
 
 
+@pytest.mark.unit
 def test_find_pyproject_finds_it_in_the_starting_directory(tmp_path):
     _write(tmp_path / "pyproject.toml", _workspace_pyproject())
     assert _find_pyproject(str(tmp_path)) == str(tmp_path / "pyproject.toml")
 
 
+@pytest.mark.unit
 def test_find_pyproject_climbs_to_the_nearest_ancestor(tmp_path):
     _write(tmp_path / "pyproject.toml", _workspace_pyproject())
     deep = tmp_path / "a" / "b" / "c"
@@ -52,6 +54,7 @@ def test_find_pyproject_climbs_to_the_nearest_ancestor(tmp_path):
     assert _find_pyproject(str(deep)) == str(tmp_path / "pyproject.toml")
 
 
+@pytest.mark.unit
 def test_find_pyproject_returns_none_when_none_exists_upward(tmp_path):
     # tmp_path is deep under the OS temp root; none of its real ancestors
     # (temp dir, /, etc.) carry a pyproject.toml in a normal environment.
@@ -63,6 +66,7 @@ def test_find_pyproject_returns_none_when_none_exists_upward(tmp_path):
 # ── _discover_workspace_roots: single-root and multi-member workspaces ─────────
 
 
+@pytest.mark.unit
 def test_discover_single_root_workspace_with_no_members(tmp_path, monkeypatch):
     ws = tmp_path / "ws"
     ws.mkdir()
@@ -71,6 +75,7 @@ def test_discover_single_root_workspace_with_no_members(tmp_path, monkeypatch):
     assert _discover_workspace_roots() == [str(ws)]
 
 
+@pytest.mark.unit
 def test_discover_multi_member_workspace(tmp_path, monkeypatch):
     ws = tmp_path / "ws"
     pkgs = ws / "pkgs"
@@ -84,6 +89,7 @@ def test_discover_multi_member_workspace(tmp_path, monkeypatch):
     assert _discover_workspace_roots() == [str(ws), str(a), str(b)]
 
 
+@pytest.mark.unit
 def test_discover_nested_glob_pattern_in_members(tmp_path, monkeypatch):
     ws = tmp_path / "ws"
     g1_pkg = ws / "groups" / "g1" / "pkgs" / "one"
@@ -100,6 +106,7 @@ def test_discover_nested_glob_pattern_in_members(tmp_path, monkeypatch):
     assert _discover_workspace_roots() == [str(ws), str(g1_pkg), str(g2_pkg)]
 
 
+@pytest.mark.unit
 def test_member_matched_by_glob_without_pyproject_is_skipped_silently(tmp_path, monkeypatch):
     ws = tmp_path / "ws"
     pkgs = ws / "pkgs"
@@ -113,6 +120,7 @@ def test_member_matched_by_glob_without_pyproject_is_skipped_silently(tmp_path, 
     assert _discover_workspace_roots() == [str(ws), str(has_one)]
 
 
+@pytest.mark.unit
 def test_member_declaring_its_own_workspace_table_is_included_normally(tmp_path, monkeypatch):
     ws = tmp_path / "ws"
     member = ws / "pkgs" / "a"
@@ -126,6 +134,7 @@ def test_member_declaring_its_own_workspace_table_is_included_normally(tmp_path,
 # ── [tool.uv.workspace].exclude: prunes both the member list and the walk ──────
 
 
+@pytest.mark.unit
 def test_exclude_prunes_an_excluded_member_from_the_roots(tmp_path, monkeypatch):
     ws = tmp_path / "ws"
     pkgs = ws / "pkgs"
@@ -142,6 +151,7 @@ def test_exclude_prunes_an_excluded_member_from_the_roots(tmp_path, monkeypatch)
     assert _discover_workspace_roots() == [str(ws), str(a)]
 
 
+@pytest.mark.unit
 def test_workspace_exclude_dirs_resolves_relative_to_the_workspace_root(tmp_path, monkeypatch):
     ws = tmp_path / "ws"
     vendor = ws / "vendor"
@@ -154,6 +164,7 @@ def test_workspace_exclude_dirs_resolves_relative_to_the_workspace_root(tmp_path
 # ── members resolve against the workspace root, not cwd (review point 1) ───────
 
 
+@pytest.mark.unit
 def test_members_glob_resolves_against_workspace_root_not_cwd(tmp_path, monkeypatch):
     ws = tmp_path / "ws"
     pkgs = ws / "pkgs"
@@ -175,6 +186,7 @@ def test_members_glob_resolves_against_workspace_root_not_cwd(tmp_path, monkeypa
 # ── the ancestor climb stops at the FIRST pyproject.toml (review point 2) ──────
 
 
+@pytest.mark.unit
 def test_climb_stops_at_first_pyproject_toml_even_without_a_workspace_table(tmp_path, monkeypatch, capsys):
     outer = tmp_path / "outer"
     member = outer / "member"
@@ -196,6 +208,7 @@ def test_climb_stops_at_first_pyproject_toml_even_without_a_workspace_table(tmp_
 # ── error messages (item 12): two distinct, path-naming cases ──────────────────
 
 
+@pytest.mark.unit
 def test_no_pyproject_found_names_the_search_start(tmp_path, monkeypatch, capsys):
     isolated = tmp_path / "isolated"
     isolated.mkdir()
@@ -208,6 +221,7 @@ def test_no_pyproject_found_names_the_search_start(tmp_path, monkeypatch, capsys
     assert "pyproject.toml" in err
 
 
+@pytest.mark.unit
 def test_pyproject_without_workspace_table_names_that_path(tmp_path, monkeypatch, capsys):
     d = tmp_path / "plain"
     d.mkdir()
@@ -224,6 +238,7 @@ def test_pyproject_without_workspace_table_names_that_path(tmp_path, monkeypatch
 # ── ordering: workspace root first, then members (item 15) ─────────────────────
 
 
+@pytest.mark.unit
 def test_roots_start_with_the_workspace_root(tmp_path, monkeypatch):
     ws = tmp_path / "ws"
     member = ws / "m"
@@ -239,6 +254,7 @@ def test_roots_start_with_the_workspace_root(tmp_path, monkeypatch):
 # ── malformed / unreadable pyproject.toml: exit 2, not a crash (review #1) ─────
 
 
+@pytest.mark.unit
 def test_malformed_toml_exits_2_naming_the_file(tmp_path, monkeypatch, capsys):
     ws = tmp_path / "ws"
     ws.mkdir()
@@ -251,6 +267,7 @@ def test_malformed_toml_exits_2_naming_the_file(tmp_path, monkeypatch, capsys):
     assert str(ws / "pyproject.toml") in err
 
 
+@pytest.mark.unit
 def test_unreadable_pyproject_exits_2_naming_the_file(tmp_path, monkeypatch, capsys):
     ws = tmp_path / "ws"
     ws.mkdir()
@@ -271,6 +288,7 @@ def test_unreadable_pyproject_exits_2_naming_the_file(tmp_path, monkeypatch, cap
 # ── members/exclude must be a list of strings (review #1c, #2) ─────────────────
 
 
+@pytest.mark.unit
 def test_members_with_a_non_string_element_exits_2(tmp_path, monkeypatch, capsys):
     ws = tmp_path / "ws"
     ws.mkdir()
@@ -284,6 +302,7 @@ def test_members_with_a_non_string_element_exits_2(tmp_path, monkeypatch, capsys
     assert "members" in err
 
 
+@pytest.mark.unit
 def test_members_as_a_bare_string_exits_2_instead_of_iterating_characters(tmp_path, monkeypatch, capsys):
     """TOML permits `members = "pkgs/*"` (a bare string); Python would
     silently iterate it character-by-character if not validated."""
@@ -298,6 +317,7 @@ def test_members_as_a_bare_string_exits_2_instead_of_iterating_characters(tmp_pa
     assert "members" in err
 
 
+@pytest.mark.unit
 def test_exclude_with_a_non_string_element_exits_2(tmp_path, monkeypatch, capsys):
     ws = tmp_path / "ws"
     ws.mkdir()
@@ -313,6 +333,7 @@ def test_exclude_with_a_non_string_element_exits_2(tmp_path, monkeypatch, capsys
 # ── symlink loop under a `**` member pattern: dedup by realpath (review #4) ────
 
 
+@pytest.mark.unit
 def test_resolve_dirs_dedups_a_symlink_loop_by_realpath(tmp_path, monkeypatch):
     ws = tmp_path / "ws"
     pkgs = ws / "pkgs"
@@ -331,6 +352,7 @@ def test_resolve_dirs_dedups_a_symlink_loop_by_realpath(tmp_path, monkeypatch):
 # ── ".." in a members glob: normalized, not blocked (review #5) ────────────────
 
 
+@pytest.mark.unit
 def test_dotdot_in_members_glob_is_normalized(tmp_path, monkeypatch):
     outside = tmp_path / "outside_pkg"
     outside.mkdir()

@@ -157,6 +157,7 @@ def test_worker_forking_and_subprocess_parity(tmp_path):
 # --- a leaked target inside a Worker degrades to the subprocess executor ------
 
 
+@pytest.mark.component
 def test_worker_server_degrades_to_subprocess_on_leaked_target(tmp_path, monkeypatch, capfd):
     """A module-leak has to happen in the Worker subprocess's own
     sys.modules; a real subprocess boundary can't be seeded from outside, so

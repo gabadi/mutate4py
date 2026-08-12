@@ -16,6 +16,7 @@ import sys
 
 import pytest
 
+
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 
@@ -347,6 +348,7 @@ def _make_pkg_tree(tmp_path) -> str:
 # ── directory dispatch: in-process coverage ───────────────────────────────────
 
 
+@pytest.mark.unit
 def test_main_directory_run_mode_exits_1_without_coverage(tmp_path):
     import mutate4py.__main__ as m
 
@@ -359,6 +361,7 @@ def test_main_directory_run_mode_exits_1_without_coverage(tmp_path):
     assert exc.value.code == 1
 
 
+@pytest.mark.unit
 def test_main_directory_check_manifest_missing_exits_1(tmp_path, capsys):
     import mutate4py.__main__ as m
 
@@ -372,6 +375,7 @@ def test_main_directory_check_manifest_missing_exits_1(tmp_path, capsys):
     assert "Manifest missing:" in capsys.readouterr().out
 
 
+@pytest.mark.unit
 def test_main_directory_check_manifest_current_exits_0(tmp_path, capsys):
     import mutate4py.__main__ as m
 
@@ -391,6 +395,7 @@ def test_main_directory_check_manifest_current_exits_0(tmp_path, capsys):
     assert "Manifest current:" in capsys.readouterr().out
 
 
+@pytest.mark.unit
 def test_main_directory_update_manifest_exits_0(tmp_path, capsys):
     import mutate4py.__main__ as m
 
@@ -404,6 +409,7 @@ def test_main_directory_update_manifest_exits_0(tmp_path, capsys):
     assert "mutate4py-manifest-begin" in (d / "a.py").read_text()
 
 
+@pytest.mark.unit
 def test_main_directory_scan_exits_0(tmp_path, capsys):
     import mutate4py.__main__ as m
 
@@ -420,6 +426,7 @@ def test_main_directory_scan_exits_0(tmp_path, capsys):
 # ── unparseable file in a directory batch (issue #35) ──────────────────────────
 
 
+@pytest.mark.unit
 def test_main_directory_scan_continues_past_syntax_error(tmp_path, capsys):
     """Reproduction from issue #35: good.py / bad.py / zlast.py, bad.py has
     invalid syntax. Every other file must still be scanned; the batch reports
@@ -444,6 +451,7 @@ def test_main_directory_scan_continues_past_syntax_error(tmp_path, capsys):
     assert "Traceback" not in err
 
 
+@pytest.mark.component
 def test_main_directory_run_mode_continues_past_syntax_error(tmp_path, capsys):
     """The default mutation Run loop (no --scan/--update-manifest/--check-manifest)
     must apply the same continue-the-batch contract as the other three modes
@@ -483,6 +491,7 @@ def test_main_directory_run_mode_continues_past_syntax_error(tmp_path, capsys):
     assert "Traceback" not in err
 
 
+@pytest.mark.unit
 def test_main_directory_update_manifest_continues_past_syntax_error(tmp_path, capsys):
     import mutate4py.__main__ as m
 
@@ -504,6 +513,7 @@ def test_main_directory_update_manifest_continues_past_syntax_error(tmp_path, ca
     assert "Traceback" not in err
 
 
+@pytest.mark.unit
 def test_main_directory_check_manifest_continues_past_syntax_error(tmp_path, capsys):
     """The manifest-exists case from issue #35: bad.py already has a manifest
     footer embedded, but its body was hand-edited into invalid syntax — this is
@@ -536,6 +546,7 @@ def test_main_directory_check_manifest_continues_past_syntax_error(tmp_path, cap
     assert "Traceback" not in err
 
 
+@pytest.mark.unit
 def test_main_single_file_syntax_error_exits_nonzero_no_traceback(tmp_path, capsys):
     """A single-file target with invalid syntax exits non-zero with the same
     message and no traceback (issue #35 acceptance)."""
@@ -552,6 +563,7 @@ def test_main_single_file_syntax_error_exits_nonzero_no_traceback(tmp_path, caps
     assert "Traceback" not in err
 
 
+@pytest.mark.unit
 def test_main_two_positionals_dispatches_the_union_path_in_process(tmp_path, capsys):
     """Direct (non-subprocess) exercise of the arity>=2 branch through main(),
     so _dispatch/_dispatch_batch/_collect_union_files get real coverage."""
@@ -572,6 +584,7 @@ def test_main_two_positionals_dispatches_the_union_path_in_process(tmp_path, cap
     assert f"Manifest missing: {b_dir / 'b.py'}" in out
 
 
+@pytest.mark.unit
 def test_main_union_batch_continues_past_syntax_error_in_one_root(tmp_path, capsys):
     """A union batch (two or more resolved roots) must apply the same
     continue-the-batch/worst-code contract as a single directory (issue #35)."""
@@ -607,6 +620,7 @@ def test_main_union_batch_continues_past_syntax_error_in_one_root(tmp_path, caps
     assert "Traceback" not in err
 
 
+@pytest.mark.unit
 def test_main_zero_positionals_dispatches_autodiscovery_in_process(tmp_path, capsys, monkeypatch):
     """Direct (non-subprocess) exercise of the zero-positional branch
     through main(), so _resolve_roots' autodiscovery path gets real
