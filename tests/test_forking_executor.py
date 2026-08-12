@@ -464,10 +464,29 @@ def test_run_isolated_coverage_session_reports_timeout_and_kills_child(tmp_path,
     assert status == "timeout"
 
 
-@pytest.mark.component
+@pytest.mark.unit
 def test_run_isolated_coverage_session_before_prime_raises(tmp_path):
+    """Unit, not component: the unprimed guard returns before any fork, so
+    nothing here reaches an Executor subprocess — same reasoning as
+    test_run_before_prime_raises above."""
     executor = ForkingExecutor(cwd=str(tmp_path), guarded_path=str(tmp_path))
     with pytest.raises(ForkingExecutorUnavailable):
+        executor.run_isolated_coverage_session(
+            "test_a.py::test_from_a", data_file=str(tmp_path / ".coverage.a"), pytest_args=[], timeout=1.0
+        )
+
+
+@pytest.mark.unit
+def test_run_isolated_coverage_session_refuses_a_fork_unsafe_process(tmp_path, monkeypatch):
+    """The fork-unsafe-plugin guard is the second precondition, so reaching it
+    needs a primed executor — set directly here rather than paying for a real
+    prime(), since the guard returns before any fork either way. The
+    component-level companion below proves the same refusal after a real
+    prime()."""
+    monkeypatch.setattr(mutate4py._forking_executor, "isolated_coverage_session_safe", lambda: False)
+    executor = ForkingExecutor(cwd=str(tmp_path), guarded_path=str(tmp_path))
+    executor._primed = True
+    with pytest.raises(ForkingExecutorUnavailable, match="fork-unsafe pytest plugin"):
         executor.run_isolated_coverage_session(
             "test_a.py::test_from_a", data_file=str(tmp_path / ".coverage.a"), pytest_args=[], timeout=1.0
         )

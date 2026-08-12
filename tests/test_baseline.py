@@ -8,7 +8,8 @@ from ._pytest_project_helpers import (
     write_always_failing_pytest_project,
     write_always_passing_pytest_project,
 )
-from mutate4py._baseline import _baseline_reason
+import mutate4py._baseline
+from mutate4py._baseline import _baseline_reason, measure_baseline_and_overhead, resolve_baseline_and_overhead
 from mutate4py._discovery import discover_sites
 from mutate4py._runner import RunMutationsRequest, run_mutations
 import pytest
@@ -31,6 +32,60 @@ def test_baseline_reason_falls_back_to_exit_code():
 
     result = subprocess.CompletedProcess(args=[], returncode=42, stderr=b"")
     assert _baseline_reason(result) == "exit code 42"
+
+
+# ── resolve_baseline_and_overhead / measure_baseline_and_overhead ───────────
+
+
+@pytest.fixture
+def stub_measurements(monkeypatch):
+    """Replace both real pytest subprocesses with recorded stand-ins, so the
+    composition of baseline + overhead can be asserted without paying for a
+    single pytest startup."""
+
+    def _stub(*, baseline: tuple[float, str | None], overhead: float):
+        calls: list[str] = []
+
+        def fake_run_baseline(pytest_args, cwd):
+            calls.append("baseline")
+            return baseline
+
+        def fake_measure_overhead(mutant_pytest_args, cwd):
+            calls.append("overhead")
+            return overhead
+
+        monkeypatch.setattr(mutate4py._baseline, "run_baseline", fake_run_baseline)
+        monkeypatch.setattr(mutate4py._baseline, "measure_per_mutant_overhead", fake_measure_overhead)
+        return calls
+
+    return _stub
+
+
+@pytest.mark.unit
+def test_measure_baseline_and_overhead_probes_overhead_after_a_passing_baseline(stub_measurements):
+    calls = stub_measurements(baseline=(1.5, None), overhead=0.25)
+    assert measure_baseline_and_overhead(["-q"], "/w", ["-q", "-p", "no:cov"]) == (1.5, None, 0.25)
+    assert calls == ["baseline", "overhead"]
+
+
+@pytest.mark.unit
+def test_measure_baseline_and_overhead_skips_the_probe_when_the_baseline_failed(stub_measurements):
+    calls = stub_measurements(baseline=(1.5, "test suite crashed"), overhead=0.25)
+    assert measure_baseline_and_overhead(["-q"], "/w", ["-q"]) == (1.5, "test suite crashed", None)
+    assert calls == ["baseline"]
+
+
+@pytest.mark.unit
+def test_resolve_baseline_and_overhead_passes_a_pre_supplied_duration_through(stub_measurements):
+    calls = stub_measurements(baseline=(1.5, None), overhead=0.25)
+    assert resolve_baseline_and_overhead(["-q"], "/w", ["-q"], 9.0) == (9.0, None, None)
+    assert calls == [], "a pre-supplied baseline must not run anything"
+
+
+@pytest.mark.unit
+def test_resolve_baseline_and_overhead_measures_when_nothing_is_pre_supplied(stub_measurements):
+    stub_measurements(baseline=(1.5, None), overhead=0.25)
+    assert resolve_baseline_and_overhead(["-q"], "/w", ["-q"], None) == (1.5, None, 0.25)
 
 
 # ── run_mutations integration: baseline/overhead reporting ────────────────────

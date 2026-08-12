@@ -6,6 +6,7 @@ import pytest
 
 from mutate4py._discovery import Site, discover_sites
 from mutate4py._test_dispatch import NoTestsCollectedError
+from mutate4py._worker_protocol import WorkerProcessError
 from mutate4py._workers import (
     ParallelRunError,
     ParallelRunRequest,
@@ -13,7 +14,10 @@ from mutate4py._workers import (
     WorkerFailureError,
     WorkerRunSettings,
     _assign_sites_to_workers,
+    _close_worker_executor,
     _copy_tree,
+    _drop_one_result_if_injected,
+    _prime_worker_executor,
     _run_one_site,
     _summarize_results,
     run_parallel,
@@ -32,6 +36,75 @@ def _make_site(index: int, line: int, fid: str = "func/f") -> Site:
         mutant_text=">=",
         desc="> -> >=",
     )
+
+
+# ── per-Worker executor lifecycle ─────────────────────────────────────────────
+
+
+class _PrimeOnlyExecutor:
+    """Records prime()/close() without owning anything to dispatch to."""
+
+    def __init__(self, *, prime_error: Exception | None = None):
+        self._prime_error = prime_error
+        self.calls: list[str] = []
+
+    def prime(self):
+        self.calls.append("prime")
+        if self._prime_error is not None:
+            raise self._prime_error
+
+    def close(self):
+        self.calls.append("close")
+
+
+class _NoCloseExecutor:
+    """An `Executor` with no close(), like the injected test executor."""
+
+    def prime(self):  # pragma: no cover - not exercised by the close tests
+        pass
+
+
+@pytest.mark.unit
+def test_prime_worker_executor_primes_once():
+    executor = _PrimeOnlyExecutor()
+    _prime_worker_executor(executor, 2)
+    assert executor.calls == ["prime"]
+
+
+@pytest.mark.unit
+def test_prime_worker_executor_restates_a_protocol_failure_as_a_worker_failure():
+    executor = _PrimeOnlyExecutor(prime_error=WorkerProcessError("pipe died"))
+    with pytest.raises(WorkerFailureError, match="worker-2 could not start: pipe died") as exc:
+        _prime_worker_executor(executor, 2)
+    assert isinstance(exc.value.__cause__, WorkerProcessError)
+
+
+@pytest.mark.unit
+def test_close_worker_executor_closes_a_closable_executor():
+    executor = _PrimeOnlyExecutor()
+    _close_worker_executor(executor)
+    assert executor.calls == ["close"]
+
+
+@pytest.mark.unit
+def test_close_worker_executor_tolerates_an_executor_without_close():
+    _close_worker_executor(_NoCloseExecutor())
+
+
+@pytest.mark.unit
+def test_drop_one_result_if_injected_is_a_no_op_by_default():
+    results = [{"site_idx": 1}, {"site_idx": 2}]
+    assert _drop_one_result_if_injected(results, short_fail=False) == results
+
+
+@pytest.mark.unit
+def test_drop_one_result_if_injected_drops_the_last_result_when_armed():
+    assert _drop_one_result_if_injected([{"site_idx": 1}, {"site_idx": 2}], short_fail=True) == [{"site_idx": 1}]
+
+
+@pytest.mark.unit
+def test_drop_one_result_if_injected_leaves_an_empty_group_alone():
+    assert _drop_one_result_if_injected([], short_fail=True) == []
 
 
 # ── _copy_tree ────────────────────────────────────────────────────────────────

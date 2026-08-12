@@ -11,6 +11,7 @@ import sys
 import time
 
 __all__ = [
+    "measure_baseline_and_overhead",
     "measure_per_mutant_overhead",
     "resolve_baseline_and_overhead",
     "run_baseline",
@@ -68,6 +69,22 @@ def measure_per_mutant_overhead(mutant_pytest_args: list[str], cwd: str) -> floa
     return elapsed
 
 
+def measure_baseline_and_overhead(
+    pytest_args: list[str], cwd: str, mutant_pytest_args: list[str]
+) -> tuple[float, str | None, float | None]:
+    """Run the Baseline, then the overhead probe — the latter only if the
+    Baseline passed. Return (baseline_duration, error, overhead_duration).
+
+    A failed Baseline stops the run, so there is nothing for an overhead
+    number to inform; measuring it anyway would just pay for a second pytest
+    startup on the way to reporting the failure.
+    """
+    duration, error = run_baseline(pytest_args, cwd)
+    if error is not None:
+        return duration, error, None
+    return duration, None, measure_per_mutant_overhead(mutant_pytest_args, cwd)
+
+
 def resolve_baseline_and_overhead(
     pytest_args: list[str],
     cwd: str,
@@ -83,7 +100,4 @@ def resolve_baseline_and_overhead(
     """
     if pre_supplied_baseline_duration is not None:
         return pre_supplied_baseline_duration, None, None
-    duration, error = run_baseline(pytest_args, cwd)
-    if error is not None:
-        return duration, error, None
-    return duration, None, measure_per_mutant_overhead(mutant_pytest_args, cwd)
+    return measure_baseline_and_overhead(pytest_args, cwd, mutant_pytest_args)

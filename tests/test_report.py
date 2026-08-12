@@ -12,6 +12,7 @@ from mutate4py._report import (
     _serial_progress_line,
     _uncovered_block_lines,
     _workers_header_lines,
+    overhead_info,
 )
 import pytest
 
@@ -196,6 +197,21 @@ def test_mutation_report_lines_selection_counts_included():
 def test_mutation_report_lines_omits_selection_line_without_a_context_db():
     lines = _mutation_report_lines({"killed": 1, "timeout": 0, "survived": 0}, [], uncovered_count=0)
     assert not any(ln.startswith("Test selection:") for ln in lines)
+
+
+# ── overhead_info (issue 06) ──────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_overhead_info_pairs_a_measured_overhead_with_its_baseline():
+    assert overhead_info(0.42, 10.0) == OverheadInfo(0.42, 10.0)
+
+
+@pytest.mark.unit
+def test_overhead_info_is_none_when_the_probe_was_skipped():
+    """A pre-supplied Baseline skips the overhead probe, so there is a
+    baseline_duration but nothing to report alongside it."""
+    assert overhead_info(None, 10.0) is None
 
 
 # ── _overhead_report_lines (issue 06) ─────────────────────────────────────────

@@ -57,6 +57,8 @@ links to three (`test-unit` → `test-component` → `test-integration`), same r
 (splitting the coverage measurement itself, rather than which gate runs which
 tests, would misattribute lines only these tests reach and turn `crap` red, per
 ADR-adjacent reasoning already in the justfile for the unit/integration split).
+Where the chain's measurement *ends* was revised twice later — see the session-5
+and session-6 addenda below. It now closes at `test-unit`.
 `mutate`'s own `--pytest-args` default is untouched (`-m 'not integration'`):
 `component` tests keep their place in per-Mutant narrowing, they only lose their
 place in the fast dev-loop gate.
@@ -122,6 +124,84 @@ not a failure signal. The check was backwards and was removed (the correctly-
 directioned "unit half missing" check was kept). Its only consumer,
 `--integration-pytest-args`/`integration_args`, was removed with it — confirmed
 unreferenced elsewhere in the repo.
+
+## Addendum: the coverage measurement ends at `test-component` (session 5)
+
+The append chain described above ran `test-unit` → `test-component` →
+`test-integration`, with `test-integration` emitting `lcov.info` and applying
+`--cov-fail-under=90`. That made `integration` the nominal owner of both
+metrics while contributing nothing to either. It is **coverage-blind**:
+`COVERAGE_PROCESS_START` is unset, so a spawned interpreter's execution is
+invisible to the parent's `.coverage` — the addendum above already established
+the same fact for named contexts.
+
+Measured on this tree:
+
+- `lcov.info` built from `unit+component` is **byte-identical** to one built
+  from `unit+component+integration` (`diff -q` → identical).
+- `check_context_deselection.py` reports the **same 257 named contexts** with
+  and without the `integration` append.
+
+So `test-integration` left the measurement, and `test-component` took over
+emitting `lcov.info` and owning the threshold. `test-integration` still appends
+(`--cov-append`, no report) so that wiring up subprocess coverage later lands
+its data in the same file instead of needing this plumbing rebuilt. **The
+measurement moved once more in session 6 — see the addendum below; the evidence
+above is unaffected, only where the chain closes changed.**
+
+The argument made here for keeping `component` *inside* the measurement was
+that dropping to `unit`-only fails `crap` outright: twelve functions exceed the
+CRAP cap of 6 — worst `collect_test_node_ids` 42.0,
+`ForkingExecutor.run_isolated_coverage_session` 20.0,
+`WorkerProcessExecutor.prime` 20.0 — and total coverage drops 95.5% → 91.0%.
+That argument was **conceded and is superseded**; the session-6 addendum
+records why, and what happened to those twelve functions.
+
+## Addendum: the measurement is `unit`-only (session 6)
+
+The session-5 argument above reasons from a label, not from the tests' nature.
+These tests were `unit`-marked only until this ADR split them out for gate
+speed — but this ADR's own definition of `component` is *real subprocess/fork
+execution via mutate4py's own Executor*, distinguished from `integration` only
+by being in-process and therefore coverage-**visible**. Visibility is an
+implementation accident of where the work happens to run. It is not a reason to
+count integration-nature work in a metric named for units.
+
+**`test-unit` now emits `lcov.info` and owns `--cov-fail-under`.**
+`test-component` and `test-integration` both append silently. `crap` and
+`mutate-sample` read `lcov.info` and so require `test-unit` alone.
+`context-deselection` is the exception: it reads `.coverage` and needs every
+context a Mutant run could narrow against, and `MUTATE_PYTEST_ARGS` excludes
+only `integration` — so it still requires `test-unit` **and** `test-component`.
+The two files now serve different purposes: `lcov.info` is a unit-only snapshot
+taken when `test-unit` ends; `.coverage` keeps accumulating.
+
+The twelve over-cap functions were fixed, not deferred, and not by mocking
+`os.fork`. The arithmetic makes that unnecessary: CRAP is
+`CC² × (1 − cov)³ + CC`, so at 0% coverage a CC-2 function scores exactly 6 and
+clears the cap while remaining entirely unit-untested. The fix for a
+fork/spawn wrapper is therefore to extract until the wrapper itself is CC ≤ 2,
+which is what `AGENTS.md` already prescribes for boundary code. Every
+extraction produced a pure, unit-tested helper:
+`node_ids_from_collect_result`, `worker_server_argv`/`encode_request`/
+`_shutdown_process`, `parse_worker_argv`/`worker_environ_updates`,
+`ForkingExecutor._fork_and_wait` (which also deduplicated the fork/wait pair
+`run` and `run_isolated_coverage_session` had each spelled out),
+`run_isolated_session`, `measure_baseline_and_overhead`,
+`_prime_worker_executor`/`_close_worker_executor`/`_drop_one_result_if_injected`,
+and `overhead_info`. Two guard tests that never reach a fork were reclassified
+`component` → `unit` alongside them.
+
+Unit-only coverage came out at **92.63%**, up from the 91.0% session 5 measured,
+because those helpers are now unit-tested. `--cov-fail-under` stays at **90**:
+the number is a floor, its meaning is unchanged by the narrower basis, and 3pp
+of headroom is a healthier margin than the 1pp it had before — raising it to
+match the current reading would just turn every future refactor into a
+threshold fight.
+
+`crap4py` offers no baseline or allowlist mechanism (`--max-crap N` and
+`--fragment`, an include-only path filter, are the whole surface), so this
+could not have been staged through configuration; the code had to move.
 
 ## Rejected alternatives
 

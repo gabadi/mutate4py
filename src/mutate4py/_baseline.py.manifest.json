@@ -1,43 +1,50 @@
 {
   "version": 1,
-  "tested_at": "2026-08-11T02:30:12Z",
-  "module_hash": "6261151943d7abf186504b00c3e06dd98522532cf28075d717ad4c7525d899c5",
-  "source_sha256": "bf9643b621b18f77d4e231ed63441388f2d5bbe9c739bebad496eedc3f651bec",
+  "tested_at": "2026-08-12T06:34:55Z",
+  "module_hash": "3da94bd142d3f74b8866bc07bde8cab384dc43ddbf9074c53d8ca8c521367307",
+  "source_sha256": "7ac9b9072912ff3decb2c8ce2ef01115baf24de3bf1d7fff65ef8e6972596814",
   "functions": [
     {
       "id": "func/_baseline_reason",
       "name": "_baseline_reason",
-      "line": 20,
-      "end_line": 24,
+      "line": 21,
+      "end_line": 25,
       "hash": "6037bd527abaf8a495048a7a504e32c167fda984b2204f6f777d58bb0bc94c61"
     },
     {
       "id": "func/_timed_pytest_run",
       "name": "_timed_pytest_run",
-      "line": 27,
-      "end_line": 43,
+      "line": 28,
+      "end_line": 44,
       "hash": "a4d0a74353892f2216fcea379b6e64dd0ddc38da5a894fb3ea3c55da61cfeaef"
     },
     {
       "id": "func/run_baseline",
       "name": "run_baseline",
-      "line": 46,
-      "end_line": 51,
+      "line": 47,
+      "end_line": 52,
       "hash": "4b950e65530a7886e6471999baa870f0790b4654f4eb6be93f4207a712fd426e"
     },
     {
       "id": "func/measure_per_mutant_overhead",
       "name": "measure_per_mutant_overhead",
-      "line": 54,
-      "end_line": 68,
+      "line": 55,
+      "end_line": 69,
       "hash": "32f787e44fd2ecbfa989ac01dd298f41fbe44fce6de463a1958ec921ca713dd7"
+    },
+    {
+      "id": "func/measure_baseline_and_overhead",
+      "name": "measure_baseline_and_overhead",
+      "line": 72,
+      "end_line": 85,
+      "hash": "ce1ac0885fa02017dc5df1dc45292e83df1935741499ad529c486ed28b6d5203"
     },
     {
       "id": "func/resolve_baseline_and_overhead",
       "name": "resolve_baseline_and_overhead",
-      "line": 71,
-      "end_line": 89,
-      "hash": "de36b9e14c494d99ce2b2a9ea498c8e5391f177b9027937ded2d9a2f5b17091b"
+      "line": 88,
+      "end_line": 103,
+      "hash": "b4cbf0530d6946c042c9d7a55724820f13dcdf80e006feb78cceff51781e5370"
     }
   ]
 }

@@ -33,17 +33,26 @@ jobs:
         run: just lint
       - name: Format check
         run: just format-check
-      # Three steps, one job, one coverage measurement: test-component and
-      # test-integration each append to the previous step's data, and only
-      # test-integration applies the threshold. They cannot be moved to
-      # separate jobs without merging coverage first — the `crap` gate below
-      # reads lcov.info and needs all three. See the justfile.
+      # Coverage is measured on test-unit alone: it writes lcov.info and
+      # applies the threshold, so the Coverage report and CRAP steps below
+      # both score unit-only data. test-component appends its contexts to
+      # .coverage for the Context deselection step below, and test-integration
+      # adds no coverage data at all (measured; see the justfile) — both stay
+      # here as test gates in their own right. These four steps share one
+      # working directory by necessity: test-unit cannot move to a separate
+      # job from CRAP without merging coverage first, and Context deselection
+      # needs test-unit's and test-component's .coverage.
       - name: Tests (unit)
         run: just test-unit
       - name: Tests (component)
         run: just test-component
       - name: Tests (integration)
         run: just test-integration
+      # Wired in for issue #68: the gate existed in the justfile from #54/#65
+      # but never here, so main's green CI said nothing about it and it rotted
+      # into 18 violations unnoticed.
+      - name: Context deselection
+        run: just context-deselection
       - name: Install lcov
         run: sudo apt-get install -y lcov
         if: always()

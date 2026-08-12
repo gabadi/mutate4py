@@ -253,6 +253,32 @@ def _summarize_selection(results: list[dict]) -> dict[str, int]:
     return counts
 
 
+def _prime_worker_executor(executor: Executor, worker_idx: int) -> None:
+    """Prime this Worker's executor, restating a protocol failure as the
+    Worker failure the run loop reports."""
+    try:
+        executor.prime()
+    except WorkerProcessError as e:
+        raise WorkerFailureError(f"worker-{worker_idx} could not start: {e}") from e
+
+
+def _close_worker_executor(executor: Executor) -> None:
+    """Close the executor if it has anything to close: `Executor` does not
+    require close(), and the injected test executor has none."""
+    close = getattr(executor, "close", None)
+    if close is not None:
+        close()
+
+
+def _drop_one_result_if_injected(worker_results: list[dict], *, short_fail: bool) -> list[dict]:
+    """Test-injection seam (_MUTATE4PY_TEST_WORKER_SHORT_RESULT=1): silently
+    lose one Worker's last result, so run_parallel's own
+    results-vs-sites reconciliation can be proven to fire."""
+    if short_fail and worker_results:
+        return worker_results[:-1]
+    return worker_results
+
+
 def _dispatch_worker_groups(plan: _WorkerDispatchPlan) -> list[dict]:
     """Prime each Worker's executor once, run its whole assignment
     sequentially (same file path), then close it — the executor is alive
@@ -264,10 +290,7 @@ def _dispatch_worker_groups(plan: _WorkerDispatchPlan) -> list[dict]:
         executor = plan.executors[worker_idx - 1]
         worker_root = plan.worker_roots[worker_idx - 1]
         worker_file_path = os.path.join(worker_root, plan.source_rel)
-        try:
-            executor.prime()
-        except WorkerProcessError as e:
-            raise WorkerFailureError(f"worker-{worker_idx} could not start: {e}") from e
+        _prime_worker_executor(executor, worker_idx)
         try:
             worker_results = [
                 _run_one_site(
@@ -285,12 +308,8 @@ def _dispatch_worker_groups(plan: _WorkerDispatchPlan) -> list[dict]:
                 for (_, site, site_idx) in assignments
             ]
         finally:
-            close = getattr(executor, "close", None)
-            if close is not None:
-                close()
-        if short_fail and worker_results:
-            worker_results.pop()
-        return worker_results
+            _close_worker_executor(executor)
+        return _drop_one_result_if_injected(worker_results, short_fail=short_fail)
 
     results: list[dict] = []
     with ThreadPoolExecutor(max_workers=plan.n_workers) as executor_pool:

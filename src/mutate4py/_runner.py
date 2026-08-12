@@ -42,11 +42,11 @@ from mutate4py._manifest_storage import (
 from mutate4py._plugin_neutralisation import neutralising_args
 from mutate4py._report import (
     CoverageSource,
-    OverheadInfo,
     RunStats,
     _mutation_report_lines,
     _run_header_lines,
     _workers_header_lines,
+    overhead_info,
     scan_report,
     scan_report_with_coverage,
 )
@@ -376,18 +376,13 @@ def run_mutations(request: RunMutationsRequest) -> int:
             # cov_error/baseline_error branches in _select_and_prepare above.
             _logger.info(result.error_msg)
             return 1
-        overhead = (
-            OverheadInfo(outcome.overhead_duration, outcome.baseline_duration)
-            if outcome.overhead_duration is not None
-            else None
-        )
         _print_lines(
             _mutation_report_lines(
                 result.counts,
                 result.survivors,
                 outcome.uncovered_count,
                 result.selection_counts,
-                overhead=overhead,
+                overhead=overhead_info(outcome.overhead_duration, outcome.baseline_duration),
             )
         )
         return 0

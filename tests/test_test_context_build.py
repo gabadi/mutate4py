@@ -24,6 +24,7 @@ from mutate4py._test_context_build import (
     _combine_argv,
     _run_argv,
     build_test_context_db,
+    dispatch_isolated_session,
 )
 from mutate4py._test_selection import TestContextDB
 
@@ -86,6 +87,37 @@ def test_isolated_session_build_narrows_to_every_covering_test(tmp_path):
         assert db.tests_for_line(SHARED_PY, ONLY_B_LINE) == ("narrowed", ["test_b.py::test_from_b"])
     finally:
         db.close()
+
+
+@pytest.mark.unit
+def test_dispatch_isolated_session_forwards_the_whole_request_to_an_injected_runner():
+    calls = []
+
+    def fake_runner(node_id: str, data_file: str, pytest_args: list[str]) -> str:
+        calls.append((node_id, data_file, pytest_args))
+        return "survived"
+
+    dispatch_isolated_session(
+        "test_a.py::test_from_a",
+        data_file=".coverage.0",
+        cwd=FIXTURE_DIR,
+        pytest_args=["-q"],
+        isolated_session_runner=fake_runner,
+    )
+    assert calls == [("test_a.py::test_from_a", ".coverage.0", ["-q"])]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("outcome", ["killed", "timeout", "no-tests-collected", "usage-error"])
+def test_dispatch_isolated_session_raises_on_any_non_survived_outcome(outcome):
+    with pytest.raises(TestContextBuildError, match=f"did not run cleanly: {outcome}"):
+        dispatch_isolated_session(
+            "test_a.py::test_from_a",
+            data_file=".coverage.0",
+            cwd=FIXTURE_DIR,
+            pytest_args=[],
+            isolated_session_runner=lambda *_: outcome,
+        )
 
 
 @pytest.mark.unit

@@ -11,7 +11,76 @@ import sys
 
 import pytest
 
-from mutate4py._executor_selection import _prepare_executor
+from mutate4py._executor_selection import _prepare_executor, select_executor
+
+
+# ── select_executor ───────────────────────────────────────────────────────
+
+
+class _FakeExecutor:
+    """Stands in for an executor the caller already owns and primed."""
+
+    def prime(self):  # pragma: no cover - select_executor must never call this
+        raise AssertionError("select_executor must not re-prime a caller-supplied executor")
+
+    def run(self, args, timeout):  # pragma: no cover - never dispatched here
+        raise AssertionError("select_executor must not dispatch")
+
+
+@pytest.mark.unit
+def test_select_executor_returns_a_caller_supplied_executor_unprimed(tmp_path):
+    """The caller owns priming; _FakeExecutor.prime() fails the test if this
+    path ever re-primes."""
+    caller_supplied = _FakeExecutor()
+    chosen = select_executor(
+        caller_supplied=caller_supplied,
+        use_parallel=False,
+        requested=True,
+        cwd=str(tmp_path),
+        guarded_path=str(tmp_path / "x.py"),
+    )
+    assert chosen is caller_supplied
+
+
+@pytest.mark.unit
+def test_select_executor_prefers_a_caller_supplied_executor_over_deferring_to_workers(tmp_path):
+    caller_supplied = _FakeExecutor()
+    chosen = select_executor(
+        caller_supplied=caller_supplied,
+        use_parallel=True,
+        requested=True,
+        cwd=str(tmp_path),
+        guarded_path=str(tmp_path / "x.py"),
+    )
+    assert chosen is caller_supplied
+
+
+@pytest.mark.unit
+def test_select_executor_defers_to_each_worker_for_a_parallel_run(tmp_path):
+    """None, not a prepared executor: a parallel run primes one Executor per
+    Worker in that Worker's own process (issue 04b)."""
+    chosen = select_executor(
+        caller_supplied=None,
+        use_parallel=True,
+        requested=True,
+        cwd=str(tmp_path),
+        guarded_path=str(tmp_path / "x.py"),
+    )
+    assert chosen is None
+
+
+@pytest.mark.unit
+def test_select_executor_prepares_one_for_a_serial_run(tmp_path):
+    from mutate4py._subprocess_executor import SubprocessExecutor
+
+    chosen = select_executor(
+        caller_supplied=None,
+        use_parallel=False,
+        requested=False,
+        cwd=str(tmp_path),
+        guarded_path=str(tmp_path / "x.py"),
+    )
+    assert isinstance(chosen, SubprocessExecutor)
 
 
 # ── _prepare_executor ─────────────────────────────────────────────────────
