@@ -19,7 +19,14 @@ dependencies = []
 mutate4py = "mutate4py.__main__:main"
 
 [build-system]
-requires = ["hatchling"]
+# Pinned like every other tool (#42): the build backend decides the wheel's
+# Metadata-Version, and the release job's pinned pypi-publish action rejects
+# anything it doesn't know. hatchling 1.32.0 emits Metadata-Version 2.5, which
+# that action's twine refuses ("not a valid metadata version"), breaking the
+# v0.1.4 release from an unpinned float alone. 1.31.0 emits 2.4. Before raising
+# this, check the publish action accepts the metadata version the new hatchling
+# writes -- build locally and read dist/*.whl's METADATA first line.
+requires = ["hatchling==1.31.0"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
