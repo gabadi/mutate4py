@@ -10,6 +10,7 @@ same dispatch logic without paying for a real subprocess spawn.
 
 import io
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -432,8 +433,25 @@ def test_worker_forking_and_subprocess_parity(tmp_path):
 # --- a leaked target inside a Worker degrades to the subprocess executor ------
 
 
+@pytest.fixture
+def restore_import_state(tmp_path):
+    """In-process pytest.main leaves the tmp project on sys.path and its conftest in sys.modules (#80).
+    `_worker_server.main` also leaves the mutate4py logger at WARNING, which silences later runs."""
+    saved_path = list(sys.path)
+    saved_modules = set(sys.modules)
+    saved_level = logging.getLogger("mutate4py").level
+    yield
+    logging.getLogger("mutate4py").setLevel(saved_level)
+    sys.path[:] = saved_path
+    root = os.path.realpath(tmp_path) + os.sep
+    for name in set(sys.modules) - saved_modules:
+        file = getattr(sys.modules[name], "__file__", None)
+        if file and os.path.realpath(file).startswith(root):
+            del sys.modules[name]
+
+
 @pytest.mark.component
-def test_worker_server_degrades_to_subprocess_on_leaked_target(tmp_path, monkeypatch, capfd):
+def test_worker_server_degrades_to_subprocess_on_leaked_target(tmp_path, monkeypatch, capfd, restore_import_state):
     """A module-leak has to happen in the Worker subprocess's own
     sys.modules; a real subprocess boundary can't be seeded from outside, so
     this drives `_worker_server.main` directly in-process instead — the same
