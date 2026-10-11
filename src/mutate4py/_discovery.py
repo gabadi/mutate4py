@@ -3,6 +3,7 @@
 import ast
 import dataclasses
 import functools
+import re
 
 from mutate4py._ids import function_unit_id
 
@@ -15,10 +16,13 @@ class Site:
     end_line: int
     end_col: int
     function_id: str  # empty string for module-level sites
-    orig_text: str  # original source text of the mutable node
+    orig_text: str  # original source text of the mutable node (operator token for unary sites)
     mutant_text: str  # mutated replacement text
-    desc: str  # "<orig_text> -> <mutant_text>"
+    desc: str  # "<node source> -> <mutant node source>"; unary shows the node, not the token
 
+
+# (line, col, end_line, end_col, function_id, orig_text, mutant_text, desc) before sorting.
+_RawSite = tuple[int, int, int, int, str, str, str, str]
 
 _ARITH_OPS = {ast.Add, ast.Sub, ast.Mult}
 _RELATIONAL_OPS = {ast.Gt, ast.GtE, ast.Lt, ast.LtE}
@@ -51,6 +55,10 @@ _BOOL_OP_TOKEN_MUTATIONS: dict[type, tuple[str, str]] = {
     ast.And: ("and", "or"),
     ast.Or: ("or", "and"),
 }
+
+# Unary operators whose token is deleted (ADR 0024)
+_UNARY_TOKENS: dict[type, str] = {ast.Not: "not", ast.USub: "-"}
+_WORD_CHAR = re.compile(r"\w")
 
 
 def _format_function_id(ancestors: list[ast.AST]) -> str:
@@ -181,6 +189,32 @@ def _mutate_boolop(source: str, line_index: list[int], node: ast.BoolOp) -> tupl
     return orig, mutant
 
 
+def _neighbour_is_word(source: str, offset: int) -> bool:
+    """True when the character at offset exists and matches \\w."""
+    return 0 <= offset < len(source) and _WORD_CHAR.match(source[offset]) is not None
+
+
+def _mutate_unary(source: str, line_index: list[int], node: ast.UnaryOp) -> tuple[str, str, int, str]:
+    """Return (orig_token, mutant_text, end_col, desc) for a `not` or `-` deletion.
+
+    Only called for a node that `_is_mutable` accepted, so its operator is in
+    `_UNARY_TOKENS`. The splice span is the operator token plus the [ \\t]* run
+    after it, never the operand. end_col is a UTF-8 byte column as ast reports
+    them; the token and the run are ASCII, so the byte width equals the
+    character width. desc is display only: the node source with that run
+    removed (`not x -> x`).
+    """
+    token = _UNARY_TOKENS[type(node.op)]
+    start = _abs_offset(source, line_index, node.lineno, node.col_offset)
+    run_end = start + len(token)
+    while run_end < len(source) and source[run_end] in " \t":
+        run_end += 1
+    keeps_space = _neighbour_is_word(source, start - 1) and _neighbour_is_word(source, run_end)
+    orig = _node_text(source, line_index, node)
+    desc = f"{orig} -> {orig[run_end - start :]}"
+    return token, " " if keeps_space else "", node.col_offset + (run_end - start), desc
+
+
 def _mutate_int_constant(value: int) -> tuple[str, str] | None:
     if value == 0:
         return "0", "1"
@@ -218,7 +252,7 @@ def discover_sites(source: str) -> list[Site]:
     """Parse source and return all mutation sites, sorted by (line, col)."""
     tree = ast.parse(source)
     line_index = _build_line_index(source)
-    raw: list[tuple[int, int, int, int, str, str, str]] = []
+    raw: list[_RawSite] = []
     _walk(tree, source, line_index, raw)
     raw.sort(key=lambda x: (x[0], x[1]))
     return [
@@ -231,9 +265,9 @@ def discover_sites(source: str) -> list[Site]:
             function_id=fid,
             orig_text=orig,
             mutant_text=mutant,
-            desc=f"{orig} -> {mutant}",
+            desc=desc,
         )
-        for i, (line, col, end_line, end_col, fid, orig, mutant) in enumerate(raw)
+        for i, (line, col, end_line, end_col, fid, orig, mutant, desc) in enumerate(raw)
     ]
 
 
@@ -241,7 +275,7 @@ def _walk(
     root: ast.AST,
     source: str,
     line_index: list[int],
-    sites: list[tuple[int, int, int, int, str, str, str]],
+    sites: list[_RawSite],
 ) -> None:
     """Iterative AST traversal; avoids recursion-limit failures on deep trees."""
     stack: list[tuple[ast.AST, list[ast.AST]]] = [(root, [])]
@@ -259,16 +293,35 @@ def _constant_is_mutable(node: ast.Constant) -> bool:
     return isinstance(node.value, int) and not isinstance(node.value, bool) and node.value in (0, 1)
 
 
+def _is_zero_negation(node: ast.UnaryOp) -> bool:
+    """ADR 0024 (zero literals): unary minus on a numeric zero literal is equivalent, so no site."""
+    operand = node.operand
+    return (
+        isinstance(node.op, ast.USub)
+        and isinstance(operand, ast.Constant)
+        and type(operand.value) in (int, float, complex)
+        and operand.value == 0
+    )
+
+
+def _compare_is_mutable(node: ast.Compare) -> bool:
+    return any(type(op) in _COMPARE_OPS for op in node.ops)
+
+
+def _unary_is_mutable(node: ast.UnaryOp) -> bool:
+    return type(node.op) in _UNARY_TOKENS and not _is_zero_negation(node)
+
+
 def _is_mutable(node: ast.AST) -> bool:
     if isinstance(node, ast.BinOp):
         return type(node.op) in _ARITH_OPS
     if isinstance(node, ast.Compare):
-        return any(type(op) in _COMPARE_OPS for op in node.ops)
+        return _compare_is_mutable(node)
     if isinstance(node, ast.BoolOp):
         return True
     if isinstance(node, ast.Constant):
         return _constant_is_mutable(node)
-    return False
+    return isinstance(node, ast.UnaryOp) and _unary_is_mutable(node)
 
 
 def _dispatch_mutation(
@@ -292,23 +345,31 @@ def _classify(
     ancestors: list[ast.AST],
     source: str,
     line_index: list[int],
-    sites: list[tuple[int, int, int, int, str, str, str]],
+    sites: list[_RawSite],
 ) -> None:
     if not _is_mutable(node):
         return
-    mutation = _dispatch_mutation(node, source, line_index)
-    if mutation is None:
-        return
+    if isinstance(node, ast.UnaryOp):
+        orig, mutant, end_col, desc = _mutate_unary(source, line_index, node)
+        end_line = node.lineno
+    else:
+        mutation = _dispatch_mutation(node, source, line_index)
+        if mutation is None:
+            return
+        orig, mutant = mutation
+        end_line = node.end_lineno  # type: ignore[attr-defined]
+        end_col = node.end_col_offset  # type: ignore[attr-defined]
+        desc = f"{orig} -> {mutant}"
     fid = _format_function_id(ancestors)
-    orig, mutant = mutation
     sites.append(
         (
             node.lineno,  # type: ignore[attr-defined]
             node.col_offset,  # type: ignore[attr-defined]
-            node.end_lineno,  # type: ignore[attr-defined]
-            node.end_col_offset,  # type: ignore[attr-defined]
+            end_line,
+            end_col,
             fid,
             orig,
             mutant,
+            desc,
         )
     )

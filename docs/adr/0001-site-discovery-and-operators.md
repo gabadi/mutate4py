@@ -22,3 +22,4 @@ This note exists so a reader who knows crap4py does not assume its rule here.
 - *Add `/`→`*`, augmented-assignment (`+=`/`-=`), unary removal* — these are new
   mutation **categories** no port introduced. The rule is localize-per-language, not
   fabricate. Revisit only on field demand.
+  Unary `not` and unary `-` removal is superseded for Python: see ADR 0024.
