@@ -1,6 +1,6 @@
 [project]
 name = "mutate4py"
-version = "0.1.4"
+version = "0.2.0"
 description = "Mutation testing for Python with an embedded-in-source manifest"
 readme = "README.md"
 license = "MIT"
@@ -60,7 +60,7 @@ dev = [
 ]
 
 [tool.bumpversion]
-current_version = "0.1.4"
+current_version = "0.2.0"
 commit = true
 tag = true
 tag_name = "v{new_version}"
