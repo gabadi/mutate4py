@@ -57,6 +57,12 @@ def _check_no_run_incompatibilities(args: argparse.Namespace) -> None:
         _exit_incompatible(flag, "--test-contexts")
 
 
+def _check_no_run_survivor_flag(args: argparse.Namespace) -> None:
+    """Raise if --allow-survivors (a scored-run exit-code flag) is paired with a no-run mode."""
+    if args.allow_survivors:
+        _exit_incompatible(_no_run_flag(args), "--allow-survivors")
+
+
 def _check_scan_only_incompatibilities(args: argparse.Namespace) -> None:
     """Raise if scan-only flags are paired with non-scan flags."""
     if args.timeout_factor != 10:
@@ -104,6 +110,7 @@ def _validate_mutual_exclusions(args: argparse.Namespace) -> None:
         _exit_incompatible(active[0], active[1])
     if active:
         _check_no_run_incompatibilities(args)
+        _check_no_run_survivor_flag(args)
         _check_no_run_mode_specific_incompatibilities(args)
     _check_selection_exclusivity(args)
 

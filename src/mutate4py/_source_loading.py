@@ -9,9 +9,12 @@ import logging
 import os
 
 from mutate4py._discovery import Site, discover_sites
+from mutate4py._equivalent import marker_lines
 from mutate4py._manifest import (
     build_manifest,
     diff_manifests,
+    functions_with_survivors,
+    functions_with_unmarked_acceptances,
     reconcile_manifest,
     strip_manifest,
 )
@@ -20,6 +23,7 @@ from mutate4py._manifest_storage import (
     _read_existing_manifest,
     _write_manifest_output,
 )
+from mutate4py._scoring import ScoredRun
 
 _logger = logging.getLogger(__name__)
 
@@ -41,22 +45,31 @@ def _compute_manifest_diff(source: str, loc: ManifestLocation) -> tuple[str, dic
     """Strip manifest, discover sites, diff.
 
     Returns (clean_source, existing_manifest, manifest_exists, changed_fn_ids, tested_at).
+    changed_fn_ids also holds every function with recorded survivors: such a
+    function is not current, so the next default run retries it even when its
+    hash is unchanged. It also holds every function whose accepted survivor lost
+    its marker. The "Changed mutation sites" count includes those Sites too.
     """
     clean_source = strip_manifest(source)
     existing_manifest, manifest_exists = _read_existing_manifest(source, loc)
     tested_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     current_manifest = build_manifest(clean_source, tested_at=tested_at)
-    changed_fn_ids = diff_manifests(existing_manifest, current_manifest)
+    changed_fn_ids = (
+        diff_manifests(existing_manifest, current_manifest)
+        | functions_with_survivors(existing_manifest)
+        | functions_with_unmarked_acceptances(existing_manifest, current_manifest, marker_lines(clean_source))
+    )
     return clean_source, existing_manifest, manifest_exists, changed_fn_ids, tested_at
 
 
-def _finalize_source(
+def _finalize_source(  # noqa: PLR0913 - keeps the positional contract tests/test_source_loading.py relies on
     clean_source: str,
     tested_at: str,
     bak_path: str,
     loc: ManifestLocation,
     *,
     existing_manifest: dict | None = None,
+    scored_run: ScoredRun | None = None,
 ) -> None:
     # Unlike update_manifest, the write can't be skipped outright: a run with
     # selected sites leaves the last-tested mutant on disk (the per-site loop
@@ -64,7 +77,10 @@ def _finalize_source(
     # manifest choice is conditional — reusing existing_manifest keeps the
     # written bytes identical to what's already on disk when nothing changed.
     candidate_manifest = build_manifest(clean_source, tested_at=tested_at)
-    manifest_to_embed = reconcile_manifest(existing_manifest, candidate_manifest)
+    scores = None
+    if scored_run is not None:
+        scores = scored_run.function_scores([fn["id"] for fn in candidate_manifest["functions"]])
+    manifest_to_embed = reconcile_manifest(existing_manifest, candidate_manifest, scores)
     _write_manifest_output(clean_source, manifest_to_embed, loc)
     if os.path.isfile(bak_path):
         os.remove(bak_path)

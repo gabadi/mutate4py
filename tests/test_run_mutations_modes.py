@@ -62,7 +62,7 @@ def test_run_mutations_warning_threshold_exceeded(tmp_path):
             )
         )
     output = buf.getvalue()
-    assert rc == 0
+    assert rc == 3
     assert "Warning:" in output
 
 
@@ -250,7 +250,7 @@ def test_parallel_path_report_present(tmp_path, monkeypatch):
     with open(src_path, "w") as f:
         f.write(src)
     rc, output = _run_with_capture(tmp_path, src_path, src, max_workers=3)
-    assert rc == 0
+    assert rc == 3
     assert "Mutation Report" in output
 
 
@@ -312,7 +312,7 @@ def test_parallel_path_worker_root_cleaned_up(tmp_path, monkeypatch):
     with open(src_path, "w") as f:
         f.write(src)
     rc, _ = _run_with_capture(tmp_path, src_path, src, max_workers=3)
-    assert rc == 0
+    assert rc == 3
     workers_dir = os.path.join(str(tmp_path), ".mutate4py", "workers")
     if os.path.exists(workers_dir):
         assert os.listdir(workers_dir) == []
@@ -330,7 +330,7 @@ def test_parallel_path_original_file_restored(tmp_path, monkeypatch):
     with open(src_path, "w") as f:
         f.write(src)
     rc, _ = _run_with_capture(tmp_path, src_path, src, max_workers=3)
-    assert rc == 0
+    assert rc == 3
     with open(src_path) as f:
         final = f.read()
     body = strip_manifest(final)
@@ -389,21 +389,21 @@ def test_report_counts_narrowed_selections(tmp_path, monkeypatch, capsys):
     # exit-4 usage-error abort issue #55 added — a fictional node ID would
     # now correctly abort the run instead of silently reporting `narrowed 3`.
     rc, _, _ = _run_with_stub_ctx_db(tmp_path, monkeypatch, "narrowed", ["tests/test_always_passes.py::test_ok"])
-    assert rc == 0
+    assert rc == 3
     assert "Test selection: narrowed 3, static 0, degraded 0" in capsys.readouterr().out
 
 
 @pytest.mark.component
 def test_report_counts_static_selections(tmp_path, monkeypatch, capsys):
     rc, _, _ = _run_with_stub_ctx_db(tmp_path, monkeypatch, "static")
-    assert rc == 0
+    assert rc == 3
     assert "Test selection: narrowed 0, static 3, degraded 0" in capsys.readouterr().out
 
 
 @pytest.mark.component
 def test_report_omits_test_selection_line_without_a_context_db(tmp_path, monkeypatch, capsys):
     rc, _, _ = _run_with_stub_ctx_db(tmp_path, monkeypatch, "narrowed", test_contexts=None)
-    assert rc == 0
+    assert rc == 3
     assert "Test selection:" not in capsys.readouterr().out
 
 

@@ -35,7 +35,7 @@ Navigation and universal invariants for all agents in this project.
 - Acceptance step files are boundary files (15-site mutation threshold); extractable pure logic belongs in `*_helpers.py` modules with their own unit tests.
 - `coverage_helpers.py` is the testable module for acceptance step helper functions; unit tests live in `tests/test_coverage_helpers.py`.
 - `cli_surface_helpers.py` is the testable module for CLI surface acceptance step helpers; unit tests live in `tests/test_cli_surface_helpers.py`.
-- `__main__.py` is a pure CLI adapter; `scan_report`, `scan_report_with_coverage`, and `update_manifest` belong in `_runner.py` and are tested directly. Do not move domain functions back to `__main__.py`.
+- `__main__.py` is a pure CLI adapter. `_runner.py` re-exports `scan_report`, `scan_report_with_coverage` (defined in `_report.py`), `update_manifest` and `check_manifest` (defined in `_manifest_modes.py`); test them directly. Do not move domain functions back to `__main__.py`.
 
 ## References
 - `CONTEXT.md` — the project's glossary. Use its terms; don't drift to synonyms.

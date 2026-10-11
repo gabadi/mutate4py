@@ -7,6 +7,9 @@ import sys
 
 _SCAN_INCOMPATIBLE_FLAGS = {"--timeout-factor", "--pytest-args", "--max-workers"}
 
+_SURVIVOR_FLAG = "--allow-survivors"
+_NO_RUN_FLAGS = frozenset({"--scan", "--update-manifest", "--check-manifest", "--build-test-contexts"})
+
 _FAKE_PYTEST_ARGS = "-q tests"
 
 _MANIFEST_REPORT_PREFIXES = (
@@ -34,6 +37,17 @@ def split_flags(flags_str: str) -> list[str]:
     return shlex.split(flags_str)
 
 
+def survivor_flag(tokens: list[str]) -> list[str]:
+    """Return ["--allow-survivors"] for a scored run, or [] when a no-run mode or the flag is already present.
+
+    Scored runs exit 3 on unaccepted survivors; scenarios that only check for exit 0 pass this flag.
+    No-run modes reject --allow-survivors (exit 2), so it is never added next to one of them.
+    """
+    if _NO_RUN_FLAGS.union([_SURVIVOR_FLAG]) & set(tokens):
+        return []
+    return [_SURVIVOR_FLAG]
+
+
 def single_flag_args(flag_str: str, src: str, lcov: str) -> list[str]:
     """Return CLI args for a single-flag invocation."""
     if flag_str == "(none)":
@@ -41,9 +55,9 @@ def single_flag_args(flag_str: str, src: str, lcov: str) -> list[str]:
     flags = split_flags(flag_str)
     flag_name = flags[0] if flags else ""
     if flag_name == "--pytest-args":
-        return [src, "--lcov", lcov, "--pytest-args", _FAKE_PYTEST_ARGS]
+        return [src, "--lcov", lcov, "--pytest-args", _FAKE_PYTEST_ARGS, *survivor_flag(flags)]
     if flag_name in _SCAN_INCOMPATIBLE_FLAGS:
-        return [src, "--lcov", lcov, "--pytest-args", _FAKE_PYTEST_ARGS] + flags
+        return [src, "--lcov", lcov, "--pytest-args", _FAKE_PYTEST_ARGS] + flags + survivor_flag(flags)
     return [src, "--scan"] + flags
 
 
@@ -54,7 +68,7 @@ def two_flag_args(flag1: str, flag2: str, src: str, lcov: str) -> list[str]:
     all_flags = flags1 + flags2
     flag_names = {f for f in all_flags if f.startswith("--")}
     if "--max-workers" in flag_names and not any(f in flag_names for f in ("--scan", "--update-manifest")):
-        return [src, "--lcov", lcov, "--pytest-args", _FAKE_PYTEST_ARGS] + all_flags
+        return [src, "--lcov", lcov, "--pytest-args", _FAKE_PYTEST_ARGS] + all_flags + survivor_flag(all_flags)
     return [src] + all_flags
 
 
@@ -65,10 +79,10 @@ def accepted_flags_args(flags_str: str, src: str, lcov: str) -> tuple[list[str],
     if flags_str == "--update-manifest":
         return [src, "--update-manifest"], "manifest write", None
     if flags_str == "(a coverage flag)":
-        return [src, "--lcov", lcov, "--pytest-args", _FAKE_PYTEST_ARGS], "run loop", None
+        return [src, "--lcov", lcov, "--pytest-args", _FAKE_PYTEST_ARGS, _SURVIVOR_FLAG], "run loop", None
     if flags_str == "--max-workers 4 (a coverage flag)":
         return (
-            [src, "--lcov", lcov, "--max-workers", "4", "--pytest-args", _FAKE_PYTEST_ARGS],
+            [src, "--lcov", lcov, "--max-workers", "4", "--pytest-args", _FAKE_PYTEST_ARGS, _SURVIVOR_FLAG],
             "run loop",
             4,
         )
@@ -270,8 +284,19 @@ def write_baseline_sentinel(root: str) -> str:
     return os.path.join(tests_dir, "baseline_ran")
 
 
-def assert_exit_status(returncode: int, expected: int) -> None:
-    assert returncode == expected, f"Expected exit status {expected}, got {returncode}"
+def assert_exit_status(returncode: int, expected: int, output: str = "") -> None:
+    message = f"Expected exit status {expected}, got {returncode}"
+    assert returncode == expected, (f"{message}\n{output}" if output else message)
+
+
+def mark_site_lines(source: str, comment: str) -> str:
+    """Append `comment` to every line of `source` that carries a mutation site."""
+    from mutate4py._discovery import discover_sites
+
+    lines = source.splitlines()
+    site_lines = {s.line for s in discover_sites("\n".join(lines) + "\n")}
+    marked = [f"{text}  {comment}" if i in site_lines else text for i, text in enumerate(lines, 1)]
+    return "\n".join(marked) + "\n"
 
 
 def assert_names_interpreters(output: str, running_prefix: str, env_path: str) -> None:

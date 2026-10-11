@@ -4,6 +4,7 @@ import ast
 import hashlib
 import json
 import re
+from collections import Counter
 
 from mutate4py._ids import function_unit_id
 from mutate4py._sidecar_io import parse_json_text
@@ -101,12 +102,152 @@ def manifests_structurally_equal(a: dict, b: dict) -> bool:
     return a_fns == b_fns
 
 
-def reconcile_manifest(existing: dict | None, candidate: dict) -> dict:
-    """Return the manifest to embed: existing (preserving its tested_at) if
-    structurally equal to candidate, otherwise candidate itself."""
-    if existing is not None and manifests_structurally_equal(existing, candidate):
+_UNIT_KEYS = ("id", "name", "line", "end_line", "hash")
+
+
+def _scored_fields(fn: dict) -> dict | None:
+    """The canonical score block of a function entry, or None when it is unscored.
+
+    Missing values read as defaults: a missing score int is 0, a missing or
+    null list is [], a missing desc or reason is "", a missing line is 0. A list
+    entry that is not a dict is skipped.
+    """
+    score = fn.get("score")
+    if not isinstance(score, dict):
+        return None
+    return {
+        "score": {
+            "killed": score.get("killed", 0),
+            "survived": score.get("survived", 0),
+            "uncovered": score.get("uncovered", 0),
+        },
+        "survivors": [
+            {"line": s.get("line", 0), "desc": s.get("desc", "")}
+            for s in _list_field(fn, "survivors")
+            if isinstance(s, dict)
+        ],
+        "accepted": [
+            {"line": a.get("line", 0), "desc": a.get("desc", ""), "reason": a.get("reason", "")}
+            for a in _list_field(fn, "accepted")
+            if isinstance(a, dict)
+        ],
+    }
+
+
+def _list_field(fn: dict, key: str) -> list:
+    """A list field of a function entry; a missing or null list reads as []."""
+    return fn.get(key) or []
+
+
+def _fields_for(fn: dict, prev: dict | None, scores: dict[str, dict] | None) -> dict | None:
+    """Score fields for one candidate function: rescored this run, else kept
+    while its hash is unchanged, else None (changed or new, so unscored)."""
+    if scores is not None and fn["id"] in scores:
+        return _scored_fields(scores[fn["id"]])
+    if prev is not None and prev.get("hash") == fn["hash"]:
+        return _scored_fields(prev)
+    return None
+
+
+def _scored_by_id(manifest: dict | None) -> dict[str, dict | None]:
+    if manifest is None:
+        return {}
+    return {fn["id"]: _scored_fields(fn) for fn in manifest["functions"]}
+
+
+def reconcile_manifest(existing: dict | None, candidate: dict, scores: dict[str, dict] | None = None) -> dict:
+    """Return the manifest to embed, carrying each function's score block forward.
+
+    A function rescored this run takes its fields from scores. An unchanged
+    function (same hash as in existing) keeps its fields. A changed or new
+    function has none, so it stays unscored until a scored run records it.
+
+    Returns existing itself when nothing but tested_at or source_sha256 would
+    change (ADR 0006), so callers detect "unchanged" by identity.
+    """
+    prior = {fn["id"]: fn for fn in existing["functions"]} if existing is not None else {}
+    entries = [_carry_entry(fn, prior.get(fn["id"]), scores) for fn in candidate["functions"]]
+    merged = {**candidate, "functions": entries}
+    if _unchanged(existing, merged):
         return existing
-    return candidate
+    return merged
+
+
+def _carry_entry(fn: dict, prev: dict | None, scores: dict[str, dict] | None) -> dict:
+    """Unit keys plus the score fields this function keeps or gains this run."""
+    entry = {k: fn[k] for k in _UNIT_KEYS}
+    entry.update(_fields_for(fn, prev, scores) or {})
+    return entry
+
+
+def _unchanged(existing: dict | None, merged: dict) -> bool:
+    """True when merged differs from existing only in tested_at or source_sha256, scores included (ADR 0006)."""
+    return (
+        existing is not None
+        and manifests_structurally_equal(existing, merged)
+        and _scored_by_id(existing) == _scored_by_id(merged)
+    )
+
+
+def functions_with_survivors(manifest: dict | None) -> set[str]:
+    """Ids of functions with recorded survivors: they are not current. None gives an empty set."""
+    if manifest is None:
+        return set()
+    return {fn["id"] for fn in manifest["functions"] if (_scored_fields(fn) or {}).get("survivors")}
+
+
+def functions_with_unmarked_acceptances(manifest: dict | None, current: dict, markers: dict[int, str]) -> set[str]:
+    """Ids of functions whose accepted survivor lost its marker.
+
+    That covers a marker removed, its reason reworded, or one of several
+    same-reason markers removed. markers maps line -> reason for the current
+    source. A marker counts for a function when it sits inside that function's
+    current span, so a function whose code merely moved keeps its acceptance.
+    None gives an empty set.
+    """
+    if manifest is None:
+        return set()
+    current_by_id = {fn["id"]: fn for fn in current["functions"]}
+    return {
+        fn["id"]
+        for fn in manifest["functions"]
+        if fn["id"] in current_by_id and _acceptance_unmarked(fn, current_by_id[fn["id"]], markers)
+    }
+
+
+def _acceptance_unmarked(fn: dict, cur: dict, markers: dict[int, str]) -> bool:
+    """True when cur's span holds fewer markers of some accepted reason than fn's accepted survivors need.
+
+    A marker accepts every survivor on its line, so each distinct (line, reason)
+    needs one marker of that reason. Two same-reason survivors on two lines need
+    two markers, so removing one of them is caught.
+    """
+    accepted = (_scored_fields(fn) or {}).get("accepted")
+    if not accepted:
+        return False
+    found = _markers_in_span(cur, markers)
+    needed = Counter(reason for _, reason in {(a["line"], a["reason"]) for a in accepted})
+    return any(count > found[reason] for reason, count in needed.items())
+
+
+def _markers_in_span(cur: dict, markers: dict[int, str]) -> Counter[str]:
+    """Per reason, the markers that sit inside cur's line span."""
+    return Counter(reason for line, reason in markers.items() if cur["line"] <= line <= cur["end_line"])
+
+
+def has_accepted_survivors(manifest: dict) -> bool:
+    """True when any function records an accepted survivor, whose marker check needs the parse."""
+    return any((_scored_fields(fn) or {}).get("accepted") for fn in manifest["functions"])
+
+
+def recorded_survivors(manifest: dict) -> list[tuple[str, dict]]:
+    """Every recorded survivor as (function id, {"line", "desc"}), in manifest function order."""
+    return [(fn["id"], s) for fn in manifest["functions"] for s in (_scored_fields(fn) or {}).get("survivors", [])]
+
+
+def is_unscored(manifest: dict) -> bool:
+    """True when any function lacks a score block. A manifest with no functions is not unscored."""
+    return any(_scored_fields(fn) is None for fn in manifest["functions"])
 
 
 def build_manifest(source: str, *, tested_at: str) -> dict:

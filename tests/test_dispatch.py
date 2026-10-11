@@ -39,6 +39,7 @@ def _make_args(**kwargs):
         exclude=None,
         prune_dirs=(),
         no_fork=False,
+        allow_survivors=False,
     )
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -139,7 +140,6 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
         test_contexts=".coverage",
     )
     result = _run_on_file(args, "f.py", "x = 1\n", "/cwd", baseline_duration=1.5)
-
     assert result == 0
     assert dataclasses.asdict(captured["request"]) == {
         "path": "f.py",
@@ -154,6 +154,7 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
         "since_last_run": True,
         "mutate_all": False,
         "warning_threshold": 42,
+        "allow_survivors": False,
         "max_workers": 3,
         "cwd": "/cwd",
         "baseline_duration": 1.5,

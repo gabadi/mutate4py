@@ -46,6 +46,7 @@ def _make_args(**kwargs):
         no_fork=False,
         build_test_contexts=None,
         files=[],
+        allow_survivors=False,
     )
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)

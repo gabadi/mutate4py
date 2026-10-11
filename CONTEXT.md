@@ -52,6 +52,16 @@ alone; behaviour-affecting edits change it.
 Re-testing only the Sites whose Function unit changed since the last Manifest. The
 default once a Manifest exists.
 
+**Accepted equivalent**:
+A survived Mutant whose Site line carries `# mutate4py: equivalent <reason>`. Recorded
+under the Function unit's `accepted` list with its reason; it does not fail the run.
+_Avoid_: ignored, suppressed
+
+**Unscored**:
+A Function unit whose Manifest entry has no `score` (written before 0.1.5, or never
+fully selected by a scored run). `--check-manifest` judges it on hashes alone.
+_Avoid_: clean
+
 ### Coverage
 
 **Coverage gate**:

@@ -130,6 +130,24 @@ files at all — the command prints `error: no Python files to process.` and exi
 **2**, rather than passing vacuously. `--exclude` also applies to a single-file
 target: a target that matches is not analysed, and exits 2 the same way.
 
+## Exit codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Ok. |
+| 1 | Coverage, baseline or worker failure; `--check-manifest` finds the Manifest missing, stale, or recording an unaccepted survivor. |
+| 2 | Usage, parse or selection error. |
+| 3 | A scored run left an unaccepted survivor (`--allow-survivors` exits 0 instead). |
+
+A batch (a directory or several targets) exits with its most severe per-file code: 2 > 1 > 3 > 0.
+
+A survivor you have judged equivalent can be accepted with a comment on the line the report prints for it (for an expression spanning several lines, its first line):
+`x = a > b  # mutate4py: equivalent same result for every input`. The accepted survivor
+does not fail the run. The report lists it under `Accepted equivalents:` with its
+reason, and the Manifest records it under `accepted` (ADR 0026). The marker accepts
+every survived Mutant on its line, so to accept only one of two, split the line. An
+empty reason exits 2 before the Baseline runs.
+
 ## Django projects
 
 Parallel Workers (`--max-workers`) each get their own test database automatically:

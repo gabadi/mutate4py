@@ -28,6 +28,7 @@ from acceptance.steps.cli_surface_helpers import (
     described_args,
     exclude_run_args,
     lcov_content,
+    mark_site_lines,
     reported_manifest_files,
     require_result,
     resolve_literal,
@@ -90,6 +91,7 @@ def test_single_flag_scan_incompatible_gives_lcov_run():
     args = single_flag_args("--max-workers 4", "s.py", "cov.lcov")
     assert "--lcov" in args
     assert "--max-workers" in args
+    assert "--allow-survivors" in args
 
 
 @pytest.mark.unit
@@ -97,6 +99,7 @@ def test_single_flag_pytest_args_gives_lcov_run():
     args = single_flag_args("--pytest-args -x", "s.py", "cov.lcov")
     assert "--lcov" in args
     assert "--pytest-args" in args
+    assert "--allow-survivors" in args
 
 
 @pytest.mark.unit
@@ -104,6 +107,7 @@ def test_single_flag_regular_adds_scan():
     args = single_flag_args("--mutation-warning 10", "s.py", "cov.lcov")
     assert "--scan" in args
     assert "--mutation-warning" in args
+    assert "--allow-survivors" not in args
 
 
 # ── two_flag_args ─────────────────────────────────────────────────────────────
@@ -120,6 +124,7 @@ def test_two_flag_args_max_workers_without_scan_gives_lcov_run():
     args = two_flag_args("--max-workers 4", "--since-last-run", "s.py", "cov.lcov")
     assert "--lcov" in args
     assert "--max-workers" in args
+    assert "--allow-survivors" in args
 
 
 @pytest.mark.unit
@@ -127,6 +132,14 @@ def test_two_flag_args_max_workers_with_scan_gives_plain_run():
     args = two_flag_args("--scan", "--max-workers 4", "s.py", "cov.lcov")
     assert "--lcov" not in args
     assert "--scan" in args
+    assert "--allow-survivors" not in args
+
+
+@pytest.mark.unit
+def test_two_flag_args_no_run_flag_never_gets_survivor_flag():
+    args = two_flag_args("--max-workers 4", "--check-manifest", "s.py", "cov.lcov")
+    assert "--check-manifest" in args
+    assert "--allow-survivors" not in args
 
 
 # ── described_args ────────────────────────────────────────────────────────────
@@ -180,6 +193,7 @@ def test_accepted_flags_update_manifest():
 def test_accepted_flags_coverage():
     args, target, workers = accepted_flags_args("(a coverage flag)", "s.py", "cov.lcov")
     assert "--lcov" in args
+    assert "--allow-survivors" in args
     assert target == "run loop"
     assert workers is None
 
@@ -188,6 +202,7 @@ def test_accepted_flags_coverage():
 def test_accepted_flags_max_workers():
     args, target, workers = accepted_flags_args("--max-workers 4 (a coverage flag)", "s.py", "cov.lcov")
     assert "--max-workers" in args
+    assert "--allow-survivors" in args
     assert target == "run loop"
     assert workers == 4
 
@@ -506,6 +521,20 @@ def test_assert_exit_status_passes_on_match():
 def test_assert_exit_status_fails_on_mismatch():
     with pytest.raises(AssertionError, match="exit"):
         assert_exit_status(0, 2)
+
+
+@pytest.mark.unit
+def test_assert_exit_status_includes_output_on_mismatch():
+    with pytest.raises(AssertionError, match="boom"):
+        assert_exit_status(0, 2, "boom")
+
+
+@pytest.mark.unit
+def test_mark_site_lines_appends_comment_to_site_lines_only():
+    source = "def calc(a, b):\n    return a > b\n"
+    assert mark_site_lines(source, "# mutate4py: equivalent x") == (
+        "def calc(a, b):\n    return a > b  # mutate4py: equivalent x\n"
+    )
 
 
 @pytest.mark.unit

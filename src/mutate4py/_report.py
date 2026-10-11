@@ -187,6 +187,17 @@ def _mutation_report_lines(
     return lines
 
 
+def _accepted_block_lines(accepted: list[tuple[Site, str]]) -> list[str]:
+    """One line per accepted survivor with its equivalent reason. Empty when none."""
+    if not accepted:
+        return []
+    lines = ["", "Accepted equivalents:"]
+    for s, reason in accepted:
+        fid = f" {s.function_id}" if s.function_id else ""
+        lines.append(f"  line {s.line} {s.desc}{fid} (equivalent: {reason})")
+    return lines
+
+
 def _workers_header_lines(max_workers: int, *, use_parallel: bool, n_selected: int) -> list[str]:
     if max_workers <= 0:
         return []

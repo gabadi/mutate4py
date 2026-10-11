@@ -13,6 +13,7 @@ from acceptance.steps.cli_surface_helpers import (
     assert_no_baseline_run,
     resolve_literal,
     run_with_running_interpreter,
+    survivor_flag,
     write_baseline_sentinel,
     write_placeholder_venv,
 )
@@ -186,10 +187,10 @@ def when_invoke_described(m, params):
 
 @step(r'I invoke "(.*)"')
 def when_invoke_literal(m, params):
-    ctx.cli_result = _run(
-        resolve_literal(m.group(1), _src(), ctx.lcov_path, ctx.fake_cmd, _tmpdir()),
-        cwd=_tmpdir(),
-    )
+    args = resolve_literal(m.group(1), _src(), ctx.lcov_path, ctx.fake_cmd, _tmpdir())
+    # Scored runs here do not test the survivor gate (cli-surface-qa does not);
+    # they pass --allow-survivors and keep asserting exit 0. No-run modes get none.
+    ctx.cli_result = _run(args + survivor_flag(args), cwd=_tmpdir())
 
 
 @step(r'I invoke "(.*)" with the running interpreter')

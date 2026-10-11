@@ -40,6 +40,7 @@ layers = [
     "target_resolution",
     "report",
     "source_loading",
+    "manifest_modes",
     "manifest_storage",
     "baseline",
     "domain",
@@ -54,6 +55,11 @@ depends_on = []
 
 [[modules]]
 path = "mutate4py._ids"
+layer = "primitives"
+depends_on = []
+
+[[modules]]
+path = "mutate4py._exit_codes"
 layer = "primitives"
 depends_on = []
 
@@ -84,6 +90,16 @@ depends_on = []
 
 [[modules]]
 path = "mutate4py._manifest"
+layer = "domain"
+depends_on = []
+
+[[modules]]
+path = "mutate4py._scoring"
+layer = "domain"
+depends_on = ["mutate4py._discovery"]
+
+[[modules]]
+path = "mutate4py._equivalent"
 layer = "domain"
 depends_on = []
 
@@ -155,6 +171,11 @@ depends_on = []
 [[modules]]
 path = "mutate4py._execution"
 layer = "execution"
+depends_on = []
+
+[[modules]]
+path = "mutate4py._manifest_modes"
+layer = "manifest_modes"
 depends_on = []
 
 [[modules]]

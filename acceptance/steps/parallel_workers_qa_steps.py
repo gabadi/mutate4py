@@ -11,6 +11,7 @@ import textwrap
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
+from acceptance.steps.cli_surface_helpers import survivor_flag
 from acceptance.steps.parallel_workers_qa_helpers import (
     BODY_ALWAYS_FAIL,
     BODY_ALWAYS_PASS,
@@ -135,6 +136,9 @@ def _run_qa_cmd(cmd_str: str) -> subprocess.CompletedProcess:
             args.append(ctx.lcov_path)
         else:
             args.append(part)
+    # Scored runs that do not test the survivor gate: pass --allow-survivors
+    # and keep asserting exit 0.
+    args += survivor_flag(args)
     env = dict(os.environ)
     if ctx.inject_write_fail:
         env["_MUTATE4PY_TEST_WORKER_WRITE_FAIL"] = "1"

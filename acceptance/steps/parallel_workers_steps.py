@@ -8,6 +8,7 @@ import textwrap
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
+from acceptance.steps.cli_surface_helpers import survivor_flag
 from acceptance.steps.step_lib import make_registry
 
 STEP_HANDLERS, step, run_step = make_registry()
@@ -464,8 +465,12 @@ def _run_mutate4py(extra: list[str]) -> subprocess.CompletedProcess:
         env["_MUTATE4PY_TEST_WORKER_WRITE_FAIL"] = "1"
     elif failure_mode == "short_result":
         env["_MUTATE4PY_TEST_WORKER_SHORT_RESULT"] = "1"
+    # Scored run: an unaccepted survivor exits 3. These scenarios test worker
+    # behaviour, not the survivor gate, so they allow survivors and assert exit 0.
+    args = cmd + [ctx.src_path, "--lcov", ctx.lcov_path, "--pytest-args", "tests"] + extra
+    args += survivor_flag(args)
     return subprocess.run(
-        cmd + [ctx.src_path, "--lcov", ctx.lcov_path, "--pytest-args", "tests"] + extra,
+        args,
         capture_output=True,
         text=True,
         cwd=ctx.project_dir,

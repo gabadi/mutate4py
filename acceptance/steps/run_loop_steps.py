@@ -8,6 +8,7 @@ import textwrap
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
+from acceptance.steps.cli_surface_helpers import assert_exit_status, mark_site_lines, survivor_flag
 from acceptance.steps.step_lib import make_registry
 
 STEP_HANDLERS, step, run_step = make_registry()
@@ -44,6 +45,7 @@ class Context:
         self.extra_cli_args: list[str] = []
         self.outcome_config: dict = {}
         self.bak_exists_setup: bool = False
+        self.survivor_gate_under_test: bool = False
 
 
 ctx = Context()
@@ -58,6 +60,7 @@ def _reset_ctx():
     ctx.extra_cli_args = []
     ctx.outcome_config = {}
     ctx.bak_exists_setup = False
+    ctx.survivor_gate_under_test = False
 
 
 def _ensure_tmpdir() -> str:
@@ -301,6 +304,20 @@ def given_flags(m, params):
         ctx.extra_cli_args = flags_str.split()
 
 
+@step(r"the survivor gate is under test")
+def given_survivor_gate_under_test(m, params):
+    ctx.survivor_gate_under_test = True
+
+
+@step(r'every site line carries "([^"]*)"')
+def given_every_site_line_carries(m, params):
+    comment = params.get("comment") or m.group(1)
+    with open(ctx.src_path) as f:
+        source = f.read()
+    with open(ctx.src_path, "w") as f:
+        f.write(mark_site_lines(source, comment))
+
+
 @step(r"there is at least one uncovered site")
 def given_at_least_one_uncovered(m, params):
     d = _ensure_tmpdir()
@@ -384,6 +401,10 @@ def when_run(m, params):
     d = _ensure_tmpdir()
     args = [ctx.src_path, "--lcov", ctx.lcov_path, "--pytest-args", "tests"]
     args += ctx.extra_cli_args
+    # Scored runs exit 3 on an unaccepted survivor. Only the survivor-gate
+    # scenario runs without --allow-survivors; the rest assert exit 0 for other reasons.
+    if not ctx.survivor_gate_under_test:
+        args += survivor_flag(args)
     ctx.cli_result = _run_mutate4py(d, *args)
 
 
@@ -392,6 +413,8 @@ def when_run_with_flags(m, params):
     extra = params.get("--reuse-coverage") or m.group(1)
     d = _ensure_tmpdir()
     args = [ctx.src_path, "--pytest-args", "tests"] + extra.split()
+    if not ctx.survivor_gate_under_test:
+        args += survivor_flag(args)
     ctx.cli_result = _run_mutate4py(d, *args)
 
 
@@ -462,6 +485,13 @@ def then_mutant_timeout(m, params):
     # If the timeout was 1s floor (10ms * 10 = 100ms, but floored to 1s),
     # the run should still complete. If it's 20s, it should complete too.
     assert ctx.cli_result.returncode == 0 or "baseline failed" in ctx.cli_result.stdout
+
+
+@step(r'the command exits with status "(\d+)"')
+def then_exit_status(m, params):
+    expected = int(params.get("exit") or m.group(1))
+    assert ctx.cli_result is not None, "No CLI result captured"
+    assert_exit_status(ctx.cli_result.returncode, expected, ctx.cli_result.stdout)
 
 
 @step(r"the command exits with a non-zero status")
@@ -636,4 +666,67 @@ def then_line_before_header(m, params):
     header_pos = stdout.index("Mutation run:")
     assert warn_pos < header_pos, (
         f"Stale-coverage warning must appear before 'Mutation run:' header"
+    )
+
+
+# ── Survivor gate: the sidecar records survivors ─────────────────────────
+
+
+def _sidecar_functions() -> list[dict]:
+    from mutate4py._manifest_storage import read_sidecar_manifest
+
+    manifest, ok = read_sidecar_manifest(ctx.src_path)
+    assert ok and manifest is not None, (
+        f"no sidecar manifest at {ctx.src_path}.manifest.json"
+    )
+    return manifest["functions"]
+
+
+def _mutant_line() -> int:
+    with open(ctx.src_path) as f:
+        lines = f.read().splitlines()
+    return next(i for i, line in enumerate(lines, 1) if "a > b" in line)
+
+
+@step(r"the sidecar manifest records a survivor for that mutant")
+def then_sidecar_records_survivor(m, params):
+    from mutate4py._discovery import discover_sites
+
+    line = _mutant_line()
+    with open(ctx.src_path) as f:
+        desc = next(s.desc for s in discover_sites(f.read()) if s.line == line)
+    expected = [{"line": line, "desc": desc}]
+    hits = [fn["id"] for fn in _sidecar_functions() if fn.get("survivors") == expected]
+    assert len(hits) == 1, f"expected exactly one function to record {expected} in the sidecar, got {hits}"
+
+
+@step(r"the sidecar manifest records no survivors")
+def then_sidecar_records_no_survivors(m, params):
+    functions = _sidecar_functions()
+    assert len(functions) == 1, f"expected one function in the sidecar, got {len(functions)}"
+    fn = functions[0]
+    assert fn.get("score") == {"killed": 1, "survived": 0, "uncovered": 0}, (
+        f"expected a score block with killed 1 and no survivors, got {fn.get('score')}"
+    )
+    assert fn.get("survivors") == [], f"sidecar still records survivors: {fn.get('survivors')}"
+
+
+@step(r'the sidecar manifest records the accepted reason "([^"]*)"')
+def then_sidecar_records_accepted_reason(m, params):
+    reason = params.get("reason") or m.group(1)
+    functions = _sidecar_functions()
+    survivors = [s for fn in functions for s in fn.get("survivors", [])]
+    assert survivors == [], f"sidecar still records unaccepted survivors: {survivors}"
+    accepted = [a for fn in functions for a in fn.get("accepted", [])]
+    assert accepted, "sidecar records no accepted survivors"
+    assert all(a["reason"] == reason for a in accepted), (
+        f"expected every accepted survivor to have reason {reason!r}, got: {accepted}"
+    )
+
+
+@step(r"I run the manifest check on that file")
+def when_manifest_check(m, params):
+    d = _ensure_tmpdir()
+    ctx.cli_result = _run_mutate4py(
+        d, ctx.src_path, "--check-manifest", "--manifest-file"
     )

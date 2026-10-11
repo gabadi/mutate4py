@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "tested_at": "2026-10-11T13:52:30Z",
+  "module_hash": "9b4ff04ddc40034a7bd6d71ca329698e8ea7fc40d9d6bc99e15410c908057aa1",
+  "source_sha256": "47a7a84263a345c540352fb72a43893b3b0b41ce73e888f7e70efd4b6ea5390e",
+  "functions": [
+    {
+      "id": "func/ScoredRun.unaccepted",
+      "name": "unaccepted",
+      "line": 27,
+      "end_line": 29,
+      "hash": "8e66a97a919d44fb68c452424df69053608f9d7de0f7d201ed5f763abc371f23"
+    },
+    {
+      "id": "func/ScoredRun.accepted",
+      "name": "accepted",
+      "line": 31,
+      "end_line": 33,
+      "hash": "1cbc14da7d8305521e5cfbf8b07770c7dace32afdf3552a3f9c985630ae2b496"
+    },
+    {
+      "id": "func/ScoredRun.function_scores",
+      "name": "function_scores",
+      "line": 35,
+      "end_line": 50,
+      "hash": "ee038f279364295fc0bccb8a934de8ca2804ab94b61cb6128c850851dd451b8a"
+    },
+    {
+      "id": "func/ScoredRun._score_block",
+      "name": "_score_block",
+      "line": 52,
+      "end_line": 69,
+      "hash": "96e0f9352dd83a813ffe522c4d57b65941d2d4c0c1deca1e975c26bd0a8858f2"
+    },
+    {
+      "id": "func/ScoredRun._skipped",
+      "name": "_skipped",
+      "line": 71,
+      "end_line": 75,
+      "hash": "8a34154721e12347002941be46ce57e1cf0eba69c9208791a5394088c8659eb7"
+    },
+    {
+      "id": "func/ScoredRun._lost_recorded_survivor",
+      "name": "_lost_recorded_survivor",
+      "line": 77,
+      "end_line": 87,
+      "hash": "c6d921d70b165913488161ec0b35ea6e1b028398911971807ffb6265f30a4534"
+    },
+    {
+      "id": "func/ScoredRun._sites_of",
+      "name": "_sites_of",
+      "line": 89,
+      "end_line": 90,
+      "hash": "d25c9346b6bdeec67497cc8a6565bc91cd1d829585c35852ebc887d32d69d866"
+    },
+    {
+      "id": "func/ScoredRun._covered",
+      "name": "_covered",
+      "line": 92,
+      "end_line": 93,
+      "hash": "56c0d39edc582a1f8dc901c4e45f181143297b5599013cd59f516760ccfc71f0"
+    },
+    {
+      "id": "func/ScoredRun._unaccepted_of",
+      "name": "_unaccepted_of",
+      "line": 95,
+      "end_line": 96,
+      "hash": "3b08ebc39179a4cffe5d437ddf7f8e940033a82b3e3c6201ecac81d45d7048a2"
+    },
+    {
+      "id": "func/ScoredRun._accepted_of",
+      "name": "_accepted_of",
+      "line": 98,
+      "end_line": 99,
+      "hash": "1caf1b46fed1957366aea36f6e7cd6d994db10f195397dcf2286861a2390e55b"
+    }
+  ]
+}

@@ -213,6 +213,9 @@ def test_leaked_target_degrades_to_subprocess_and_still_narrows_correctly(tmp_pa
     fake_module = types.ModuleType("calc")
     fake_module.__file__ = src_path
     monkeypatch.setitem(sys.modules, "calc", fake_module)
+    # Without this, a same-length mutant written in the same second as the
+    # baseline compile can load the stale original .pyc and "survive" (flaky rc).
+    monkeypatch.setenv("PYTHONDONTWRITEBYTECODE", "1")
 
     import io
     from contextlib import redirect_stdout
@@ -347,7 +350,7 @@ def test_self_scan_on_worker_server_degrades_to_subprocess_and_kills_correctly(t
         with open(target, "w") as f:
             f.write(original)
 
-    assert rc == 0
+    assert rc == 3
     assert len(created_forking) == 1, "expected the forking executor to be attempted once"
     assert len(created_subprocess) == 1, "expected the self-leak to fall back to the subprocess executor"
     # A main() mutant must be killed by test_worker_protocol.py's own assertions.

@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-08-12T19:00:19Z",
-  "module_hash": "30a2e59eccbcdd3862fe8b01e8382509d938bb90b0eb4490fe0e8d1ba83f756f",
-  "source_sha256": "7c05e49a604a3da5a42c425b381c77905f3122a0e0c3ece67e1d36c241ec5b27",
+  "tested_at": "2026-10-11T12:26:35Z",
+  "module_hash": "56c842eeb0923eaba1c734dbb4f38d5a75b445c7531b96d23b99667607b913ad",
+  "source_sha256": "d23d99468ef6c6bf81f398ad2f102cecacf531c1190ec8a9f9b2905195c49a60",
   "functions": [
     {
       "id": "func/_run_header_lines",
@@ -68,31 +68,38 @@
       "hash": "2252a3653828be2299f05ca8097631b15eb2afd26d485675ec80173880eb1a7f"
     },
     {
+      "id": "func/_accepted_block_lines",
+      "name": "_accepted_block_lines",
+      "line": 190,
+      "end_line": 198,
+      "hash": "d2db0ed78e38ee49bb5081e7c89a526d46086cc6754e487cc6e9efb15bdd175c"
+    },
+    {
       "id": "func/_workers_header_lines",
       "name": "_workers_header_lines",
-      "line": 190,
-      "end_line": 194,
+      "line": 201,
+      "end_line": 205,
       "hash": "45a887b31e2142ea6ee16ac8585dbe9ed7ee256035aa668275994ec504e3bfd8"
     },
     {
       "id": "func/_scan_manifest_state",
       "name": "_scan_manifest_state",
-      "line": 197,
-      "end_line": 215,
+      "line": 208,
+      "end_line": 226,
       "hash": "8866f3fc9d4c5fd02c6263bdcce7e9fbadceb020feb92a9497515effd0c3a7ab"
     },
     {
       "id": "func/scan_report",
       "name": "scan_report",
-      "line": 218,
-      "end_line": 234,
+      "line": 229,
+      "end_line": 245,
       "hash": "266a66f3c40d09563d5b6c962ec8afa5a233c6e855e551c745fd890d23afe504"
     },
     {
       "id": "func/scan_report_with_coverage",
       "name": "scan_report_with_coverage",
-      "line": 237,
-      "end_line": 268,
+      "line": 248,
+      "end_line": 279,
       "hash": "abbfcdf392bd6616b157f900ae3be8cd28db869d65552ad60ae9502e76cc5078"
     }
   ]

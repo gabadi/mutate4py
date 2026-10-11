@@ -1,42 +1,42 @@
 {
   "version": 1,
-  "tested_at": "2026-08-09T20:06:57Z",
-  "module_hash": "cb32d695faa5a2994a79a5db07b2991747e1b93fcf1b6d6366e815d001fb8be0",
-  "source_sha256": "2b1f3f32b7b7b2860ad6a01583b3c898404d57c2024eb0a602010a331884e739",
+  "tested_at": "2026-10-11T12:26:34Z",
+  "module_hash": "d5f7221bfe879f6a0f1eb65a344371cb3f5470ea63bd6d78f8a0af4c9edc2477",
+  "source_sha256": "eacb45223d19b12bab6093b574da3c0c572e01e07d144ae4d6ada16de8f7030a",
   "functions": [
     {
       "id": "func/_restore_from_backup",
       "name": "_restore_from_backup",
-      "line": 27,
-      "end_line": 37,
+      "line": 31,
+      "end_line": 41,
       "hash": "f7de5a3b9d1c378a67d931daaf798e4a3b3c5fbacc08e5479274fff83b9005e1"
     },
     {
       "id": "func/_compute_manifest_diff",
       "name": "_compute_manifest_diff",
-      "line": 40,
-      "end_line": 50,
-      "hash": "d08433bb0849f205d8858e678ace5c389d3af239003f92fc8fdec3c92f7fa3dd"
+      "line": 44,
+      "end_line": 62,
+      "hash": "8ef489a8276e6e5ec5cbd82fef084d50ecb4d55e9c95f78d91e084bd190acaf6"
     },
     {
       "id": "func/_finalize_source",
       "name": "_finalize_source",
-      "line": 53,
-      "end_line": 70,
-      "hash": "82a1a22052c2b8805aee2d4d3d0bd465fbfc9fa17bd32663d45b3e43a83dbbac"
+      "line": 65,
+      "end_line": 86,
+      "hash": "bf341612876e97f230f0d38b7ff478ef61060029fbbc06fcb08c41f736c9f236"
     },
     {
       "id": "func/_load_clean_source",
       "name": "_load_clean_source",
-      "line": 86,
-      "end_line": 108,
+      "line": 102,
+      "end_line": 124,
       "hash": "3edb8fbb7289e83860ed1df56579b3216cd79d5a9f5c758cfac51bfce3f3cb19"
     },
     {
       "id": "func/_prepare_run_setup",
       "name": "_prepare_run_setup",
-      "line": 120,
-      "end_line": 125,
+      "line": 136,
+      "end_line": 141,
       "hash": "a1a5b0dd699f4e9d2f4dbf7ec74a109fc237f5ec9a265846b25eee6bb982ec6b"
     }
   ]

@@ -253,7 +253,7 @@ gherkin-mutation:
 # listed explicitly rather than left implicit).
 [private]
 mutate-sample:
-    just mutate src/mutate4py/_cmd.py --mutate-all
+    just mutate src/mutate4py/_cmd.py --mutate-all --allow-survivors
 
 # Builds (or, on a fresh cache, skips rebuilding — mutate4py's own staleness
 # cache, see docs/adr/0022 and issue #52) the isolated-session test-context
@@ -291,6 +291,7 @@ test-context-db:
 # Survivor's line/desc, still fully actionable) — ~5,100 → ~450 tokens per
 # full-src/ pass (issue 03). Full log kept on failure/error (tail -20) so an
 # infra failure that happens before the summary prints is still visible.
+# Exit 3 (unaccepted survivors, ADR 0026) is a normal result: the report already lists them, so no tail.
 #
 # Requires lcov.info from `just check test-unit` first — REWRITES `path`
 # afterward, same as mutate4py always does on a scored run: expect a diff.
@@ -320,7 +321,7 @@ mutate path *args: test-context-db
     uv run mutate4py {{path}} --lcov lcov.info --test-contexts {{TEST_CONTEXT_DB}} --pytest-args "{{MUTATE_PYTEST_ARGS}}" {{args}} >"$log" 2>&1
     status=$?
     awk '/^Mutation Report$/,0' "$log"
-    if [ "$status" -ne 0 ]; then
+    if [ "$status" -ne 0 ] && [ "$status" -ne 3 ]; then
         echo ""
         echo "--- mutate4py exited $status; last 20 lines of $log ---"
         tail -20 "$log"
@@ -369,7 +370,7 @@ perf:
     _run "acceptance" bash acceptance/run_acceptance.sh
     _run "test-context-db" just --no-deps test-context-db
     _run "mutation (src/, --test-contexts)" \
-        just mutate src/ --mutate-all --mutation-warning 100000
+        just mutate src/ --mutate-all --mutation-warning 100000 --allow-survivors
 
     name_width=0
     for n in "${names[@]}"; do

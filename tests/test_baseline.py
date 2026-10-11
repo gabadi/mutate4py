@@ -166,7 +166,7 @@ def test_run_mutations_reports_per_mutant_overhead(tmp_path):
             )
         )
     output = buf.getvalue()
-    assert rc == 0
+    assert rc == 3
     match = re.search(r"^Per-Mutant overhead: (\d+\.\d\ds)$", output, re.MULTILINE)
     assert match, f"no 'Per-Mutant overhead:' line found in:\n{output}"
 
@@ -210,7 +210,7 @@ def test_run_mutations_omits_overhead_when_baseline_duration_is_pre_supplied(tmp
             )
         )
     output = buf.getvalue()
-    assert rc == 0
+    assert rc == 3
     assert "Per-Mutant overhead:" not in output
 
 

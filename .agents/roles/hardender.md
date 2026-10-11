@@ -18,7 +18,9 @@ Invoke scored runs through the justfile instead of calling `mutate4py --mutate-a
 just check test-unit test-integration   # once per verification pass, refreshes lcov.info
 just mutate <path>        # e.g. just mutate src/mutate4py/_runner.py --mutate-all
 ```
-`just mutate` is `justfile`'s wrapper: it redirects the run to a temp log, then prints only the `Mutation Report` block (Killed/Survived/Uncovered counts + every Survivor's `line N desc` — still fully actionable) via `awk '/^Mutation Report$/,0'`. On a non-zero exit it also tails the last 20 log lines, so an infra failure that happens before the summary prints is still visible. This is the same shape `perf.sh`'s (now `just perf`) `_run` helper already used — see `justfile`'s header comment.
+`just mutate` is `justfile`'s wrapper: it redirects the run to a temp log, then prints only the `Mutation Report` block (Killed/Survived/Uncovered counts + every Survivor's `line N desc` — still fully actionable) via `awk '/^Mutation Report$/,0'`. On a non-zero exit other than 3 it also tails the last 20 log lines, so an infra failure that happens before the summary prints is still visible. This is the same shape `perf.sh`'s (now `just perf`) `_run` helper already used — see `justfile`'s header comment.
+
+Exit 3 means unaccepted survivors: kill them, or mark a recognized equivalent with `# mutate4py: equivalent <category>` on the Site's line (ADR 0026).
 
 `just mutate` narrows against `contexts.db`, an isolated-session test-context db (docs/adr/0021) it builds/refreshes itself every run via its `test-context-db` dependency — no separate step needed. A cache (mutate4py's own, keyed on the project tree) makes a rerun on an unchanged tree ~4 seconds; a first build, or one after a source/test edit, costs ~16 minutes on this project's full non-integration suite. That first cost is not a hang — let it run.
 
