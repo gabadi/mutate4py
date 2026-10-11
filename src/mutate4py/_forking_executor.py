@@ -19,6 +19,7 @@ shape to sniff for, so priming never inspects the argument list it will
 later be called with.
 """
 
+import contextlib
 import os
 import signal
 import sys
@@ -243,6 +244,8 @@ class ForkingExecutor:
 def _run_pytest_output_suppressed(pytest_module, args: list[str], cwd: str) -> int:
     """Run pytest.main(args) with cwd set and stdout/stderr redirected to devnull.
 
+    cwd is on sys.path[0] for the call, as `python -m pytest` would put it (#82).
+
     Flushes sys.stdout/sys.stderr before restoring the real fds: Python's
     TextIOWrapper buffers writes at the object level, independent of the fd
     they currently point at, so an unflushed pytest summary line written
@@ -253,11 +256,15 @@ def _run_pytest_output_suppressed(pytest_module, args: list[str], cwd: str) -> i
     line there is a framing error, not just noise.
     """
     prev_cwd = os.getcwd()
+    import_root = os.path.abspath(cwd)
     devnull_fd = os.open(os.devnull, os.O_WRONLY)
     saved_stdout = os.dup(1)
     saved_stderr = os.dup(2)
+    inserted = False
     try:
         os.chdir(cwd)
+        sys.path.insert(0, import_root)
+        inserted = True
         os.dup2(devnull_fd, 1)
         os.dup2(devnull_fd, 2)
         return int(pytest_module.main(args))
@@ -269,6 +276,9 @@ def _run_pytest_output_suppressed(pytest_module, args: list[str], cwd: str) -> i
         os.close(saved_stdout)
         os.close(saved_stderr)
         os.close(devnull_fd)
+        if inserted:
+            with contextlib.suppress(ValueError):
+                sys.path.remove(import_root)
         os.chdir(prev_cwd)
 
 
