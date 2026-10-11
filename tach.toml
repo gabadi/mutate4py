@@ -74,6 +74,11 @@ layer = "primitives"
 depends_on = []
 
 [[modules]]
+path = "mutate4py._bytecode_cache"
+layer = "primitives"
+depends_on = []
+
+[[modules]]
 path = "mutate4py._py_tree"
 layer = "primitives"
 depends_on = []

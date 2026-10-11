@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-08-12T06:34:56Z",
-  "module_hash": "7102953e37f06bd9c0aad7c6521c718cb1262695a55578d2e7a439206a066c93",
-  "source_sha256": "9690f1a86f96c7d7d22aeaa181bba723c41951443dc4312080fe06806b5b4ecc",
+  "tested_at": "2026-10-11T16:52:18Z",
+  "module_hash": "2aae91f98b5e7878edae1c782e83e8a1677a1fa213ae7b73a8b2ea401a8ea113",
+  "source_sha256": "8753fd1b28504150762a24e32a53c863cf6384fe3121c3928a37241f1bfec4b1",
   "functions": [
     {
       "id": "func/isolated_coverage_session_safe",
@@ -72,7 +72,7 @@
       "name": "_run_child",
       "line": 201,
       "end_line": 216,
-      "hash": "2ded7a9e7b3900b05eb8f5fd92a0b33d520295073506ae19e6fd830bc81ab466"
+      "hash": "15083ec81778cfdf5d38f85fe2c8cd0063e32da59fb0f0a076383204d6747ee7"
     },
     {
       "id": "func/ForkingExecutor._run_coverage_child",
@@ -82,24 +82,17 @@
       "hash": "aba741e83d7ea388b43d475fa589e0ba7c3c43016f7d0489a6113338387fe0b0"
     },
     {
-      "id": "func/_invalidate_bytecode_cache",
-      "name": "_invalidate_bytecode_cache",
-      "line": 243,
-      "end_line": 252,
-      "hash": "0b5f0320a53d6eba74f70a54f72bf5cd84054b5a2458f4b19f2e78f309c1dbcd"
-    },
-    {
       "id": "func/_run_pytest_output_suppressed",
       "name": "_run_pytest_output_suppressed",
-      "line": 255,
-      "end_line": 284,
+      "line": 243,
+      "end_line": 272,
       "hash": "ca9418d0f6ff6fa8070b71287d6ea8a372aac4734a6a7eb851585a4554587779"
     },
     {
       "id": "func/_wait_for_child",
       "name": "_wait_for_child",
-      "line": 287,
-      "end_line": 300,
+      "line": 275,
+      "end_line": 288,
       "hash": "fe8dcd42a3b2263c5b0140a65e391c796187c1e414837cc43834f8a393abb423"
     }
   ]

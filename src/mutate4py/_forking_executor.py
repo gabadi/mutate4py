@@ -19,7 +19,6 @@ shape to sniff for, so priming never inspects the argument list it will
 later be called with.
 """
 
-import importlib.util
 import os
 import signal
 import sys
@@ -27,6 +26,7 @@ import tempfile
 import time
 from typing import Callable
 
+from mutate4py._bytecode_cache import invalidate_bytecode_cache
 from mutate4py._cmd import classify_exit_code
 from mutate4py._plugin_neutralisation import neutralising_args
 
@@ -207,7 +207,7 @@ class ForkingExecutor:
         # child can read back stale bytecode for a file that was mutated in
         # between — on filesystems with coarse mtime resolution this is not
         # just a test artifact, it is a real false-survivor risk.
-        _invalidate_bytecode_cache(self._guarded_path)
+        invalidate_bytecode_cache(self._guarded_path)
         sys.dont_write_bytecode = True
         try:
             exit_code = _run_pytest_output_suppressed(pytest, args, self._cwd)
@@ -238,18 +238,6 @@ class ForkingExecutor:
         except BaseException:
             os._exit(3)
         os._exit(exit_code if isinstance(exit_code, int) else int(exit_code))
-
-
-def _invalidate_bytecode_cache(guarded_path: str) -> None:
-    """Remove any compiled-bytecode cache for guarded_path, if present."""
-    try:
-        cached = importlib.util.cache_from_source(guarded_path)
-    except ValueError:
-        return
-    try:
-        os.remove(cached)
-    except FileNotFoundError:
-        pass
 
 
 def _run_pytest_output_suppressed(pytest_module, args: list[str], cwd: str) -> int:

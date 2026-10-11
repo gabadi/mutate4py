@@ -263,7 +263,7 @@ def test_forking_and_subprocess_executors_classify_the_same_mutant_identically(t
 
     forking = ForkingExecutor(cwd=cwd, guarded_path=str(target))
     forking.prime()
-    subprocess_executor = SubprocessExecutor(cwd=cwd)
+    subprocess_executor = SubprocessExecutor(cwd=cwd, guarded_path=str(target))
     subprocess_executor.prime()
 
     # Unmutated: both must report "survived".

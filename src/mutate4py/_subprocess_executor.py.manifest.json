@@ -1,29 +1,29 @@
 {
   "version": 1,
-  "tested_at": "2026-08-10T04:58:12Z",
-  "module_hash": "5d0c1a78153e3858fc27a337ad15765bf22bb08be72f2e3a4980b3f08df27309",
-  "source_sha256": "381be1888efc4107ee1783aa78c3169789e1ca385423c667101d6cd5ee0b4b08",
+  "tested_at": "2026-10-11T16:46:30Z",
+  "module_hash": "b88d70c477cc14c64a39d6f0053ed5c1314dadb04d9d223b4a88b3243d195ab6",
+  "source_sha256": "70335a905cb0d474e0b14e1732be6ad1775e5f836badc14b7a2ea73f8a93cca5",
   "functions": [
     {
       "id": "func/SubprocessExecutor.__init__",
       "name": "__init__",
-      "line": 16,
-      "end_line": 17,
-      "hash": "082f3d0c01ec8f67110344cea7b084f88d366c0ca088ebbd7b05f5675222ed9a"
+      "line": 21,
+      "end_line": 23,
+      "hash": "e0d0f5c4b57baec3dc18245f043f1b3a0bd1ee22c1fb9a07e849a1e0ed94d2cb"
     },
     {
       "id": "func/SubprocessExecutor.prime",
       "name": "prime",
-      "line": 19,
-      "end_line": 20,
+      "line": 25,
+      "end_line": 26,
       "hash": "bcb854db40f6cbb816c5355e11c30391c297eda67586e644f1349efcdf3f8a01"
     },
     {
       "id": "func/SubprocessExecutor.run",
       "name": "run",
-      "line": 22,
-      "end_line": 23,
-      "hash": "38df258c5ad4970eb1aca3b3ed2503f1e033790cde5f4dd05552ae1210540447"
+      "line": 28,
+      "end_line": 31,
+      "hash": "4de7e7c0c29fc21a28772befe9cb595820e55d3adbf1d48950fbb5cf23474b9a"
     }
   ]
 }

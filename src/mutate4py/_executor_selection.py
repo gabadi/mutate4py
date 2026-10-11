@@ -61,6 +61,6 @@ def _prepare_executor(*, requested: bool, cwd: str, guarded_path: str) -> Execut
 
     from mutate4py._subprocess_executor import SubprocessExecutor
 
-    executor = SubprocessExecutor(cwd=cwd)
+    executor = SubprocessExecutor(cwd=cwd, guarded_path=guarded_path)
     executor.prime()
     return executor
