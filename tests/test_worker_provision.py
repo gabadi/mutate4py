@@ -9,7 +9,7 @@ import pytest
 
 import mutate4py._worker_provision as provision_mod
 from mutate4py._worker_protocol import WorkerProcessError
-from mutate4py._worker_provision import _provision_venv, check_worker_distributions
+from mutate4py._worker_provision import _copy_tree, _provision_venv, check_worker_distributions
 from mutate4py._workers import _required_worker_distributions
 
 
@@ -129,3 +129,39 @@ def test_check_worker_distributions_maps_probe_failure_without_a_process(monkeyp
     monkeypatch.setattr(provision_mod.subprocess, "run", failing_run)
     with pytest.raises(WorkerProcessError, match="could not list its distributions"):
         check_worker_distributions("/w", frozenset({"pytest"}))
+
+
+@pytest.mark.unit
+def test_copy_tree_recreates_dir_symlink_outside_tree(tmp_path):
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    (shared / "x.py").write_text("v")
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "vendored").symlink_to("../shared")
+    dst = tmp_path / "deep" / "a" / "b" / "dst"
+    _copy_tree(str(src), str(dst))
+    assert (dst / "vendored").is_symlink()
+    assert (dst / "vendored" / "x.py").read_text() == "v"
+
+
+@pytest.mark.unit
+def test_copy_tree_in_tree_dir_symlink_points_into_the_copy(tmp_path):
+    src = tmp_path / "src"
+    (src / "pkg").mkdir(parents=True)
+    (src / "pkg" / "m.py").write_text("x = 1")
+    (src / "alias").symlink_to("pkg")
+    dst = tmp_path / "dst"
+    _copy_tree(str(src), str(dst))
+    assert (dst / "alias").is_symlink()
+    assert os.path.realpath(dst / "alias") == os.path.realpath(dst / "pkg")
+
+
+@pytest.mark.unit
+def test_copy_tree_recreates_dangling_symlink(tmp_path):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "broken").symlink_to("missing")
+    dst = tmp_path / "dst"
+    _copy_tree(str(src), str(dst))
+    assert (dst / "broken").is_symlink()

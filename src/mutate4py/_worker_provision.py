@@ -24,16 +24,34 @@ _SKIP_ENTRIES = {
 
 
 def _copy_tree(src_dir: str, dst_dir: str) -> None:
-    """Copy src_dir to dst_dir, skipping _SKIP_ENTRIES at any level."""
-    os.makedirs(dst_dir, exist_ok=True)
-    for entry in os.scandir(src_dir):
-        if entry.name in _SKIP_ENTRIES:
-            continue
-        dst = os.path.join(dst_dir, entry.name)
-        if entry.is_dir(follow_symlinks=False):
-            _copy_tree(entry.path, dst)
-        else:
-            shutil.copy2(entry.path, dst)
+    """Copy src_dir to dst_dir, skipping _SKIP_ENTRIES at any level.
+    A symlink is recreated, never followed (#79); see _symlink_target."""
+
+    def copy(src: str, dst: str) -> None:
+        os.makedirs(dst, exist_ok=True)
+        for entry in os.scandir(src):
+            if entry.name in _SKIP_ENTRIES:
+                continue
+            target = os.path.join(dst, entry.name)
+            if entry.is_symlink():
+                os.symlink(_symlink_target(entry.path, src_dir), target)
+            elif entry.is_dir(follow_symlinks=False):
+                copy(entry.path, target)
+            else:
+                shutil.copy2(entry.path, target)
+
+    copy(src_dir, dst_dir)
+
+
+def _symlink_target(link_path: str, root: str) -> str:
+    """Where a Worker copy of link_path points: relative when the target is inside
+    root, so it resolves into the Worker's own copy; absolute otherwise, because the
+    Worker tree sits deeper than the original and a relative `../x` would miss."""
+    target = os.path.realpath(link_path)
+    real_root = os.path.realpath(root)
+    if os.path.commonpath([target, real_root]) == real_root:
+        return os.path.relpath(target, os.path.realpath(os.path.dirname(link_path)))
+    return target
 
 
 def _import_root_for(worker_root: str) -> str:

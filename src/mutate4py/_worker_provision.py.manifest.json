@@ -1,42 +1,49 @@
 {
   "version": 1,
-  "tested_at": "2026-10-11T06:13:28Z",
-  "module_hash": "2794ae37a396760ad06a5f386b78fe5c902e61d81fa3abd030b444fe34bb938e",
-  "source_sha256": "ade59bc1164fcfeee8c2d404709b279c555e32c10387dc5063e084e219139733",
+  "tested_at": "2026-10-11T16:39:16Z",
+  "module_hash": "8ef9cdf66f5187dd826d492939cac39bdd12e0558d787e393490c40c7ae0dc52",
+  "source_sha256": "f9ea91572324ade5f70e0b19a667620a012266007d2de127b1d370bd3f983e02",
   "functions": [
     {
       "id": "func/_copy_tree",
       "name": "_copy_tree",
       "line": 26,
-      "end_line": 36,
-      "hash": "70da0fab59abec453b034042208b4907f5a45bcc43693cf39faf1e0ab383b240"
+      "end_line": 43,
+      "hash": "7d4ff74bfac55bf3a1be3a896f82dd5158c68c2834ac2998b62697d5162ceccc"
+    },
+    {
+      "id": "func/_symlink_target",
+      "name": "_symlink_target",
+      "line": 46,
+      "end_line": 54,
+      "hash": "0ee36e0d3bfe11c52e46c6aaeceb4c636ee9c7ad7cfb90dffe6c656aea0dbe3e"
     },
     {
       "id": "func/_import_root_for",
       "name": "_import_root_for",
-      "line": 39,
-      "end_line": 41,
+      "line": 57,
+      "end_line": 59,
       "hash": "c396436aaa1ab323f62265c3feb45c2687b4619729eb41782b470448e726d84f"
     },
     {
       "id": "func/_link_import_root",
       "name": "_link_import_root",
-      "line": 44,
-      "end_line": 63,
+      "line": 62,
+      "end_line": 81,
       "hash": "3904e6fb397732a696a996ee91d341d88af53311b4ede602d2b1d6e3772aa8e2"
     },
     {
       "id": "func/check_worker_distributions",
       "name": "check_worker_distributions",
-      "line": 72,
-      "end_line": 93,
+      "line": 90,
+      "end_line": 112,
       "hash": "9c19549bd84877594f4ccac2e5b915144d2d59370852061cf118f580cd45a06c"
     },
     {
       "id": "func/_provision_venv",
       "name": "_provision_venv",
-      "line": 96,
-      "end_line": 107,
+      "line": 115,
+      "end_line": 126,
       "hash": "7b92343f7e90de33588323f576c532b9c3976ee1172ecbc70d2e8c4eb4b4cc16"
     }
   ]

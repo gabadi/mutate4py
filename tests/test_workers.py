@@ -235,8 +235,8 @@ def test_copy_tree_skips_all_skip_entries_copies_all_regular(tmp_path):
 
 
 @pytest.mark.unit
-def test_copy_tree_symlink_to_file_is_copied(tmp_path):
-    """follow_symlinks=False: a symlink to a regular file is treated as a file and copied."""
+def test_copy_tree_symlink_to_file_is_recreated(tmp_path):
+    """a symlink to a file is recreated as a symlink in the copy, not followed, so it still resolves."""
     src = tmp_path / "src"
     target = tmp_path / "real.txt"
     target.write_text("contents")
@@ -246,7 +246,7 @@ def test_copy_tree_symlink_to_file_is_copied(tmp_path):
     dst = tmp_path / "dst"
     _copy_tree(str(src), str(dst))
     assert (dst / "a.py").exists()
-    assert (dst / "link.txt").exists()
+    assert (dst / "link.txt").is_symlink()
 
 
 # ── _assign_sites_to_workers ──────────────────────────────────────────────────

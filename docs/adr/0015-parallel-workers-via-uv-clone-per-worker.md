@@ -24,7 +24,7 @@ byte-splice engine survives intact.
 Worker copies are **tree copies**, not clones, so they work outside a git repo and
 capture uncommitted edits. They live under
 `.mutate4py/workers/run-<pid>-<nanos>/worker-<k>/`; the whole run root is removed at
-the end.
+the end. Worker copies recreate symlinks rather than following them: relative when the target is inside the project, absolute outside it.
 
 ## Superseded: how a worker executes
 
