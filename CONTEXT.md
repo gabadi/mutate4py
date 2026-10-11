@@ -78,6 +78,15 @@ An isolated tree copy of the working directory with its own provisioned environm
 mutating its own file copy. Parallelism unit.
 _Avoid_: thread, process, job
 
+**Import root**:
+A symlink-only directory that supplies the `mutate4py` package to a Worker venv as a fallback after site-packages.
+
+**Worker venv**:
+`<worker_root>/.venv`, built with `uv sync` pinned to the orchestrator's Python, in which a Worker's server and pytest run.
+
+**Project environment**:
+The target project's `.venv`, or a `uv run --with` overlay on it; scored runs must run under it.
+
 **Selected sites**:
 The covered Sites actually mutated, after line filtering and differential selection.
 

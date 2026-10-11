@@ -345,10 +345,13 @@ def run_mutations(request: RunMutationsRequest) -> int:
         if outcome.error_code is not None:
             return outcome.error_code
 
+        # Parallel Workers compute the plugin kill switches inside their own
+        # interpreter (the one that runs pytest); the orchestrator's list is
+        # for the serial path only.
         ctx = MutantExecCtx(
             path=request.path,
             cwd=request.cwd,
-            pytest_args=outcome.mutant_pytest_args,
+            pytest_args=request.pytest_args if outcome.use_parallel else outcome.mutant_pytest_args,
             executor=outcome.executor,
             mutant_timeout=outcome.mutant_timeout,
             max_workers=outcome.max_workers,

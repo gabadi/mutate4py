@@ -8,6 +8,14 @@ import textwrap
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
+from acceptance.steps.cli_surface_helpers import (
+    assert_exit_status,
+    assert_no_baseline_run,
+    resolve_literal,
+    run_with_running_interpreter,
+    write_baseline_sentinel,
+    write_placeholder_venv,
+)
 from acceptance.steps.step_lib import make_registry
 
 STEP_HANDLERS, step, run_step = make_registry()
@@ -37,6 +45,7 @@ class QACtx:
         self.fake_cmd: str | None = None
         self.cli_result: subprocess.CompletedProcess | None = None
         self.src_bytes_before: bytes | None = None
+        self.sentinel_marker: str | None = None
 
 
 ctx = QACtx()
@@ -49,6 +58,7 @@ def _reset() -> None:
     ctx.fake_cmd = None
     ctx.cli_result = None
     ctx.src_bytes_before = None
+    ctx.sentinel_marker = None
 
 
 def _tmpdir() -> str:
@@ -77,9 +87,7 @@ def _lcov(src: str) -> str:
     return ctx.lcov_path
 
 
-def _resolve_invocation(
-    description: str, src: str, lcov: str | None = None
-) -> list[str]:
+def _resolve_invocation(description: str, src: str, lcov: str | None = None) -> list[str]:
     """Map a feature invocation description to actual CLI args (without 'mutate4py')."""
     d = description.strip()
 
@@ -142,9 +150,7 @@ def _resolve_invocation(
 # ── Background ────────────────────────────────────────────────────────────────
 
 
-@step(
-    r"a temp project directory with a real Python source file holding a mutation site"
-)
+@step(r"a temp project directory with a real Python source file holding a mutation site")
 def given_temp_project(m, params):
     _reset()
     _src()  # creates tmpdir + sample.py, records bytes before
@@ -180,26 +186,25 @@ def when_invoke_described(m, params):
 
 @step(r'I invoke "(.*)"')
 def when_invoke_literal(m, params):
-    cmd_str = m.group(1)
-    src = _src()
-    lcov = ctx.lcov_path
-    fake = ctx.fake_cmd
-    d = _tmpdir()
-    parts = cmd_str.split()
-    # Strip leading "mutate4py" if present
-    if parts and parts[0] == "mutate4py":
-        parts = parts[1:]
-    resolved = []
-    for part in parts:
-        if part == "<file>":
-            resolved.append(src)
-        elif part == "cov.info":
-            resolved.append(lcov or os.path.join(d, "cov.info"))
-        elif part == "<fake>":
-            resolved.append(fake or "")
-        else:
-            resolved.append(part)
-    ctx.cli_result = _run(resolved, cwd=d)
+    ctx.cli_result = _run(
+        resolve_literal(m.group(1), _src(), ctx.lcov_path, ctx.fake_cmd, _tmpdir()),
+        cwd=_tmpdir(),
+    )
+
+
+@step(r'I invoke "(.*)" with the running interpreter')
+def when_invoke_with_running_interpreter(m, params):
+    ctx.cli_result = run_with_running_interpreter(
+        resolve_literal(m.group(1), _src(), ctx.lcov_path, ctx.fake_cmd, _tmpdir()),
+        cwd=_tmpdir(),
+    )
+
+
+@step(r"a project \.venv that the running interpreter is not")
+def given_foreign_venv(m, params):
+    root = _tmpdir()
+    write_placeholder_venv(root)
+    ctx.sentinel_marker = write_baseline_sentinel(root)
 
 
 @step(r'I invoke the mutate4py command with the accepted "(.*)"')
@@ -222,18 +227,27 @@ def when_invoke_accepted_mode(m, params):
 def then_exits_nonzero(m, params):
     r = ctx.cli_result
     assert r is not None, "No CLI result captured"
-    assert r.returncode != 0, (
-        f"Expected non-zero exit, got 0\nstdout: {r.stdout}\nstderr: {r.stderr}"
-    )
+    assert r.returncode != 0, f"Expected non-zero exit, got 0\nstdout: {r.stdout}\nstderr: {r.stderr}"
+
+
+@step(r'the command exits with status "(\d+)"')
+def then_exits_with_status(m, params):
+    r = ctx.cli_result
+    assert r is not None, "No CLI result captured"
+    assert_exit_status(r.returncode, int(m.group(1)))
+
+
+@step(r"no baseline pytest run is started")
+def then_no_baseline_run(m, params):
+    assert ctx.sentinel_marker is not None, "no baseline sentinel recorded"
+    assert_no_baseline_run(ctx.sentinel_marker)
 
 
 @step(r"the command exits zero")
 def then_exits_zero(m, params):
     r = ctx.cli_result
     assert r is not None, "No CLI result captured"
-    assert r.returncode == 0, (
-        f"Expected exit 0, got {r.returncode}\nstdout: {r.stdout}\nstderr: {r.stderr}"
-    )
+    assert r.returncode == 0, f"Expected exit 0, got {r.returncode}\nstdout: {r.stdout}\nstderr: {r.stderr}"
 
 
 @step(r"the printed output names the offending flag or combination")
@@ -241,11 +255,9 @@ def then_output_names_flag(m, params):
     r = ctx.cli_result
     assert r is not None, "No CLI result captured"
     output = r.stdout + r.stderr
-    assert (
-        "error" in output.lower()
-        or "invalid" in output.lower()
-        or "cannot" in output.lower()
-    ), f"Expected error message naming offending flag/combination:\n{output}"
+    assert "error" in output.lower() or "invalid" in output.lower() or "cannot" in output.lower(), (
+        f"Expected error message naming offending flag/combination:\n{output}"
+    )
 
 
 @step(r"the source file is byte-identical to before the run")
@@ -272,9 +284,7 @@ def then_output_contains_usage(m, params):
     r = ctx.cli_result
     assert r is not None, "No CLI result captured"
     output = r.stdout + r.stderr
-    assert "usage:" in output.lower() or "mutate4py" in output, (
-        f"Expected usage summary in output:\n{output}"
-    )
+    assert "usage:" in output.lower() or "mutate4py" in output, f"Expected usage summary in output:\n{output}"
 
 
 @step(r'the printed output contains "(.*)"')

@@ -76,18 +76,21 @@ def _reset():
     import textwrap as _tw
 
     d = tempfile.mkdtemp()
-    # Write minimal pyproject.toml so `uv sync` works in worker copies
+    # Minimal pyproject.toml whose dev group declares pytest, so `uv sync`
+    # installs pytest into each worker venv. No pre-made uv.lock: it would not
+    # list pytest, so uv re-resolves the dev group.
     pyproject = _tw.dedent("""\
         [project]
         name = "qa-fixture"
         version = "0.1.0"
         requires-python = ">=3.11"
         dependencies = []
+
+        [dependency-groups]
+        dev = ["pytest==9.1.1"]
     """)
     with open(os.path.join(d, "pyproject.toml"), "w") as f:
         f.write(pyproject)
-    with open(os.path.join(d, "uv.lock"), "w") as f:
-        f.write('version = 1\nrequires-python = ">=3.11"\n')
     ctx.tmpdir = d
     ctx.calc_path = None
     ctx.lcov_path = None

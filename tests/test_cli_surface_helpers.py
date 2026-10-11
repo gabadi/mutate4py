@@ -1,12 +1,21 @@
 """Unit tests for acceptance/steps/cli_surface_helpers.py."""
 
+import os
+import runpy
+import subprocess
+import sys
+
 import pytest
 
 from acceptance.steps.cli_surface_helpers import (
     accepted_flags_args,
     assert_accepted,
+    assert_baseline_run,
     assert_dispatched_to,
+    assert_exit_status,
+    assert_names_interpreters,
     assert_no_analysis,
+    assert_no_baseline_run,
     assert_nonzero_exit,
     assert_only_reported,
     assert_option_accepted,
@@ -21,9 +30,14 @@ from acceptance.steps.cli_surface_helpers import (
     lcov_content,
     reported_manifest_files,
     require_result,
+    resolve_literal,
+    run_with_running_interpreter,
     single_flag_args,
     split_flags,
     two_flag_args,
+    write_baseline_sentinel,
+    write_placeholder_venv,
+    write_pyproject,
 )
 
 
@@ -450,3 +464,128 @@ def test_assert_only_reported_fails_when_another_file_appears():
 def test_assert_only_reported_fails_when_nothing_is_reported():
     with pytest.raises(AssertionError):
         assert_only_reported("", "keep.py")
+
+
+# ── project env + baseline sentinel fixtures ─────────────────────────────────
+
+
+@pytest.mark.unit
+def test_write_placeholder_venv_creates_bin_python_and_returns_venv(tmp_path):
+    venv = write_placeholder_venv(str(tmp_path))
+    assert venv == os.path.join(str(tmp_path), ".venv")
+    assert os.path.isfile(os.path.join(venv, "bin", "python"))
+
+
+@pytest.mark.unit
+def test_write_pyproject_creates_pyproject_toml(tmp_path):
+    write_pyproject(str(tmp_path))
+    assert os.path.isfile(os.path.join(str(tmp_path), "pyproject.toml"))
+
+
+@pytest.mark.unit
+def test_write_baseline_sentinel_returns_marker_under_tests(tmp_path):
+    marker = write_baseline_sentinel(str(tmp_path))
+    assert marker == os.path.join(str(tmp_path), "tests", "baseline_ran")
+    assert os.path.isfile(os.path.join(str(tmp_path), "tests", "test_sentinel.py"))
+
+
+@pytest.mark.unit
+def test_baseline_sentinel_test_writes_marker_when_run(tmp_path):
+    marker = write_baseline_sentinel(str(tmp_path))
+    namespace = runpy.run_path(os.path.join(str(tmp_path), "tests", "test_sentinel.py"))
+    namespace["test_sentinel"]()
+    assert os.path.exists(marker)
+
+
+@pytest.mark.unit
+def test_assert_exit_status_passes_on_match():
+    assert_exit_status(2, 2)
+
+
+@pytest.mark.unit
+def test_assert_exit_status_fails_on_mismatch():
+    with pytest.raises(AssertionError, match="exit"):
+        assert_exit_status(0, 2)
+
+
+@pytest.mark.unit
+def test_assert_names_interpreters_passes_when_both_appear():
+    assert_names_interpreters(
+        "error: mutate4py is running under /a/venv, not the project environment /p/.venv",
+        "/a/venv",
+        "/p/.venv",
+    )
+
+
+@pytest.mark.unit
+def test_assert_names_interpreters_fails_when_project_env_missing():
+    with pytest.raises(AssertionError):
+        assert_names_interpreters("error: running under /a/venv", "/a/venv", "/p/.venv")
+
+
+@pytest.mark.unit
+def test_assert_no_baseline_run_passes_when_marker_absent(tmp_path):
+    assert_no_baseline_run(str(tmp_path / "baseline_ran"))
+
+
+@pytest.mark.unit
+def test_assert_no_baseline_run_fails_when_marker_present(tmp_path):
+    marker = tmp_path / "baseline_ran"
+    marker.write_text("")
+    with pytest.raises(AssertionError):
+        assert_no_baseline_run(str(marker))
+
+
+# ── running-interpreter run, literal resolution, baseline marker ─────────────
+
+
+@pytest.mark.unit
+def test_run_with_running_interpreter_runs_mutate4py_module_in_cwd(monkeypatch, tmp_path):
+    calls = []
+
+    def fake_run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return "completed"
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert run_with_running_interpreter(["--scan"], str(tmp_path)) == "completed"
+    argv, kwargs = calls[0]
+    assert argv == [sys.executable, "-m", "mutate4py", "--scan"]
+    assert kwargs == {"capture_output": True, "text": True, "cwd": str(tmp_path)}
+
+
+@pytest.mark.unit
+def test_resolve_literal_maps_placeholders_and_strips_the_program_name():
+    args = resolve_literal(
+        "mutate4py <file> --lcov cov.info --pytest-args <fake>",
+        "/w/sample.py",
+        "/w/lcov.info",
+        "-q tests",
+        "/w",
+    )
+    assert args == ["/w/sample.py", "--lcov", "/w/lcov.info", "--pytest-args", "-q tests"]
+
+
+@pytest.mark.unit
+def test_resolve_literal_falls_back_to_tmpdir_coverage_and_empty_fake():
+    args = resolve_literal("<file> cov.info <fake>", "/w/sample.py", None, None, "/tmp/d")
+    assert args == ["/w/sample.py", "/tmp/d/cov.info", ""]
+
+
+@pytest.mark.unit
+def test_resolve_literal_leaves_plain_arguments_alone():
+    args = resolve_literal("--scan --max-workers 4", "/w/s.py", None, None, "/d")
+    assert args == ["--scan", "--max-workers", "4"]
+
+
+@pytest.mark.unit
+def test_assert_baseline_run_passes_when_marker_present(tmp_path):
+    marker = tmp_path / "baseline_ran"
+    marker.touch()
+    assert_baseline_run(str(marker))
+
+
+@pytest.mark.unit
+def test_assert_baseline_run_fails_when_marker_absent(tmp_path):
+    with pytest.raises(AssertionError):
+        assert_baseline_run(str(tmp_path / "baseline_ran"))

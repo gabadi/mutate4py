@@ -1,6 +1,6 @@
-# mutation-stamp: sha256=afd729d7c8e59b088e47497f578ebeb47f1a880d9ce42b0f004a970ac5ecf3cb
+# mutation-stamp: sha256=44f9670e805118f7a7761e23089501da366822a30c4ce7992fabf5c9f5c6dac2
 # acceptance-mutation-manifest-begin
-# {"version":1,"tested_at":"2026-07-02T14:16:58.848064Z","feature_name":"Parallel worker execution for --max-workers","feature_path":"/Users/gabadi/workspace/addi/mutate4py/features/parallel-workers.feature","background_hash":"1dd133df71819ac82cc0542649edb76c526b89f2510b6d55591dcaf624a517b7","implementation_hash":"unknown","scenarios":[{"index":0,"name":"the worker count and site count decide serial vs parallel","scenario_hash":"2fa34f0f36f2376be972b7b76605c1b1c6cc1f0297bad15d7c788b4eea979e02","mutation_count":20,"result":{"Total":20,"Killed":20,"Survived":0,"Errors":0},"tested_at":"2026-07-02T14:13:10.322749Z"},{"index":1,"name":"the worker count clamps to the number of selected sites","scenario_hash":"b49ba9b26ba47f11fe1f53db97339bc6029c4d7ea1eb4c821a9d6932cecfc034","mutation_count":8,"result":{"Total":8,"Killed":8,"Survived":0,"Errors":0},"tested_at":"2026-07-02T14:13:10.322749Z"},{"index":2,"name":"the workers header line prints whenever --max-workers is set","scenario_hash":"3a61819984014d4e1d3f9ba901d550b636f7e5d48db52fdbe5c8c3f7d0fe8f21","mutation_count":16,"result":{"Total":16,"Killed":16,"Survived":0,"Errors":0},"tested_at":"2026-07-02T14:13:10.322749Z"},{"index":3,"name":"the per-mutant worker token appears only on the parallel path","scenario_hash":"5d3e7b79e253cace908a2e670dd0a56f40fca3a2b2bf72eb47e7c47cdf4dc451","mutation_count":15,"result":{"Total":15,"Killed":15,"Survived":0,"Errors":0},"tested_at":"2026-07-02T14:13:10.322749Z"},{"index":5,"name":"a parallel mutant is classified exactly as the serial path would","scenario_hash":"dd0cb66003a299d9082413994d0bcb360cf5e2831e635770474d3b61d332eb4b","mutation_count":9,"result":{"Total":9,"Killed":9,"Survived":0,"Errors":0},"tested_at":"2026-07-02T14:13:10.322749Z"},{"index":8,"name":"the worker tree copy handles skip-list and regular entries without error","scenario_hash":"164b4cbb635b13a1103c31bc347162dbcb3f8ee0d696545285f6da517157634d","mutation_count":4,"result":{"Total":4,"Killed":4,"Survived":0,"Errors":0},"tested_at":"2026-07-02T14:13:10.322749Z"},{"index":10,"name":"a worker error or short result count aborts strictly","scenario_hash":"7d4e32d91c9305cf37abe499978d7f5141109517d703c5412fcf0bf96055fc1c","mutation_count":4,"result":{"Total":4,"Killed":4,"Survived":0,"Errors":0},"tested_at":"2026-07-02T14:13:10.322749Z"}]}
+# {"version":1,"tested_at":"2026-10-11T07:48:07Z","feature_name":"Parallel worker execution for --max-workers","feature_path":"/Users/gabadi/workspace/gabadi/saga-umf-integration/features/parallel-workers.feature","background_hash":"1dd133df71819ac82cc0542649edb76c526b89f2510b6d55591dcaf624a517b7","implementation_hash":"unknown","scenarios":[{"index":0,"name":"the worker count and site count decide serial vs parallel","scenario_hash":"6ff2b3e6952131c00ca83cd12417037ee749900fb41eb6207a7a4ad53a1c8fd4","mutation_count":20,"result":{"Total":20,"Killed":20,"Survived":0,"Errors":0},"tested_at":"2026-10-11T07:48:07Z"},{"index":1,"name":"the worker count clamps to the number of selected sites","scenario_hash":"f5eda1c453ac6638be97aca58c1052714aadee7a441a652d024f409de7864aa8","mutation_count":8,"result":{"Total":8,"Killed":8,"Survived":0,"Errors":0},"tested_at":"2026-10-11T07:48:07Z"},{"index":2,"name":"the workers header line prints whenever --max-workers is set","scenario_hash":"edc704f1fb39eb9f65c4eb5ae9e52a5e7927c552fad75296b38e05844da0b869","mutation_count":16,"result":{"Total":16,"Killed":16,"Survived":0,"Errors":0},"tested_at":"2026-10-11T07:48:07Z"},{"index":3,"name":"the per-mutant worker token appears only on the parallel path","scenario_hash":"be39e64f6588e08da20a168912a1c70759e23d8f2ea83995eee46a24326dc027","mutation_count":15,"result":{"Total":15,"Killed":15,"Survived":0,"Errors":0},"tested_at":"2026-10-11T07:48:07Z"},{"index":5,"name":"a parallel mutant is classified exactly as the serial path would","scenario_hash":"5c69fed5050741213961f704d540a015795e03bb7ac1d8243a3b0755f603b6dc","mutation_count":9,"result":{"Total":9,"Killed":9,"Survived":0,"Errors":0},"tested_at":"2026-10-11T07:48:07Z"},{"index":8,"name":"the worker tree copy handles skip-list and regular entries without error","scenario_hash":"f4747d6f69f376da07197fc5af72dd02bc6b7a27bc78238f46e45af377793040","mutation_count":4,"result":{"Total":4,"Killed":4,"Survived":0,"Errors":0},"tested_at":"2026-10-11T07:48:07Z"},{"index":10,"name":"a worker error or short result count aborts strictly","scenario_hash":"2826b57cd33e77f7f65e66d3ec7518347ab755599e4bf531aed690dfaabe1220","mutation_count":4,"result":{"Total":4,"Killed":4,"Survived":0,"Errors":0},"tested_at":"2026-10-11T07:48:07Z"}]}
 # acceptance-mutation-manifest-end
 
 Feature: Parallel worker execution for --max-workers
@@ -289,3 +289,28 @@ Feature: Parallel worker execution for --max-workers
     Then after the run the original source has no mutant spliced in
     And the original source ends with a fresh "mutate4py-manifest" footer
     And no ".mutate4py.bak" file is left behind
+
+  # parallel-workers-14: a src-layout editable project kills every mutant under parallel workers
+  # Regression for ADR 0015: the worker venv must import the worker copy's src,
+  # so each mutant is killed by its own worker rather than surviving against the original.
+  Scenario: a src-layout editable project kills every mutant under parallel workers
+    Given the project is a src-layout editable package with pytest and pytest-cov
+    And the flag supplied is "--max-workers 2"
+    When I run mutate4py mutating that file
+    Then the run takes the "parallel" path
+    And the output contains "Killed: 2"
+    And the output contains "Survived: 0"
+    And the run completes successfully
+    And the same file run without --max-workers reports the same Killed and Survived counts
+
+  # parallel-workers-15: a worker venv without pytest-cov runs without a --no-cov usage abort
+  # The orchestrator has pytest-cov; the worker venv does not. Plugin neutralisation is
+  # computed by the worker's own interpreter, so no --no-cov reaches the worker pytest.
+  Scenario: a worker venv without pytest-cov runs its mutants without a usage error
+    Given the project is a src-layout editable package with pytest but without pytest-cov
+    And the flag supplied is "--max-workers 2"
+    When I run mutate4py mutating that file
+    Then the run takes the "parallel" path
+    And the output does not contain "unrecognized arguments"
+    And the output contains "Killed: 2"
+    And the run completes successfully

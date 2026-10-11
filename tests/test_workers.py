@@ -1,12 +1,20 @@
 """Unit tests for _workers.py internals."""
 
+import io
+import json
+import os
+import shutil
+import subprocess
+import sys
 import threading
+import types
 
 import pytest
 
 from mutate4py._discovery import Site, discover_sites
 from mutate4py._test_dispatch import NoTestsCollectedError
-from mutate4py._worker_protocol import WorkerProcessError
+from mutate4py._worker_protocol import WorkerProcessError, check_worker_python
+from mutate4py._worker_provision import _SKIP_ENTRIES, _copy_tree, _link_import_root
 from mutate4py._workers import (
     ParallelRunError,
     ParallelRunRequest,
@@ -15,9 +23,10 @@ from mutate4py._workers import (
     WorkerRunSettings,
     _assign_sites_to_workers,
     _close_worker_executor,
-    _copy_tree,
     _drop_one_result_if_injected,
     _prime_worker_executor,
+    _provision_worker,
+    _provision_workers,
     _run_one_site,
     _summarize_results,
     run_parallel,
@@ -269,6 +278,7 @@ def test_provision_worker_executors_assigns_distinct_worker_ids():
         "calc.py",
         forking_requested=True,
         injected_executor=None,
+        source_root="/tmp/project",
     )
     assert [e._worker_id for e in executors] == ["gw1", "gw2", "gw3"]
     assert len({e._worker_id for e in executors}) == 3
@@ -284,8 +294,212 @@ def test_provision_worker_executors_injected_fake_ignores_worker_id():
         "calc.py",
         forking_requested=True,
         injected_executor=fake,
+        source_root="/tmp/project",
     )
     assert executors == [fake, fake]
+
+
+def _ready_popen(monkeypatch) -> list:
+    """Replace Popen with a recorder that answers the ready handshake."""
+    launches: list = []
+
+    def fake(argv, **kwargs):
+        launches.append((argv, kwargs))
+        return types.SimpleNamespace(stdin=io.StringIO(), stdout=io.StringIO(json.dumps({"ready": True}) + "\n"))
+
+    monkeypatch.setattr(subprocess, "Popen", fake)
+    # The pytest probe is its own subprocess; these tests cover the launch only.
+    monkeypatch.setattr("mutate4py._worker_protocol.check_worker_pytest", lambda root: None)
+    return launches
+
+
+@pytest.mark.unit
+def test_provision_worker_executors_primes_each_real_worker_under_its_venv(tmp_path, monkeypatch):
+    from mutate4py._workers import _provision_worker_executors
+
+    launches = _ready_popen(monkeypatch)
+    monkeypatch.delenv("PYTHONPATH", raising=False)
+    worker_root = str(tmp_path / "worker-1")
+    (executor,) = _provision_worker_executors(
+        [worker_root], "calc.py", forking_requested=True, injected_executor=None, source_root=str(tmp_path)
+    )
+    executor.prime()
+    argv, kwargs = launches[0]
+    assert argv[0] == os.path.join(worker_root, ".venv", "bin", "python")
+    assert "PYTHONPATH" not in kwargs["env"]
+
+
+# ── worker interpreter and import root ────────────────────────────────────────
+
+
+def _fake_purelib_probe(monkeypatch, purelib) -> list:
+    """Answer the Worker venv's purelib probe (`sysconfig.get_path('purelib')`) with `purelib`."""
+    probes: list = []
+    os.makedirs(purelib, exist_ok=True)
+
+    def fake(argv, **kwargs):
+        probes.append(argv)
+        return types.SimpleNamespace(stdout=f"{purelib}\n", returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", fake)
+    return probes
+
+
+@pytest.mark.unit
+def test_link_import_root_links_the_package_outside_the_worker_tree(tmp_path, monkeypatch):
+    worker_root = tmp_path / "run" / "worker-1"
+    worker_root.mkdir(parents=True)
+    package_dir = tmp_path / "src" / "mutate4py"
+    package_dir.mkdir(parents=True)
+    _fake_purelib_probe(monkeypatch, tmp_path / "site-packages")
+
+    import_root = _link_import_root(str(worker_root), str(package_dir))
+
+    assert import_root == str(tmp_path / "run" / "worker-1-import")
+    assert os.readlink(os.path.join(import_root, "mutate4py")) == str(package_dir)
+    assert not os.path.realpath(import_root).startswith(str(worker_root.resolve()) + os.sep)
+    assert not os.path.lexists(worker_root / "mutate4py")
+
+
+@pytest.mark.unit
+def test_link_import_root_writes_a_pth_file_into_the_worker_venv_after_its_own_entries(tmp_path, monkeypatch):
+    """The import root is a `.pth` in the Worker venv's purelib, probed under the Worker's
+    own interpreter. The name sorts after the editable install's `_<name>.pth`, so the
+    project's own mutate4py wins when both exist (ADR 0015, dogfood)."""
+    worker_root = tmp_path / "run" / "worker-1"
+    worker_root.mkdir(parents=True)
+    package_dir = tmp_path / "src" / "mutate4py"
+    package_dir.mkdir(parents=True)
+    purelib = tmp_path / "worker-venv-site-packages"
+    probes = _fake_purelib_probe(monkeypatch, purelib)
+
+    import_root = _link_import_root(str(worker_root), str(package_dir))
+
+    assert probes[0][0] == os.path.join(str(worker_root), ".venv", "bin", "python")
+    assert (purelib / "zzz_mutate4py_import_root.pth").read_text() == import_root + "\n"
+    assert not os.path.lexists(worker_root / "mutate4py")
+
+
+def _fake_worker_interpreter(worker_root, version: str) -> None:
+    """A stand-in .venv/bin/python that answers the version probe with `version`."""
+    bin_dir = os.path.join(str(worker_root), ".venv", "bin")
+    os.makedirs(bin_dir)
+    script = os.path.join(bin_dir, "python")
+    with open(script, "w") as f:
+        f.write(f"#!/bin/sh\necho {version}\n")
+    os.chmod(script, 0o755)
+
+
+@pytest.mark.unit
+def test_check_worker_python_refuses_an_interpreter_below_the_3_11_floor(tmp_path):
+    _fake_worker_interpreter(tmp_path, "3.9")
+    with pytest.raises(WorkerProcessError) as exc:
+        check_worker_python(str(tmp_path))
+    assert "3.9" in str(exc.value)
+    assert "3.11" in str(exc.value)
+
+
+@pytest.mark.unit
+def test_check_worker_python_accepts_the_3_11_floor(tmp_path):
+    _fake_worker_interpreter(tmp_path, "3.11")
+    check_worker_python(str(tmp_path))
+
+
+@pytest.mark.unit
+def test_check_worker_python_reports_a_missing_worker_interpreter(tmp_path):
+    with pytest.raises(WorkerProcessError, match="no usable interpreter"):
+        check_worker_python(str(tmp_path))
+
+
+@pytest.mark.unit
+def test_provision_worker_turns_a_below_floor_interpreter_into_a_worker_failure(tmp_path, monkeypatch):
+    real_run = subprocess.run
+    monkeypatch.setattr(subprocess, "run", lambda cmd, **kwargs: None if cmd[0] == "uv" else real_run(cmd, **kwargs))
+    _fake_worker_interpreter(tmp_path, "3.9")
+    with pytest.raises(WorkerFailureError, match="runs Python 3.9"):
+        _provision_worker(str(tmp_path), frozenset())
+
+
+@pytest.mark.component
+def test_provision_worker_maps_a_failed_uv_step_to_a_worker_failure_with_its_stderr_tail(tmp_path, monkeypatch):
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    uv = fake_bin / "uv"
+    uv.write_text('#!/bin/sh\nif [ "$1" = "sync" ]; then echo "error: no solution found" >&2; exit 2; fi\nexit 0\n')
+    uv.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{fake_bin}{os.pathsep}{os.environ['PATH']}")
+    worker_root = tmp_path / "worker-1"
+    worker_root.mkdir()
+
+    with pytest.raises(WorkerFailureError, match="uv sync .* failed") as exc:
+        _provision_worker(str(worker_root), frozenset())
+    assert "error: no solution found" in str(exc.value)
+    assert isinstance(exc.value.__cause__, subprocess.CalledProcessError)
+
+
+@pytest.mark.component
+def test_provision_worker_maps_a_missing_uv_to_a_worker_failure(tmp_path, monkeypatch):
+    empty_bin = tmp_path / "empty-bin"
+    empty_bin.mkdir()
+    monkeypatch.setenv("PATH", str(empty_bin))
+    worker_root = tmp_path / "worker-1"
+    worker_root.mkdir()
+
+    with pytest.raises(WorkerFailureError, match="could not run uv") as exc:
+        _provision_worker(str(worker_root), frozenset())
+    assert isinstance(exc.value.__cause__, OSError)
+
+
+@pytest.mark.unit
+def test_provision_workers_restates_an_import_root_link_failure_as_a_worker_failure(tmp_path, monkeypatch):
+    import mutate4py._workers as workers_mod
+
+    monkeypatch.setattr(workers_mod, "_copy_tree", lambda src, dst: os.makedirs(dst))
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
+
+    def refuse_symlink(src, dst, *args, **kwargs):
+        raise OSError("symlinks refused")
+
+    monkeypatch.setattr(os, "symlink", refuse_symlink)
+    with pytest.raises(WorkerFailureError, match="could not link the mutate4py import root") as exc:
+        _provision_workers(str(tmp_path / "run"), 1, str(tmp_path / "project"))
+    assert isinstance(exc.value.__cause__, OSError)
+
+
+@pytest.mark.unit
+def test_prime_worker_executor_reports_a_missing_worker_interpreter_as_a_worker_failure(tmp_path):
+    from mutate4py._worker_protocol import WorkerProcessExecutor
+
+    executor = WorkerProcessExecutor(
+        worker_root=str(tmp_path),
+        guarded_path=str(tmp_path / "calc.py"),
+        forking_requested=True,
+        source_root=str(tmp_path),
+    )
+    with pytest.raises(WorkerFailureError, match="worker-2 could not start") as exc:
+        _prime_worker_executor(executor, 2)
+    assert isinstance(exc.value.__cause__, WorkerProcessError)
+
+
+@pytest.mark.component
+def test_prime_worker_executor_refuses_a_worker_venv_without_pytest(tmp_path):
+    """A Worker venv that cannot import pytest exits 1 on every Mutant, which would
+    read as killed. Priming refuses it as a Worker failure, before any dispatch."""
+    from mutate4py._worker_protocol import WorkerProcessExecutor
+
+    worker_root = tmp_path / "worker-1"
+    worker_root.mkdir()
+    subprocess.run([sys.executable, "-m", "venv", "--without-pip", str(worker_root / ".venv")], check=True)
+    executor = WorkerProcessExecutor(
+        worker_root=str(worker_root),
+        guarded_path=str(worker_root / "calc.py"),
+        forking_requested=True,
+        source_root=str(tmp_path),
+    )
+    with pytest.raises(WorkerFailureError, match="has no pytest") as exc:
+        _prime_worker_executor(executor, 1)
+    assert f"worker environment {worker_root} has no pytest" in str(exc.value)
+    assert "`uv sync` installs it" in str(exc.value)
 
 
 # ── _summarize_results ────────────────────────────────────────────────────────
@@ -517,7 +731,8 @@ def test_run_parallel_short_result_raises(tmp_path, monkeypatch):
     """_MUTATE4PY_TEST_WORKER_SHORT_RESULT=1 drops one result → ParallelRunError."""
     import mutate4py._workers as workers_mod
 
-    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
+    monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
     monkeypatch.setenv("_MUTATE4PY_TEST_WORKER_SHORT_RESULT", "1")
 
     src = "def f(a, b):\n    return a > b\ndef g(a, b):\n    return a < b\n"
@@ -559,7 +774,8 @@ def test_run_parallel_composes_narrowed_dispatch_with_workers(tmp_path, monkeypa
     _build_mutant_args at all."""
     import mutate4py._workers as workers_mod
 
-    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
+    monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
 
     src = "def f(a, b):\n    return a > b\ndef g(a, b):\n    return a < b\n"
     sites = discover_sites(src)
@@ -592,7 +808,8 @@ def test_run_parallel_composes_narrowed_dispatch_with_workers(tmp_path, monkeypa
 def test_run_parallel_composes_static_dispatch_with_workers(tmp_path, monkeypatch):
     import mutate4py._workers as workers_mod
 
-    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
+    monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
 
     src = "def f(a, b):\n    return a > b\ndef g(a, b):\n    return a < b\n"
     sites = discover_sites(src)
@@ -626,7 +843,8 @@ def test_run_parallel_composes_degraded_dispatch_with_workers(tmp_path, monkeypa
     loop's _build_mutant_args dispatch exactly."""
     import mutate4py._workers as workers_mod
 
-    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
+    monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
 
     src = "def f(a, b):\n    return a > b\ndef g(a, b):\n    return a < b\n"
     sites = discover_sites(src)
@@ -663,7 +881,8 @@ def test_run_parallel_primes_worker_executor_once_for_multiple_sites(tmp_path, m
     thread-interleaving across multiple Worker groups."""
     import mutate4py._workers as workers_mod
 
-    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
+    monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
 
     src = "def f(a, b):\n    return a > b\ndef g(a, b):\n    return a < b\ndef h(a, b):\n    return a >= b\n"
     sites = discover_sites(src)
@@ -698,7 +917,8 @@ def test_run_parallel_shared_injected_executor_primed_per_worker_thread(tmp_path
     calls race on the same instance but must not lose or duplicate results."""
     import mutate4py._workers as workers_mod
 
-    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
+    monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
 
     src = (
         "def f(a, b):\n    return a > b\n"
@@ -728,3 +948,51 @@ def test_run_parallel_shared_injected_executor_primed_per_worker_thread(tmp_path
     assert counts == {"killed": 0, "timeout": 0, "survived": 4}
     assert executor.prime_calls == 2
     assert len(executor.calls) == 4
+
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+
+def _outcome_lines(stdout: str) -> list[str]:
+    return [ln.strip() for ln in stdout.splitlines() if ln.strip().startswith(("Killed:", "Survived:"))]
+
+
+@pytest.mark.integration
+def test_parallel_dogfood_run_scores_the_same_as_the_serial_run(tmp_path):
+    """C1: mutate4py mutating its own source must score the same under workers as serially.
+    The Worker copy's mutate4py has to be the one imported; an import root on PYTHONPATH
+    would resolve to the unmutated original, and every Mutant would survive."""
+    project = tmp_path / "project"
+    project.mkdir()
+    for name in ("pyproject.toml", "uv.lock", ".python-version", "README.md", "LICENSE"):
+        shutil.copy2(os.path.join(REPO_ROOT, name), project / name)
+    for name in ("src", "tests", "scripts"):
+        shutil.copytree(os.path.join(REPO_ROOT, name), project / name, ignore=shutil.ignore_patterns(*_SKIP_ENTRIES))
+    env = {k: v for k, v in os.environ.items() if k not in ("VIRTUAL_ENV", "PYTHONPATH")}
+    subprocess.run(["uv", "sync"], cwd=project, env=env, capture_output=True, text=True, check=True)
+    subprocess.run(
+        ["uv", "run", "pytest", "--cov=src", "--cov-report=lcov:lcov.info", "tests/test_cmd.py"],
+        cwd=project,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    base = [
+        "uv",
+        "run",
+        "mutate4py",
+        "src/mutate4py/_cmd.py",
+        "--mutate-all",
+        "--lcov",
+        "lcov.info",
+        "--pytest-args",
+        "tests/test_cmd.py",
+    ]
+    serial = subprocess.run(base, cwd=project, env=env, capture_output=True, text=True)
+    parallel = subprocess.run(base + ["--max-workers", "2"], cwd=project, env=env, capture_output=True, text=True)
+    serial_lines = _outcome_lines(serial.stdout)
+    assert any(ln.startswith("Killed:") for ln in serial_lines), serial.stdout + serial.stderr
+    assert any(ln.startswith("Survived:") for ln in serial_lines), serial.stdout + serial.stderr
+    assert _outcome_lines(parallel.stdout) == serial_lines, parallel.stdout + parallel.stderr
+    assert not any(ln == "Killed: 0" for ln in serial_lines)

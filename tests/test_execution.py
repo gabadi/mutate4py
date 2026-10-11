@@ -251,7 +251,7 @@ def test_run_parallel_workers_passes_timeout(tmp_path, monkeypatch):
         return ({"killed": 0, "survived": 0, "timeout": 0}, [], None)
 
     monkeypatch.setattr(workers_mod, "run_parallel", fake_run_parallel)
-    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
 
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "f.py")

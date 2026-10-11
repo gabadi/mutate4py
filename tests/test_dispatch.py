@@ -972,3 +972,28 @@ def test_build_isolated_session_runner_forks_and_runs_when_eligible(tmp_path, mo
 
     status = runner("test_x.py::test_ok", str(tmp_path / ".coverage.0"), ["-q"])
     assert status == "survived"
+
+
+@pytest.mark.unit
+def test_dispatch_build_test_contexts_refuses_a_foreign_interpreter_before_building(tmp_path, monkeypatch):
+    """--build-test-contexts runs pytest collection in the project's venv, so a
+    foreign interpreter must be refused before any context build starts."""
+    import sys
+
+    from mutate4py import _dispatch
+    from mutate4py.__main__ import _build_parser
+    from mutate4py._cli_validation import ValidationError
+
+    (tmp_path / "pyproject.toml").write_text("[project]\nname = 'demo'\n")
+    (tmp_path / ".venv" / "bin").mkdir(parents=True)
+    (tmp_path / ".venv" / "bin" / "python").write_text("")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "prefix", "/opt/other")
+    built = []
+    monkeypatch.setattr(_dispatch, "build_test_contexts", lambda **kwargs: built.append(kwargs) or 0)
+
+    args = _build_parser().parse_args(["--build-test-contexts", "db.sqlite"])
+    with pytest.raises(ValidationError) as exc:
+        _dispatch._dispatch(args)
+    assert exc.value.exit_code == 2
+    assert built == [], "no context build may start under a foreign interpreter"

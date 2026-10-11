@@ -8,6 +8,7 @@ integration tests that stayed in test_runner.py.
 """
 
 import os
+import sys
 
 import pytest
 
@@ -156,6 +157,19 @@ def _run_with_capture(tmp_path, src_path, src, *, max_workers, pytest_args=None)
     return rc, buf.getvalue()
 
 
+def _stub_provision_with_interpreter(monkeypatch):
+    """Stand in for `uv venv` + `uv sync`: the Worker's <root>/.venv links to this
+    test's venv, so its interpreter starts and imports pytest. Provisioning itself
+    is not under test here; test_workers.py covers it."""
+    import mutate4py._workers as workers_mod
+
+    def provision(root, required):
+        os.symlink(sys.prefix, os.path.join(root, ".venv"))
+
+    monkeypatch.setattr(workers_mod, "_provision_worker", provision)
+    monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
+
+
 @pytest.mark.component
 def test_serial_path_no_workers_header(tmp_path):
     """max_workers=0 -> no 'Mutation workers:' line."""
@@ -199,7 +213,8 @@ def test_parallel_path_workers_header_clamped(tmp_path, monkeypatch):
     """max_workers=8, 3 sites -> 'Mutation workers: 3' (clamped); provisioning skipped."""
     import mutate4py._workers as workers_mod
 
-    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
+    monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
 
     src = _make_multi_site_source(3)
     src_path = str(tmp_path / "calc.py")
@@ -212,9 +227,7 @@ def test_parallel_path_workers_header_clamped(tmp_path, monkeypatch):
 @pytest.mark.component
 def test_parallel_path_worker_token_in_progress(tmp_path, monkeypatch):
     """Parallel path (max_workers=4, 4 sites) -> worker-k appears in progress lines."""
-    import mutate4py._workers as workers_mod
-
-    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+    _stub_provision_with_interpreter(monkeypatch)
 
     src = _make_multi_site_source(4)
     src_path = str(tmp_path / "calc.py")
@@ -230,9 +243,7 @@ def test_parallel_path_worker_token_in_progress(tmp_path, monkeypatch):
 @pytest.mark.component
 def test_parallel_path_report_present(tmp_path, monkeypatch):
     """Parallel run produces a Mutation Report."""
-    import mutate4py._workers as workers_mod
-
-    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+    _stub_provision_with_interpreter(monkeypatch)
 
     src = _make_multi_site_source(3)
     src_path = str(tmp_path / "calc.py")
@@ -249,7 +260,8 @@ def test_parallel_path_target_outside_cwd_error(tmp_path, monkeypatch):
     import tempfile
     import mutate4py._workers as workers_mod
 
-    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
+    monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
 
     with tempfile.TemporaryDirectory() as other_dir:
         src = _make_multi_site_source(3)
@@ -293,9 +305,7 @@ def test_parallel_path_target_outside_cwd_error(tmp_path, monkeypatch):
 @pytest.mark.component
 def test_parallel_path_worker_root_cleaned_up(tmp_path, monkeypatch):
     """After parallel run, worker root is removed."""
-    import mutate4py._workers as workers_mod
-
-    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+    _stub_provision_with_interpreter(monkeypatch)
 
     src = _make_multi_site_source(3)
     src_path = str(tmp_path / "calc.py")
@@ -312,9 +322,8 @@ def test_parallel_path_worker_root_cleaned_up(tmp_path, monkeypatch):
 def test_parallel_path_original_file_restored(tmp_path, monkeypatch):
     """After parallel run, original source has no mutant; manifest footer present."""
     from mutate4py._manifest import strip_manifest
-    import mutate4py._workers as workers_mod
 
-    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+    _stub_provision_with_interpreter(monkeypatch)
 
     src = _make_multi_site_source(3)
     src_path = str(tmp_path / "calc.py")
@@ -545,6 +554,62 @@ def test_injected_executor_receives_static_dispatch(tmp_path, monkeypatch):
     assert fake_executor.calls == [["-q"]] * 3
 
 
+@pytest.mark.unit
+def test_a_dispatch_error_message_is_logged_and_the_run_returns_1(tmp_path, monkeypatch, caplog):
+    """An engine that fails before tallying (ExecutionOutcome.error_msg) prints
+    no report: the run logs the message and exits 1."""
+    import logging
+
+    import mutate4py._runner as runner_mod
+    import mutate4py._test_selection as ts
+    from mutate4py._execution import ExecutionOutcome
+
+    class _StubDB:
+        def __init__(self, db_path):
+            pass
+
+        def tests_for_line(self, source_path, line):
+            return "static", []
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(ts, "TestContextDB", _StubDB)
+    monkeypatch.setattr(
+        runner_mod, "_execute_mutations", lambda **_kw: ExecutionOutcome(error_msg="mutation worker failed: boom")
+    )
+
+    src = _make_multi_site_source(1)
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+    lcov_path = str(tmp_path / "cov.lcov")
+    _write_lcov_for_source(lcov_path, src_path, src)
+
+    with caplog.at_level(logging.INFO):
+        rc = run_mutations(
+            RunMutationsRequest(
+                path=src_path,
+                source=src,
+                cov_cmd=None,
+                lcov_path=lcov_path,
+                reuse_coverage=False,
+                pytest_args=["-q"],
+                timeout_factor=10,
+                lines_filter=None,
+                since_last_run=False,
+                mutate_all=False,
+                warning_threshold=1000,
+                cwd=str(tmp_path),
+                test_contexts_path=".coverage",
+                executor=_FakeExecutor(),
+                baseline_duration=0.01,
+            )
+        )
+    assert rc == 1
+    assert "mutation worker failed: boom" in caplog.text
+
+
 # ── plugin neutralisation reaches every Mutant dispatch (issue 06) ───────────
 
 
@@ -596,7 +661,8 @@ def test_test_context_db_and_parallel_workers_compose_in_one_run(tmp_path, monke
     import mutate4py._workers as workers_mod
     import mutate4py._test_selection as ts
 
-    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root: None)
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
+    monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
 
     class _StubDB:
         def __init__(self, db_path):

@@ -30,10 +30,10 @@ the end.
 
 Resolution 1 of this ADR originally said each worker runs the user's test command
 *verbatim* with `cwd = worker-root`, relying on the worker's own venv to resolve
-imports. **That is no longer how it works** — each Worker now spawns a persistent
-`_worker_server.py` process holding one primed `Executor` and dispatches Mutants to
-it over a pipe. The `uv venv`/`uv sync` provisioning above is unchanged; the
-per-Mutant execution path is not.
+imports. **That is no longer how it works:** each Worker spawns, under its own `.venv/bin/python`, a persistent `_worker_server.py` holding one primed `Executor` and dispatches Mutants to it over a pipe.
+Plugin kill switches are computed there, and a Worker venv without pytest fails at priming rather than classifying its Mutants.
+The `uv venv`/`uv sync` provisioning above is unchanged; the per-Mutant execution path is not.
+A Worker venv must hold every distribution the project environment holds, or the run fails at provisioning.
 
 **Rejected:** mechanism 1 (unsound); mechanism 3 (discards the byte-splice engine);
 `git clone` granularity (needs a repo, misses uncommitted edits); wrapping the user

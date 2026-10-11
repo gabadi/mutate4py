@@ -11,9 +11,13 @@ from acceptance.steps.cli_surface_helpers import (
     accepted_flags_args,
     assert_accepted,
     assert_all_reported,
+    assert_baseline_run,
     assert_db_narrows_shared_line,
     assert_dispatched_to,
+    assert_exit_status,
+    assert_names_interpreters,
     assert_no_analysis,
+    assert_no_baseline_run,
     assert_nonzero_exit,
     assert_only_reported,
     assert_option_accepted,
@@ -29,10 +33,14 @@ from acceptance.steps.cli_surface_helpers import (
     lcov_content,
     overlapping_coverage_fixture_dir,
     require_result,
+    run_with_running_interpreter,
     single_flag_args,
     source_file_run_args,
     two_flag_args,
     two_target_run_args,
+    write_baseline_sentinel,
+    write_placeholder_venv,
+    write_pyproject,
 )
 from acceptance.steps.step_lib import make_registry
 
@@ -61,6 +69,8 @@ class Context:
         self.file_pair: tuple[str, str] | None = None
         self.build_db_path: str | None = None
         self.fixture_dir: str | None = None
+        self.foreign_env: str | None = None
+        self.sentinel_marker: str | None = None
 
     def reset(self):
         self.tmpdir = None
@@ -72,6 +82,8 @@ class Context:
         self.file_pair = None
         self.build_db_path = None
         self.fixture_dir = None
+        self.foreign_env = None
+        self.sentinel_marker = None
 
     def ensure_tmpdir(self) -> str:
         if self.tmpdir is None:
@@ -167,17 +179,13 @@ def when_run_with_flag(m, params):
 
 @step(r'I run mutate4py with a trailing "(.*)" and no value')
 def when_run_with_trailing_flag(m, params):
-    ctx.cli_result = _run_mutate4py(
-        ctx.ensure_src(), m.group(1).strip(), cwd=ctx.ensure_tmpdir()
-    )
+    ctx.cli_result = _run_mutate4py(ctx.ensure_src(), m.group(1).strip(), cwd=ctx.ensure_tmpdir())
 
 
 @step(r'I run mutate4py with "(.*)" and "(.*)"')
 def when_run_with_two_flags(m, params):
     ctx.ensure_passing_tests()
-    args = two_flag_args(
-        m.group(1).strip(), m.group(2).strip(), ctx.ensure_src(), ctx.ensure_lcov()
-    )
+    args = two_flag_args(m.group(1).strip(), m.group(2).strip(), ctx.ensure_src(), ctx.ensure_lcov())
     ctx.cli_result = _run_mutate4py(*args, cwd=ctx.ensure_tmpdir())
 
 
@@ -217,9 +225,7 @@ def when_run_described(m, params):
 @step(r'I run mutate4py with the accepted flags "(.*)"')
 def when_run_with_accepted_flags(m, params):
     ctx.ensure_passing_tests()
-    args, _target, workers = accepted_flags_args(
-        m.group(1).strip(), ctx.ensure_src(), ctx.ensure_lcov()
-    )
+    args, _target, workers = accepted_flags_args(m.group(1).strip(), ctx.ensure_src(), ctx.ensure_lcov())
     ctx.dispatch_max_workers = workers
     ctx.cli_result = _run_mutate4py(*args, cwd=ctx.ensure_tmpdir())
 
@@ -230,9 +236,7 @@ def when_run_with_accepted_flags(m, params):
 @step(r'the option "(.*)" is set to "(.*)"')
 def then_option_set(m, params):
     r = require_result(ctx.cli_result)
-    assert_option_accepted(
-        m.group(1).strip(), m.group(2).strip(), r.returncode, r.stderr
-    )
+    assert_option_accepted(m.group(1).strip(), m.group(2).strip(), r.returncode, r.stderr)
 
 
 @step(r"the invocation is accepted")
@@ -301,6 +305,67 @@ def then_both_reported(m, params):
 @step(r'the dispatcher receives a worker count of "(.*)"')
 def then_dispatcher_receives_workers(m, params):
     r = require_result(ctx.cli_result)
-    assert_worker_count(
-        ctx.dispatch_max_workers, m.group(1).strip(), r.returncode, r.stderr
-    )
+    assert_worker_count(ctx.dispatch_max_workers, m.group(1).strip(), r.returncode, r.stderr)
+
+
+# ── Project environment (cli-surface-15) ──────────────────────────────────────
+
+
+@step(r'a project with a "\.venv" that the running interpreter is not')
+def given_foreign_project_env(m, params):
+    _prepare_project(with_env=True)
+
+
+def _prepare_project(*, with_env: bool) -> None:
+    ctx.reset()
+    root = ctx.ensure_tmpdir()
+    write_pyproject(root)
+    if with_env:
+        ctx.foreign_env = write_placeholder_venv(root)
+    ctx.ensure_src()
+    ctx.ensure_lcov()
+    ctx.sentinel_marker = write_baseline_sentinel(root)
+
+
+@step(r'I run mutate4py with the accepted flags "(.*)" from outside that environment')
+def when_run_from_outside_env(m, params):
+    _run_accepted_flags_from_project(m.group(1))
+
+
+def _run_accepted_flags_from_project(flags: str) -> None:
+    args, _target, _workers = accepted_flags_args(flags.strip(), ctx.ensure_src(), ctx.ensure_lcov())
+    ctx.cli_result = run_with_running_interpreter(args, cwd=ctx.ensure_tmpdir())
+
+
+@step(r'the command exits with status "(\d+)"')
+def then_exit_status(m, params):
+    assert_exit_status(require_result(ctx.cli_result).returncode, int(m.group(1)))
+
+
+@step(r"the error names the running interpreter and the project environment")
+def then_error_names_interpreters(m, params):
+    r = require_result(ctx.cli_result)
+    assert ctx.foreign_env is not None, "no project environment fixture recorded"
+    assert_names_interpreters(r.stdout + r.stderr, os.path.realpath(sys.prefix), ctx.foreign_env)
+
+
+@step(r"no baseline pytest run is started")
+def then_no_baseline_run(m, params):
+    assert ctx.sentinel_marker is not None, "no baseline sentinel recorded"
+    assert_no_baseline_run(ctx.sentinel_marker)
+
+
+@step(r'a project with no "\.venv"')
+def given_project_without_env(m, params):
+    _prepare_project(with_env=False)
+
+
+@step(r'I run mutate4py with the accepted flags "(.*)" from that project')
+def when_run_from_project(m, params):
+    _run_accepted_flags_from_project(m.group(1))
+
+
+@step(r"a baseline pytest run is started")
+def then_baseline_runs(m, params):
+    assert ctx.sentinel_marker is not None, "no baseline sentinel recorded"
+    assert_baseline_run(ctx.sentinel_marker)

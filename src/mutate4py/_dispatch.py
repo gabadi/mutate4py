@@ -18,6 +18,7 @@ import os
 import shlex
 import sys
 
+from mutate4py._cli_validation import check_run_env
 from mutate4py._runner import (
     CoverageError,
     CoverageSource,
@@ -321,6 +322,7 @@ def _dispatch(args: argparse.Namespace) -> None:
         # exclude positional PATHs in _cli_validation, so workspace
         # autodiscovery below would never apply to this mode anyway.
         cwd = os.getcwd()
+        check_run_env(args, [], cwd)
         sys.exit(
             build_test_contexts(
                 output_db_path=args.build_test_contexts,
@@ -330,6 +332,7 @@ def _dispatch(args: argparse.Namespace) -> None:
             )
         )
     roots, args.prune_dirs = _resolve_roots(args)
+    check_run_env(args, roots, os.getcwd())
     if len(roots) > 1:
         _dispatch_batch(args, roots)
         return

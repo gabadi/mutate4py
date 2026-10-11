@@ -180,6 +180,11 @@ depends_on = []
 [[modules]]
 path = "mutate4py._workers"
 layer = "execution_backends"
+depends_on = ["mutate4py._worker_protocol", "mutate4py._worker_provision"]
+
+[[modules]]
+path = "mutate4py._worker_provision"
+layer = "execution_backends"
 depends_on = ["mutate4py._worker_protocol"]
 
 [[modules]]

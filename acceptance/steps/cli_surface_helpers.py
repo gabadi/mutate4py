@@ -2,6 +2,8 @@
 
 import os
 import shlex
+import subprocess
+import sys
 
 _SCAN_INCOMPATIBLE_FLAGS = {"--timeout-factor", "--pytest-args", "--max-workers"}
 
@@ -51,16 +53,12 @@ def two_flag_args(flag1: str, flag2: str, src: str, lcov: str) -> list[str]:
     flags2 = split_flags(flag2) if flag2 else []
     all_flags = flags1 + flags2
     flag_names = {f for f in all_flags if f.startswith("--")}
-    if "--max-workers" in flag_names and not any(
-        f in flag_names for f in ("--scan", "--update-manifest")
-    ):
+    if "--max-workers" in flag_names and not any(f in flag_names for f in ("--scan", "--update-manifest")):
         return [src, "--lcov", lcov, "--pytest-args", _FAKE_PYTEST_ARGS] + all_flags
     return [src] + all_flags
 
 
-def accepted_flags_args(
-    flags_str: str, src: str, lcov: str
-) -> tuple[list[str], str, int | None]:
+def accepted_flags_args(flags_str: str, src: str, lcov: str) -> tuple[list[str], str, int | None]:
     """Return (cli_args, dispatch_target, dispatch_max_workers) for an accepted-flags invocation."""
     if flags_str == "--scan":
         return [src, "--scan"], "scan surface", None
@@ -77,9 +75,7 @@ def accepted_flags_args(
     raise NotImplementedError(f"Unknown flags: {flags_str!r}")
 
 
-def assert_option_accepted(
-    option: str, value: str, returncode: int, stderr: str
-) -> None:
+def assert_option_accepted(option: str, value: str, returncode: int, stderr: str) -> None:
     """Assert that a CLI option was accepted (zero exit or no error in stderr)."""
     if option in ("mutation-warning", "timeout-factor", "pytest-args"):
         default_values = {
@@ -92,16 +88,12 @@ def assert_option_accepted(
                 f"Unexpected error with default {option}:\n{stderr}"
             )
         else:
-            assert returncode == 0, (
-                f"Expected accepted with --{option}={value}, got rc={returncode}\n{stderr}"
-            )
+            assert returncode == 0, f"Expected accepted with --{option}={value}, got rc={returncode}\n{stderr}"
     elif option == "max-workers":
         if value == "serial":
             assert returncode == 0 or "error" not in stderr.lower()
         else:
-            assert returncode == 0, (
-                f"Expected accepted with --max-workers={value}\n{stderr}"
-            )
+            assert returncode == 0, f"Expected accepted with --max-workers={value}\n{stderr}"
 
 
 def described_args(description: str, src: str) -> list[str]:
@@ -123,9 +115,7 @@ def require_result(result) -> object:
 
 
 def assert_accepted(returncode: int, stdout: str, stderr: str) -> None:
-    assert returncode == 0, (
-        f"Expected accepted (rc=0), got rc={returncode}\nstdout: {stdout}\nstderr: {stderr}"
-    )
+    assert returncode == 0, f"Expected accepted (rc=0), got rc={returncode}\nstdout: {stdout}\nstderr: {stderr}"
 
 
 def assert_usage_error(returncode: int, stdout: str, stderr: str) -> None:
@@ -149,26 +139,16 @@ def assert_no_analysis(stdout: str) -> None:
 
 
 def assert_usage_printed(stdout: str) -> None:
-    assert "usage:" in stdout.lower() or "mutate4py" in stdout, (
-        f"Expected usage summary in stdout:\n{stdout}"
-    )
+    assert "usage:" in stdout.lower() or "mutate4py" in stdout, f"Expected usage summary in stdout:\n{stdout}"
 
 
 def assert_usage_lists_max_workers(stdout: str) -> None:
-    assert "--max-workers" in stdout, (
-        f"Expected '--max-workers' in usage output:\n{stdout}"
-    )
+    assert "--max-workers" in stdout, f"Expected '--max-workers' in usage output:\n{stdout}"
 
 
-def assert_worker_count(
-    dispatch_max_workers: int | None, count: str, returncode: int, stderr: str
-) -> None:
-    assert returncode == 0, (
-        f"Expected accepted run with --max-workers {count}:\n{stderr}"
-    )
-    assert dispatch_max_workers == int(count), (
-        f"Expected dispatch_max_workers={count}, got {dispatch_max_workers}"
-    )
+def assert_worker_count(dispatch_max_workers: int | None, count: str, returncode: int, stderr: str) -> None:
+    assert returncode == 0, f"Expected accepted run with --max-workers {count}:\n{stderr}"
+    assert dispatch_max_workers == int(count), f"Expected dispatch_max_workers={count}, got {dispatch_max_workers}"
 
 
 def source_file_run_args(flag_str: str, src: str) -> list[str]:
@@ -234,31 +214,109 @@ def reported_manifest_files(stdout: str) -> list[str]:
 def assert_only_reported(stdout: str, expected: str) -> None:
     """Assert the run reported on exactly one file, and that it is `expected`."""
     reported = reported_manifest_files(stdout)
-    assert reported == [expected], (
-        f"Expected only {expected!r} to be reported, got {reported}:\n{stdout}"
-    )
+    assert reported == [expected], f"Expected only {expected!r} to be reported, got {reported}:\n{stdout}"
 
 
 def assert_all_reported(stdout: str, expected: list[str]) -> None:
     """Assert the run reported on exactly this set of files (order-independent —
     a union batch's per-root order isn't what this scenario is pinning)."""
     reported = set(reported_manifest_files(stdout))
-    assert reported == set(expected), (
-        f"Expected {expected!r} to be reported, got {reported}:\n{stdout}"
-    )
+    assert reported == set(expected), f"Expected {expected!r} to be reported, got {reported}:\n{stdout}"
 
 
-def assert_dispatched_to(
-    target: str, returncode: int, stdout: str, stderr: str
-) -> None:
+def assert_dispatched_to(target: str, returncode: int, stdout: str, stderr: str) -> None:
     """Assert that the CLI dispatched to the expected behaviour."""
     if target == "scan surface":
         assert "Mutation scan:" in stdout, f"Expected scan output:\n{stdout}"
     elif target == "manifest write":
         assert "manifest" in stdout.lower(), f"Expected manifest output:\n{stdout}"
     elif target == "run loop":
-        assert "Mutation run:" in stdout or returncode == 0, (
-            f"Expected run loop output:\n{stdout}\nstderr: {stderr}"
-        )
+        assert "Mutation run:" in stdout or returncode == 0, f"Expected run loop output:\n{stdout}\nstderr: {stderr}"
     else:
         raise NotImplementedError(f"Unknown target: {target!r}")
+
+
+def write_placeholder_venv(root: str) -> str:
+    """Create `<root>/.venv/bin/python` as an empty placeholder and return the
+    `.venv` path. The startup env check only tests that the interpreter file
+    exists, so the placeholder is never executed."""
+    bin_dir = os.path.join(root, ".venv", "bin")
+    os.makedirs(bin_dir, exist_ok=True)
+    with open(os.path.join(bin_dir, "python"), "w") as f:
+        f.write("")
+    return os.path.join(root, ".venv")
+
+
+def write_pyproject(root: str) -> str:
+    """Write a minimal `pyproject.toml` under `root` so it is a project root."""
+    path = os.path.join(root, "pyproject.toml")
+    with open(path, "w") as f:
+        f.write('[project]\nname = "demo"\nversion = "0.0.0"\n')
+    return path
+
+
+def write_baseline_sentinel(root: str) -> str:
+    """Write a `tests/test_sentinel.py` whose only effect is to create a marker
+    file next to it. Returns the marker path: it exists only if pytest (the
+    baseline) actually ran the test."""
+    tests_dir = os.path.join(root, "tests")
+    os.makedirs(tests_dir, exist_ok=True)
+    with open(os.path.join(tests_dir, "test_sentinel.py"), "w") as f:
+        f.write(
+            "import os\n\n\n"
+            "def test_sentinel():\n"
+            '    open(os.path.join(os.path.dirname(__file__), "baseline_ran"), "w").close()\n'
+        )
+    return os.path.join(tests_dir, "baseline_ran")
+
+
+def assert_exit_status(returncode: int, expected: int) -> None:
+    assert returncode == expected, f"Expected exit status {expected}, got {returncode}"
+
+
+def assert_names_interpreters(output: str, running_prefix: str, env_path: str) -> None:
+    """Assert the rejection message names both the running interpreter prefix
+    and the project environment it was checked against."""
+    assert running_prefix in output, f"Expected running interpreter {running_prefix!r} named in:\n{output}"
+    assert env_path in output, f"Expected project environment {env_path!r} named in:\n{output}"
+
+
+def assert_no_baseline_run(marker_path: str) -> None:
+    assert not os.path.exists(marker_path), f"Baseline pytest ran: marker {marker_path} exists"
+
+
+def run_with_running_interpreter(args: list[str], cwd: str) -> subprocess.CompletedProcess:
+    """Run mutate4py under the interpreter executing these steps. Not `uv run`:
+    uv would sync a project found in cwd, creating the very project env a
+    scenario needs to be absent, and in a temp dir with a fake .venv and no
+    pyproject.toml it fails to spawn mutate4py before the startup env check."""
+    return subprocess.run(
+        [sys.executable, "-m", "mutate4py", *args],
+        capture_output=True,
+        text=True,
+        cwd=cwd,
+    )
+
+
+def resolve_literal(cmd_str: str, src: str, lcov: str | None, fake: str | None, tmpdir: str) -> list[str]:
+    """Resolve a literal "mutate4py ..." feature string to CLI args (no 'mutate4py').
+    `<file>`, `cov.info` and `<fake>` stand for the source file, the LCOV fixture
+    and the fake pytest command; `cov.info` falls back to a file under tmpdir."""
+    parts = cmd_str.split()
+    if parts and parts[0] == "mutate4py":
+        parts = parts[1:]
+    resolved = []
+    for part in parts:
+        if part == "<file>":
+            resolved.append(src)
+        elif part == "cov.info":
+            resolved.append(lcov or os.path.join(tmpdir, "cov.info"))
+        elif part == "<fake>":
+            resolved.append(fake or "")
+        else:
+            resolved.append(part)
+    return resolved
+
+
+def assert_baseline_run(marker_path: str) -> None:
+    assert os.path.exists(marker_path), f"Baseline pytest did not run: marker {marker_path} is missing"

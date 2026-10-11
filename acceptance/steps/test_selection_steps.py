@@ -121,12 +121,13 @@ def _default_source() -> str:
 
 
 def _write_uv_project_files(d: str) -> None:
-    """A minimal uv project (pyproject.toml + a pre-created empty uv.lock) so
-    a real --max-workers run's per-Worker `uv sync` provisioning succeeds
-    against this tmpdir, mirroring parallel_workers_steps.py's
-    _make_project_dir(). Only the composition scenario's Worker copies need
-    this; every other scenario here stays on the serial path and never
-    shells out to uv."""
+    """A minimal uv project whose dev group declares pytest, so a real
+    --max-workers run's per-Worker `uv sync` provisioning succeeds against
+    this tmpdir and the Worker venv can run pytest. Mirrors
+    parallel_workers_steps.py's _make_project_dir(), including no pre-made
+    uv.lock (it would not list pytest). Only the composition scenario's
+    Worker copies need this; every other scenario here stays on the serial
+    path and never shells out to uv."""
     with open(os.path.join(d, "pyproject.toml"), "w") as f:
         f.write(
             textwrap.dedent("""\
@@ -135,10 +136,11 @@ def _write_uv_project_files(d: str) -> None:
                 version = "0.1.0"
                 requires-python = ">=3.11"
                 dependencies = []
+
+                [dependency-groups]
+                dev = ["pytest==9.1.1"]
             """)
         )
-    with open(os.path.join(d, "uv.lock"), "w") as f:
-        f.write('version = 1\nrequires-python = ">=3.11"\n')
 
 
 def _write_arg_logging_fixture(cwd: str, log_path: str) -> None:
