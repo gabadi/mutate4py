@@ -10,7 +10,7 @@ from ._pytest_project_helpers import (
     write_sleep_if_mutated_pytest_project,
 )
 from mutate4py._discovery import discover_sites
-from mutate4py._manifest import build_manifest, embed_manifest
+from mutate4py._manifest import build_manifest, embed_manifest, strip_manifest
 from mutate4py._runner import (
     CoverageSource,
     RunMutationsRequest,
@@ -110,7 +110,7 @@ def test_run_mutations_survived_mutant(tmp_path):
         )
     output = buf.getvalue()
     n_sites = len(sites)
-    assert rc == 0
+    assert rc == 3
     assert "survived" in output
     assert "Survived: 1" in output
     assert "Survivors:" in output
@@ -160,7 +160,7 @@ def test_run_mutations_survives_project_addopts_that_enable_coverage(tmp_path):
             )
         )
     output = buf.getvalue()
-    assert rc == 0, output
+    assert rc == 3, output
     assert "Mutation Report" in output
     assert "Survived: 1" in output
 
@@ -205,7 +205,7 @@ def test_run_mutations_sidecar_writes_manifest_file_and_footer_free_source(tmp_p
             )
         )
 
-    assert rc == 0
+    assert rc == 3
     with open(src_path) as f:
         final_source = f.read()
     assert final_source == src
@@ -254,7 +254,7 @@ def test_run_mutations_restores_source_after_run(tmp_path):
     # Source should have no mutant; bak should be gone
     with open(src_path) as f:
         final = f.read()
-    assert sites[0].mutant_text not in final
+    assert sites[0].mutant_text not in strip_manifest(final)
     assert not os.path.exists(src_path + ".bak")
 
 
@@ -302,20 +302,17 @@ def test_run_mutations_crash_safety_restores_bak(tmp_path):
 
 
 @pytest.mark.component
-def test_run_mutations_preserves_tested_at_when_manifest_already_current(tmp_path):
-    """A scored --mutate-all run against source whose embedded manifest already
-    matches (module/function hashes unchanged) retains the OLD tested_at instead
-    of bumping it to now — i.e. the second of two runs on unchanged source produces
-    no diff. Uses a deliberately old tested_at so the assertion can't pass by luck
-    if both runs happen to land within the same wall-clock second."""
+def test_run_mutations_refreshes_tested_at_on_scored_run_over_unscored_manifest(tmp_path):
+    """A scored --mutate-all run over an unscored manifest (a 0.1.4 manifest)
+    records the score blocks, so the manifest content changes and tested_at is
+    bumped to now. Idempotence of a repeated identical run is
+    pinned separately in test_run_idempotence.py. Uses a deliberately old
+    tested_at so the assertion can't pass by luck within one wall-clock second."""
     import json
-
-    from mutate4py._manifest import build_manifest, embed_manifest
 
     src = "def f(a, b):\n    return a > b\n"
     old_tested_at = "2020-01-01T00:00:00Z"
-    manifest = build_manifest(src, tested_at=old_tested_at)
-    source_with_manifest = embed_manifest(src, manifest)
+    source_with_manifest = embed_manifest(src, build_manifest(src, tested_at=old_tested_at))
 
     src_path = str(tmp_path / "calc.py")
     with open(src_path, "w") as f:
@@ -353,8 +350,9 @@ def test_run_mutations_preserves_tested_at_when_manifest_already_current(tmp_pat
         content = f.read()
     manifest_line = [ln for ln in content.splitlines() if ln.startswith("# {")][0]
     result_manifest = json.loads(manifest_line[2:])
-    assert result_manifest["tested_at"] == old_tested_at
-    assert content == source_with_manifest
+    assert result_manifest["tested_at"] != old_tested_at
+    assert result_manifest["functions"][0]["score"] == {"killed": 0, "survived": 1, "uncovered": 0}
+    assert result_manifest["functions"][0]["survivors"] == [{"line": 2, "desc": "a > b -> a >= b"}]
 
 
 @pytest.mark.component

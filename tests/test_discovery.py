@@ -1,9 +1,13 @@
 """Unit tests for mutation site discovery (F1 — site-discovery)."""
 
 import ast
+import pathlib
 import textwrap
 import pytest
-from mutate4py._discovery import discover_sites
+from mutate4py._discovery import apply_mutant, discover_sites
+from mutate4py._site_selection import _select_sites
+
+_SRC_DIR = pathlib.Path(__file__).resolve().parents[1] / "src" / "mutate4py"
 
 
 def scan(src: str):
@@ -36,6 +40,8 @@ def scan(src: str):
         ("x = False", 1),
         ("x = 0", 1),
         ("x = 1", 1),
+        ("x = not a", 1),
+        ("x = -a", 1),
     ],
 )
 def test_catalogued_construct_yields_one_site(expr, count):
@@ -53,7 +59,6 @@ def test_catalogued_construct_yields_one_site(expr, count):
         "a += b",
         "a -= b",
         "x = a / b",
-        "x = -a",
         "x = 2",
     ],
 )
@@ -148,12 +153,186 @@ def test_augassign_minus_excluded():
     assert scan("a -= b") == []
 
 
-# ── Unary minus is excluded ───────────────────────────────────────────────────
+# ── Unary not and unary minus (ADR 0024) ──────────────────────────────────────
+
+
+def _unary_sites(src: str):
+    return [s for s in discover_sites(src) if s.orig_text in ("not", "-")]
+
+
+def _unary_mutants(src: str):
+    """Yield (site, mutated_source) for every unary site in src."""
+    for site in discover_sites(src):
+        if site.orig_text in ("not", "-"):
+            yield site, apply_mutant(src, site)
+
+
+def _splice_unary(src: str) -> str:
+    """Apply the single unary site in src; the mutated source must parse."""
+    sites = _unary_sites(src)
+    assert len(sites) == 1
+    mutated = apply_mutant(src, sites[0])
+    ast.parse(mutated)
+    return mutated
 
 
 @pytest.mark.unit
-def test_unary_minus_excluded():
-    assert scan("x = -a") == []
+def test_unary_minus_yields_one_site():
+    assert [(s.orig_text, s.mutant_text) for s in scan("x = -a")] == [("-", "")]
+
+
+@pytest.mark.unit
+def test_unary_not_yields_one_site():
+    assert [(s.orig_text, s.mutant_text) for s in scan("x = not a")] == [("not", "")]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "src,desc",
+    [
+        ("if not x:\n    pass\n", "not x -> x"),
+        ("y = -y\n", "-y -> y"),
+        ("z = not(a)\n", "not(a) -> (a)"),
+        ("x = not  a\n", "not  a -> a"),
+        ("def f(x):\n    return-x\n", "-x -> x"),
+        ("x = (not a) and b\n", "not a -> a"),
+    ],
+)
+def test_unary_desc_is_node_source_with_operator_removed(src, desc):
+    # The splice span stays the operator token; only the report text shows the node.
+    assert [s.desc for s in _unary_sites(src)] == [desc]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "src,expected",
+    [
+        ("if not ok:\n    pass\n", "if ok:\n    pass\n"),
+        ("if x:\n    not a\n", "if x:\n    a\n"),
+        ("if x:\n    - a\n", "if x:\n    a\n"),
+        ("if-x:\n    pass\n", "if x:\n    pass\n"),
+        ("def f(x):\n    return-x\n", "def f(x):\n    return x\n"),
+        ("x=not a\n", "x=a\n"),
+        ("x = a - -b\n", "x = a - b\n"),
+        ("x = -(a + b)\n", "x = (a + b)\n"),
+        ('x = f"{-y}"\n', 'x = f"{y}"\n'),
+    ],
+)
+def test_unary_mutant_splices_to_expected_source(src, expected):
+    assert _splice_unary(src) == expected
+
+
+@pytest.mark.unit
+def test_negative_literal_yields_two_sites():
+    assert [(s.orig_text, s.mutant_text) for s in scan("x = -1")] == [("-", ""), ("1", "0")]
+
+
+@pytest.mark.unit
+def test_negative_zero_yields_only_constant_site():
+    # ADR 0024 (zero literals): unary minus on a numeric zero literal is equivalent, so no unary site.
+    assert [(s.orig_text, s.mutant_text) for s in scan("x = -0")] == [("0", "1")]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("expr", ["x = -0.0", "x = -0j"])
+def test_negative_float_and_complex_zero_yield_no_site(expr):
+    # ADR 0024 (zero literals): the zero exclusion covers every numeric zero literal, not only int 0.
+    assert scan(expr) == []
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("expr", ["x = -0", "x = -0.0", "x = -0j", "x = -0.0j", "x = -(0)"])
+def test_unary_minus_on_each_numeric_zero_type_yields_no_unary_site(expr):
+    # Exact rule: Constant of type int, float or complex with value == 0. Parentheses add no node.
+    assert _unary_sites(expr) == []
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("expr", ["x = -0.5", "x = -1.0", "x = -1j", "x = -False"])
+def test_unary_minus_on_non_zero_or_bool_still_yields_one_site(expr):
+    # bool is excluded from the zero rule (type(value) is checked exactly), so -False keeps its site.
+    assert len(_unary_sites(expr)) == 1
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("expr", ["x = a not in b", "x = a is not b"])
+def test_negated_comparison_yields_no_unary_site(expr):
+    assert _unary_sites(expr) == []
+
+
+@pytest.mark.unit
+def test_unary_site_selected_only_in_changed_function():
+    src = "def f(a):\n    return not a\n\ndef g(b):\n    return -b\n"
+    sites = scan(src)
+    not_site = next(s for s in sites if s.orig_text == "not")
+    minus_site = next(s for s in sites if s.orig_text == "-")
+    assert not_site.function_id != minus_site.function_id
+    covered = {s.line for s in sites}
+    _, selected = _select_sites(
+        sites,
+        covered,
+        {minus_site.function_id},
+        effective_since_last_run=True,
+        lines_filter=None,
+    )
+    assert [s.orig_text for s in selected] == ["-"]
+
+
+def _oracle_unary_count(source: str) -> int:
+    """Count unary sites straight from the AST, independently of discover_sites (ADR 0024)."""
+    count = 0
+    for node in ast.walk(ast.parse(source)):
+        if not (isinstance(node, ast.UnaryOp) and type(node.op) in (ast.Not, ast.USub)):
+            continue
+        operand = node.operand
+        zero_negation = (
+            type(node.op) is ast.USub
+            and isinstance(operand, ast.Constant)
+            and type(operand.value) in (int, float, complex)
+            and operand.value == 0
+        )
+        if not zero_negation:
+            count += 1
+    return count
+
+
+@pytest.mark.unit
+def test_every_unary_mutant_in_src_parses():
+    total = 0
+    for path in sorted(_SRC_DIR.glob("*.py")):
+        source = path.read_text(encoding="utf-8")
+        mutants = list(_unary_mutants(source))
+        assert len(mutants) == _oracle_unary_count(source), path.name
+        for site, mutated in mutants:
+            try:
+                ast.parse(mutated)
+            except SyntaxError as exc:
+                pytest.fail(f"{path.name}:{site.line} {site.desc!r} does not parse: {exc}")
+        total += len(mutants)
+    assert total >= 40
+
+
+@pytest.mark.unit
+def test_double_unary_minus_yields_two_sites():
+    assert len(_unary_sites("x = --x\n")) == 2
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "src",
+    [
+        "if-x:\n    pass\n",
+        "x = not(a)\n",
+        "if x:\n    not a\n",
+        "x = --x\n",
+        "x = -1\n",
+    ],
+)
+def test_unary_edge_case_mutants_parse(src):
+    mutants = list(_unary_mutants(src))
+    assert mutants
+    for _site, mutated in mutants:
+        ast.parse(mutated)
 
 
 # ── Multiple sites in one file ────────────────────────────────────────────────
@@ -399,8 +578,6 @@ def test_discover_sites_sort_key_uses_line_and_col():
 
 
 # ── _mutate_compare: replace maxsplit=1 kills only first occurrence ───────────
-
-from mutate4py._discovery import apply_mutant  # noqa: E402
 
 
 @pytest.mark.unit

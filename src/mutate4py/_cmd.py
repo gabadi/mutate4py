@@ -3,6 +3,7 @@ already-built argument list directly, no shell.
 """
 
 import subprocess
+from collections.abc import Mapping
 
 __all__ = ["classify_exit_code", "run_argv"]
 
@@ -27,7 +28,7 @@ def classify_exit_code(returncode: int) -> str:
     return _ABORT_EXIT_CODES.get(returncode, "killed")
 
 
-def run_argv(argv: list[str], cwd: str, timeout: float) -> str:
+def run_argv(argv: list[str], cwd: str, timeout: float, env: Mapping[str, str] | None = None) -> str:
     """Run argv with no shell; return the classification: killed, timeout,
     survived, or an abort status (no-tests-collected, usage-error).
 
@@ -36,7 +37,7 @@ def run_argv(argv: list[str], cwd: str, timeout: float) -> str:
     which is mapped back to "killed" rather than left to crash the run.
     """
     try:
-        result = subprocess.run(argv, cwd=cwd, capture_output=True, timeout=timeout)
+        result = subprocess.run(argv, cwd=cwd, capture_output=True, timeout=timeout, env=env)
     except subprocess.TimeoutExpired:
         return "timeout"
     except OSError:

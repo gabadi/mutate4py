@@ -13,9 +13,11 @@ neither path may special-case the other.
 """
 
 import dataclasses
+import importlib.metadata
 import os
 import shutil
 import subprocess
+import sys
 import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -25,6 +27,11 @@ from mutate4py._discovery import Site, apply_mutant
 from mutate4py._executor import Executor
 from mutate4py._test_dispatch import _build_mutant_args, _check_execution_status
 from mutate4py._worker_protocol import WorkerProcessError, WorkerProcessExecutor
+from mutate4py._worker_provision import (
+    _copy_tree,
+    _link_import_root,
+    _provision_venv,
+)
 
 __all__ = ["ParallelRunError", "ParallelRunRequest", "WorkerFailureError", "run_parallel"]
 
@@ -87,17 +94,6 @@ class _WorkerDispatchPlan:
     n_workers: int
 
 
-_SKIP_ENTRIES = {
-    ".git",
-    "__pycache__",
-    ".venv",
-    ".pytest_cache",
-    ".mypy_cache",
-    ".ruff_cache",
-    ".mutate4py",
-}
-
-
 class ParallelRunError(Exception):
     pass
 
@@ -106,33 +102,17 @@ class WorkerFailureError(ParallelRunError):
     pass
 
 
-def _copy_tree(src_dir: str, dst_dir: str) -> None:
-    """Copy src_dir to dst_dir, skipping _SKIP_ENTRIES at any level."""
-    os.makedirs(dst_dir, exist_ok=True)
-    for entry in os.scandir(src_dir):
-        if entry.name in _SKIP_ENTRIES:
-            continue
-        dst = os.path.join(dst_dir, entry.name)
-        if entry.is_dir(follow_symlinks=False):
-            _copy_tree(entry.path, dst)
-        else:
-            shutil.copy2(entry.path, dst)
-
-
-def _provision_worker(worker_root: str) -> None:
-    """Run uv venv + uv sync to provision a worker copy."""
-    subprocess.run(
-        ["uv", "venv"],
-        cwd=worker_root,
-        capture_output=True,
-        check=True,
-    )
-    subprocess.run(
-        ["uv", "sync"],
-        cwd=worker_root,
-        capture_output=True,
-        check=True,
-    )
+def _provision_worker(worker_root: str, required: frozenset[str]) -> None:
+    """Provision one Worker copy; restate any uv or interpreter failure as a WorkerFailureError."""
+    try:
+        _provision_venv(worker_root, required)
+    except subprocess.CalledProcessError as e:
+        tail = "\n".join(e.stderr.splitlines()[-5:])
+        raise WorkerFailureError(f"{' '.join(e.cmd)} failed in {worker_root}: {tail}") from e
+    except OSError as e:
+        raise WorkerFailureError(f"could not run uv in {worker_root}: {e}") from e
+    except WorkerProcessError as e:
+        raise WorkerFailureError(str(e)) from e
 
 
 def _provision_worker_executors(
@@ -141,6 +121,7 @@ def _provision_worker_executors(
     *,
     forking_requested: bool,
     injected_executor: Executor | None,
+    source_root: str,
 ) -> list[Executor]:
     """One Executor per worker root: the shared injected fake when supplied
     (tests), a real per-Worker subprocess proxy otherwise.
@@ -159,6 +140,7 @@ def _provision_worker_executors(
             worker_root=root,
             guarded_path=os.path.join(root, source_rel),
             forking_requested=forking_requested,
+            source_root=source_root,
             worker_id=f"gw{i}",
         )
         for i, root in enumerate(worker_roots, start=1)
@@ -211,13 +193,29 @@ def _run_one_site(assignment: SiteAssignment, executor: Executor, settings: Work
     return result
 
 
+def _required_worker_distributions(real_cwd: str) -> frozenset[str]:
+    """The distributions every Worker venv must hold (ADR 0015): the project environment's
+    when the orchestrator runs under that `.venv`, else none (mutate4py's own venv, as in
+    the parallel-workers-15 acceptance scenario). mutate4py itself is never required."""
+    if os.path.realpath(sys.prefix) != os.path.realpath(os.path.join(real_cwd, ".venv")):
+        return frozenset()
+    names = {d.metadata["Name"].lower().replace("_", "-") for d in importlib.metadata.distributions()}
+    return frozenset(names - {"mutate4py"})
+
+
 def _provision_workers(run_root: str, n_workers: int, real_cwd: str) -> list[str]:
     """Create and provision n_workers isolated tree copies; return their root paths."""
     worker_roots = []
+    required = _required_worker_distributions(real_cwd)
     for k in range(1, n_workers + 1):
         worker_root = os.path.join(run_root, f"worker-{k}")
         _copy_tree(real_cwd, worker_root)
-        _provision_worker(worker_root)
+        _provision_worker(worker_root, required)
+        # The mutate4py package dir: the Worker's only route to mutate4py (no orchestrator site-packages).
+        try:
+            _link_import_root(worker_root, os.path.dirname(os.path.abspath(__file__)))
+        except (OSError, subprocess.CalledProcessError) as e:
+            raise WorkerFailureError(f"could not link the mutate4py import root for {worker_root}: {e}") from e
         worker_roots.append(worker_root)
     return worker_roots
 
@@ -362,6 +360,7 @@ def run_parallel(request: ParallelRunRequest) -> tuple[dict, list[Site], dict[st
             source_rel,
             forking_requested=request.forking_requested,
             injected_executor=request.executor,
+            source_root=real_cwd,
         )
         results = _dispatch_worker_groups(
             _WorkerDispatchPlan(

@@ -113,3 +113,14 @@ Feature: QA — the CLI surface is observable end-to-end through the command
     Given a minimal LCOV fixture covering the site and a fast fake pytest test
     When I invoke "mutate4py <file> --lcov cov.info --max-workers 4 --mutate-all --pytest-args <fake>"
     Then the command exits zero
+
+  # cli-surface-qa-6: a run from outside the project environment is rejected before any baseline
+  Scenario: a run from outside the project environment is rejected before any baseline
+    Given a minimal LCOV fixture covering the site and a fast fake pytest test
+    And a project .venv that the running interpreter is not
+    When I invoke "mutate4py <file> --lcov cov.info --pytest-args <fake>" with the running interpreter
+    Then the command exits with status "2"
+    And the printed output contains "is running under"
+    And the source file is byte-identical to before the run
+    And no ".mutate4py.bak" file was created
+    And no baseline pytest run is started

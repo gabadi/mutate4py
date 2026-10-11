@@ -1,141 +1,176 @@
 {
   "version": 1,
-  "tested_at": "2026-08-11T04:32:17Z",
-  "module_hash": "ec219a663c8d229c543e9108f73b404f7255aa090f6440a5188656ee9cf46af2",
-  "source_sha256": "f841f296b3712eb7e207ee0666fcfedb0be9b7adcc28b5f62329931dbf0432ae",
+  "tested_at": "2026-10-11T05:35:26Z",
+  "module_hash": "02f9b7b947d7cd7a6925257231e5ed184a28ff17a4b7702d25983e0f5e4aae57",
+  "source_sha256": "d4126b434204788f334e1801878466de89145d5688bbe0829278550ec979c4dd",
   "functions": [
     {
       "id": "func/_format_function_id",
       "name": "_format_function_id",
-      "line": 56,
-      "end_line": 75,
+      "line": 64,
+      "end_line": 83,
       "hash": "06ac0709c392bf86bcf433a9f0156ea03f3678580e128e45235f89f04e72813c"
     },
     {
       "id": "func/_build_line_index",
       "name": "_build_line_index",
-      "line": 78,
-      "end_line": 84,
+      "line": 86,
+      "end_line": 92,
       "hash": "f4d73a9a6cf58134ce39a4f68bf7fccf461f1b97cccc5014b3e1f344076a7bb1"
     },
     {
       "id": "func/_line_utf8_bytes",
       "name": "_line_utf8_bytes",
-      "line": 88,
-      "end_line": 91,
+      "line": 96,
+      "end_line": 99,
       "hash": "16eb7815afbf35810e3988d408ba4bc4c8075d6adb76adfdafd2fc9c44db30eb"
     },
     {
       "id": "func/_abs_offset",
       "name": "_abs_offset",
-      "line": 94,
-      "end_line": 105,
+      "line": 102,
+      "end_line": 113,
       "hash": "ac7828607b869f13515e285f26d5e38efbdbcee19625437f86a3f9f50091f3df"
     },
     {
       "id": "func/_node_text",
       "name": "_node_text",
-      "line": 108,
-      "end_line": 112,
+      "line": 116,
+      "end_line": 120,
       "hash": "398698d2a8e4c40b31903db1dc7b13cac117ac6801651f82480454011cb72190"
     },
     {
       "id": "func/_replace_op_token",
       "name": "_replace_op_token",
-      "line": 115,
-      "end_line": 117,
+      "line": 123,
+      "end_line": 125,
       "hash": "e42f2a3f5e08c3c459572580217a177b9bd7616cecc973a1eb867d9942be4990"
     },
     {
       "id": "func/_mutate_binop",
       "name": "_mutate_binop",
-      "line": 120,
-      "end_line": 137,
+      "line": 128,
+      "end_line": 145,
       "hash": "14727b0ad32ce25bc9ac31713a4fecab4cafa79835d83c4ae93434fdc5dde038"
     },
     {
       "id": "func/_mutate_compare",
       "name": "_mutate_compare",
-      "line": 140,
-      "end_line": 160,
+      "line": 148,
+      "end_line": 168,
       "hash": "0a2aa065cd6b29934150f36eb7404aa3101558c590e12f8dd590854d89541593"
     },
     {
       "id": "func/_mutate_boolop",
       "name": "_mutate_boolop",
-      "line": 163,
-      "end_line": 181,
+      "line": 171,
+      "end_line": 189,
       "hash": "e847ee5902e776301f333be63fc95f361c2729d85d50d2a827ab1674c52dec7b"
+    },
+    {
+      "id": "func/_neighbour_is_word",
+      "name": "_neighbour_is_word",
+      "line": 192,
+      "end_line": 194,
+      "hash": "ca940fcc966f53e1b7fe4cc1b9600e6a66c9ef04d10ef36dde51c7bd5a665c59"
+    },
+    {
+      "id": "func/_mutate_unary",
+      "name": "_mutate_unary",
+      "line": 197,
+      "end_line": 215,
+      "hash": "31b862731b4a87655ae9ef28cb1706f8410db9e1e424964fe1c0987b07088f78"
     },
     {
       "id": "func/_mutate_int_constant",
       "name": "_mutate_int_constant",
-      "line": 184,
-      "end_line": 189,
+      "line": 218,
+      "end_line": 223,
       "hash": "862aeb31bb0398db7991d3518303b7f15a824a494ba37b3f0f50235d258fe9ca"
     },
     {
       "id": "func/_mutate_constant",
       "name": "_mutate_constant",
-      "line": 192,
-      "end_line": 200,
+      "line": 226,
+      "end_line": 234,
       "hash": "fc08c8c10ca6fbbb71dc83a3817dc7165dabb8ab3ff74fe1380f4dd98e5cf173"
     },
     {
       "id": "func/apply_mutant",
       "name": "apply_mutant",
-      "line": 203,
-      "end_line": 208,
+      "line": 237,
+      "end_line": 242,
       "hash": "2818145ea8c7a882378dff39dee77904b7fb884ba71e66f397b152a9e2b64ed3"
     },
     {
       "id": "func/partition_sites",
       "name": "partition_sites",
-      "line": 211,
-      "end_line": 214,
+      "line": 245,
+      "end_line": 248,
       "hash": "8d4f8aa918751b9adec86597ccef52a8cf5e945461fe89ead98d842c0cb45793"
     },
     {
       "id": "func/discover_sites",
       "name": "discover_sites",
-      "line": 217,
-      "end_line": 237,
-      "hash": "9693afe2da9df505c30d8e4ebd24b30a315e13fe7e22ddbccca3c46da1dd7df2"
+      "line": 251,
+      "end_line": 271,
+      "hash": "9f53f9fdec434b0b53c8729b277f0e84fb09a13ea5442655d4e778c4171faa58"
     },
     {
       "id": "func/_walk",
       "name": "_walk",
-      "line": 240,
-      "end_line": 253,
-      "hash": "0740d0eb8d1c16cb9c4a5189378e7b8ab601ae7ae2d6f1f44a9685dd00ce48b7"
+      "line": 274,
+      "end_line": 287,
+      "hash": "e2d80f4fa0d5cc5becbf432ccc801b67a8e5adc472b42c7492aa7089c2b06f3c"
     },
     {
       "id": "func/_constant_is_mutable",
       "name": "_constant_is_mutable",
-      "line": 256,
-      "end_line": 259,
+      "line": 290,
+      "end_line": 293,
       "hash": "8bd89418a31200648d884abe84d2de354d7c5bf92a4835982395362db67d0913"
+    },
+    {
+      "id": "func/_is_zero_negation",
+      "name": "_is_zero_negation",
+      "line": 296,
+      "end_line": 304,
+      "hash": "7f1d2beb60af444b70ea495b530d5d37db19727103b24c3e1510711a39ba629f"
+    },
+    {
+      "id": "func/_compare_is_mutable",
+      "name": "_compare_is_mutable",
+      "line": 307,
+      "end_line": 308,
+      "hash": "485b888ae9bca89425d41cd01c5c92f766187b62e9122b4430372e34d9a17836"
+    },
+    {
+      "id": "func/_unary_is_mutable",
+      "name": "_unary_is_mutable",
+      "line": 311,
+      "end_line": 312,
+      "hash": "ce081497bdd6c76aad6b2e371e555dfa6f1b3143422c3063c5fa10830305c480"
     },
     {
       "id": "func/_is_mutable",
       "name": "_is_mutable",
-      "line": 262,
-      "end_line": 271,
-      "hash": "5e0281e3de16a7546103f2adcd905cd8ec4c5d726d2f872f17237b55bea5f8b1"
+      "line": 315,
+      "end_line": 324,
+      "hash": "e2a90968ac10b67a420e37e33cea6c0228126bb2644eb6e1ad293e25ada53be8"
     },
     {
       "id": "func/_dispatch_mutation",
       "name": "_dispatch_mutation",
-      "line": 274,
-      "end_line": 287,
+      "line": 327,
+      "end_line": 340,
       "hash": "a7abc85e386b1fef306a987d74adbc0217bd33761ee5b2d2eab2188626ba0570"
     },
     {
       "id": "func/_classify",
       "name": "_classify",
-      "line": 290,
-      "end_line": 314,
-      "hash": "0d0e008fffde3b863574dc9a8009ef6525ed7d32f7dabd606a41722c8117116d"
+      "line": 343,
+      "end_line": 375,
+      "hash": "d1896a7e9bb7c8e73f20aa8fd3562fb25c085cfdc00249f90eedcefd63811810"
     }
   ]
 }

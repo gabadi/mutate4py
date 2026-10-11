@@ -38,11 +38,12 @@ _CONSTRUCT_SOURCES = {
     "False": "x = False",
     "0": "x = 0",
     "1": "x = 1",
+    "not a": "x = not a",
+    "-a": "x = -a",
     # excluded
     "a += b": "a += b",
     "a -= b": "a -= b",
     "a / b": "x = a / b",
-    "-a": "x = -a",
     "2": "x = 2",
 }
 

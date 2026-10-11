@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "tested_at": "2026-10-11T12:34:21Z",
+  "module_hash": "5ad2aa2cfce9fa1f601edfbd87055abb1294fe112c16a9a18b566f3623b68910",
+  "source_sha256": "f7d3956a300cd875966ebc6635c32416a0cb56f42d7d6b60fb78500a955fac68",
+  "functions": [
+    {
+      "id": "func/update_manifest",
+      "name": "update_manifest",
+      "line": 27,
+      "end_line": 57,
+      "hash": "d25363552434a27b16f1edad7d68c90aab1a8dba9407042dc4a854ed8d59b9d3"
+    },
+    {
+      "id": "func/check_manifest",
+      "name": "check_manifest",
+      "line": 60,
+      "end_line": 80,
+      "hash": "27ef2a0d93b2a5adcf7a19a7deb4cbf0a76ceee99f24ee44e43c57d44fd607eb"
+    },
+    {
+      "id": "func/_fast_path_current",
+      "name": "_fast_path_current",
+      "line": 83,
+      "end_line": 90,
+      "hash": "ba6c6efe549b3f2f67501001abaa27641ac9a86729d6ad139ba4479d00f74c32"
+    },
+    {
+      "id": "func/_report_unmarked",
+      "name": "_report_unmarked",
+      "line": 93,
+      "end_line": 101,
+      "hash": "825e4ec8bf0876f4b84edfd91ccaf750467ddb0c35981ca87d0168ffe55d7db5"
+    },
+    {
+      "id": "func/_verdict",
+      "name": "_verdict",
+      "line": 104,
+      "end_line": 110,
+      "hash": "a48d335124d580dff0891777d06b5e3058975849ca5584919c1ebd1d0199bdab"
+    },
+    {
+      "id": "func/_report_survivors",
+      "name": "_report_survivors",
+      "line": 113,
+      "end_line": 121,
+      "hash": "51737a475bc3f883c98a694fdd822804ee787975c51682104be6d563c2603a47"
+    },
+    {
+      "id": "func/_source_unchanged",
+      "name": "_source_unchanged",
+      "line": 124,
+      "end_line": 127,
+      "hash": "0d97e353d724e2648c715eb680022b3134498f09fa3809c266a1166d3a180f3d"
+    }
+  ]
+}

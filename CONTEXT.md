@@ -52,6 +52,16 @@ alone; behaviour-affecting edits change it.
 Re-testing only the Sites whose Function unit changed since the last Manifest. The
 default once a Manifest exists.
 
+**Accepted equivalent**:
+A survived Mutant whose Site line carries `# mutate4py: equivalent <reason>`. Recorded
+under the Function unit's `accepted` list with its reason; it does not fail the run.
+_Avoid_: ignored, suppressed
+
+**Unscored**:
+A Function unit whose Manifest entry has no `score` (written before 0.1.5, or never
+fully selected by a scored run). `--check-manifest` judges it on hashes alone.
+_Avoid_: clean
+
 ### Coverage
 
 **Coverage gate**:
@@ -77,6 +87,15 @@ the subprocess executor is the always-correct fallback.
 An isolated tree copy of the working directory with its own provisioned environment,
 mutating its own file copy. Parallelism unit.
 _Avoid_: thread, process, job
+
+**Import root**:
+A symlink-only directory that supplies the `mutate4py` package to a Worker venv as a fallback after site-packages.
+
+**Worker venv**:
+`<worker_root>/.venv`, built with `uv sync` pinned to the orchestrator's Python, in which a Worker's server and pytest run.
+
+**Project environment**:
+The target project's `.venv`, or a `uv run --with` overlay on it; scored runs must run under it.
 
 **Selected sites**:
 The covered Sites actually mutated, after line filtering and differential selection.

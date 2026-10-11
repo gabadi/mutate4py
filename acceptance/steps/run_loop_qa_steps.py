@@ -8,6 +8,7 @@ import textwrap
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
+from acceptance.steps.cli_surface_helpers import survivor_flag
 from acceptance.steps.run_loop_qa_helpers import (
     BODY_ALWAYS_FAIL,
     BODY_ALWAYS_PASS,
@@ -221,6 +222,9 @@ def when_qa_runs(m, params):
     parts = cmd_str.split()
     d = _tmpdir()
     resolved = [part for part in parts if part != "mutate4py"]  # handled via uv run
+    # Scored runs that do not test the survivor gate (run-loop.feature does):
+    # pass --allow-survivors and keep asserting exit 0.
+    resolved += survivor_flag(resolved)
     ctx.cli_result = subprocess.run(
         ["uv", "run", "mutate4py"] + resolved,
         capture_output=True,

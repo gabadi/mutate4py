@@ -1,6 +1,6 @@
-# mutation-stamp: sha256=4df2244f077c73c84889e43adcd1ff9e775e30d702a30fed346d37358a87c0ab
+# mutation-stamp: sha256=04c77ce4b315e0afe6e59d84baf7d04fcd555dfa031ec1159322c253772cb0ed
 # acceptance-mutation-manifest-begin
-# {"version":1,"tested_at":"2026-07-02T14:16:59.195836Z","feature_name":"The mutation run loop and report","feature_path":"/Users/gabadi/workspace/addi/mutate4py/features/run-loop.feature","background_hash":"1dd133df71819ac82cc0542649edb76c526b89f2510b6d55591dcaf624a517b7","implementation_hash":"unknown","scenarios":[{"index":0,"name":"the mutated test run outcome decides the status","scenario_hash":"5c20b1a34cc756053da01e94ccc0f7f84d169f47ce95c6bc96f9de307d40fc7a","mutation_count":9,"result":{"Total":9,"Killed":9,"Survived":0,"Errors":0},"tested_at":"2026-07-02T03:16:07.283675Z"},{"index":1,"name":"the report tallies killed, survived, and uncovered","scenario_hash":"12cd32c4597148d5128e55ef3ad3c896f6ebb6ad1f654325460a27669518c56d","mutation_count":18,"result":{"Total":18,"Killed":18,"Survived":0,"Errors":0},"tested_at":"2026-06-29T05:44:27.546312Z"},{"index":3,"name":"the mutant timeout is derived from the baseline duration","scenario_hash":"2feaeab63069abb2092081d72eab50f0272e9ba79c6f3e5fe0e3434d96c6ae95","mutation_count":6,"result":{"Total":6,"Killed":6,"Survived":0,"Errors":0},"tested_at":"2026-06-29T05:44:27.546312Z"},{"index":5,"name":"effectiveSinceLastRun decides which covered sites are selected","scenario_hash":"a75c132f8a0ab35ab7c4f28b8eda86d6c719960eb51318b3041d5fc2a1da214e","mutation_count":16,"result":{"Total":16,"Killed":16,"Survived":0,"Errors":0},"tested_at":"2026-06-29T05:44:27.546312Z"},{"index":6,"name":"the uncovered block visibility follows the differential switch","scenario_hash":"cc1bf54068aee1f2a5506762562a26b3474c2676e54ed599b3a00bd063972c8c","mutation_count":12,"result":{"Total":12,"Killed":12,"Survived":0,"Errors":0},"tested_at":"2026-06-29T05:44:27.546312Z"},{"index":8,"name":"the over-threshold warning is conditional","scenario_hash":"b3de9810d9103a0fcbe4f82820857a8a4560dbcdb4c860bd3063426b79c00dea","mutation_count":6,"result":{"Total":6,"Killed":6,"Survived":0,"Errors":0},"tested_at":"2026-06-29T05:44:27.546312Z"}]}
+# {"version":1,"tested_at":"2026-10-11T14:06:30Z","feature_name":"The mutation run loop and report","feature_path":"/Users/gabadi/workspace/gabadi/saga-umf-integration/features/run-loop.feature","background_hash":"1dd133df71819ac82cc0542649edb76c526b89f2510b6d55591dcaf624a517b7","implementation_hash":"unknown","scenarios":[{"index":0,"name":"the mutated test run outcome decides the status","scenario_hash":"b38f6ff30f6a856a726a986dd802daa2a31c605eb78a809873fae27fb5bd1a33","mutation_count":9,"result":{"Total":9,"Killed":9,"Survived":0,"Errors":0},"tested_at":"2026-10-11T13:33:50Z"},{"index":1,"name":"a surviving mutant fails the scored run unless survivors are allowed","scenario_hash":"e304f1e6b1609270ad76c2db3a59be91c327f1f1fff2100144f92a292c063ef2","mutation_count":12,"result":{"Total":12,"Killed":12,"Survived":0,"Errors":0},"tested_at":"2026-10-11T13:33:50Z"},{"index":2,"name":"the report tallies killed, survived, and uncovered","scenario_hash":"9f539ad51b6519b9086521354cf2bfc1fee358e147d7576ecc176857f07019d5","mutation_count":18,"result":{"Total":18,"Killed":18,"Survived":0,"Errors":0},"tested_at":"2026-10-11T13:33:50Z"},{"index":4,"name":"the mutant timeout is derived from the baseline duration","scenario_hash":"30cc8301a6edd78ae17d97af7c2bc77d7381b956edc7f2a50806fbd95898bc23","mutation_count":6,"result":{"Total":6,"Killed":6,"Survived":0,"Errors":0},"tested_at":"2026-10-11T13:33:50Z"},{"index":6,"name":"effectiveSinceLastRun decides which covered sites are selected","scenario_hash":"74c76d4d6b510a39c294b19052a242d1f49251a13325d353b246a1fc424c44e0","mutation_count":16,"result":{"Total":16,"Killed":16,"Survived":0,"Errors":0},"tested_at":"2026-10-11T13:33:50Z"},{"index":7,"name":"the uncovered block visibility follows the differential switch","scenario_hash":"09f8b2b4cb934d8b6a6cd455d8aab53341518366241c3f11c0f704a68d07a564","mutation_count":12,"result":{"Total":12,"Killed":12,"Survived":0,"Errors":0},"tested_at":"2026-10-11T13:33:50Z"},{"index":9,"name":"the over-threshold warning is conditional","scenario_hash":"18c6b058de4ff5587921f4a4e1959d54f789de0372804c80a1684f3c1a4527fd","mutation_count":6,"result":{"Total":6,"Killed":6,"Survived":0,"Errors":0},"tested_at":"2026-10-11T13:33:50Z"}]}
 # acceptance-mutation-manifest-end
 
 Feature: The mutation run loop and report
@@ -128,6 +128,21 @@ Feature: The mutation run loop and report
       | exceed timeout | timeout | Killed  |
       | exit zero    | survived | Survived |
 
+  # run-loop-1b: a surviving mutant fails the scored run unless survivors are allowed
+  Scenario Outline: a surviving mutant fails the scored run unless survivors are allowed
+    Given the mutated test run will "<outcome>"
+    And the survivor gate is under test
+    And the flags supplied are "<flags>"
+    When I run mutate4py mutating that file
+    Then the command exits with status "<exit>"
+
+    Examples:
+      | outcome        | flags             | exit |
+      | exit zero      |                   | 3    |
+      | exit nonzero   |                   | 0    |
+      | exceed timeout |                   | 0    |
+      | exit zero      | --allow-survivors | 0    |
+
   # run-loop-2: the report folds timeout into Killed and lists only survivors
   Scenario Outline: the report tallies killed, survived, and uncovered
     Given <killed> mutants exit nonzero and <timed> time out and <survived> exit zero
@@ -243,3 +258,51 @@ Feature: The mutation run loop and report
     When I run mutate4py mutating that file with "--reuse-coverage"
     Then the output line "Reusing existing coverage; covered/uncovered classification may be stale." is printed
     And that line appears before the "Mutation run:" line
+
+  # run-loop-13: a surviving mutant is recorded in the sidecar and fails --check-manifest
+  Scenario: a surviving mutant is recorded in the sidecar and fails --check-manifest
+    Given the mutated test run will "exit zero"
+    And the survivor gate is under test
+    And the flags supplied are "--manifest-file"
+    When I run mutate4py mutating that file
+    Then the command exits with status "3"
+    And the sidecar manifest records a survivor for that mutant
+    And I run the manifest check on that file
+    Then the command exits with status "1"
+    And the output contains "Manifest has survivors:"
+
+  # run-loop-14: a recorded survivor is retried and cleared by the next default run
+  Scenario: killing a recorded survivor clears it on the next default run
+    Given the mutated test run will "exit zero"
+    And the survivor gate is under test
+    And the flags supplied are "--manifest-file"
+    When I run mutate4py mutating that file
+    Then the command exits with status "3"
+    And the sidecar manifest records a survivor for that mutant
+    And the mutated test run will "exit nonzero"
+    And I run mutate4py mutating that file
+    Then the command exits with status "0"
+    And the sidecar manifest records no survivors
+    And I run the manifest check on that file
+    Then the command exits with status "0"
+
+  # run-loop-15: an equivalent marker accepts the survivor and keeps its reason
+  Scenario: an equivalent marker accepts the survivor and keeps its reason
+    Given the mutated test run will "exit zero"
+    And the survivor gate is under test
+    And every site line carries "# mutate4py: equivalent same for all inputs"
+    And the flags supplied are "--manifest-file"
+    When I run mutate4py mutating that file
+    Then the command exits with status "0"
+    And the output contains "Accepted equivalents:"
+    And the sidecar manifest records the accepted reason "same for all inputs"
+
+  # run-loop-16: an equivalent marker with no reason is a usage error
+  Scenario: an equivalent marker with no reason is a usage error
+    Given the mutated test run will "exit zero"
+    And the survivor gate is under test
+    And every site line carries "# mutate4py: equivalent"
+    And the flags supplied are "--manifest-file"
+    When I run mutate4py mutating that file
+    Then the command exits with status "2"
+    And no "Mutation Report" is printed

@@ -35,7 +35,7 @@ packages = ["src/mutate4py"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["scripts"]
-addopts = "--tb=short --strict-markers --ignore=tests/fixtures/django_project --ignore=tests/fixtures/overlapping_coverage"
+addopts = "--tb=short --strict-markers --ignore=tests/fixtures/django_project --ignore=tests/fixtures/overlapping_coverage --ignore=tests/fixtures/plain_project"
 markers = [
     "unit: fast, fully isolated test; no real subprocess/fork execution. Runs in the test-unit gate, which is also where the coverage measurement is taken.",
     "component: exercises mutate4py's own pipeline in-process (real subprocess/fork spawns via an Executor), so it is slow -- but it still runs in this interpreter, so --cov-context=test sees it and it stays eligible for per-Mutant test narrowing. Excluded from test-unit's fast gate and, with it, from the coverage measurement; runs in test-component.",

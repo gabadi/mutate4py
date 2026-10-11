@@ -18,10 +18,22 @@ __all__ = [
 ]
 
 
+def _last_error_line(stdout: bytes | None) -> str | None:
+    """The last stdout line naming an `Error:`, or None. pytest prints import
+    failures to stdout, where stderr-only diagnosis cannot see them."""
+    for line in reversed((stdout or b"").decode(errors="replace").splitlines()):
+        if "Error:" in line:
+            return line.strip()
+    return None
+
+
 def _baseline_reason(result: subprocess.CompletedProcess) -> str:
     stderr = (result.stderr or b"").decode(errors="replace").strip()
     if stderr:
         return stderr.splitlines()[0]
+    error_line = _last_error_line(result.stdout)
+    if error_line:
+        return f"{error_line} (exit code {result.returncode})"
     return f"exit code {result.returncode}"
 
 

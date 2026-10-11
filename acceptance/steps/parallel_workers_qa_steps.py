@@ -11,6 +11,7 @@ import textwrap
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
+from acceptance.steps.cli_surface_helpers import survivor_flag
 from acceptance.steps.parallel_workers_qa_helpers import (
     BODY_ALWAYS_FAIL,
     BODY_ALWAYS_PASS,
@@ -76,18 +77,21 @@ def _reset():
     import textwrap as _tw
 
     d = tempfile.mkdtemp()
-    # Write minimal pyproject.toml so `uv sync` works in worker copies
+    # Minimal pyproject.toml whose dev group declares pytest, so `uv sync`
+    # installs pytest into each worker venv. No pre-made uv.lock: it would not
+    # list pytest, so uv re-resolves the dev group.
     pyproject = _tw.dedent("""\
         [project]
         name = "qa-fixture"
         version = "0.1.0"
         requires-python = ">=3.11"
         dependencies = []
+
+        [dependency-groups]
+        dev = ["pytest==9.1.1"]
     """)
     with open(os.path.join(d, "pyproject.toml"), "w") as f:
         f.write(pyproject)
-    with open(os.path.join(d, "uv.lock"), "w") as f:
-        f.write('version = 1\nrequires-python = ">=3.11"\n')
     ctx.tmpdir = d
     ctx.calc_path = None
     ctx.lcov_path = None
@@ -132,6 +136,9 @@ def _run_qa_cmd(cmd_str: str) -> subprocess.CompletedProcess:
             args.append(ctx.lcov_path)
         else:
             args.append(part)
+    # Scored runs that do not test the survivor gate: pass --allow-survivors
+    # and keep asserting exit 0.
+    args += survivor_flag(args)
     env = dict(os.environ)
     if ctx.inject_write_fail:
         env["_MUTATE4PY_TEST_WORKER_WRITE_FAIL"] = "1"

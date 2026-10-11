@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "tested_at": "2026-10-11T12:26:34Z",
+  "module_hash": "0bf1ed3552b6d46483a6fee741714a5d6132e0ea092e503da4533a00fd4fa244",
+  "source_sha256": "0fe0d8e8c0882318812f9971c4b35e0ce4a3a923a9eb1f306a12eef6057eed95",
+  "functions": [
+    {
+      "id": "func/marker_lines",
+      "name": "marker_lines",
+      "line": 14,
+      "end_line": 27,
+      "hash": "7d7bdc20f6cc302f5a50092685a2a142f99f46ad7033901cb383f013c72546c8"
+    },
+    {
+      "id": "func/equivalent_markers",
+      "name": "equivalent_markers",
+      "line": 30,
+      "end_line": 36,
+      "hash": "da547d49a6d0c9a235d36eadd034104d59d12ee7b3a7abb0b60b87fb81499125"
+    }
+  ]
+}

@@ -13,6 +13,7 @@ from mutate4py._manifest import (
     extract_manifest,
     strip_manifest,
 )
+from acceptance.steps.cli_surface_helpers import assert_exit_status
 from acceptance.steps.step_lib import (
     assert_nonzero_exit,
     make_registry,
@@ -412,6 +413,18 @@ def then_no_manifest_written(m, params):
     assert not os.path.exists(ctx.source_path), (
         f"file unexpectedly exists: {ctx.source_path}"
     )
+
+
+@step(r'the command "mutate4py <file> --check-manifest" is run')
+def when_cli_check_manifest(m, params):
+    ctx.cli_result = run_mutate4py(ctx.source_path, "--check-manifest")
+
+
+@step(r'the command exits with status "(\d+)"')
+def then_exit_status(m, params):
+    expected = int(params.get("exit") or m.group(1))
+    assert ctx.cli_result is not None, "no CLI result captured"
+    assert_exit_status(ctx.cli_result.returncode, expected, ctx.cli_result.stdout)
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────

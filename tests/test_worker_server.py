@@ -7,7 +7,8 @@ test_worker_protocol.py.
 import io
 import json
 
-from mutate4py._worker_server import _serve, parse_worker_argv, worker_environ_updates
+from mutate4py import _worker_server
+from mutate4py._worker_server import _serve, _worker_plugin_args, parse_worker_argv, worker_environ_updates
 import pytest
 
 
@@ -57,37 +58,51 @@ class _RecordingExecutor:
         return "survived"
 
 
-def _drive(executor, worker_id, *requests):
+def _drive(executor, plugin_args, *requests):
     instream = io.StringIO("".join(json.dumps(r) + "\n" for r in requests))
     outstream = io.StringIO()
-    _serve(executor, instream, outstream, worker_id=worker_id)
+    _serve(executor, instream, outstream, plugin_args=plugin_args)
     return [json.loads(line)["status"] for line in outstream.getvalue().splitlines()]
 
 
 @pytest.mark.unit
-def test_serve_appends_plugin_args_when_worker_id_set():
+def test_serve_appends_plugin_args_to_every_dispatch():
     executor = _RecordingExecutor()
-    _drive(executor, "gw2", {"args": ["-q", "tests"], "timeout": 5.0})
-    assert executor.calls == [["-q", "tests", "-p", "mutate4py._django_worker_plugin"]]
-
-
-@pytest.mark.unit
-def test_serve_leaves_args_untouched_without_worker_id():
-    executor = _RecordingExecutor()
-    _drive(executor, None, {"args": ["-q", "tests"], "timeout": 5.0})
-    assert executor.calls == [["-q", "tests"]]
-
-
-@pytest.mark.unit
-def test_serve_appends_plugin_args_on_every_dispatch():
-    executor = _RecordingExecutor()
-    _drive(
+    statuses = _drive(
         executor,
-        "gw0",
+        ["--no-cov", "-p", "mutate4py._django_worker_plugin"],
         {"args": ["-q", "a"], "timeout": 5.0},
         {"args": ["-q", "b"], "timeout": 5.0},
     )
+    assert statuses == ["survived", "survived"]
     assert executor.calls == [
-        ["-q", "a", "-p", "mutate4py._django_worker_plugin"],
-        ["-q", "b", "-p", "mutate4py._django_worker_plugin"],
+        ["-q", "a", "--no-cov", "-p", "mutate4py._django_worker_plugin"],
+        ["-q", "b", "--no-cov", "-p", "mutate4py._django_worker_plugin"],
     ]
+
+
+@pytest.mark.unit
+def test_serve_leaves_args_untouched_when_there_are_no_plugin_args():
+    executor = _RecordingExecutor()
+    _drive(executor, [], {"args": ["-q", "tests"], "timeout": 5.0})
+    assert executor.calls == [["-q", "tests"]]
+
+
+# ── plugin args ───────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_worker_plugin_args_neutralises_then_loads_the_django_plugin_for_a_worker_with_an_id(monkeypatch):
+    monkeypatch.setattr(_worker_server, "neutralising_args", lambda: ["--no-cov", "--benchmark-disable"])
+    assert _worker_plugin_args("gw1") == [
+        "--no-cov",
+        "--benchmark-disable",
+        "-p",
+        "mutate4py._django_worker_plugin",
+    ]
+
+
+@pytest.mark.unit
+def test_worker_plugin_args_without_a_worker_id_keeps_only_the_neutralising_args(monkeypatch):
+    monkeypatch.setattr(_worker_server, "neutralising_args", lambda: ["--no-cov"])
+    assert _worker_plugin_args(None) == ["--no-cov"]

@@ -1,85 +1,148 @@
 {
   "version": 1,
-  "tested_at": "2026-08-11T05:46:53Z",
-  "module_hash": "fe98d923b8e6881b21baff171fd487e99bd0a0ad0abd5a20de4937a5273a0788",
-  "source_sha256": "4207d02b6a71cdad4b9e2f054fea457dd229d71c318d99709d730b98807f3a7a",
+  "tested_at": "2026-10-11T14:06:20Z",
+  "module_hash": "e7c9b0c5f2dd014c82eaad8cce9ddf86f2a3845b9cc8e93f628e2be11a55da96",
+  "source_sha256": "031caa815a4a84a4bc8e9089630f39641057aea1190cfa95ee6d2dfed2189f23",
   "functions": [
     {
       "id": "func/ValidationError.__init__",
       "name": "__init__",
-      "line": 16,
-      "end_line": 18,
+      "line": 18,
+      "end_line": 20,
       "hash": "58b7e90ea79aa2e2cf50807fd85bc81fe66cf156098bec683efcad2941abe12b"
     },
     {
       "id": "func/_check_coverage_flags",
       "name": "_check_coverage_flags",
-      "line": 21,
-      "end_line": 25,
+      "line": 23,
+      "end_line": 27,
       "hash": "6dba055fafc941f034499e3acb52ccf1d0b1bca8099d2aadf9f4cfa7275246da"
     },
     {
       "id": "func/_no_run_flag",
       "name": "_no_run_flag",
-      "line": 28,
-      "end_line": 36,
+      "line": 30,
+      "end_line": 38,
       "hash": "d7c2e75aa759ea7ecff84de24e2462f9976689fdb71a4f1958b6c2352bdec396"
     },
     {
       "id": "func/_exit_incompatible",
       "name": "_exit_incompatible",
-      "line": 39,
-      "end_line": 40,
+      "line": 41,
+      "end_line": 42,
       "hash": "235efa5765062bda3712911d8fc253b9495c6b6a3ca7520319ce60e3333ed27d"
     },
     {
       "id": "func/_check_no_run_incompatibilities",
       "name": "_check_no_run_incompatibilities",
-      "line": 43,
-      "end_line": 55,
+      "line": 45,
+      "end_line": 57,
       "hash": "511a4918b982ad8e6f20c609ed979a229e0eddb12df1de6daa382c29a551a301"
+    },
+    {
+      "id": "func/_check_no_run_survivor_flag",
+      "name": "_check_no_run_survivor_flag",
+      "line": 60,
+      "end_line": 63,
+      "hash": "413b2e208bb4dd6cebcce9f2c6f3e910f58c2209cb3f6ac7b63702b604559d9b"
     },
     {
       "id": "func/_check_scan_only_incompatibilities",
       "name": "_check_scan_only_incompatibilities",
-      "line": 58,
-      "end_line": 65,
+      "line": 66,
+      "end_line": 73,
       "hash": "c9ffb2cc156517a0b5936e68fe161ab99569ed9ca041f24cd03d1e06b5b000f6"
     },
     {
       "id": "func/_check_build_test_contexts_incompatibilities",
       "name": "_check_build_test_contexts_incompatibilities",
-      "line": 68,
-      "end_line": 74,
+      "line": 76,
+      "end_line": 82,
       "hash": "68e9b52a97e280e7328b4d4687efef18a6b1d8b6ee0a5c2046ebc25b6c096a91"
     },
     {
       "id": "func/_check_selection_exclusivity",
       "name": "_check_selection_exclusivity",
-      "line": 77,
-      "end_line": 81,
+      "line": 85,
+      "end_line": 89,
       "hash": "f6f0fe3366fa14ccfe8b8b627665682a2ab7d078d99dae5b74fc383a2522ac52"
     },
     {
       "id": "func/_check_no_run_mode_specific_incompatibilities",
       "name": "_check_no_run_mode_specific_incompatibilities",
-      "line": 84,
-      "end_line": 89,
+      "line": 92,
+      "end_line": 97,
       "hash": "283058581b4a7e7db26263236683132b0f9edd8d1717febd6be8eacb5970d0bb"
     },
     {
       "id": "func/_validate_mutual_exclusions",
       "name": "_validate_mutual_exclusions",
-      "line": 92,
-      "end_line": 106,
-      "hash": "7f33f5484435618031ddce5a5c362c1f689111b682c2d36a92caf116b8a1f9d9"
+      "line": 100,
+      "end_line": 115,
+      "hash": "e59a79e8eb039b5b80beb9f93728f5b92b7dbd3efdc848b8f3b3a2ae86ec418a"
     },
     {
       "id": "func/_check_test_contexts_file",
       "name": "_check_test_contexts_file",
-      "line": 109,
-      "end_line": 111,
+      "line": 118,
+      "end_line": 120,
       "hash": "88768fdb1bba5a33e64dca30493cbf9087c87bc931be8a9bea284902f0edd910"
+    },
+    {
+      "id": "func/_nearest_project_root",
+      "name": "_nearest_project_root",
+      "line": 123,
+      "end_line": 134,
+      "hash": "460efc9410e8c7a7cff0733487aaeebc8f461ed5ce012d62837a387c729af0d1"
+    },
+    {
+      "id": "func/_env_mismatch_message",
+      "name": "_env_mismatch_message",
+      "line": 137,
+      "end_line": 143,
+      "hash": "17530e68e443d4add1bff4bc2d88be8e55aca10b4e0818db80fa30d69eeb6dfd"
+    },
+    {
+      "id": "func/_site_packages_dirs",
+      "name": "_site_packages_dirs",
+      "line": 146,
+      "end_line": 149,
+      "hash": "2b435d96c51157aecc75341f42940902a815c00448944d4bbd1bc2f9f14b7e21"
+    },
+    {
+      "id": "func/_pythonpath_entries",
+      "name": "_pythonpath_entries",
+      "line": 152,
+      "end_line": 153,
+      "hash": "d943adbf599a926a756134d1bd66db44bfde7b1c2eccf11d8611f9c457eceeaf"
+    },
+    {
+      "id": "func/_running_identity",
+      "name": "_running_identity",
+      "line": 156,
+      "end_line": 163,
+      "hash": "dac80fa293ebaa8f9674d274b11040c537298fc7d7d8c6bb567896b98895da4d"
+    },
+    {
+      "id": "func/_is_running_env",
+      "name": "_is_running_env",
+      "line": 166,
+      "end_line": 169,
+      "hash": "d5afd218484fbd762cdb714d1a7afc18d881e93db2a6e6982768cd3b6a86d13b"
+    },
+    {
+      "id": "func/check_project_env",
+      "name": "check_project_env",
+      "line": 172,
+      "end_line": 191,
+      "hash": "0c13f843b05d45da3fd3fe150ee50809b1fe4999ee3e530ad9efe7b9ca74c71d"
+    },
+    {
+      "id": "func/check_run_env",
+      "name": "check_run_env",
+      "line": 194,
+      "end_line": 206,
+      "hash": "b2330ec25705f68948c3393e0114349b166d281f2dcc5e3c4e48798505b65c7b"
     }
   ]
 }

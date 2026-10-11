@@ -3,6 +3,7 @@
 from mutate4py._discovery import Site
 from mutate4py._report import (
     OverheadInfo,
+    _accepted_block_lines,
     RunStats,
     _mutation_report_lines,
     _on_parallel_result,
@@ -418,3 +419,21 @@ def test_on_parallel_result_prints_the_formatted_line(capsys):
     _on_parallel_result(result)
     out = capsys.readouterr().out
     assert out == _parallel_progress_line(result) + "\n"
+
+
+# ── _accepted_block_lines ─────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_accepted_block_lines_format():
+    lines = _accepted_block_lines([(_make_site(0, 4, "func/f"), "same for all inputs")])
+    assert lines == [
+        "",
+        "Accepted equivalents:",
+        "  line 4 > -> >= func/f (equivalent: same for all inputs)",
+    ]
+
+
+@pytest.mark.unit
+def test_accepted_block_lines_empty():
+    assert _accepted_block_lines([]) == []

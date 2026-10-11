@@ -1,7 +1,6 @@
 """Step handlers for features/parallel-workers.feature (F6 parallel engine)."""
 
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -9,6 +8,7 @@ import textwrap
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
+from acceptance.steps.cli_surface_helpers import survivor_flag
 from acceptance.steps.step_lib import make_registry
 
 STEP_HANDLERS, step, run_step = make_registry()
@@ -30,6 +30,12 @@ class Context:
         self.worker_run_during: bool = False
         self.src_fixed: bool = False  # True if src_path must not be overwritten
         self.failure_mode: str | None = None
+        # Set for src-layout scenarios: the orchestrator's interpreter must see the
+        # original src as an installed package (ADR 0015), so it is put on PYTHONPATH.
+        self.orchestrator_pythonpath: str | None = None
+        # Set for the project-venv src-layout scenario: the orchestrator runs under the
+        # project's own .venv, where the original src is an editable install (ADR 0015).
+        self.orchestrator_python: str | None = None
 
 
 ctx = Context()
@@ -48,6 +54,8 @@ def _reset_ctx():
     ctx.worker_run_during = False
     ctx.src_fixed = False
     ctx.failure_mode = None
+    ctx.orchestrator_pythonpath = None
+    ctx.orchestrator_python = None
 
 
 def _make_lcov(source_abs: str, covered_lines: list[int]) -> str:
@@ -75,12 +83,13 @@ def _make_project_dir() -> str:
         version = "0.1.0"
         requires-python = ">=3.11"
         dependencies = []
+
+        [dependency-groups]
+        dev = ["pytest==9.1.1"]
     """)
     with open(os.path.join(d, "pyproject.toml"), "w") as f:
         f.write(pyproject)
-    # Pre-create uv.lock (empty) so uv sync is fast
-    with open(os.path.join(d, "uv.lock"), "w") as f:
-        f.write('version = 1\nrequires-python = ">=3.11"\n')
+    # No pre-made uv.lock: it would not list pytest, so uv re-resolves the dev group.
     return d
 
 
@@ -91,7 +100,7 @@ def _make_n_site_source(n: int) -> tuple[str, list[int]]:
     for i in range(1, n + 1):
         lines.append(f"def f{i}(a, b):")
         line_no = len(lines) + 1  # next line
-        lines.append(f"    return a > b")
+        lines.append("    return a > b")
         site_lines.append(line_no)
         lines.append("")
     return "\n".join(lines) + "\n", site_lines
@@ -166,9 +175,7 @@ def given_max_workers_flag_or_default(m, params):
     ctx.extra_cli_args = flag_str.split()
 
 
-@step(
-    r'a selected site with index "(\d+)" on line (\d+) in function "([^"]*)" mutating "([^"]*)" to "([^"]*)"'
-)
+@step(r'a selected site with index "(\d+)" on line (\d+) in function "([^"]*)" mutating "([^"]*)" to "([^"]*)"')
 def given_specific_site(m, params):
     # Build source so site.index=2 is in func/calc at line 7, and is the 2nd selected site.
     # Worker assignment uses site.index % n_workers + 1; with n_workers=4: (2%4)+1=3 → worker-3.
@@ -275,9 +282,7 @@ def given_site_outcome(m, params):
     _write_test(ctx.test_script, body)
 
 
-@step(
-    r'the file has "(\d+)" selected mutation sites at indexes "(\d+)", "(\d+)", "(\d+)"'
-)
+@step(r'the file has "(\d+)" selected mutation sites at indexes "(\d+)", "(\d+)", "(\d+)"')
 def given_sites_at_indexes(m, params):
     n = int(m.group(1))
     ctx.sites_count = n
@@ -323,8 +328,7 @@ def given_dir_has_entry(m, params):
         open(os.path.join(entry_path, "module.py"), "w").write("x = 1\n")
     else:
         raise ValueError(
-            f"Unknown working-directory entry fixture: {entry!r}; "
-            "expected one of .git, __pycache__, .mutate4py, src"
+            f"Unknown working-directory entry fixture: {entry!r}; expected one of .git, __pycache__, .mutate4py, src"
         )
 
 
@@ -346,6 +350,92 @@ def given_target_outside_cwd(m, params):
         _write_test(ctx.test_script, "def test_qa():\n    pass\n")
 
 
+_SRC_LAYOUT_SOURCE = "def add(a, b):\n    return a + b\n\n\ndef sub(a, b):\n    return a - b\n"
+_SRC_LAYOUT_TEST = (
+    "from demo import add, sub\n"
+    "\n"
+    "\n"
+    "def test_add():\n"
+    "    assert add(2, 3) == 5\n"
+    "\n"
+    "\n"
+    "def test_sub():\n"
+    "    assert sub(5, 3) == 2\n"
+)
+
+
+def _write_src_layout_project(d: str, *, with_cov: bool) -> str:
+    """Rewrite the project as a hatchling src-layout package; return the source path."""
+    dev = '"pytest==9.1.1", "pytest-cov"' if with_cov else '"pytest==9.1.1"'
+    pyproject = textwrap.dedent(f"""\
+        [project]
+        name = "demo"
+        version = "0.1.0"
+        requires-python = ">=3.11"
+        dependencies = []
+
+        [dependency-groups]
+        dev = [{dev}]
+
+        [build-system]
+        requires = ["hatchling==1.31.0"]
+        build-backend = "hatchling.build"
+
+        [tool.hatch.build.targets.wheel]
+        packages = ["src/demo"]
+    """)
+    with open(os.path.join(d, "pyproject.toml"), "w") as f:
+        f.write(pyproject)
+    pkg_dir = os.path.join(d, "src", "demo")
+    os.makedirs(pkg_dir, exist_ok=True)
+    src_path = os.path.join(pkg_dir, "__init__.py")
+    with open(src_path, "w") as f:
+        f.write(_SRC_LAYOUT_SOURCE)
+    _write_test(os.path.join(_tests_dir(d), "test_demo.py"), _SRC_LAYOUT_TEST)
+    return src_path
+
+
+def _write_src_layout_lcov() -> None:
+    ctx.lcov_path = os.path.join(ctx.project_dir, "cov.lcov")
+    with open(ctx.lcov_path, "w") as f:
+        # add's return is line 2, sub's return is line 6.
+        f.write(_make_lcov(ctx.src_path, [2, 6]))
+    ctx.sites_count = 2
+
+
+def _setup_src_layout(*, with_cov: bool) -> None:
+    d = ctx.project_dir
+    if d is None:
+        d = _make_project_dir()
+        ctx.project_dir = d
+    ctx.src_path = _write_src_layout_project(d, with_cov=with_cov)
+    ctx.orchestrator_pythonpath = os.path.join(d, "src")
+    _write_src_layout_lcov()
+
+
+def _setup_project_venv_src_layout() -> None:
+    """Scenario 14 (ADR 0015): the orchestrator runs under the project's own .venv, where the
+    original src is an editable install; _run_mutate4py invokes that interpreter."""
+    d = ctx.project_dir
+    if d is None:
+        d = _make_project_dir()
+        ctx.project_dir = d
+    ctx.src_path = _write_src_layout_project(d, with_cov=True)
+    subprocess.run(["uv", "sync"], cwd=d, check=True)
+    ctx.orchestrator_python = os.path.join(d, ".venv", "bin", "python")
+    _write_src_layout_lcov()
+
+
+@step(r"the project is a src-layout editable package with pytest and pytest-cov")
+def given_src_layout_with_cov(m, params):
+    _setup_project_venv_src_layout()
+
+
+@step(r"the project is a src-layout editable package with pytest but without pytest-cov")
+def given_src_layout_without_cov(m, params):
+    _setup_src_layout(with_cov=False)
+
+
 @step(r'"([^"]*)" occurs during the parallel run')
 def given_failure_scenario(m, params):
     failure = params.get("failure") or m.group(1)
@@ -360,40 +450,67 @@ def given_failure_scenario(m, params):
 # ── When ──────────────────────────────────────────────────────────────────────
 
 
-@step(r"I run mutate4py mutating that file")
-def when_run_mutate4py(m, params):
-    extra = list(ctx.extra_cli_args)
+def _run_mutate4py(extra: list[str]) -> subprocess.CompletedProcess:
     env = dict(os.environ)
+    if ctx.orchestrator_python:
+        # REPO_ROOT/src lies outside the project, so the Worker rebase leaves it alone.
+        env["PYTHONPATH"] = os.path.join(REPO_ROOT, "src")
+        cmd = [ctx.orchestrator_python, "-m", "mutate4py"]
+    else:
+        cmd = ["uv", "run", "--project", REPO_ROOT, "python", "-m", "mutate4py"]
+        if ctx.orchestrator_pythonpath:
+            env["PYTHONPATH"] = ctx.orchestrator_pythonpath
     failure_mode = getattr(ctx, "failure_mode", None)
     if failure_mode == "write_failure":
         env["_MUTATE4PY_TEST_WORKER_WRITE_FAIL"] = "1"
     elif failure_mode == "short_result":
         env["_MUTATE4PY_TEST_WORKER_SHORT_RESULT"] = "1"
-    result = subprocess.run(
-        [
-            "uv",
-            "run",
-            "--project",
-            REPO_ROOT,
-            "python",
-            "-m",
-            "mutate4py",
-            ctx.src_path,
-            "--lcov",
-            ctx.lcov_path,
-            "--pytest-args",
-            "tests",
-        ]
-        + extra,
+    # Scored run: an unaccepted survivor exits 3. These scenarios test worker
+    # behaviour, not the survivor gate, so they allow survivors and assert exit 0.
+    args = cmd + [ctx.src_path, "--lcov", ctx.lcov_path, "--pytest-args", "tests"] + extra
+    args += survivor_flag(args)
+    return subprocess.run(
+        args,
         capture_output=True,
         text=True,
         cwd=ctx.project_dir,
         env=env,
     )
-    ctx.cli_result = result
+
+
+@step(r"I run mutate4py mutating that file")
+def when_run_mutate4py(m, params):
+    ctx.cli_result = _run_mutate4py(list(ctx.extra_cli_args))
 
 
 # ── Then steps ────────────────────────────────────────────────────────────────
+
+
+@step(r"the same file run without --max-workers reports the same Killed and Survived counts")
+def then_serial_counts_match(m, params):
+    import re as _re
+
+    serial_args: list[str] = []
+    skip_value = False
+    for arg in ctx.extra_cli_args:
+        if skip_value:
+            skip_value = False
+        elif arg == "--max-workers":
+            skip_value = True
+        else:
+            serial_args.append(arg)
+    # The parallel run embeds a manifest into the source; restore the original text so the
+    # serial run mutates the same input rather than selecting 0 unchanged sites.
+    with open(ctx.src_path, "w") as f:
+        f.write(_SRC_LAYOUT_SOURCE)
+    serial = _run_mutate4py(serial_args)
+    for tally in ("Killed", "Survived"):
+        parallel_m = _re.search(rf"{tally}: (\d+)", ctx.cli_result.stdout)
+        serial_m = _re.search(rf"{tally}: (\d+)", serial.stdout)
+        assert parallel_m and serial_m, f"Expected {tally} in both runs:\n{ctx.cli_result.stdout}\n{serial.stdout}"
+        assert parallel_m.group(1) == serial_m.group(1), (
+            f"{tally}: parallel {parallel_m.group(1)} != serial {serial_m.group(1)}"
+        )
 
 
 @step(r'the run takes the "([^"]*)" path')
@@ -403,19 +520,13 @@ def then_takes_path(m, params):
     if path == "serial":
         for line in stdout.splitlines():
             if line.startswith("["):
-                assert "worker-" not in line, (
-                    f"Expected serial path but got worker token: {line}"
-                )
+                assert "worker-" not in line, f"Expected serial path but got worker token: {line}"
     elif path == "parallel":
         progress = [ln for ln in stdout.splitlines() if ln.startswith("[")]
         assert progress, f"No progress lines; parallel path expected. stdout:\n{stdout}"
-        assert any("worker-" in ln for ln in progress), (
-            f"Expected worker-k token in progress lines. stdout:\n{stdout}"
-        )
+        assert any("worker-" in ln for ln in progress), f"Expected worker-k token in progress lines. stdout:\n{stdout}"
     else:
-        raise AssertionError(
-            f"Unknown path value: {path!r}; expected 'serial' or 'parallel'"
-        )
+        raise AssertionError(f"Unknown path value: {path!r}; expected 'serial' or 'parallel'")
 
 
 @step(r'the output line "Mutation workers: (\d+)" is printed')
@@ -439,13 +550,9 @@ def then_workers_header_visibility(m, params):
     vis = params.get("visibility") or m.group(1)
     stdout = ctx.cli_result.stdout
     if vis == "is":
-        assert "Mutation workers:" in stdout, (
-            f"Expected 'Mutation workers:' in:\n{stdout}"
-        )
+        assert "Mutation workers:" in stdout, f"Expected 'Mutation workers:' in:\n{stdout}"
     elif vis == "is not":
-        assert "Mutation workers:" not in stdout, (
-            f"Did not expect 'Mutation workers:' in:\n{stdout}"
-        )
+        assert "Mutation workers:" not in stdout, f"Did not expect 'Mutation workers:' in:\n{stdout}"
     else:
         raise AssertionError(f"Unknown visibility value: {vis!r}; expected 'is' or 'is not'")
 
@@ -466,9 +573,7 @@ def then_worker_token_visibility(m, params):
         raise AssertionError(f"Unknown visibility value: {vis!r}; expected 'is' or 'is not'")
 
 
-@step(
-    r'the output line "\[2/4\] worker-3 killed line 7 a > b -> a >= b: func/calc" is printed'
-)
+@step(r'the output line "\[2/4\] worker-3 killed line 7 a > b -> a >= b: func/calc" is printed')
 def then_specific_parallel_line(m, params):
     expected = "[2/4] worker-3 killed line 7 a > b -> a >= b: func/calc"
     stdout = ctx.cli_result.stdout
@@ -481,8 +586,8 @@ def then_mutant_status(m, params):
     stdout = ctx.cli_result.stdout
     progress = [ln for ln in stdout.splitlines() if ln.startswith("[")]
     assert progress, f"No progress lines in:\n{stdout}"
-    assert any(status in ln for ln in progress), (
-        f"Status '{status}' not found in progress lines:\n" + "\n".join(progress)
+    assert any(status in ln for ln in progress), f"Status '{status}' not found in progress lines:\n" + "\n".join(
+        progress
     )
 
 
@@ -506,18 +611,14 @@ def then_report_counts(m, params):
 def then_lines_in_arrival_order(m, params):
     stdout = ctx.cli_result.stdout
     progress = [ln for ln in stdout.splitlines() if ln.startswith("[")]
-    assert len(progress) >= 3, (
-        f"Expected at least 3 progress lines, got:\n" + "\n".join(progress)
-    )
+    assert len(progress) >= 3, "Expected at least 3 progress lines, got:\n" + "\n".join(progress)
     # All 3 sites must appear in some order
     indexes = []
     for ln in progress:
         bracket_end = ln.index("/")
         idx = int(ln[1:bracket_end])
         indexes.append(idx)
-    assert sorted(indexes) == [1, 2, 3], (
-        f"Expected sites 1,2,3 in output, got: {indexes}"
-    )
+    assert sorted(indexes) == [1, 2, 3], f"Expected sites 1,2,3 in output, got: {indexes}"
 
 
 @step(r'the "Survivors:" block lists sites sorted by stable index')
@@ -525,9 +626,7 @@ def then_survivors_sorted(m, params):
     stdout = ctx.cli_result.stdout
     # Survivors block is deterministic; just verify it's present (all survived here)
     # In this scenario all sites exit 0 so they all survive
-    assert "Survivors:" in stdout or "Survived: 0" in stdout, (
-        f"Expected Survivors: block or Survived: 0 in:\n{stdout}"
-    )
+    assert "Survivors:" in stdout or "Survived: 0" in stdout, f"Expected Survivors: block or Survived: 0 in:\n{stdout}"
 
 
 @step(r'the "Mutation Report" tallies are independent of finish order')
@@ -568,24 +667,18 @@ def then_original_never_spliced(m, params):
 @step(r'no per-worker "\.mutate4py\.bak" file is created')
 def then_no_per_worker_bak(m, params):
     # The .mutate4py.bak lives next to the original, not in worker dirs.
-    workers_dir = os.path.join(
-        os.path.realpath(ctx.project_dir), ".mutate4py", "workers"
-    )
+    workers_dir = os.path.join(os.path.realpath(ctx.project_dir), ".mutate4py", "workers")
     if os.path.exists(workers_dir):
         for root, dirs, files in os.walk(workers_dir):
             for f in files:
-                assert not f.endswith(".bak"), (
-                    f"Found .bak in worker dir: {os.path.join(root, f)}"
-                )
+                assert not f.endswith(".bak"), f"Found .bak in worker dir: {os.path.join(root, f)}"
 
 
 @step(r"the run completes successfully")
 def then_run_completes_successfully(m, params):
     stdout = ctx.cli_result.stdout
     stderr = ctx.cli_result.stderr
-    assert ctx.cli_result.returncode == 0, (
-        f"Run failed unexpectedly: {stdout}\n{stderr}"
-    )
+    assert ctx.cli_result.returncode == 0, f"Run failed unexpectedly: {stdout}\n{stderr}"
 
 
 @step(r'a worker run root existed under "\.mutate4py/workers/" during the run')
@@ -598,15 +691,9 @@ def then_worker_root_existed(m, params):
 
 @step(r'no worker run root remains under "\.mutate4py/workers/" after the run')
 def then_worker_root_cleaned_up(m, params):
-    workers_dir = os.path.join(
-        os.path.realpath(ctx.project_dir), ".mutate4py", "workers"
-    )
+    workers_dir = os.path.join(os.path.realpath(ctx.project_dir), ".mutate4py", "workers")
     if os.path.exists(workers_dir):
-        remaining = [
-            e
-            for e in os.listdir(workers_dir)
-            if os.path.isdir(os.path.join(workers_dir, e))
-        ]
+        remaining = [e for e in os.listdir(workers_dir) if os.path.isdir(os.path.join(workers_dir, e))]
         assert remaining == [], f"Worker run root dirs still exist: {remaining}"
 
 
@@ -624,18 +711,21 @@ def then_output_contains(m, params):
     assert msg in combined, f"Expected '{msg}' in output:\n{combined}"
 
 
+@step(r'the output does not contain "([^"]*)"')
+def then_output_does_not_contain(m, params):
+    msg = params.get("message") or m.group(1)
+    combined = ctx.cli_result.stdout + ctx.cli_result.stderr
+    assert msg not in combined, f"Unexpected '{msg}' in output:\n{combined}"
+
+
 @step(r'no "Mutation Report" is printed')
 def then_no_mutation_report(m, params):
-    assert "Mutation Report" not in ctx.cli_result.stdout, (
-        f"Expected no 'Mutation Report' in:\n{ctx.cli_result.stdout}"
-    )
+    assert "Mutation Report" not in ctx.cli_result.stdout, f"Expected no 'Mutation Report' in:\n{ctx.cli_result.stdout}"
 
 
 @step(r'no worker root is created under "\.mutate4py/workers/"')
 def then_no_worker_root(m, params):
-    workers_dir = os.path.join(
-        os.path.realpath(ctx.project_dir), ".mutate4py", "workers"
-    )
+    workers_dir = os.path.join(os.path.realpath(ctx.project_dir), ".mutate4py", "workers")
     assert not os.path.exists(workers_dir), f"Worker dir was created: {workers_dir}"
 
 

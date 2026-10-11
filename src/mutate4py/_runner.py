@@ -1,7 +1,6 @@
 """Mutation run loop — F4 core implementation + F6 parallel engine dispatch."""
 
 import dataclasses
-import datetime
 import logging
 import os
 
@@ -24,23 +23,22 @@ __all__ = [
     "update_manifest",
 ]
 from mutate4py._discovery import Site, partition_sites
+from mutate4py._equivalent import EquivalentMarkerError, equivalent_markers
 from mutate4py._executor import Executor
 from mutate4py._executor_selection import select_executor
-from mutate4py._execution import MutantExecCtx, NoTestsCollectedError, TestSelectionError, _execute_mutations
-from mutate4py._manifest import (
-    build_manifest,
-    manifests_structurally_equal,
-    reconcile_manifest,
-    source_sha256,
-    strip_manifest,
+from mutate4py._exit_codes import EXIT_USAGE, scored_run_exit_code
+from mutate4py._execution import (
+    ExecutionOutcome,
+    MutantExecCtx,
+    NoTestsCollectedError,
+    TestSelectionError,
+    _execute_mutations,
 )
-from mutate4py._manifest_storage import (
-    ManifestLocation,
-    _read_existing_manifest,
-    _write_manifest_output,
-)
+from mutate4py._manifest import recorded_survivors
+from mutate4py._manifest_modes import check_manifest, update_manifest
 from mutate4py._plugin_neutralisation import neutralising_args
 from mutate4py._report import (
+    _accepted_block_lines,
     CoverageSource,
     RunStats,
     _mutation_report_lines,
@@ -50,6 +48,7 @@ from mutate4py._report import (
     scan_report,
     scan_report_with_coverage,
 )
+from mutate4py._scoring import ScoredRun
 from mutate4py._site_selection import (
     _acquire_covered_lines,
     _is_effective_since_last_run,
@@ -92,6 +91,7 @@ class RunMutationsRequest:
     manifest_file: bool = False
     forking_requested: bool = True
     executor: Executor | None = None
+    allow_survivors: bool = False
 
 
 def _print_lines(lines: list[str]) -> None:
@@ -117,60 +117,6 @@ def run_scan(
     _logger.info("\n".join(lines))
 
 
-def update_manifest(*, path: str, source: str, manifest_file: bool = False) -> int:
-    """Execute --update-manifest: refresh the manifest in its configured storage. Returns exit code."""
-    loc = ManifestLocation(path=path, manifest_file=manifest_file)
-    existing, _ = _read_existing_manifest(source, loc)
-    clean = strip_manifest(source)
-    tested_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    candidate = build_manifest(clean, tested_at=tested_at)
-    manifest_to_embed = reconcile_manifest(existing, candidate)
-    manifest_changed = manifest_to_embed is not existing
-
-    if manifest_file:
-        source_has_stale_footer = clean != source
-        if not manifest_changed and not source_has_stale_footer:
-            _logger.info(f"Manifest unchanged: {path}")
-            return 0
-        _write_manifest_output(
-            clean,
-            manifest_to_embed,
-            loc,
-            write_source=source_has_stale_footer,
-            write_manifest=manifest_changed,
-        )
-        _logger.info(f"Updated manifest: {path}")
-        return 0
-
-    if not manifest_changed:
-        _logger.info(f"Manifest unchanged: {path}")
-        return 0
-    _write_manifest_output(clean, manifest_to_embed, loc)
-    _logger.info(f"Updated manifest: {path}")
-    return 0
-
-
-def check_manifest(*, path: str, source: str, manifest_file: bool = False) -> int:
-    """Check if the manifest in its configured storage is up to date. Returns 0 if current, 1 if stale or missing."""
-    clean = strip_manifest(source)
-    loc = ManifestLocation(path=path, manifest_file=manifest_file)
-    existing, manifest_exists = _read_existing_manifest(source, loc)
-    if not manifest_exists:
-        _logger.info(f"Manifest missing: {path}")
-        return 1
-    existing_source_sha256 = existing.get("source_sha256")
-    if existing_source_sha256 is not None and existing_source_sha256 == source_sha256(clean):
-        _logger.info(f"Manifest current: {path}")
-        return 0
-    tested_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    candidate = build_manifest(clean, tested_at=tested_at)
-    if manifests_structurally_equal(existing, candidate):
-        _logger.info(f"Manifest current: {path}")
-        return 0
-    _logger.info(f"Manifest stale: {path}")
-    return 1
-
-
 @dataclasses.dataclass
 class SelectionOutcome:
     """Result of coverage acquisition, site selection, and mutant-run prep.
@@ -181,6 +127,7 @@ class SelectionOutcome:
 
     error_code: int | None = None
     selected_sites: list[Site] = dataclasses.field(default_factory=list)
+    covered_lines: set[int] = dataclasses.field(default_factory=set)
     uncovered_count: int = 0
     use_parallel: bool = False
     max_workers: int = 0
@@ -189,6 +136,7 @@ class SelectionOutcome:
     mutant_pytest_args: list[str] = dataclasses.field(default_factory=list)
     baseline_duration: float = 0.0
     overhead_duration: float | None = None
+    full_selection: bool = False
 
 
 @dataclasses.dataclass
@@ -306,6 +254,7 @@ def _select_and_prepare(
 
     return SelectionOutcome(
         selected_sites=selected_sites,
+        covered_lines=covered_lines,
         uncovered_count=uncovered_count,
         use_parallel=use_parallel,
         max_workers=max_workers,
@@ -314,6 +263,7 @@ def _select_and_prepare(
         mutant_pytest_args=mutant_pytest_args,
         baseline_duration=prep.baseline_duration,
         overhead_duration=prep.overhead_duration,
+        full_selection=not effective_since_last_run and request.lines_filter is None,
     )
 
 
@@ -331,38 +281,72 @@ def _open_test_context_db(test_contexts_path: str | None):
     return TestContextDB(test_contexts_path)
 
 
+def _recorded_survivor_keys(manifest: dict | None) -> frozenset[tuple[str, int, str]]:
+    """(function id, line, desc) of every survivor the Manifest held before this run."""
+    if manifest is None:
+        return frozenset()
+    return frozenset((fid, s["line"], s["desc"]) for fid, s in recorded_survivors(manifest))
+
+
+def _scored_run_for(
+    result: ExecutionOutcome, setup: RunSetup, outcome: SelectionOutcome, markers: dict[int, str]
+) -> ScoredRun | None:
+    """The run's verdicts for scoring, or None when the run errored and records no scores."""
+    if result.error_msg is not None:
+        return None
+    return ScoredRun(
+        all_sites=setup.loaded.all_sites,
+        covered_lines=outcome.covered_lines,
+        selected_sites=outcome.selected_sites,
+        survivors=result.survivors,
+        markers=markers,
+        full_selection=outcome.full_selection,
+        recorded_survivors=_recorded_survivor_keys(setup.loaded.existing_manifest),
+    )
+
+
+def _mutant_exec_ctx(request: RunMutationsRequest, outcome: SelectionOutcome, test_ctx_db) -> MutantExecCtx:
+    # Parallel Workers compute the plugin kill switches inside their own
+    # interpreter (the one that runs pytest); the orchestrator's list is
+    # for the serial path only.
+    return MutantExecCtx(
+        path=request.path,
+        cwd=request.cwd,
+        pytest_args=request.pytest_args if outcome.use_parallel else outcome.mutant_pytest_args,
+        executor=outcome.executor,
+        mutant_timeout=outcome.mutant_timeout,
+        max_workers=outcome.max_workers,
+        use_parallel=outcome.use_parallel,
+        abs_source_path=os.path.abspath(request.path),
+        test_ctx_db=test_ctx_db,
+        forking_requested=request.forking_requested,
+    )
+
+
 def run_mutations(request: RunMutationsRequest) -> int:
     """Execute the mutation run loop.
 
-    Returns 0, 1 (coverage/baseline failure), or 2 (the test-context db and the
-    LCOV coverage disagree about a selected site, or a selected site's test run
-    exercised no test at all).
+    Returns 0, 1 (coverage/baseline/worker failure), 2 (selection disagreement or
+    usage error), or 3 (the run finished with at least one unaccepted survivor and
+    allow_survivors is false).
     """
     test_ctx_db = _open_test_context_db(request.test_contexts_path)
     try:
         setup = _prepare_run_setup(path=request.path, source=request.source, manifest_file=request.manifest_file)
+        markers = equivalent_markers(setup.loaded.clean_source)
         outcome = _select_and_prepare(request, setup, test_ctx_db, request.max_workers)
         if outcome.error_code is not None:
             return outcome.error_code
 
-        ctx = MutantExecCtx(
-            path=request.path,
-            cwd=request.cwd,
-            pytest_args=outcome.mutant_pytest_args,
-            executor=outcome.executor,
-            mutant_timeout=outcome.mutant_timeout,
-            max_workers=outcome.max_workers,
-            use_parallel=outcome.use_parallel,
-            abs_source_path=os.path.abspath(request.path),
-            test_ctx_db=test_ctx_db,
-            forking_requested=request.forking_requested,
-        )
+        ctx = _mutant_exec_ctx(request, outcome, test_ctx_db)
+        scored_run: ScoredRun | None = None
         try:
             result = _execute_mutations(
                 selected_sites=outcome.selected_sites,
                 clean_source=setup.loaded.clean_source,
                 ctx=ctx,
             )
+            scored_run = _scored_run_for(result, setup, outcome, markers)
         finally:
             _finalize_source(
                 setup.loaded.clean_source,
@@ -370,6 +354,7 @@ def run_mutations(request: RunMutationsRequest) -> int:
                 setup.bak_path,
                 setup.loc,
                 existing_manifest=setup.loaded.existing_manifest,
+                scored_run=scored_run,
             )
         if result.error_msg is not None:
             # .info, not .error: this has always gone to stdout, same as the
@@ -379,13 +364,17 @@ def run_mutations(request: RunMutationsRequest) -> int:
         _print_lines(
             _mutation_report_lines(
                 result.counts,
-                result.survivors,
+                scored_run.unaccepted(),
                 outcome.uncovered_count,
                 result.selection_counts,
                 overhead=overhead_info(outcome.overhead_duration, outcome.baseline_duration),
             )
         )
-        return 0
+        _print_lines(_accepted_block_lines(scored_run.accepted()))
+        return scored_run_exit_code(len(scored_run.unaccepted()), allow_survivors=request.allow_survivors)
+    except EquivalentMarkerError as exc:
+        _logger.error(f"error: {request.path}: {exc}")
+        return EXIT_USAGE
     except (TestSelectionError, NoTestsCollectedError) as exc:
         return _log_dispatch_abort(exc)
     finally:

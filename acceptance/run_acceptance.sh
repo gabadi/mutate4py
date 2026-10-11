@@ -3,6 +3,13 @@
 # Usage: ./acceptance/run_acceptance.sh
 set -euo pipefail
 
+# Without gherkin-parser, generation used to be skipped silently and the stale
+# acceptance/generated/*.py ran instead (#83). Fail before anything runs.
+if ! command -v gherkin-parser &>/dev/null; then
+    echo "  ✗ gherkin-parser not found on PATH — build it as the 'Install gherkin-parser' step in .github/workflows/ci.yml does" >&2
+    exit 1
+fi
+
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PARSED_DIR="$REPO_ROOT/acceptance/parsed"
 GENERATED_DIR="$REPO_ROOT/acceptance/generated"
@@ -84,11 +91,9 @@ generate_pass() {
         steps_mod="${steps_map[$stem]}"
         parsed="$PARSED_DIR/${stem}_parsed.json"
         rel_feature="features/${stem}.feature"
-        if command -v gherkin-parser &>/dev/null; then
-            gherkin-parser "$feature_file" "$parsed"
-            uv run python "$REPO_ROOT/acceptance/generate_acceptance.py" \
-                "$parsed" "$steps_mod" "$GENERATED_DIR" "$rel_feature"
-        fi
+        gherkin-parser "$feature_file" "$parsed" || { echo "  ✗ gherkin-parser failed on $feature_file" >&2; return 1; }
+        uv run python "$REPO_ROOT/acceptance/generate_acceptance.py" \
+            "$parsed" "$steps_mod" "$GENERATED_DIR" "$rel_feature" || { echo "  ✗ codegen failed for $stem" >&2; return 1; }
     done
     return "$unwired"
 }

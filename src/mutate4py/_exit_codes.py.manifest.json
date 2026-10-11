@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "tested_at": "2026-10-11T08:14:18Z",
+  "module_hash": "340ace3627d99be42f46878de4831793018f404fae9d6ef5568340b22951ff9c",
+  "source_sha256": "933bf045ebf3e04ce5bbb5558691e79c956dd4398d21867d5a9f36d311e7db3a",
+  "functions": [
+    {
+      "id": "func/_rank",
+      "name": "_rank",
+      "line": 11,
+      "end_line": 15,
+      "hash": "a4aa2b737e0b6f1984006407e7224b8ee64de0b601ca4822785710961eb130b7"
+    },
+    {
+      "id": "func/worse_exit_code",
+      "name": "worse_exit_code",
+      "line": 18,
+      "end_line": 20,
+      "hash": "699efa5f51b57447c128ebf19156422141a0ae597c040bd02afd000611756273"
+    },
+    {
+      "id": "func/scored_run_exit_code",
+      "name": "scored_run_exit_code",
+      "line": 23,
+      "end_line": 27,
+      "hash": "c2bdc2bcc5f2a06cb166895ae814510cfd23f57866799ee1c34f57996a200816"
+    }
+  ]
+}

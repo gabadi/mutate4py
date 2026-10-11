@@ -1,6 +1,6 @@
-# mutation-stamp: sha256=55c84b1b5e99d68a702e42d8ff487464a3744387269d79367055371693fa924c
+# mutation-stamp: sha256=b0736ea07a5224d27b49d0ed82fb895f1cb85d1d474278ae0694a2c66338eba7
 # acceptance-mutation-manifest-begin
-# {"version":1,"tested_at":"2026-07-02T14:16:58.490262Z","feature_name":"Mutation site discovery and the --scan count surface","feature_path":"/Users/gabadi/workspace/addi/mutate4py/features/site-discovery.feature","background_hash":"74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b","implementation_hash":"unknown","scenarios":[{"index":0,"name":"a catalogued construct yields one mutation site","scenario_hash":"c263b00460597ebd9860356e9050f9633f236e6122306061009b081cc624f3bb","mutation_count":38,"result":{"Total":38,"Killed":38,"Survived":0,"Errors":0},"tested_at":"2026-07-02T04:09:10.994609Z"},{"index":1,"name":"an excluded construct yields no mutation site","scenario_hash":"caf62c80887e19a65fc8e58bbe2a4ef57ca9a47ce9664814debdf9bdd36f62ea","mutation_count":5,"result":{"Total":5,"Killed":5,"Survived":0,"Errors":0},"tested_at":"2026-07-02T04:09:10.994609Z"},{"index":2,"name":"a site inside a function is attributed to that unit","scenario_hash":"02a32dca34253f02aa003669791745e13f18ebacc8847e72ad7632c890bbd07c","mutation_count":12,"result":{"Total":12,"Killed":12,"Survived":0,"Errors":0},"tested_at":"2026-07-02T04:09:10.994609Z"},{"index":3,"name":"scanning a file prints the count block with no manifest","scenario_hash":"71a002b53edf8e89278c529798945cdc39a555b3cbdd62fb9ae181fe47d40177","mutation_count":6,"result":{"Total":6,"Killed":6,"Survived":0,"Errors":0},"tested_at":"2026-07-02T04:09:10.994609Z"},{"index":4,"name":"the warning line is gated by the threshold","scenario_hash":"1edcd9f574c29ddd6bacddb173a5a443200e64e51227f9d5c329af8d99542579","mutation_count":9,"result":{"Total":9,"Killed":9,"Survived":0,"Errors":0},"tested_at":"2026-07-02T04:09:10.994609Z"}]}
+# {"version":1,"tested_at":"2026-10-11T14:06:30Z","feature_name":"Mutation site discovery and the --scan count surface","feature_path":"/Users/gabadi/workspace/gabadi/saga-umf-integration/features/site-discovery.feature","background_hash":"74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b","implementation_hash":"unknown","scenarios":[{"index":0,"name":"a catalogued construct yields one mutation site","scenario_hash":"545c5a7486da346ce2f4108f00b51a148bf7f24d46c27ae82e2000c4f676bd2d","mutation_count":42,"result":{"Total":42,"Killed":42,"Survived":0,"Errors":0},"tested_at":"2026-10-11T07:14:52Z"},{"index":1,"name":"an excluded construct yields no mutation site","scenario_hash":"7ee30627b022dffd0f48553c3dd4ad60e2f048ca57ef77fb52825d104018f064","mutation_count":4,"result":{"Total":4,"Killed":4,"Survived":0,"Errors":0},"tested_at":"2026-10-11T07:14:52Z"},{"index":2,"name":"a site inside a function is attributed to that unit","scenario_hash":"f69cc12edd12c8bd0400815f74ef63bdd96b367af83bd474009b80c879840b24","mutation_count":12,"result":{"Total":12,"Killed":12,"Survived":0,"Errors":0},"tested_at":"2026-10-11T07:14:52Z"},{"index":3,"name":"scanning a file prints the count block with no manifest","scenario_hash":"378899ccaf1be7264bb50af1532c9e3314784cc2b9ab5423a313c0378edce805","mutation_count":6,"result":{"Total":6,"Killed":6,"Survived":0,"Errors":0},"tested_at":"2026-10-11T07:14:52Z"},{"index":4,"name":"the warning line is gated by the threshold","scenario_hash":"5b16592339ceabe964887c3e4246bb659650ca92cd9e690dfbe573cba14d9dfe","mutation_count":9,"result":{"Total":9,"Killed":9,"Survived":0,"Errors":0},"tested_at":"2026-10-11T07:14:52Z"}]}
 # acceptance-mutation-manifest-end
 
 Feature: Mutation site discovery and the --scan count surface
@@ -26,9 +26,11 @@ Feature: Mutation site discovery and the --scan count surface
   #   - One file at a time (positional <file>).
   #   - Exactly one mutant per site; one operator/literal per site.
   #   - Operator catalogue is closed: + - *, > >= < <=, == !=, is/is not,
-  #     in/not in, and/or, True/False, integer 0/1. `*`→`/` only (never `/`→`*`).
-  #   - Excluded — NO site emitted: augmented assignment (+=, -=), unary removal,
-  #     any cross-coercion-family swap, integer literals other than 0 and 1.
+  #     in/not in, and/or, unary not and unary -, True/False, integer 0/1.
+  #     `*`→`/` only (never `/`→`*`).
+  #   - Excluded — NO site emitted: augmented assignment (+=, -=), unary `-` on a
+  #     numeric zero literal (-0, -0.0, -0j; ADR 0024), any cross-coercion-family
+  #     swap, integer literals other than 0 and 1.
   #   - A site outside any function has an empty FunctionID and is still counted.
   #   - Nested def / lambda sites fold into the enclosing named unit (not separate units).
   #   - --scan reads the manifest the same way the F4 run loop does (issue #46):
@@ -92,6 +94,8 @@ Feature: Mutation site discovery and the --scan count surface
       | False      | 1     |
       | 0          | 1     |
       | 1          | 1     |
+      | not a     | 1     |
+      | -a        | 1     |
 
   # site-discovery-2: excluded constructs emit no site
   Scenario Outline: an excluded construct yields no mutation site
@@ -104,7 +108,6 @@ Feature: Mutation site discovery and the --scan count surface
       | a += b    |
       | a -= b    |
       | a / b     |
-      | -a        |
       | 2         |
 
   # site-discovery-3: a site is attributed to its enclosing function unit

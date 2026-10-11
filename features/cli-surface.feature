@@ -1,6 +1,6 @@
-# mutation-stamp: sha256=bdfc4cb6dd3a1bbab17390cc025829b7af3dc62f8b146c7fae0ab851dbed7320
+# mutation-stamp: sha256=e6b1764aaa80fd878c44b584f4261cb2b08c17ff54e2e7fbf4081f792a92a2a5
 # acceptance-mutation-manifest-begin
-# {"version":1,"tested_at":"2026-08-05T06:34:34Z","feature_name":"The CLI surface parses, validates, and dispatches the flag matrix","feature_path":"features/cli-surface.feature","background_hash":"1203275c6eabf9fc410f98f69ac6af108b327191aeca7b251b7f196f4d6e6eaf","implementation_hash":"sha256:270c59e799909ae28b518b18fdd82d84caf82d2b5e15ffabe26f611d1ebf7c63","scenarios":[{"index":0,"name":"the full flag matrix parses and applies its default","scenario_hash":"35e28bf7facb9d3c7fdfcac3937137c41d4622ce540cca20291f1fb3b14263d9","mutation_count":24,"result":{"Total":24,"Killed":24,"Survived":0,"Errors":0},"tested_at":"2026-08-05T06:34:34Z"},{"index":1,"name":"a numeric flag rejects values that are not positive integers","scenario_hash":"a2c7162b81dcdd3a79f489b3256f997b25d42a9660d3d68e859394d9502ef2ef","mutation_count":11,"result":{"Total":11,"Killed":11,"Survived":0,"Errors":0},"tested_at":"2026-08-05T06:34:34Z"},{"index":2,"name":"a value flag with a missing value is rejected","scenario_hash":"c37764cca4646af139a58f03693bab5820d727a41c92787bfc07beebdffb5b0a","mutation_count":5,"result":{"Total":5,"Killed":5,"Survived":0,"Errors":0},"tested_at":"2026-08-05T06:34:34Z"},{"index":3,"name":"a no-run mode rejects being combined with an execution option","scenario_hash":"30f46756fb76de41193baa294affbb621e661f5a1d670c3b26d7b4fae770d3fb","mutation_count":24,"result":{"Total":24,"Killed":24,"Survived":0,"Errors":0},"tested_at":"2026-08-05T06:34:34Z"},{"index":4,"name":"combining two selection flags is a usage error","scenario_hash":"88ff433e01244df649696d2076a6a8a2df4ee1a22f323d8c51400cb49ac80335","mutation_count":6,"result":{"Total":6,"Killed":6,"Survived":0,"Errors":0},"tested_at":"2026-08-05T06:34:34Z"},{"index":5,"name":"--max-workers is accepted alongside a selection flag","scenario_hash":"3ab1c84ab1c02366f62e18afb506789995ccc145af73681ae21b8cf9fff416f1","mutation_count":3,"result":{"Total":3,"Killed":3,"Survived":0,"Errors":0},"tested_at":"2026-08-05T06:34:34Z"},{"index":6,"name":"an unknown flag or missing source file is rejected","scenario_hash":"43c42d8a2bec629c31a639050708aa4aaae4036452dbceea3f40bd98a12868fd","mutation_count":3,"result":{"Total":3,"Killed":3,"Survived":0,"Errors":0},"tested_at":"2026-08-05T06:34:34Z"},{"index":7,"name":"--help short-circuits to usage even with invalid args","scenario_hash":"0f1c3f6768d7f821b590a1d9f8f3b9e9876f4f5dd78ef8813db0d5c33da45a2c","mutation_count":3,"result":{"Total":3,"Killed":3,"Survived":0,"Errors":0},"tested_at":"2026-08-05T06:34:34Z"},{"index":8,"name":"validated options are routed to the right behaviour","scenario_hash":"2053e21dff52520290af1b4bcd55de386ea5b0ad7ba405b96dcf62a575f6e11b","mutation_count":6,"result":{"Total":6,"Killed":6,"Survived":0,"Errors":0},"tested_at":"2026-08-05T06:34:34Z"}]}
+# {"version":1,"tested_at":"2026-10-11T14:06:30Z","feature_name":"The CLI surface parses, validates, and dispatches the flag matrix","feature_path":"/Users/gabadi/workspace/gabadi/saga-umf-integration/features/cli-surface.feature","background_hash":"1203275c6eabf9fc410f98f69ac6af108b327191aeca7b251b7f196f4d6e6eaf","implementation_hash":"unknown","scenarios":[{"index":0,"name":"the full flag matrix parses and applies its default","scenario_hash":"03a45905d699c48c6d3ab4c588d38c285e7353d10a0609b717cf383da1710c81","mutation_count":24,"result":{"Total":24,"Killed":24,"Survived":0,"Errors":0},"tested_at":"2026-10-11T12:12:22Z"},{"index":1,"name":"a numeric flag rejects values that are not positive integers","scenario_hash":"a2c7162b81dcdd3a79f489b3256f997b25d42a9660d3d68e859394d9502ef2ef","mutation_count":11,"result":{"Total":11,"Killed":11,"Survived":0,"Errors":0},"tested_at":"2026-10-11T12:12:22Z"},{"index":2,"name":"a value flag with a missing value is rejected","scenario_hash":"eb241ea0cba61ffc586de2a488c2c5f249bf8ec8da16a46161fc8a6c90bd4891","mutation_count":5,"result":{"Total":5,"Killed":5,"Survived":0,"Errors":0},"tested_at":"2026-10-11T12:12:22Z"},{"index":3,"name":"a no-run mode rejects being combined with an execution option","scenario_hash":"690c16913b191b40779ab87ff3a72eb23385a9372c00658ac17cb501cda65669","mutation_count":48,"result":{"Total":48,"Killed":48,"Survived":0,"Errors":0},"tested_at":"2026-10-11T12:12:22Z"},{"index":4,"name":"combining two selection flags is a usage error","scenario_hash":"88ff433e01244df649696d2076a6a8a2df4ee1a22f323d8c51400cb49ac80335","mutation_count":6,"result":{"Total":6,"Killed":6,"Survived":0,"Errors":0},"tested_at":"2026-10-11T12:12:22Z"},{"index":5,"name":"--max-workers is accepted alongside a selection flag","scenario_hash":"3ab1c84ab1c02366f62e18afb506789995ccc145af73681ae21b8cf9fff416f1","mutation_count":3,"result":{"Total":3,"Killed":3,"Survived":0,"Errors":0},"tested_at":"2026-10-11T12:12:22Z"},{"index":6,"name":"an unknown flag or missing source file is rejected","scenario_hash":"74249d8a7e4085565d2eb0bbd14061efd2b0c7f69744de75a20af3c40c556ffc","mutation_count":4,"result":{"Total":4,"Killed":4,"Survived":0,"Errors":0},"tested_at":"2026-10-11T12:12:22Z"},{"index":7,"name":"--help short-circuits to usage even with invalid args","scenario_hash":"0f1c3f6768d7f821b590a1d9f8f3b9e9876f4f5dd78ef8813db0d5c33da45a2c","mutation_count":3,"result":{"Total":3,"Killed":3,"Survived":0,"Errors":0},"tested_at":"2026-10-11T12:12:22Z"},{"index":8,"name":"validated options are routed to the right behaviour","scenario_hash":"2053e21dff52520290af1b4bcd55de386ea5b0ad7ba405b96dcf62a575f6e11b","mutation_count":6,"result":{"Total":6,"Killed":6,"Survived":0,"Errors":0},"tested_at":"2026-10-11T12:12:22Z"}]}
 # acceptance-mutation-manifest-end
 
 Feature: The CLI surface parses, validates, and dispatches the flag matrix
@@ -188,6 +188,10 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
       | --build-test-contexts out.db | --mutate-all      |
       | --build-test-contexts out.db | --max-workers 4   |
       | --build-test-contexts out.db | --test-contexts .coverage |
+      | --scan            | --allow-survivors |
+      | --update-manifest | --allow-survivors |
+      | --build-test-contexts out.db | --allow-survivors |
+      | --check-manifest  | --allow-survivors |
 
   # cli-surface-5: the three selection flags are pairwise exclusive
   Scenario Outline: combining two selection flags is a usage error
@@ -286,3 +290,22 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
     When I run mutate4py with the flag "--build-test-contexts" against the overlapping-coverage fixture
     Then the invocation is accepted
     And the written test-context db narrows the shared line to both covering tests
+
+  # cli-surface-15: a scored run whose project .venv is not the running
+  # interpreter is rejected before any Baseline starts (ADR 0025;
+  # a foreign interpreter otherwise fails at the
+  # Baseline with an uninformative "exit code 2")
+  Scenario: a run from outside the project environment is rejected before any baseline
+    Given a project with a ".venv" that the running interpreter is not
+    When I run mutate4py with the accepted flags "(a coverage flag)" from outside that environment
+    Then the command exits with status "2"
+    And the error names the running interpreter and the project environment
+    And no baseline pytest run is started
+
+  # cli-surface-15 positive control: the same project without a ".venv" passes
+  # the startup check and starts its Baseline, so the "no baseline" assertion
+  # above is not satisfied vacuously.
+  Scenario: the same project without a ".venv" starts its baseline
+    Given a project with no ".venv"
+    When I run mutate4py with the accepted flags "(a coverage flag)" from that project
+    Then a baseline pytest run is started

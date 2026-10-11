@@ -1,12 +1,21 @@
 """Unit tests for acceptance/steps/cli_surface_helpers.py."""
 
+import os
+import runpy
+import subprocess
+import sys
+
 import pytest
 
 from acceptance.steps.cli_surface_helpers import (
     accepted_flags_args,
     assert_accepted,
+    assert_baseline_run,
     assert_dispatched_to,
+    assert_exit_status,
+    assert_names_interpreters,
     assert_no_analysis,
+    assert_no_baseline_run,
     assert_nonzero_exit,
     assert_only_reported,
     assert_option_accepted,
@@ -19,11 +28,17 @@ from acceptance.steps.cli_surface_helpers import (
     described_args,
     exclude_run_args,
     lcov_content,
+    mark_site_lines,
     reported_manifest_files,
     require_result,
+    resolve_literal,
+    run_with_running_interpreter,
     single_flag_args,
     split_flags,
     two_flag_args,
+    write_baseline_sentinel,
+    write_placeholder_venv,
+    write_pyproject,
 )
 
 
@@ -76,6 +91,7 @@ def test_single_flag_scan_incompatible_gives_lcov_run():
     args = single_flag_args("--max-workers 4", "s.py", "cov.lcov")
     assert "--lcov" in args
     assert "--max-workers" in args
+    assert "--allow-survivors" in args
 
 
 @pytest.mark.unit
@@ -83,6 +99,7 @@ def test_single_flag_pytest_args_gives_lcov_run():
     args = single_flag_args("--pytest-args -x", "s.py", "cov.lcov")
     assert "--lcov" in args
     assert "--pytest-args" in args
+    assert "--allow-survivors" in args
 
 
 @pytest.mark.unit
@@ -90,6 +107,7 @@ def test_single_flag_regular_adds_scan():
     args = single_flag_args("--mutation-warning 10", "s.py", "cov.lcov")
     assert "--scan" in args
     assert "--mutation-warning" in args
+    assert "--allow-survivors" not in args
 
 
 # ── two_flag_args ─────────────────────────────────────────────────────────────
@@ -106,6 +124,7 @@ def test_two_flag_args_max_workers_without_scan_gives_lcov_run():
     args = two_flag_args("--max-workers 4", "--since-last-run", "s.py", "cov.lcov")
     assert "--lcov" in args
     assert "--max-workers" in args
+    assert "--allow-survivors" in args
 
 
 @pytest.mark.unit
@@ -113,6 +132,14 @@ def test_two_flag_args_max_workers_with_scan_gives_plain_run():
     args = two_flag_args("--scan", "--max-workers 4", "s.py", "cov.lcov")
     assert "--lcov" not in args
     assert "--scan" in args
+    assert "--allow-survivors" not in args
+
+
+@pytest.mark.unit
+def test_two_flag_args_no_run_flag_never_gets_survivor_flag():
+    args = two_flag_args("--max-workers 4", "--check-manifest", "s.py", "cov.lcov")
+    assert "--check-manifest" in args
+    assert "--allow-survivors" not in args
 
 
 # ── described_args ────────────────────────────────────────────────────────────
@@ -166,6 +193,7 @@ def test_accepted_flags_update_manifest():
 def test_accepted_flags_coverage():
     args, target, workers = accepted_flags_args("(a coverage flag)", "s.py", "cov.lcov")
     assert "--lcov" in args
+    assert "--allow-survivors" in args
     assert target == "run loop"
     assert workers is None
 
@@ -174,6 +202,7 @@ def test_accepted_flags_coverage():
 def test_accepted_flags_max_workers():
     args, target, workers = accepted_flags_args("--max-workers 4 (a coverage flag)", "s.py", "cov.lcov")
     assert "--max-workers" in args
+    assert "--allow-survivors" in args
     assert target == "run loop"
     assert workers == 4
 
@@ -450,3 +479,142 @@ def test_assert_only_reported_fails_when_another_file_appears():
 def test_assert_only_reported_fails_when_nothing_is_reported():
     with pytest.raises(AssertionError):
         assert_only_reported("", "keep.py")
+
+
+# ── project env + baseline sentinel fixtures ─────────────────────────────────
+
+
+@pytest.mark.unit
+def test_write_placeholder_venv_creates_bin_python_and_returns_venv(tmp_path):
+    venv = write_placeholder_venv(str(tmp_path))
+    assert venv == os.path.join(str(tmp_path), ".venv")
+    assert os.path.isfile(os.path.join(venv, "bin", "python"))
+
+
+@pytest.mark.unit
+def test_write_pyproject_creates_pyproject_toml(tmp_path):
+    write_pyproject(str(tmp_path))
+    assert os.path.isfile(os.path.join(str(tmp_path), "pyproject.toml"))
+
+
+@pytest.mark.unit
+def test_write_baseline_sentinel_returns_marker_under_tests(tmp_path):
+    marker = write_baseline_sentinel(str(tmp_path))
+    assert marker == os.path.join(str(tmp_path), "tests", "baseline_ran")
+    assert os.path.isfile(os.path.join(str(tmp_path), "tests", "test_sentinel.py"))
+
+
+@pytest.mark.unit
+def test_baseline_sentinel_test_writes_marker_when_run(tmp_path):
+    marker = write_baseline_sentinel(str(tmp_path))
+    namespace = runpy.run_path(os.path.join(str(tmp_path), "tests", "test_sentinel.py"))
+    namespace["test_sentinel"]()
+    assert os.path.exists(marker)
+
+
+@pytest.mark.unit
+def test_assert_exit_status_passes_on_match():
+    assert_exit_status(2, 2)
+
+
+@pytest.mark.unit
+def test_assert_exit_status_fails_on_mismatch():
+    with pytest.raises(AssertionError, match="exit"):
+        assert_exit_status(0, 2)
+
+
+@pytest.mark.unit
+def test_assert_exit_status_includes_output_on_mismatch():
+    with pytest.raises(AssertionError, match="boom"):
+        assert_exit_status(0, 2, "boom")
+
+
+@pytest.mark.unit
+def test_mark_site_lines_appends_comment_to_site_lines_only():
+    source = "def calc(a, b):\n    return a > b\n"
+    assert mark_site_lines(source, "# mutate4py: equivalent x") == (
+        "def calc(a, b):\n    return a > b  # mutate4py: equivalent x\n"
+    )
+
+
+@pytest.mark.unit
+def test_assert_names_interpreters_passes_when_both_appear():
+    assert_names_interpreters(
+        "error: mutate4py is running under /a/venv, not the project environment /p/.venv",
+        "/a/venv",
+        "/p/.venv",
+    )
+
+
+@pytest.mark.unit
+def test_assert_names_interpreters_fails_when_project_env_missing():
+    with pytest.raises(AssertionError):
+        assert_names_interpreters("error: running under /a/venv", "/a/venv", "/p/.venv")
+
+
+@pytest.mark.unit
+def test_assert_no_baseline_run_passes_when_marker_absent(tmp_path):
+    assert_no_baseline_run(str(tmp_path / "baseline_ran"))
+
+
+@pytest.mark.unit
+def test_assert_no_baseline_run_fails_when_marker_present(tmp_path):
+    marker = tmp_path / "baseline_ran"
+    marker.write_text("")
+    with pytest.raises(AssertionError):
+        assert_no_baseline_run(str(marker))
+
+
+# ── running-interpreter run, literal resolution, baseline marker ─────────────
+
+
+@pytest.mark.unit
+def test_run_with_running_interpreter_runs_mutate4py_module_in_cwd(monkeypatch, tmp_path):
+    calls = []
+
+    def fake_run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return "completed"
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert run_with_running_interpreter(["--scan"], str(tmp_path)) == "completed"
+    argv, kwargs = calls[0]
+    assert argv == [sys.executable, "-m", "mutate4py", "--scan"]
+    assert kwargs == {"capture_output": True, "text": True, "cwd": str(tmp_path)}
+
+
+@pytest.mark.unit
+def test_resolve_literal_maps_placeholders_and_strips_the_program_name():
+    args = resolve_literal(
+        "mutate4py <file> --lcov cov.info --pytest-args <fake>",
+        "/w/sample.py",
+        "/w/lcov.info",
+        "-q tests",
+        "/w",
+    )
+    assert args == ["/w/sample.py", "--lcov", "/w/lcov.info", "--pytest-args", "-q tests"]
+
+
+@pytest.mark.unit
+def test_resolve_literal_falls_back_to_tmpdir_coverage_and_empty_fake():
+    args = resolve_literal("<file> cov.info <fake>", "/w/sample.py", None, None, "/tmp/d")
+    assert args == ["/w/sample.py", "/tmp/d/cov.info", ""]
+
+
+@pytest.mark.unit
+def test_resolve_literal_leaves_plain_arguments_alone():
+    args = resolve_literal("--scan --max-workers 4", "/w/s.py", None, None, "/d")
+    assert args == ["--scan", "--max-workers", "4"]
+
+
+@pytest.mark.unit
+def test_assert_baseline_run_passes_when_marker_present(tmp_path):
+    marker = tmp_path / "baseline_ran"
+    marker.touch()
+    assert_baseline_run(str(marker))
+
+
+@pytest.mark.unit
+def test_assert_baseline_run_fails_when_marker_absent(tmp_path):
+    with pytest.raises(AssertionError):
+        assert_baseline_run(str(tmp_path / "baseline_ran"))

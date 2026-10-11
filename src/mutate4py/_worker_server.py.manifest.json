@@ -1,36 +1,43 @@
 {
   "version": 1,
-  "tested_at": "2026-08-12T06:34:58Z",
-  "module_hash": "5c85998c110c5ca2d5d9fc23e3b9f411d8bec5d69121b375932b70f73798fab1",
-  "source_sha256": "897c8acd096d48e480c4f26bf9c35fff6bbdc8042e6fdd1c9164c2010b848371",
+  "tested_at": "2026-10-11T06:13:29Z",
+  "module_hash": "69ef429f5faddb6084d6e85663290208d3b1c180dd98c5cb9bb7dfd1c0f4eb2c",
+  "source_sha256": "846d84650dc827738a01a1c69ad453edd015fc649986e93455df6fc6fd71585e",
   "functions": [
     {
       "id": "func/parse_worker_argv",
       "name": "parse_worker_argv",
-      "line": 44,
-      "end_line": 55,
+      "line": 48,
+      "end_line": 59,
       "hash": "fe64a064d874828795129f1ba61194dca349776716494c526b56e8687b9c4730"
     },
     {
       "id": "func/worker_environ_updates",
       "name": "worker_environ_updates",
-      "line": 58,
-      "end_line": 64,
+      "line": 62,
+      "end_line": 68,
       "hash": "50f7085bd370cf2ca19d5beaec689cd65677624786938cdf78d83b0499bf4ec7"
+    },
+    {
+      "id": "func/_worker_plugin_args",
+      "name": "_worker_plugin_args",
+      "line": 71,
+      "end_line": 76,
+      "hash": "6d1637f153fd54c297d12846fa7d733b5b5ba97ced61e4d9969585189111c41b"
     },
     {
       "id": "func/_serve",
       "name": "_serve",
-      "line": 67,
-      "end_line": 79,
-      "hash": "4e13843cc9be5d4e8549f614d7515ccab4ad45013be116331e90eee81e8b4f6a"
+      "line": 79,
+      "end_line": 89,
+      "hash": "11a35cc47de2f75cb29a9b757c62815c903fc497feec2b44479b0af167040fcf"
     },
     {
       "id": "func/main",
       "name": "main",
-      "line": 82,
-      "end_line": 96,
-      "hash": "227a1dcdc242c9983f8ab982e04f3127e64f254f1c483b7b9279de72fcf33cc3"
+      "line": 92,
+      "end_line": 104,
+      "hash": "779be3df1fd9479c934f0cb2f1b2e0aab43d4a9cde53ea1a221c119dbaeba8d6"
     }
   ]
 }

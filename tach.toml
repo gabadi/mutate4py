@@ -40,6 +40,7 @@ layers = [
     "target_resolution",
     "report",
     "source_loading",
+    "manifest_modes",
     "manifest_storage",
     "baseline",
     "domain",
@@ -58,12 +59,22 @@ layer = "primitives"
 depends_on = []
 
 [[modules]]
+path = "mutate4py._exit_codes"
+layer = "primitives"
+depends_on = []
+
+[[modules]]
 path = "mutate4py._glob_dialect"
 layer = "primitives"
 depends_on = []
 
 [[modules]]
 path = "mutate4py._cmd"
+layer = "primitives"
+depends_on = []
+
+[[modules]]
+path = "mutate4py._bytecode_cache"
 layer = "primitives"
 depends_on = []
 
@@ -84,6 +95,16 @@ depends_on = []
 
 [[modules]]
 path = "mutate4py._manifest"
+layer = "domain"
+depends_on = []
+
+[[modules]]
+path = "mutate4py._scoring"
+layer = "domain"
+depends_on = ["mutate4py._discovery"]
+
+[[modules]]
+path = "mutate4py._equivalent"
 layer = "domain"
 depends_on = []
 
@@ -158,6 +179,11 @@ layer = "execution"
 depends_on = []
 
 [[modules]]
+path = "mutate4py._manifest_modes"
+layer = "manifest_modes"
+depends_on = []
+
+[[modules]]
 path = "mutate4py._manifest_storage"
 layer = "manifest_storage"
 depends_on = []
@@ -179,6 +205,11 @@ depends_on = []
 
 [[modules]]
 path = "mutate4py._workers"
+layer = "execution_backends"
+depends_on = ["mutate4py._worker_protocol", "mutate4py._worker_provision"]
+
+[[modules]]
+path = "mutate4py._worker_provision"
 layer = "execution_backends"
 depends_on = ["mutate4py._worker_protocol"]
 

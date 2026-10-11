@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "tested_at": "2026-10-11T16:46:30Z",
+  "module_hash": "af0447f63200fea12d66e72d0c9cb44cad18c5cb4d06ab174d2d0cf9f872df87",
+  "source_sha256": "cbe52fb717351e7d90a426d8bcccf79a76a3277d4acf63562576fb7e9fe9d879",
+  "functions": [
+    {
+      "id": "func/invalidate_bytecode_cache",
+      "name": "invalidate_bytecode_cache",
+      "line": 9,
+      "end_line": 18,
+      "hash": "e39a6e06fd8deb32cf1c30262704fa17362ef1363589ede6f664e6f1819dc213"
+    }
+  ]
+}

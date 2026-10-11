@@ -18,6 +18,8 @@ import os
 import shlex
 import sys
 
+from mutate4py._cli_validation import check_run_env
+from mutate4py._exit_codes import EXIT_USAGE, worse_exit_code
 from mutate4py._runner import (
     CoverageError,
     CoverageSource,
@@ -154,6 +156,7 @@ def _run_on_file(
             test_contexts_path=args.test_contexts,
             manifest_file=args.manifest_file,
             forking_requested=not args.no_fork,
+            allow_survivors=args.allow_survivors,
         )
     )
 
@@ -245,11 +248,11 @@ def _collect_union_files(args: argparse.Namespace, roots: list[str]) -> list[str
 
 
 def _run_files_and_exit(args: argparse.Namespace, files: list[str]) -> None:
-    """Run the configured mode over every file; exit with the worst (highest)
-    per-file code seen, so a selection disagreement (2) is never flattened into
-    an ordinary failure (1). A failing file never stops the batch — including a
-    file that fails to parse, which contributes code 2 and is tallied into the
-    trailing parse-failure summary line."""
+    """Run the configured mode over every file; exit with the most severe
+    per-file code, 2 > 1 > 3 > 0, so a survivor never masks a parse or usage
+    error. A failing file never stops the batch — including a file that fails
+    to parse, which contributes code 2 and is tallied into the trailing
+    parse-failure summary line."""
     cwd = os.getcwd()
     baseline_duration = None
     if _needs_directory_baseline(files, args):
@@ -258,13 +261,13 @@ def _run_files_and_exit(args: argparse.Namespace, files: list[str]) -> None:
     parse_failures = 0
     for py_file in files:
         try:
-            exit_code = max(
+            exit_code = worse_exit_code(
                 exit_code,
                 _run_on_file(args, py_file, _load_source(py_file), cwd, baseline_duration),
             )
         except SyntaxError as exc:
             _report_parse_error(py_file, exc)
-            exit_code = max(exit_code, 2)
+            exit_code = worse_exit_code(exit_code, EXIT_USAGE)
             parse_failures += 1
     if parse_failures:
         _logger.error(f"error: {parse_failures} files could not be parsed")
@@ -321,6 +324,7 @@ def _dispatch(args: argparse.Namespace) -> None:
         # exclude positional PATHs in _cli_validation, so workspace
         # autodiscovery below would never apply to this mode anyway.
         cwd = os.getcwd()
+        check_run_env(args, [], cwd)
         sys.exit(
             build_test_contexts(
                 output_db_path=args.build_test_contexts,
@@ -330,6 +334,7 @@ def _dispatch(args: argparse.Namespace) -> None:
             )
         )
     roots, args.prune_dirs = _resolve_roots(args)
+    check_run_env(args, roots, os.getcwd())
     if len(roots) > 1:
         _dispatch_batch(args, roots)
         return

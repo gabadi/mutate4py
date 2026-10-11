@@ -139,6 +139,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Mutate all covered sites regardless of manifest",
     )
     parser.add_argument(
+        "--allow-survivors",
+        action="store_true",
+        dest="allow_survivors",
+        help="Exit 0 even when a scored run leaves unaccepted survivors (default: exit 3); "
+        "for runs that measure rather than gate",
+    )
+    parser.add_argument(
         "--max-workers",
         type=_positive_int,
         default=None,

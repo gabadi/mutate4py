@@ -1,7 +1,18 @@
 """Unit tests for _cmd.run_argv (shared argv runner, no shell)."""
 
+import os
+
 from mutate4py._cmd import classify_exit_code, run_argv
 import pytest
+
+
+@pytest.mark.unit
+def test_run_argv_passes_env():
+    """env is the child's whole environment: a probe var present only there is seen (issue #81)."""
+    path_only = {"PATH": os.environ["PATH"]}
+    probe = 'test "$PROBE" = yes'
+    assert run_argv(["sh", "-c", probe], "/tmp", timeout=5.0, env={**path_only, "PROBE": "yes"}) == "survived"
+    assert run_argv(["sh", "-c", probe], "/tmp", timeout=5.0, env=path_only) == "killed"
 
 
 @pytest.mark.unit

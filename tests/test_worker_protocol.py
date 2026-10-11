@@ -10,6 +10,7 @@ same dispatch logic without paying for a real subprocess spawn.
 
 import io
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -23,7 +24,9 @@ from mutate4py._worker_protocol import (
     _decode_ready,
     _decode_status,
     _shutdown_process,
+    check_worker_pytest,
     encode_request,
+    worker_python,
     worker_server_argv,
 )
 
@@ -32,9 +35,21 @@ from mutate4py._worker_protocol import (
 
 
 @pytest.mark.unit
-def test_worker_server_argv_names_the_worker_server_module():
+def test_worker_python_is_the_worker_venv_interpreter():
+    assert worker_python("/w") == os.path.join(os.path.abspath("/w"), ".venv", "bin", "python")
+
+
+@pytest.mark.unit
+def test_worker_python_resolves_a_relative_root_to_an_absolute_path():
+    assert worker_python("w") == os.path.join(os.path.abspath("w"), ".venv", "bin", "python")
+
+
+@pytest.mark.unit
+def test_worker_server_argv_runs_under_the_worker_venv_not_the_orchestrator():
     argv = worker_server_argv(worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, worker_id="gw1")
-    assert argv == [sys.executable, "-m", "mutate4py._worker_server", "/w", "/w/calc.py", "1", "gw1"]
+    assert argv[0] == os.path.join(os.path.abspath("/w"), ".venv", "bin", "python")
+    assert argv[0] != sys.executable
+    assert argv[1:] == ["-m", "mutate4py._worker_server", "/w", "/w/calc.py", "1", "gw1"]
 
 
 @pytest.mark.unit
@@ -129,15 +144,126 @@ def test_shutdown_process_kills_a_worker_that_outstays_the_grace_period():
 
 @pytest.mark.unit
 def test_run_before_prime_is_rejected():
-    executor = WorkerProcessExecutor(worker_root="/w", guarded_path="/w/calc.py", forking_requested=True)
+    executor = WorkerProcessExecutor(
+        worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, source_root="/src"
+    )
     with pytest.raises(WorkerProcessError, match="prime\\(\\) must succeed before run\\(\\)"):
         executor.run(["-q"], timeout=1.0)
 
 
+def _fake_popen(monkeypatch, *, raises: Exception | None = None) -> list:
+    """Replace Popen with a recorder that answers the ready handshake, or raises."""
+    launches: list = []
+
+    def fake(argv, **kwargs):
+        launches.append((argv, kwargs))
+        if raises is not None:
+            raise raises
+        return types.SimpleNamespace(stdin=io.StringIO(), stdout=io.StringIO(json.dumps({"ready": True}) + "\n"))
+
+    monkeypatch.setattr(subprocess, "Popen", fake)
+    # The pytest probe is its own subprocess; these tests cover the launch only.
+    monkeypatch.setattr("mutate4py._worker_protocol.check_worker_pytest", lambda root: None)
+    return launches
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("caller_pythonpath", [None, "/existing"])
+def test_prime_keeps_the_import_root_off_the_worker_pythonpath(monkeypatch, caller_pythonpath):
+    """The import root is a `.pth` in the Worker venv, read after site-packages. On
+    PYTHONPATH it would shadow the project's own mutate4py (dogfood, ADR 0015), so the
+    Worker's PYTHONPATH carries only what the caller set."""
+    if caller_pythonpath is None:
+        monkeypatch.delenv("PYTHONPATH", raising=False)
+    else:
+        monkeypatch.setenv("PYTHONPATH", caller_pythonpath)
+    launches = _fake_popen(monkeypatch)
+    executor = WorkerProcessExecutor(
+        worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, source_root="/src"
+    )
+    executor.prime()
+    argv, kwargs = launches[0]
+    assert argv[0] == os.path.join(os.path.abspath("/w"), ".venv", "bin", "python")
+    assert kwargs["cwd"] == "/w"
+    assert kwargs["env"].get("PYTHONPATH") == caller_pythonpath
+
+
+@pytest.mark.unit
+def test_prime_rebases_a_caller_pythonpath_entry_inside_the_project_onto_the_worker_copy(monkeypatch, tmp_path):
+    """A caller PYTHONPATH naming the project's own source would let the Worker import
+    the unmutated module ahead of its copy, so such an entry is rebased onto the copy;
+    entries outside the project are kept verbatim."""
+    project = os.path.realpath(tmp_path)
+    monkeypatch.setenv("PYTHONPATH", os.pathsep.join([os.path.join(project, "src"), "/existing"]))
+    launches = _fake_popen(monkeypatch)
+    executor = WorkerProcessExecutor(
+        worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, source_root=project
+    )
+    executor.prime()
+    _, kwargs = launches[0]
+    assert kwargs["env"]["PYTHONPATH"] == os.pathsep.join([os.path.join("/w", "src"), "/existing"])
+
+
+@pytest.mark.unit
+def test_prime_reports_an_unstartable_worker_interpreter_as_a_protocol_failure(monkeypatch):
+    _fake_popen(monkeypatch, raises=FileNotFoundError(2, "No such file or directory"))
+    executor = WorkerProcessExecutor(
+        worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, source_root="/src"
+    )
+    with pytest.raises(WorkerProcessError, match="could not be started") as exc:
+        executor.prime()
+    assert isinstance(exc.value.__cause__, OSError)
+
+
+@pytest.mark.unit
+def test_check_worker_pytest_passes_when_the_worker_venv_imports_pytest(monkeypatch, tmp_path):
+    calls = []
+
+    def fake_run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return subprocess.CompletedProcess(argv, 0, b"", b"")
+
+    monkeypatch.setattr("mutate4py._worker_protocol.subprocess.run", fake_run)
+    check_worker_pytest(str(tmp_path))
+    argv, kwargs = calls[0]
+    assert argv == [worker_python(str(tmp_path)), "-c", "import pytest"]
+    assert kwargs["cwd"] == str(tmp_path)
+
+
+@pytest.mark.unit
+def test_check_worker_pytest_refuses_a_worker_venv_without_pytest(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "mutate4py._worker_protocol.subprocess.run",
+        lambda argv, **kwargs: subprocess.CompletedProcess(argv, 1, b"", b"ModuleNotFoundError"),
+    )
+    with pytest.raises(WorkerProcessError, match="has no pytest"):
+        check_worker_pytest(str(tmp_path))
+
+
+@pytest.mark.unit
+def test_check_worker_pytest_reports_an_unstartable_worker_interpreter(monkeypatch, tmp_path):
+    def unstartable(argv, **kwargs):
+        raise OSError("no such file")
+
+    monkeypatch.setattr("mutate4py._worker_protocol.subprocess.run", unstartable)
+    with pytest.raises(WorkerProcessError, match="could not be started"):
+        check_worker_pytest(str(tmp_path))
+
+
 @pytest.mark.unit
 def test_close_before_prime_is_a_no_op():
-    executor = WorkerProcessExecutor(worker_root="/w", guarded_path="/w/calc.py", forking_requested=True)
+    executor = WorkerProcessExecutor(
+        worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, source_root="/src"
+    )
     executor.close()
+
+
+def _provision_test_worker(tmp_path) -> None:
+    """Component-test stand-in for `uv venv` + `uv sync`. The Worker's own
+    interpreter is this test process's venv, linked in as <root>/.venv so
+    <root>/.venv/bin/python resolves the same site-packages (pytest and the
+    editable mutate4py included)."""
+    os.symlink(sys.prefix, os.path.join(str(tmp_path), ".venv"))
 
 
 def _write_add_sub_project(tmp_path):
@@ -163,7 +289,13 @@ def test_worker_process_executor_round_trip(tmp_path):
     stdout-flush leak: one primed Worker subprocess serves multiple, distinct
     argv dispatches over the JSON-lines protocol without corrupting framing."""
     target = _write_add_sub_project(tmp_path)
-    executor = WorkerProcessExecutor(worker_root=str(tmp_path), guarded_path=str(target), forking_requested=True)
+    _provision_test_worker(tmp_path)
+    executor = WorkerProcessExecutor(
+        worker_root=str(tmp_path),
+        guarded_path=str(target),
+        forking_requested=True,
+        source_root=str(tmp_path),
+    )
     executor.prime()
     try:
         assert executor.run(["-q", "tests/test_calc.py::test_add"], timeout=30.0) == "survived"
@@ -179,7 +311,13 @@ def test_worker_process_executor_subprocess_forced(tmp_path):
     _prepare_executor call must fall back to the subprocess executor and
     still classify correctly."""
     target = _write_add_sub_project(tmp_path)
-    executor = WorkerProcessExecutor(worker_root=str(tmp_path), guarded_path=str(target), forking_requested=False)
+    _provision_test_worker(tmp_path)
+    executor = WorkerProcessExecutor(
+        worker_root=str(tmp_path),
+        guarded_path=str(target),
+        forking_requested=False,
+        source_root=str(tmp_path),
+    )
     executor.prime()
     try:
         assert executor.run(["-q", "tests/test_calc.py::test_add"], timeout=30.0) == "survived"
@@ -214,8 +352,13 @@ def test_worker_process_executor_supplies_worker_id(tmp_path, forking_requested)
     forking or the subprocess executor — the same mechanism (env var +
     `-p` module plugin) has to cross both boundaries identically."""
     target = _write_workerinput_probe_project(tmp_path)
+    _provision_test_worker(tmp_path)
     executor = WorkerProcessExecutor(
-        worker_root=str(tmp_path), guarded_path=str(target), forking_requested=forking_requested, worker_id="gw3"
+        worker_root=str(tmp_path),
+        guarded_path=str(target),
+        forking_requested=forking_requested,
+        worker_id="gw3",
+        source_root=str(tmp_path),
     )
     executor.prime()
     try:
@@ -237,7 +380,13 @@ def test_worker_process_executor_without_worker_id_leaves_workerinput_unset(tmp_
         "    assert not hasattr(request.config, 'workerinput')\n"
         "    assert add(2, 2) == 4\n"
     )
-    executor = WorkerProcessExecutor(worker_root=str(tmp_path), guarded_path=str(target), forking_requested=True)
+    _provision_test_worker(tmp_path)
+    executor = WorkerProcessExecutor(
+        worker_root=str(tmp_path),
+        guarded_path=str(target),
+        forking_requested=True,
+        source_root=str(tmp_path),
+    )
     executor.prime()
     try:
         assert executor.run(["-q", "tests/test_no_worker_id.py"], timeout=30.0) == "survived"
@@ -260,9 +409,12 @@ def test_worker_forking_and_subprocess_parity(tmp_path):
     (tests_dir / "test_calc.py").write_text("from calc import add\ndef test_add():\n    assert add(2, 2) == 4\n")
     args = ["-q", "tests"]
 
-    forking_worker = WorkerProcessExecutor(worker_root=str(tmp_path), guarded_path=str(target), forking_requested=True)
+    _provision_test_worker(tmp_path)
+    forking_worker = WorkerProcessExecutor(
+        worker_root=str(tmp_path), guarded_path=str(target), forking_requested=True, source_root=str(tmp_path)
+    )
     subprocess_worker = WorkerProcessExecutor(
-        worker_root=str(tmp_path), guarded_path=str(target), forking_requested=False
+        worker_root=str(tmp_path), guarded_path=str(target), forking_requested=False, source_root=str(tmp_path)
     )
     forking_worker.prime()
     subprocess_worker.prime()
@@ -281,8 +433,25 @@ def test_worker_forking_and_subprocess_parity(tmp_path):
 # --- a leaked target inside a Worker degrades to the subprocess executor ------
 
 
+@pytest.fixture
+def restore_import_state(tmp_path):
+    """In-process pytest.main leaves the tmp project on sys.path and its conftest in sys.modules (#80).
+    `_worker_server.main` also leaves the mutate4py logger at WARNING, which silences later runs."""
+    saved_path = list(sys.path)
+    saved_modules = set(sys.modules)
+    saved_level = logging.getLogger("mutate4py").level
+    yield
+    logging.getLogger("mutate4py").setLevel(saved_level)
+    sys.path[:] = saved_path
+    root = os.path.realpath(tmp_path) + os.sep
+    for name in set(sys.modules) - saved_modules:
+        file = getattr(sys.modules[name], "__file__", None)
+        if file and os.path.realpath(file).startswith(root):
+            del sys.modules[name]
+
+
 @pytest.mark.component
-def test_worker_server_degrades_to_subprocess_on_leaked_target(tmp_path, monkeypatch, capfd):
+def test_worker_server_degrades_to_subprocess_on_leaked_target(tmp_path, monkeypatch, capfd, restore_import_state):
     """A module-leak has to happen in the Worker subprocess's own
     sys.modules; a real subprocess boundary can't be seeded from outside, so
     this drives `_worker_server.main` directly in-process instead — the same

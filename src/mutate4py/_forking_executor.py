@@ -19,7 +19,7 @@ shape to sniff for, so priming never inspects the argument list it will
 later be called with.
 """
 
-import importlib.util
+import contextlib
 import os
 import signal
 import sys
@@ -27,6 +27,7 @@ import tempfile
 import time
 from typing import Callable
 
+from mutate4py._bytecode_cache import invalidate_bytecode_cache
 from mutate4py._cmd import classify_exit_code
 from mutate4py._plugin_neutralisation import neutralising_args
 
@@ -207,7 +208,7 @@ class ForkingExecutor:
         # child can read back stale bytecode for a file that was mutated in
         # between — on filesystems with coarse mtime resolution this is not
         # just a test artifact, it is a real false-survivor risk.
-        _invalidate_bytecode_cache(self._guarded_path)
+        invalidate_bytecode_cache(self._guarded_path)
         sys.dont_write_bytecode = True
         try:
             exit_code = _run_pytest_output_suppressed(pytest, args, self._cwd)
@@ -240,20 +241,10 @@ class ForkingExecutor:
         os._exit(exit_code if isinstance(exit_code, int) else int(exit_code))
 
 
-def _invalidate_bytecode_cache(guarded_path: str) -> None:
-    """Remove any compiled-bytecode cache for guarded_path, if present."""
-    try:
-        cached = importlib.util.cache_from_source(guarded_path)
-    except ValueError:
-        return
-    try:
-        os.remove(cached)
-    except FileNotFoundError:
-        pass
-
-
 def _run_pytest_output_suppressed(pytest_module, args: list[str], cwd: str) -> int:
     """Run pytest.main(args) with cwd set and stdout/stderr redirected to devnull.
+
+    cwd is on sys.path[0] for the call, as `python -m pytest` would put it (#82).
 
     Flushes sys.stdout/sys.stderr before restoring the real fds: Python's
     TextIOWrapper buffers writes at the object level, independent of the fd
@@ -265,11 +256,15 @@ def _run_pytest_output_suppressed(pytest_module, args: list[str], cwd: str) -> i
     line there is a framing error, not just noise.
     """
     prev_cwd = os.getcwd()
+    import_root = os.path.abspath(cwd)
     devnull_fd = os.open(os.devnull, os.O_WRONLY)
     saved_stdout = os.dup(1)
     saved_stderr = os.dup(2)
+    inserted = False
     try:
         os.chdir(cwd)
+        sys.path.insert(0, import_root)
+        inserted = True
         os.dup2(devnull_fd, 1)
         os.dup2(devnull_fd, 2)
         return int(pytest_module.main(args))
@@ -281,6 +276,9 @@ def _run_pytest_output_suppressed(pytest_module, args: list[str], cwd: str) -> i
         os.close(saved_stdout)
         os.close(saved_stderr)
         os.close(devnull_fd)
+        if inserted:
+            with contextlib.suppress(ValueError):
+                sys.path.remove(import_root)
         os.chdir(prev_cwd)
 
 

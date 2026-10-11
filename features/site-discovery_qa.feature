@@ -55,6 +55,7 @@ Feature: QA — site discovery is observable end-to-end through the mutate4py CL
       | mixed_operators.py | 6     |
       | module_level.py    | 2     |
       | empty_units.py     | 0     |
+      | unary_operators.py | 4     |
 
   # qa-site-discovery-2: with no manifest, Changed equals Total and Manifest exists is false
   Scenario: a fixture with no manifest reports changed equal to total

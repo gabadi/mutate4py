@@ -103,10 +103,10 @@ an unattributable mutant a distinct visible status; none silently falls back.
 Stryker runs the full suite for "static" mutants — case 2 exactly. mutmut
 hard-errors when its test↔mutant mapping breaks — case 3.
 
-**Batch exit code is the worst per-file code**, severity `2 > 1 > 0`, not a boolean
+**Batch exit code is the worst per-file code**, severity `2 > 1 > 3 > 0`, not a boolean
 collapse — otherwise a case-3 abort in one file is indistinguishable from an
 ordinary failure in another. A failing file contributes its code without stopping
-the batch.
+the batch. 3 = a scored run finished with at least one unaccepted survivor (ADR 0026).
 
 **One db serves a whole batch.** Generate a single combined `.coverage` spanning
 every workspace member; a per-member db would make members disagree about shared

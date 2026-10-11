@@ -125,6 +125,36 @@ def test_prime_succeeds_when_target_not_pre_imported(tmp_path):
 
 
 @pytest.mark.component
+def test_prime_and_run_import_from_cwd_without_root_conftest(tmp_path):
+    """The console script does not put cwd on sys.path; pytest must still import from it (#82)."""
+    n = next(_module_name_counter)
+    (tmp_path / f"rootplugin_{n}.py").write_text("")
+    (tmp_path / "pytest.ini").write_text(f"[pytest]\naddopts = -p rootplugin_{n}\n")
+    target = tmp_path / f"under_test_{n}.py"
+    target.write_text("def add(a, b):\n    return a + b\n")
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / f"test_under_test_{n}.py").write_text(
+        f"from under_test_{n} import add\n\n\ndef test_add():\n    assert add(2, 2) == 4\n"
+    )
+    saved = list(sys.path)
+    executor = ForkingExecutor(cwd=str(tmp_path), guarded_path=str(target))
+    executor.prime()
+    assert executor.run(["-q", "tests"], timeout=30.0) == "survived"
+    assert sys.path == saved
+
+
+@pytest.mark.unit
+def test_failed_chdir_does_not_remove_a_preexisting_sys_path_entry(tmp_path, monkeypatch):
+    """A cwd that cannot be entered fails before this call touches sys.path, so
+    a sys.path entry that was already there must survive the finally block (#82)."""
+    missing = str(tmp_path / "does_not_exist")
+    monkeypatch.setattr(sys, "path", [*sys.path, missing])
+    with pytest.raises(FileNotFoundError):
+        mutate4py._forking_executor._run_pytest_output_suppressed(pytest, ["-q"], missing)
+    assert missing in sys.path
+
+
+@pytest.mark.component
 def test_prime_neutralises_plugins_on_its_own_collect_only_call(tmp_path, monkeypatch):
     """Regression: prime()'s internal collect-only pytest.main() call is
     itself an in-process, pre-fork pytest re-entry, so it must carry the

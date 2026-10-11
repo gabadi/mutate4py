@@ -2,6 +2,8 @@
 
 Recognized equivalent mutant patterns for this project. Surviving mutants in these categories do NOT need new tests — they are structurally equivalent for all valid inputs.
 
+Accept each one in source with `# mutate4py: equivalent <category name>` on the Site's line; an unmarked equivalent fails the run with exit 3.
+
 ## Categories (from hardender session da863ce7, 2026-06-26)
 
 1. **Falsy None vs False init** — replacing `None` with `False` (or vice versa) in initialization where the code only tests truthiness; both evaluate identically.

@@ -34,6 +34,34 @@ def test_baseline_reason_falls_back_to_exit_code():
     assert _baseline_reason(result) == "exit code 42"
 
 
+@pytest.mark.unit
+def test_baseline_reason_reads_stdout_error_line_when_stderr_is_empty():
+    """pytest prints import failures to stdout; with stderr empty the
+    reason must carry that line instead of a bare exit code."""
+    import subprocess
+
+    stdout = b"ImportError while loading conftest\nModuleNotFoundError: No module named 'demo'\n"
+    result = subprocess.CompletedProcess(args=[], returncode=2, stdout=stdout, stderr=b"")
+    assert _baseline_reason(result) == "ModuleNotFoundError: No module named 'demo' (exit code 2)"
+
+
+@pytest.mark.unit
+def test_baseline_reason_prefers_the_last_stdout_error_line():
+    import subprocess
+
+    stdout = b"Error: first\nunrelated line\nError: last one\n"
+    result = subprocess.CompletedProcess(args=[], returncode=2, stdout=stdout, stderr=b"")
+    assert _baseline_reason(result) == "Error: last one (exit code 2)"
+
+
+@pytest.mark.unit
+def test_baseline_reason_without_stdout_error_line_falls_back_to_exit_code():
+    import subprocess
+
+    result = subprocess.CompletedProcess(args=[], returncode=3, stdout=b"all quiet\n", stderr=b"")
+    assert _baseline_reason(result) == "exit code 3"
+
+
 # ── resolve_baseline_and_overhead / measure_baseline_and_overhead ───────────
 
 
@@ -138,7 +166,7 @@ def test_run_mutations_reports_per_mutant_overhead(tmp_path):
             )
         )
     output = buf.getvalue()
-    assert rc == 0
+    assert rc == 3
     match = re.search(r"^Per-Mutant overhead: (\d+\.\d\ds)$", output, re.MULTILINE)
     assert match, f"no 'Per-Mutant overhead:' line found in:\n{output}"
 
@@ -182,7 +210,7 @@ def test_run_mutations_omits_overhead_when_baseline_duration_is_pre_supplied(tmp
             )
         )
     output = buf.getvalue()
-    assert rc == 0
+    assert rc == 3
     assert "Per-Mutant overhead:" not in output
 
 
