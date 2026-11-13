@@ -1,133 +1,147 @@
 {
   "version": 1,
-  "tested_at": "2026-10-11T08:14:18Z",
-  "module_hash": "23f0e8d59113cae91d49942fa83c63074e692d0958a0b628c1f9e9fa90d585a5",
-  "source_sha256": "8e43c74f0304762a7f977d7e81e8345836463e26d09eca0383ffb3b9d6aeaab8",
+  "tested_at": "2026-11-13T09:05:20Z",
+  "module_hash": "353453e0dd8761965e1cc84220302013247e790baa4fb3e8e72c426e05a3e998",
+  "source_sha256": "d2cddf4d685aacec070339237e891bacfcb62d70b325a6168e158faacf9508a0",
   "functions": [
     {
       "id": "func/_load_source",
       "name": "_load_source",
-      "line": 49,
-      "end_line": 56,
+      "line": 50,
+      "end_line": 57,
       "hash": "cf0d544f502e942b3f91b37a4274c45017816c03cdde85ee449ed6e89973ba81"
     },
     {
       "id": "func/_syntax_error_reason",
       "name": "_syntax_error_reason",
-      "line": 59,
-      "end_line": 63,
+      "line": 60,
+      "end_line": 64,
       "hash": "66d175abf37bd7a66161af674cd50079266b5080be57639f87c805079b4397c4"
     },
     {
       "id": "func/_report_parse_error",
       "name": "_report_parse_error",
-      "line": 66,
-      "end_line": 67,
+      "line": 67,
+      "end_line": 68,
       "hash": "a5a6da726ae7e888199f731b533883674d6e844a45d6fa84fa48f9a92213de1b"
     },
     {
       "id": "func/_parse_line_token",
       "name": "_parse_line_token",
-      "line": 70,
-      "end_line": 80,
+      "line": 71,
+      "end_line": 81,
       "hash": "89a2a52975ec97ccfed570bd182aab068faf2dc0fea8026afb229c62d57a8277"
     },
     {
       "id": "func/_parse_lines",
       "name": "_parse_lines",
-      "line": 83,
-      "end_line": 88,
+      "line": 84,
+      "end_line": 89,
       "hash": "4febad296c3c5be36594a0188127548ab4edcba48a3bd946848e9c583b398ac4"
     },
     {
       "id": "func/_parse_pytest_args",
       "name": "_parse_pytest_args",
-      "line": 91,
-      "end_line": 99,
+      "line": 92,
+      "end_line": 100,
       "hash": "7286e381b4800db9ffda47b9f30738661e8ca1ca48285d487b82fc5cb172eaf6"
     },
     {
       "id": "func/_run_scan",
       "name": "_run_scan",
-      "line": 102,
-      "end_line": 119,
+      "line": 103,
+      "end_line": 120,
       "hash": "bb03b532cd7cb7dca9d76c2707a8e1c82a085a421c255a6288e18d4c83e38661"
     },
     {
       "id": "func/_run_on_file",
       "name": "_run_on_file",
-      "line": 122,
-      "end_line": 161,
-      "hash": "b14e810f114df287c6236e3493747e7caa0af514ce12aa00affe3fbc2a936c07"
+      "line": 123,
+      "end_line": 162,
+      "hash": "ff168189b0e32641ed33a421f32ddae5deecb6928d3026a5553eca593b31efec"
     },
     {
       "id": "func/_build_isolated_session_runner",
       "name": "_build_isolated_session_runner",
-      "line": 164,
-      "end_line": 193,
+      "line": 165,
+      "end_line": 194,
       "hash": "675f982b661edf6e60ef9d4562df2733cc1f18943644ec6d91c441e3b094baf4"
     },
     {
-      "id": "func/_needs_directory_baseline",
-      "name": "_needs_directory_baseline",
-      "line": 196,
-      "end_line": 198,
-      "hash": "5d52f1c4f16dafb723d1963e0b2dc0e8aa625d0c3fe72a339d9c711bffe48a51"
+      "id": "func/_needs_measurement",
+      "name": "_needs_measurement",
+      "line": 197,
+      "end_line": 199,
+      "hash": "13d66b58dedee3d33ac0b61668462cdf66c529be9c3e3339f86e57edd49aa797"
     },
     {
-      "id": "func/_prepare_directory_baseline",
-      "name": "_prepare_directory_baseline",
-      "line": 201,
-      "end_line": 223,
-      "hash": "6f3a329bcd08e8185dbe9bad0bb229a42897306d3c8a5ffa9dec7b89376c1f85"
+      "id": "func/_acquire_directory_coverage",
+      "name": "_acquire_directory_coverage",
+      "line": 202,
+      "end_line": 222,
+      "hash": "fdc8f7f42450330f327a2f2c5e2416c9bfeafb20fe5ecdd68a6a11110c78d9e7"
+    },
+    {
+      "id": "func/_prepare_directory_measurement",
+      "name": "_prepare_directory_measurement",
+      "line": 225,
+      "end_line": 242,
+      "hash": "a8381bbaefbb50751de61e26d79c8ea403b99bea0966d827c77a677429be6c0a"
     },
     {
       "id": "func/_report_excluded",
       "name": "_report_excluded",
-      "line": 226,
-      "end_line": 229,
+      "line": 245,
+      "end_line": 248,
       "hash": "d5c6ff3b6122978ecfb06f14f2f9fd218eee1047da229a55030e86d9b7dca7f0"
     },
     {
       "id": "func/_collect_union_files",
       "name": "_collect_union_files",
-      "line": 232,
-      "end_line": 247,
+      "line": 251,
+      "end_line": 266,
       "hash": "315779718cc5d9e1c83a0d325927eaa36efad5a0b900465ffe4f286d96c1e5ac"
+    },
+    {
+      "id": "func/_run_each_file",
+      "name": "_run_each_file",
+      "line": 269,
+      "end_line": 288,
+      "hash": "f3128b0d50b1be72cd4b6c32bec17075bef1960f86df509e068b45a9630a505a"
     },
     {
       "id": "func/_run_files_and_exit",
       "name": "_run_files_and_exit",
-      "line": 250,
-      "end_line": 274,
-      "hash": "afc186c1f4c5c694335f0177b72fa58b8f52ed904c65d1129c6bb7c19146e098"
+      "line": 291,
+      "end_line": 304,
+      "hash": "698978fbb547549132e2284d4d7d21f4b28a475e591def7212f52646f86ce423"
     },
     {
       "id": "func/_dispatch_batch",
       "name": "_dispatch_batch",
-      "line": 277,
-      "end_line": 280,
-      "hash": "8181e0237626833e07ff966326a398d9721bbcfc14e6b142189afabeb329088e"
+      "line": 307,
+      "end_line": 310,
+      "hash": "fec2a5ef10c8272cf194852d98cf616bd5d013d3042cbb017556380ef06aa964"
     },
     {
       "id": "func/_raise_if_target_excluded",
       "name": "_raise_if_target_excluded",
-      "line": 283,
-      "end_line": 290,
+      "line": 313,
+      "end_line": 320,
       "hash": "5ff01ac3f96d34b9d14fde637975e7f49bffe4b4efd09ea8e839c772942417a9"
     },
     {
       "id": "func/_resolve_roots",
       "name": "_resolve_roots",
-      "line": 293,
-      "end_line": 302,
+      "line": 323,
+      "end_line": 332,
       "hash": "e759fcff7677326c2838faba1ed3dbb6e743a944354b2a50da3c1ade8e8cd8af"
     },
     {
       "id": "func/_dispatch",
       "name": "_dispatch",
-      "line": 305,
-      "end_line": 354,
+      "line": 335,
+      "end_line": 384,
       "hash": "2d3702427b951575309b4f50e87ee75125e183a2cc7525959d876b7b2603fc5a"
     }
   ]

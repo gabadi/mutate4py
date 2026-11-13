@@ -63,7 +63,7 @@ def _batch_exit_code(monkeypatch, outcomes):
     or None for a file that fails to parse. Returns the SystemExit code."""
     import mutate4py._dispatch as dispatch
 
-    def fake_run_on_file(args, py_file, source, cwd, baseline_duration=None):
+    def fake_run_on_file(args, py_file, source, cwd, measurement=None):
         outcome = outcomes[py_file]
         if outcome is None:
             raise SyntaxError("invalid syntax", (py_file, 1, 1, "x"))

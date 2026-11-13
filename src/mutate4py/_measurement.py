@@ -12,6 +12,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -31,6 +32,7 @@ __all__ = [
     "Static",
     "Uncovered",
     "measure",
+    "measure_in_scratch",
     "measurement_from",
     "raise_for_session",
 ]
@@ -124,9 +126,9 @@ class MeasurementFailed(Exception):
         if no_tests:
             message = "the Measurement collected no tests"
         elif failing_node_ids:
-            message = "the Measurement failed: " + ", ".join(failing_node_ids)
+            message = "baseline failed: " + ", ".join(failing_node_ids)
         else:
-            message = f"the Measurement failed: {reason}"
+            message = f"baseline failed: {reason}"
         super().__init__(message)
         self.failing_node_ids = failing_node_ids
         self.no_tests = no_tests
@@ -316,3 +318,21 @@ def measure(request: MeasureRequest) -> Measurement:
         for path in files.values():
             with contextlib.suppress(FileNotFoundError):
                 os.remove(path)
+
+
+def measure_in_scratch(
+    *,
+    cwd: str,
+    pytest_args: tuple[str, ...] | list[str],
+    target_files: tuple[str, ...],
+) -> Measurement:
+    """`measure` with its own temporary scratch directory, removed before this returns."""
+    with tempfile.TemporaryDirectory(prefix="mutate4py-measurement-") as scratch_dir:
+        return measure(
+            MeasureRequest(
+                cwd=cwd,
+                pytest_args=tuple(pytest_args),
+                target_files=tuple(target_files),
+                scratch_dir=scratch_dir,
+            )
+        )

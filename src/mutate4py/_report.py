@@ -10,13 +10,19 @@ import os
 
 from mutate4py._coverage import acquire_coverage
 from mutate4py._discovery import Site, discover_sites, partition_sites
+from mutate4py._exit_codes import EXIT_FAILURE, EXIT_USAGE
 from mutate4py._manifest_storage import ManifestLocation
+from mutate4py._measurement import CoverageCoreRefused, Measurement, MeasurementFailed
 from mutate4py._source_loading import _compute_manifest_diff
+from mutate4py._test_dispatch import NO_TESTS_HINT
 
 __all__ = [
     "CoverageSource",
     "OverheadInfo",
     "RunStats",
+    "batch_summary_lines",
+    "measurement_failure",
+    "measurement_lines",
     "overhead_info",
     "scan_report",
     "scan_report_with_coverage",
@@ -116,10 +122,9 @@ class OverheadInfo:
 
 
 def overhead_info(overhead_duration: float | None, baseline_duration: float | None) -> OverheadInfo | None:
-    """Pair a measured overhead with its Baseline, or None when there is no
-    overhead to report — a pre-supplied Baseline skips the probe entirely
-    (see `_baseline.resolve_baseline_and_overhead`), so the run has a
-    baseline_duration but nothing to pair it with.
+    """Pair a run's Per-Mutant overhead with its Baseline, or None when the run
+    reports no overhead of its own — a run handed a Measurement leaves the
+    overhead line to its batch, which prints it once for every file.
     """
     if overhead_duration is None:
         return None
@@ -137,6 +142,35 @@ def _overhead_report_lines(overhead_duration: float, baseline_duration: float) -
             "audit pytest plugins with --pytest-args (e.g. -p no:<plugin>)."
         )
     return lines
+
+
+def measurement_lines(measurement: Measurement) -> list[str]:
+    """The Measurement line, plus the coverage.py core note when the core is the slow pytrace one.
+
+    Opens with a blank line so the Survivors block above it ends there: the
+    Measurement's wall time varies run to run and is not part of that block.
+    """
+    lines = ["", f"Measurement: {measurement.wall:.2f}s, {measurement.tests} tests, core {measurement.core}"]
+    if measurement.note is not None:
+        lines.append(measurement.note)
+    return lines
+
+
+def batch_summary_lines(measurement: Measurement) -> list[str]:
+    """The batch summary's Measurement and Per-Mutant overhead lines, printed once for a directory run."""
+    return [
+        *measurement_lines(measurement),
+        *_overhead_report_lines(measurement.per_mutant_overhead, measurement.wall),
+    ]
+
+
+def measurement_failure(exc: MeasurementFailed | CoverageCoreRefused) -> tuple[int, str]:
+    """The exit code and error line for a run whose Measurement gave it no Baseline."""
+    if isinstance(exc, CoverageCoreRefused):
+        return EXIT_USAGE, f"error: {exc}"
+    if exc.no_tests:
+        return EXIT_FAILURE, f"error: {exc}: {NO_TESTS_HINT}"
+    return EXIT_FAILURE, f"error: {exc}"
 
 
 def _selection_report_lines(selection_counts: dict[str, int]) -> list[str]:

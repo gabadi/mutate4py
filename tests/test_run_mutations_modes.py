@@ -13,6 +13,7 @@ import sys
 import pytest
 
 from ._pytest_project_helpers import write_always_passing_pytest_project
+from ._measurement_helpers import measurement_for
 from mutate4py._discovery import discover_sites
 from mutate4py._runner import RunMutationsRequest, run_mutations
 
@@ -92,7 +93,7 @@ def test_run_mutations_coverage_error_returns_1(tmp_path, monkeypatch):
                 path=src_path,
                 source=src,
                 cov_cmd=None,
-                lcov_path=None,
+                lcov_path=str(tmp_path / "cov.lcov"),
                 reuse_coverage=False,
                 pytest_args=[],
                 timeout_factor=10,
@@ -494,7 +495,7 @@ def test_injected_executor_receives_narrowed_dispatch_and_is_never_primed(tmp_pa
             cwd=str(tmp_path),
             test_contexts_path=".coverage",
             executor=fake_executor,
-            baseline_duration=0.01,
+            measurement=measurement_for(src_path, {}, wall=0.01),
         )
     )
     assert rc == 0
@@ -547,7 +548,7 @@ def test_injected_executor_receives_static_dispatch(tmp_path, monkeypatch):
             cwd=str(tmp_path),
             test_contexts_path=".coverage",
             executor=fake_executor,
-            baseline_duration=0.01,
+            measurement=measurement_for(src_path, {}, wall=0.01),
         )
     )
     assert rc == 0
@@ -603,7 +604,7 @@ def test_a_dispatch_error_message_is_logged_and_the_run_returns_1(tmp_path, monk
                 cwd=str(tmp_path),
                 test_contexts_path=".coverage",
                 executor=_FakeExecutor(),
-                baseline_duration=0.01,
+                measurement=measurement_for(src_path, {}, wall=0.01),
             )
         )
     assert rc == 1
@@ -647,7 +648,7 @@ def test_neutralising_args_reach_every_mutant_dispatch(tmp_path, monkeypatch):
             warning_threshold=1000,
             cwd=str(tmp_path),
             executor=fake_executor,
-            baseline_duration=0.01,
+            measurement=measurement_for(src_path, {}, wall=0.01),
         )
     )
     assert rc == 0
@@ -701,7 +702,7 @@ def test_test_context_db_and_parallel_workers_compose_in_one_run(tmp_path, monke
             test_contexts_path=".coverage",
             max_workers=3,
             executor=fake_executor,
-            baseline_duration=0.01,
+            measurement=measurement_for(src_path, {}, wall=0.01),
         )
     )
     output = capsys.readouterr().out
@@ -756,7 +757,7 @@ def _run_with_abort_status(tmp_path, status):
             warning_threshold=1000,
             cwd=str(tmp_path),
             executor=fake_executor,
-            baseline_duration=0.01,
+            measurement=measurement_for(src_path, {}, wall=0.01),
         )
     )
     return rc, src_path, src

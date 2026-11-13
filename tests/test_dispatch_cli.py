@@ -337,9 +337,15 @@ def _make_pkg_tree(tmp_path) -> str:
 
 
 @pytest.mark.unit
-def test_main_directory_run_mode_exits_1_without_coverage(tmp_path):
+def test_main_directory_run_mode_exits_1_when_measurement_has_no_tests(tmp_path, monkeypatch):
+    # The Measurement is faked: an unfaked one would run the repo's own suite in-process.
     import mutate4py.__main__ as m
+    from mutate4py._measurement import MeasurementFailed
 
+    def no_tests(**kwargs):
+        raise MeasurementFailed(no_tests=True)
+
+    monkeypatch.setattr("mutate4py._dispatch.measure_in_scratch", no_tests)
     d = tmp_path / "src"
     d.mkdir()
     (d / "a.py").write_text("x = a > b\n")

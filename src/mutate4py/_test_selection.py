@@ -180,3 +180,15 @@ class TestContextDB:
     def close(self) -> None:
         with self._lock:
             self._conn.close()
+
+
+def open_test_context_db(test_contexts_path: str | None) -> TestContextDB | None:
+    """Open the test-context db if requested, or None.
+
+    Never clamps max_workers to force serial execution: narrowing composes
+    with parallel Workers, so a Test-context db and a Worker count of two or
+    more both take effect in the same run.
+    """
+    if test_contexts_path is None:
+        return None
+    return TestContextDB(test_contexts_path)

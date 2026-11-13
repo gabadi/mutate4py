@@ -208,11 +208,6 @@ path = "mutate4py._source_loading"
 layer = "source_loading"
 depends_on = []
 
-[[modules]]
-path = "mutate4py._baseline"
-layer = "baseline"
-depends_on = []
-
 # The Measurement (design #89 §2) sits in `baseline`: above `domain`, whose
 # `_plugin_neutralisation` it uses, and below the layers that read from it.
 [[modules]]
