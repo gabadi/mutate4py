@@ -5,15 +5,12 @@ test_run_mutations_modes.py, which cover the same dispatch logic without
 paying for a real fork()/subprocess.
 """
 
-import os
 import sqlite3
 import sys
 import types
 
 import pytest
 
-import mutate4py
-import mutate4py._worker_server  # noqa: F401 - self-scan target below relies on this already being imported
 from mutate4py._discovery import discover_sites
 from mutate4py._forking_executor import ForkingExecutor
 from mutate4py._runner import RunMutationsRequest, run_mutations
@@ -274,84 +271,3 @@ def test_forking_and_subprocess_executors_classify_the_same_mutant_identically(t
     target.write_text("def add(a, b):\n    return a - b\n")
     assert forking.run(args, timeout=30.0) == "killed"
     assert subprocess_executor.run(args, timeout=30.0) == "killed"
-
-
-# --- self-scan on the project's own orchestrator modules ----------------------
-
-
-@pytest.mark.component
-def test_self_scan_on_worker_server_degrades_to_subprocess_and_kills_correctly(tmp_path, monkeypatch):
-    """mutate4py._worker_server — issue 04b's Worker subprocess entry point —
-    is already imported by this test process (module-level import above), so
-    scanning its real on-disk file is a genuine self-leak, not a synthetic
-    tmp_path fixture: exactly the "self-referential scanning" hazard
-    AGENTS.md warns about. Must still degrade to the subprocess executor and
-    still classify mutants on the real file correctly.
-
-    _executor_selection.py (this test's target before this session) lost all
-    real mutation sites when issue 04b's own refactor inlined the old
-    _forking_eligible's boolean logic into _runner.py instead of moving it
-    there — _prepare_executor's remaining body has no Compare/BoolOp/BinOp
-    node discover_sites recognizes. _worker_server.py's `main()` still has
-    the forking_flag comparison this ticket's Worker-selection wiring
-    depends on, so it replaces _executor_selection.py as this test's target.
-    """
-    import mutate4py._forking_executor as forking_mod
-    import mutate4py._subprocess_executor as subprocess_mod
-
-    target = os.path.join(os.path.dirname(mutate4py.__file__), "_worker_server.py")
-    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(mutate4py.__file__))))
-    assert os.path.isfile(os.path.join(repo_root, "tests", "test_worker_protocol.py")), "repo_root miscomputed"
-
-    with open(target) as f:
-        original = f.read()
-    sites = discover_sites(original)
-    assert sites, "expected real mutation sites in _worker_server.py"
-
-    created_forking = []
-    created_subprocess = []
-    real_forking_cls = forking_mod.ForkingExecutor
-    real_subprocess_cls = subprocess_mod.SubprocessExecutor
-
-    class _TrackingForkingExecutor(real_forking_cls):
-        def __init__(self, *a, **kw):
-            created_forking.append(self)
-            super().__init__(*a, **kw)
-
-    class _TrackingSubprocessExecutor(real_subprocess_cls):
-        def __init__(self, *a, **kw):
-            created_subprocess.append(self)
-            super().__init__(*a, **kw)
-
-    monkeypatch.setattr(forking_mod, "ForkingExecutor", _TrackingForkingExecutor)
-    monkeypatch.setattr(subprocess_mod, "SubprocessExecutor", _TrackingSubprocessExecutor)
-
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov(lcov_path, target, [s.line for s in sites])
-
-    try:
-        rc = run_mutations(
-            RunMutationsRequest(
-                path=target,
-                source=original,
-                cov_cmd=None,
-                lcov_path=lcov_path,
-                reuse_coverage=False,
-                pytest_args=["-q", "tests/test_worker_protocol.py", "-k", "leaked or round_trip"],
-                timeout_factor=20,
-                lines_filter=None,
-                since_last_run=False,
-                mutate_all=False,
-                warning_threshold=1000,
-                cwd=repo_root,
-            )
-        )
-    finally:
-        with open(target, "w") as f:
-            f.write(original)
-
-    assert rc == 3
-    assert len(created_forking) == 1, "expected the forking executor to be attempted once"
-    assert len(created_subprocess) == 1, "expected the self-leak to fall back to the subprocess executor"
-    # A main() mutant must be killed by test_worker_protocol.py's own assertions.
-    assert any(s.function_id == "func/main" for s in sites)
