@@ -38,11 +38,18 @@ def _on_disk(src_path: str) -> str:
         return f.read()
 
 
-def _run(src_path: str, executor: FakeExecutor, *, manifest_file: bool, allow_survivors: bool = False) -> int:
+def _run(
+    src_path: str,
+    executor: FakeExecutor,
+    *,
+    manifest_file: bool,
+    allow_survivors: bool = False,
+    pytest_args: tuple[str, ...] = ("-q", "tests"),
+) -> int:
     request = RunMutationsRequest(
         path=src_path,
         source=_on_disk(src_path),
-        pytest_args=["-q", "tests"],
+        pytest_args=list(pytest_args),
         timeout_factor=10,
         mutate_all=False,
         warning_threshold=1000,
@@ -308,6 +315,26 @@ def test_an_unrelated_test_edit_re_scores_nothing(tmp_path, caplog):
     caplog.clear()
 
     rc = _run(src_path, FakeExecutor("killed"), manifest_file=False)
+
+    assert rc == 0
+    assert _rescored_ids(caplog) == set()
+    assert _digests(src_path) == first
+
+
+@pytest.mark.component
+def test_an_edit_to_a_test_file_whose_tests_are_all_deselected_re_scores_nothing(tmp_path, caplog):
+    """A deselected test module is imported to collect it, but it is a test file, not a helper (#110)."""
+    caplog.set_level(logging.INFO)
+    src_path = _write_two_function_project(tmp_path)
+    slow = "from calc import f\n\n\ndef test_slow():\n    assert f(2, 1) is True\n"
+    _write_files(tmp_path, {"tests/test_slow.py": slow})
+    args = ("-q", "tests", "-k", "not slow")
+    _run(src_path, FakeExecutor("killed"), manifest_file=False, pytest_args=args)
+    first = _digests(src_path)
+    _write_files(tmp_path, {"tests/test_slow.py": slow.replace("f(2, 1)", "f(3, 1)")})
+    caplog.clear()
+
+    rc = _run(src_path, FakeExecutor("killed"), manifest_file=False, pytest_args=args)
 
     assert rc == 0
     assert _rescored_ids(caplog) == set()

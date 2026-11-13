@@ -75,6 +75,8 @@ class SessionFacts:
     plugin_files: tuple[str, ...]
     module_files: tuple[str, ...]
     test_files: tuple[str, ...]
+    # Files of the items pytest deselected (`-m`, `-k`): test modules too, never helpers.
+    deselected_files: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -112,7 +114,7 @@ def _test_roots(test_files: Iterable[str], rootdir: str) -> set[str]:
 
 def _support_modules(facts: SessionFacts, conftests: tuple[str, ...]) -> tuple[str, ...]:
     roots = _test_roots(facts.test_files, facts.rootdir)
-    excluded = set(facts.test_files) | set(conftests)
+    excluded = set(facts.test_files) | set(facts.deselected_files) | set(conftests)
     return tuple(
         sorted(
             path for path in set(facts.module_files) - excluded if any(path.startswith(root + os.sep) for root in roots)

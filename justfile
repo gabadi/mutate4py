@@ -329,7 +329,12 @@ mutate-sample:
 # infra failure that happens before the summary prints is still visible.
 # Exit 3 (unaccepted survivors, ADR 0026) is a normal result: the report already lists them, so no tail.
 #
-# Rewrites `path` on a scored run, same as mutate4py always does: expect a diff.
+# Rewrites `path`'s Manifest on a scored run: expect a diff. `--manifest-file`
+# is always passed because src/ stores every Manifest as a sidecar; without it
+# the run ignores the sidecar (scoring the whole file as Manifest-less) and
+# embeds a second Manifest in the source (#110). A run that skips its
+# Measurement prints no `Mutation Report`, so the filter also starts at its
+# `Measurement: skipped` line, which keeps its recorded Survivors visible.
 #
 # MUTATE_PYTEST_ARGS (declared above the gates) selects unit tests only.
 # `integration` tests are coverage-blind (see `test-integration`), and
@@ -344,9 +349,9 @@ mutate path *args:
     set -uo pipefail
     log="$(mktemp)"
     trap 'rm -f "$log"' EXIT
-    uv run mutate4py {{path}} --pytest-args "{{MUTATE_PYTEST_ARGS}}" {{args}} >"$log" 2>&1
+    uv run mutate4py {{path}} --pytest-args "{{MUTATE_PYTEST_ARGS}}" {{args}} --manifest-file >"$log" 2>&1
     status=$?
-    awk '/^Mutation Report$/,0' "$log"
+    awk '/^Mutation Report$/ || /^Measurement: skipped/ {shown=1} shown' "$log"
     if [ "$status" -ne 0 ] && [ "$status" -ne 3 ]; then
         echo ""
         echo "--- mutate4py exited $status; last 20 lines of $log ---"

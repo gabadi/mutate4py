@@ -22,7 +22,10 @@ A function's digest is a SHA-256 over sorted `(relpath, content SHA-256)` pairs 
   test root that a test imported and that are neither test files nor conftests
   (factories, helpers, sibling-directory modules), the pytest table of
   `pyproject.toml` (the rest of that file is ignored), the pytest ini file, and
-  `uv.lock`.
+  `uv.lock`. A test module whose tests the run's arguments deselected (`-m`, `-k`)
+  is a test file, not a support file: pytest imports it to collect it, but none of
+  its tests runs, so under unit-only scoring an edit to a component-only test file
+  re-scores nothing (#110).
 
 Coverage's own config is not an input: the Measurement runs with
 `config_file=False` and pytest-cov disabled.

@@ -23,6 +23,7 @@ class MeasurePlugin:
         self._record_path = record_path
         self._log = SessionLog()
         self._items: list = []
+        self._deselected: set[str] = set()
 
     @pytest.hookimpl(wrapper=True)
     def pytest_runtest_protocol(self, item, nextitem):
@@ -50,6 +51,9 @@ class MeasurePlugin:
         if report.failed:
             self._log.collection_failed(report.nodeid)
 
+    def pytest_deselected(self, items) -> None:
+        self._deselected.update(str(item.path) for item in items)
+
     def pytest_collection_finish(self, session) -> None:
         self._items = list(session.items)
 
@@ -66,6 +70,7 @@ class MeasurePlugin:
             plugin_files=_files(config.pluginmanager.get_plugins()),
             module_files=_files(list(sys.modules.values())),
             test_files=tuple(sorted({str(item.path) for item in self._items})),
+            deselected_files=tuple(sorted(self._deselected)),
         )
         with open(self._record_path, "w") as f:
             f.write(dump_record(self._log.finish(facts)))
