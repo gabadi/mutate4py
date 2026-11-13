@@ -10,7 +10,7 @@ the assertions cannot be satisfied by recomputing what the code computes.
 import pytest
 
 from mutate4py._discovery import discover_sites
-from mutate4py._test_dispatch import MutantPlan, PlanInputs, TimeoutPolicy, plan_mutant
+from mutate4py._test_dispatch import MutantPlan, PlanInputs, TimeoutPolicy, confirm_plan, plan_mutant
 from mutate4py._test_dispatch import TestSelectionError as SelectionError
 
 SRC = "/src/calc.py"
@@ -190,3 +190,16 @@ def test_plan_timeout_is_floored_factor_times_budget_plus_overhead(factor, min_t
     )
     plan = plan_mutant(_one_site(), inputs)
     assert plan.timeout == pytest.approx(expected)
+
+
+@pytest.mark.unit
+def test_confirm_plan_runs_the_full_args_verbatim_under_the_full_set_timeout():
+    """A Survivor is confirmed with the whole test set: positional path kept, budgeted as None."""
+    plan = confirm_plan(["-q", "tests"], _policy())
+    assert plan == MutantPlan(args=["-q", "tests"], timeout=15.0, selection=None)
+
+
+@pytest.mark.unit
+def test_confirm_plan_timeout_adds_the_per_mutant_overhead_to_the_full_set_budget():
+    policy = TimeoutPolicy(factor=3.0, min_timeout=1.0, overhead=0.5, budget_of=_budget_of)
+    assert confirm_plan(["-q"], policy).timeout == 15.5

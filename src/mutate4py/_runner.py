@@ -303,7 +303,9 @@ def _scored_run_for(
     )
 
 
-def _mutant_exec_ctx(request: RunMutationsRequest, outcome: SelectionOutcome, test_ctx_db) -> MutantExecCtx:
+def _mutant_exec_ctx(
+    request: RunMutationsRequest, outcome: SelectionOutcome, test_ctx_db, markers: dict[int, str] | None = None
+) -> MutantExecCtx:
     # Parallel Workers compute the plugin kill switches inside their own
     # interpreter (the one that runs pytest); the orchestrator's list is
     # for the serial path only.
@@ -320,6 +322,9 @@ def _mutant_exec_ctx(request: RunMutationsRequest, outcome: SelectionOutcome, te
         selection_source=test_ctx_db if test_ctx_db is not None else outcome.measurement,
         forking_requested=request.forking_requested,
         positionals=outcome.measurement.positional_args,
+        # The full set, with the plugin kill switches the orchestrator's serial path also runs under.
+        confirm_args=outcome.mutant_pytest_args,
+        markers=markers or {},
     )
 
 
@@ -351,7 +356,7 @@ def _run_loop(request: RunMutationsRequest, test_ctx_db) -> int:
     if outcome.error_code is not None:
         return outcome.error_code
 
-    ctx = _mutant_exec_ctx(request, outcome, test_ctx_db)
+    ctx = _mutant_exec_ctx(request, outcome, test_ctx_db, markers)
     scored_run: ScoredRun | None = None
     try:
         result = _execute_mutations(

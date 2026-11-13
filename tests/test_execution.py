@@ -2,11 +2,13 @@
 
 import pytest
 
-from mutate4py._discovery import discover_sites
+from mutate4py._discovery import apply_mutant, discover_sites
 from mutate4py._execution import (
     MutantExecCtx,
     NoTestsCollectedError,
     TestSelectionError,
+    _confirm_survivors,
+    _execute_mutations,
     _run_mutation_loop,
     _run_parallel_workers,
 )
@@ -218,3 +220,138 @@ def test_run_parallel_workers_passes_timeout(tmp_path, monkeypatch):
         ),
     )
     assert captured["timeout_policy"].timeout_for(None) == 42.0
+
+
+# ── _confirm_survivors ────────────────────────────────────────────────────────
+
+FULL_SET = ["-q", "tests"]
+
+
+class _SourceRecordingExecutor(_FakeExecutor):
+    """A fake executor that also records the source text on disk when each run starts."""
+
+    def __init__(self, path, status):
+        super().__init__(status=status)
+        self._path = path
+        self.seen_sources = []
+
+    def run(self, args, timeout):
+        with open(self._path) as f:
+            self.seen_sources.append(f.read())
+        return super().run(args, timeout)
+
+
+def _confirm_ctx(tmp_path, src_file, markers=None) -> MutantExecCtx:
+    return MutantExecCtx(
+        path=str(src_file),
+        cwd=str(tmp_path),
+        pytest_args=["-q"],
+        executor=_FakeExecutor(),
+        timeout_policy=_policy(7.5),
+        abs_source_path=str(src_file),
+        confirm_args=list(FULL_SET),
+        markers=markers or {},
+    )
+
+
+@pytest.mark.unit
+def test_confirm_survivors_a_full_set_kill_removes_the_survivor(tmp_path):
+    src = "def f(a, b):\n    return a > b\n"
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(src)
+    site = discover_sites(src)[0]
+    executor = _SourceRecordingExecutor(str(src_file), status="killed")
+
+    still, runs, kills = _confirm_survivors([site], src, _confirm_ctx(tmp_path, src_file), executor)
+
+    assert still == []
+    assert (runs, kills) == (1, 1)
+    assert executor.calls == [(FULL_SET, 7.5)]
+    assert executor.seen_sources == [apply_mutant(src, site)]
+
+
+@pytest.mark.unit
+def test_confirm_survivors_a_timeout_under_the_full_set_is_folded_into_a_kill(tmp_path):
+    src = "def f(a, b):\n    return a > b\n"
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(src)
+    site = discover_sites(src)[0]
+
+    still, runs, kills = _confirm_survivors(
+        [site], src, _confirm_ctx(tmp_path, src_file), _FakeExecutor(status="timeout")
+    )
+
+    assert (still, runs, kills) == ([], 1, 1)
+
+
+@pytest.mark.unit
+def test_confirm_survivors_a_survivor_the_full_set_also_lets_through_stays_a_survivor(tmp_path):
+    src = "def f(a, b):\n    return a > b\n"
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(src)
+    site = discover_sites(src)[0]
+
+    still, runs, kills = _confirm_survivors(
+        [site], src, _confirm_ctx(tmp_path, src_file), _FakeExecutor(status="survived")
+    )
+
+    assert (still, runs, kills) == ([site], 1, 0)
+
+
+@pytest.mark.unit
+def test_confirm_survivors_an_accepted_equivalent_survivor_is_not_confirmed(tmp_path):
+    """A Survivor on a marker line stays accepted and is never re-run; the unmarked one is confirmed."""
+    src = "def f(a, b):\n    return a > b\n\n\ndef g(a, b):\n    return a + b\n"
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(src)
+    sites = discover_sites(src)
+    marked = next(s for s in sites if s.line == 2)
+    plain = next(s for s in sites if s.line == 6)
+    executor = _SourceRecordingExecutor(str(src_file), status="killed")
+
+    still, runs, kills = _confirm_survivors(
+        [marked, plain], src, _confirm_ctx(tmp_path, src_file, markers={2: "equivalent"}), executor
+    )
+
+    assert (still, runs, kills) == ([marked], 1, 1)
+    assert executor.seen_sources == [apply_mutant(src, plain)]
+
+
+@pytest.mark.unit
+def test_parallel_survivors_are_confirmed_by_the_orchestrator_as_the_serial_loop_confirms_them(tmp_path, monkeypatch):
+    """The Workers return their Survivors; the orchestrator re-runs each with the full set in its own subprocess executor."""
+    import mutate4py._execution as execution_mod
+    import mutate4py._workers as workers_mod
+
+    src = "def f(a, b):\n    return a > b\n"
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(src)
+    sites = discover_sites(src)
+    monkeypatch.setattr(
+        workers_mod,
+        "run_parallel",
+        lambda request: ({"killed": 0, "timeout": 0, "survived": 1}, list(sites), None),
+    )
+    confirm = _SourceRecordingExecutor(str(src_file), status="killed")
+    monkeypatch.setattr(execution_mod, "SubprocessExecutor", lambda cwd, guarded_path: confirm)
+
+    outcome = _execute_mutations(
+        selected_sites=sites,
+        clean_source=src,
+        ctx=MutantExecCtx(
+            path=str(src_file),
+            cwd=str(tmp_path),
+            pytest_args=["-q"],
+            executor=_FakeExecutor(),
+            timeout_policy=_policy(7.5),
+            max_workers=2,
+            use_parallel=True,
+            abs_source_path=str(src_file),
+            confirm_args=list(FULL_SET),
+        ),
+    )
+
+    assert outcome.survivors == []
+    assert outcome.counts == {"killed": 1, "timeout": 0, "survived": 0}
+    assert (outcome.confirmation_runs, outcome.confirmation_kills) == (1, 1)
+    assert confirm.calls == [(FULL_SET, 7.5)]

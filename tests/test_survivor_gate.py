@@ -345,3 +345,39 @@ def test_default_rerun_retests_function_whose_marker_was_removed(tmp_path):
     assert _run(tmp_path, src_path, lcov_path, pytest_args, source=_UNMARKED, manifest_file=True) == 3
 
     assert _recorded_function(src_path)["accepted"] == []
+
+
+# --- Survivor confirmation (#97) ---------------------------------------------
+
+# A memoised body: test_a's call runs the body and caches the result, so test_b reads the
+# cache and never reaches the body. The Measurement therefore names test_a alone for the
+# body's lines: a narrowed run of a body Mutant passes, and only the full set (test_b, reading
+# the cache the Mutant wrote) kills it. f(2) is 7, so no body Mutant matches the expected value.
+_MEMOISED = "_cache = {}\n\n\ndef f(a):\n    if a not in _cache:\n        _cache[a] = a * 3 + 1\n    return _cache[a]\n"
+
+
+def _write_memoised_project(tmp_path) -> list[str]:
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir(exist_ok=True)
+    (tests_dir / "test_a_first_call.py").write_text(
+        "from calc import f\n\n\ndef test_first_call_is_positive():\n    assert f(2) > 0\n"
+    )
+    (tests_dir / "test_b_cached_call.py").write_text(
+        "from calc import f\n\n\ndef test_cached_call_is_seven():\n    assert f(2) == 7\n"
+    )
+    return ["-q", "tests"]
+
+
+@pytest.mark.component
+def test_memoised_body_survivor_is_confirmed_killed_by_the_full_set(tmp_path):
+    # The narrowed run of a body Mutant names test_a alone and passes. The full set kills it,
+    # so the Mutant is a confirmation kill and the run has no unaccepted Survivor.
+    src_path, lcov_path, _ = _write_source_and_lcov(tmp_path, _MEMOISED)
+    pytest_args = _write_memoised_project(tmp_path)
+
+    assert _run(tmp_path, src_path, lcov_path, pytest_args, source=_MEMOISED, manifest_file=True) == 0
+
+    fn = _recorded_function(src_path)
+    assert fn["survivors"] == []
+    assert fn["score"]["survived"] == 0
+
