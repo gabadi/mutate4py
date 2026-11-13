@@ -60,6 +60,20 @@ def _acquire_covered_lines(
         return None, str(exc)
 
 
+def flagged_covered_lines(
+    *,
+    cov_cmd: str | None,
+    lcov_path: str | None,
+    reuse_coverage: bool,
+    cwd: str,
+    abs_source: str,
+) -> tuple[set[int] | None, str | None]:
+    """The covered lines a coverage flag names, or (None, None) for a run given no coverage flag."""
+    if cov_cmd is None and lcov_path is None and not reuse_coverage:
+        return None, None
+    return _acquire_covered_lines(cov_cmd, lcov_path, reuse_coverage=reuse_coverage, cwd=cwd, abs_source=abs_source)
+
+
 def _is_effective_since_last_run(
     *,
     since_last_run: bool,

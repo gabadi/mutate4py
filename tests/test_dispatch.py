@@ -11,38 +11,8 @@ import os
 
 import pytest
 
+from ._dispatch_helpers import make_args
 from ._fork_unsafe_plugin_helpers import skip_unless_fork_unsafe_plugin_loaded
-
-
-def _make_args(**kwargs):
-    """Build a minimal argparse.Namespace for dispatch-cluster tests."""
-    import argparse
-
-    defaults = dict(
-        scan=False,
-        update_manifest=False,
-        check_manifest=False,
-        lines=None,
-        since_last_run=False,
-        mutate_all=False,
-        max_workers=None,
-        timeout_factor=10,
-        min_timeout=1.0,
-        pytest_args=[],
-        test_contexts=None,
-        cov_cmd=None,
-        lcov=None,
-        reuse_coverage=False,
-        warning_threshold=50,
-        manifest_file=False,
-        verbose=False,
-        exclude=None,
-        prune_dirs=(),
-        no_fork=False,
-        allow_survivors=False,
-    )
-    defaults.update(kwargs)
-    return argparse.Namespace(**defaults)
 
 
 def _make_pkg_tree(tmp_path) -> str:
@@ -127,7 +97,7 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
 
     monkeypatch.setattr("mutate4py._dispatch.run_mutations", fake_run_mutations)
 
-    args = _make_args(
+    args = make_args(
         cov_cmd="echo hi",
         pytest_args=["-x", "-k", "foo"],
         timeout_factor=7,
@@ -139,7 +109,7 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
         max_workers=3,
         test_contexts=".coverage",
     )
-    result = _run_on_file(args, "f.py", "x = 1\n", "/cwd", baseline_duration=1.5)
+    result = _run_on_file(args, "f.py", "x = 1\n", "/cwd")
     assert result == 0
     assert dataclasses.asdict(captured["request"]) == {
         "path": "f.py",
@@ -157,7 +127,7 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
         "allow_survivors": False,
         "max_workers": 3,
         "cwd": "/cwd",
-        "baseline_duration": 1.5,
+        "measurement": None,
         "test_contexts_path": ".coverage",
         "manifest_file": False,
         "forking_requested": True,
@@ -178,7 +148,7 @@ def test_run_on_file_mutate_all_wired_when_lines_and_since_last_run_absent(
         lambda request: captured.update(request=request) or 0,
     )
 
-    args = _make_args(since_last_run=False, mutate_all=True, max_workers=None)
+    args = make_args(since_last_run=False, mutate_all=True, max_workers=None)
     _run_on_file(args, "f.py", "x = 1\n", "/cwd")
 
     request = captured["request"]
@@ -186,7 +156,7 @@ def test_run_on_file_mutate_all_wired_when_lines_and_since_last_run_absent(
     assert request.mutate_all is True
     assert request.max_workers == 0  # None -> 0 default, per _run_on_file
     assert request.lines_filter is None
-    assert request.baseline_duration is None
+    assert request.measurement is None
 
 
 @pytest.mark.unit
@@ -200,7 +170,7 @@ def test_run_on_file_scan_coverage_error_exits_2(monkeypatch, capsys):
 
     monkeypatch.setattr("mutate4py._dispatch.run_scan", raise_coverage_error)
 
-    args = _make_args(scan=True)
+    args = make_args(scan=True)
     with pytest.raises(SystemExit) as exc:
         _run_on_file(args, "f.py", "x = 1\n", "/cwd")
     assert exc.value.code == 2
@@ -217,7 +187,7 @@ def test_run_on_file_forking_requested_defaults_true(monkeypatch):
         "mutate4py._dispatch.run_mutations",
         lambda request: captured.update(request=request) or 0,
     )
-    args = _make_args(no_fork=False)
+    args = make_args(no_fork=False)
     _run_on_file(args, "f.py", "x = 1\n", "/cwd")
     assert captured["request"].forking_requested is True
 
@@ -231,81 +201,9 @@ def test_run_on_file_forking_requested_false_when_disabled(monkeypatch):
         "mutate4py._dispatch.run_mutations",
         lambda request: captured.update(request=request) or 0,
     )
-    args = _make_args(no_fork=True)
+    args = make_args(no_fork=True)
     _run_on_file(args, "f.py", "x = 1\n", "/cwd")
     assert captured["request"].forking_requested is False
-
-
-# ── _needs_directory_baseline / _prepare_directory_baseline ───────────────────
-
-
-@pytest.mark.unit
-def test_needs_directory_baseline_true_for_normal_run():
-    from mutate4py._dispatch import _needs_directory_baseline
-
-    args = _make_args()
-    assert _needs_directory_baseline(["a.py"], args) is True
-
-
-@pytest.mark.unit
-def test_needs_directory_baseline_false_when_no_files():
-    from mutate4py._dispatch import _needs_directory_baseline
-
-    args = _make_args()
-    assert _needs_directory_baseline([], args) is False
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize("extra", [{"scan": True}, {"update_manifest": True}, {"check_manifest": True}])
-def test_needs_directory_baseline_false_for_no_run_modes(extra):
-    from mutate4py._dispatch import _needs_directory_baseline
-
-    args = _make_args(**extra)
-    assert _needs_directory_baseline(["a.py"], args) is False
-
-
-@pytest.mark.unit
-def test_prepare_directory_baseline_returns_duration(monkeypatch):
-    from mutate4py._dispatch import _prepare_directory_baseline
-
-    monkeypatch.setattr("mutate4py._coverage.acquire_coverage", lambda **kwargs: {1, 2})
-    monkeypatch.setattr("mutate4py._dispatch.run_baseline", lambda pytest_args, cwd: (1.23, None))
-
-    args = _make_args()
-    duration = _prepare_directory_baseline(args, ["a.py"], "/cwd")
-
-    assert duration == 1.23
-
-
-@pytest.mark.unit
-def test_prepare_directory_baseline_coverage_error_exits_1(monkeypatch, capsys):
-    from mutate4py._coverage import CoverageError
-    from mutate4py._dispatch import _prepare_directory_baseline
-
-    def raise_coverage_error(**kwargs):
-        raise CoverageError("no coverage source")
-
-    monkeypatch.setattr("mutate4py._coverage.acquire_coverage", raise_coverage_error)
-
-    args = _make_args()
-    with pytest.raises(SystemExit) as exc:
-        _prepare_directory_baseline(args, ["a.py"], "/cwd")
-    assert exc.value.code == 1
-    assert "no coverage source" in capsys.readouterr().err
-
-
-@pytest.mark.unit
-def test_prepare_directory_baseline_baseline_failure_exits_1(monkeypatch, capsys):
-    from mutate4py._dispatch import _prepare_directory_baseline
-
-    monkeypatch.setattr("mutate4py._coverage.acquire_coverage", lambda **kwargs: {1, 2})
-    monkeypatch.setattr("mutate4py._dispatch.run_baseline", lambda cmd, cwd: (0.0, "boom"))
-
-    args = _make_args()
-    with pytest.raises(SystemExit) as exc:
-        _prepare_directory_baseline(args, ["a.py"], "/cwd")
-    assert exc.value.code == 1
-    assert "boom" in capsys.readouterr().err
 
 
 # ── Mutant-killing gap tests: _load_source / _run_scan ─────────────────────────
@@ -641,7 +539,7 @@ def test_collect_union_files_single_root_returns_survivors(tmp_path):
     from mutate4py._dispatch import _collect_union_files
 
     d = _make_pkg_tree(tmp_path)
-    args = _make_args(file=d, exclude=["**/sub/*.py"])
+    args = make_args(file=d, exclude=["**/sub/*.py"])
     assert _collect_union_files(args, [d]) == [
         os.path.join(d, "__init__.py"),
         os.path.join(d, "mod.py"),
@@ -654,7 +552,7 @@ def test_collect_union_files_single_root_raises_when_all_excluded(tmp_path):
     from mutate4py._target_resolution import NoFilesToProcessError
 
     d = _make_pkg_tree(tmp_path)
-    args = _make_args(file=d, exclude=["**/*.py"])
+    args = make_args(file=d, exclude=["**/*.py"])
     with pytest.raises(NoFilesToProcessError):
         _collect_union_files(args, [d])
 
@@ -665,7 +563,7 @@ def test_collect_union_files_single_root_verbose_reports_before_raising(tmp_path
     from mutate4py._target_resolution import NoFilesToProcessError
 
     d = _make_pkg_tree(tmp_path)
-    args = _make_args(file=d, exclude=["**/*.py"], verbose=True)
+    args = make_args(file=d, exclude=["**/*.py"], verbose=True)
     with pytest.raises(NoFilesToProcessError):
         _collect_union_files(args, [d])
     assert capsys.readouterr().out.count("Excluded: ") == 4
@@ -675,7 +573,7 @@ def test_collect_union_files_single_root_verbose_reports_before_raising(tmp_path
 def test_raise_if_target_excluded_returns_when_no_match(tmp_path):
     from mutate4py._dispatch import _raise_if_target_excluded
 
-    args = _make_args(file="pkg/mod.py", exclude=["*/other.py"])
+    args = make_args(file="pkg/mod.py", exclude=["*/other.py"])
     _raise_if_target_excluded(args)  # must not raise
 
 
@@ -684,7 +582,7 @@ def test_raise_if_target_excluded_raises_on_match(capsys):
     from mutate4py._dispatch import _raise_if_target_excluded
     from mutate4py._target_resolution import NoFilesToProcessError
 
-    args = _make_args(file="pkg/mod.py", exclude=["*/mod.py"])
+    args = make_args(file="pkg/mod.py", exclude=["*/mod.py"])
     with pytest.raises(NoFilesToProcessError):
         _raise_if_target_excluded(args)
     assert capsys.readouterr().out == ""
@@ -695,7 +593,7 @@ def test_raise_if_target_excluded_verbose_names_the_target(capsys):
     from mutate4py._dispatch import _raise_if_target_excluded
     from mutate4py._target_resolution import NoFilesToProcessError
 
-    args = _make_args(file="pkg/mod.py", exclude=["*/mod.py"], verbose=True)
+    args = make_args(file="pkg/mod.py", exclude=["*/mod.py"], verbose=True)
     with pytest.raises(NoFilesToProcessError):
         _raise_if_target_excluded(args)
     assert capsys.readouterr().out == "Excluded: pkg/mod.py\n"
@@ -712,7 +610,7 @@ def _run_batch(monkeypatch, codes):
     by_file = dict(zip(files, codes))
     seen = []
 
-    def fake_run_on_file(args, py_file, source, cwd, baseline_duration=None):
+    def fake_run_on_file(args, py_file, source, cwd, measurement=None):
         seen.append(py_file)
         return by_file[py_file]
 
@@ -720,7 +618,7 @@ def _run_batch(monkeypatch, codes):
     monkeypatch.setattr(m, "_run_on_file", fake_run_on_file)
 
     with pytest.raises(SystemExit) as exc:
-        m._run_files_and_exit(_make_args(scan=True), files)
+        m._run_files_and_exit(make_args(scan=True), files)
     assert seen == files, "every file must run, even after one fails"
     return exc.value.code
 
@@ -772,7 +670,7 @@ def test_run_files_and_exit_continues_past_syntax_error(monkeypatch, capsys):
     files = ["good1.py", "bad.py", "good2.py"]
     seen = []
 
-    def fake_run_on_file(args, py_file, source, cwd, baseline_duration=None):
+    def fake_run_on_file(args, py_file, source, cwd, measurement=None):
         seen.append(py_file)
         if py_file == "bad.py":
             raise SyntaxError("invalid syntax", ("bad.py", 3, 5, "def f(:\n", 3, 6))
@@ -782,7 +680,7 @@ def test_run_files_and_exit_continues_past_syntax_error(monkeypatch, capsys):
     monkeypatch.setattr(m, "_run_on_file", fake_run_on_file)
 
     with pytest.raises(SystemExit) as exc:
-        m._run_files_and_exit(_make_args(scan=True), files)
+        m._run_files_and_exit(make_args(scan=True), files)
 
     assert seen == files, "a parse failure must not stop the batch"
     assert exc.value.code == 2
@@ -792,14 +690,14 @@ def test_run_files_and_exit_continues_past_syntax_error(monkeypatch, capsys):
 def test_run_files_and_exit_syntax_error_message_on_stderr(monkeypatch, capsys):
     import mutate4py._dispatch as m
 
-    def fake_run_on_file(args, py_file, source, cwd, baseline_duration=None):
+    def fake_run_on_file(args, py_file, source, cwd, measurement=None):
         raise SyntaxError("invalid syntax", ("bad.py", 3, 5, "def f(:\n", 3, 6))
 
     monkeypatch.setattr(m, "_load_source", lambda path: "x = 1\n")
     monkeypatch.setattr(m, "_run_on_file", fake_run_on_file)
 
     with pytest.raises(SystemExit):
-        m._run_files_and_exit(_make_args(scan=True), ["bad.py"])
+        m._run_files_and_exit(make_args(scan=True), ["bad.py"])
 
     err = capsys.readouterr().err
     assert "error: cannot parse bad.py: invalid syntax (line 3)" in err
@@ -810,7 +708,7 @@ def test_run_files_and_exit_syntax_error_message_on_stderr(monkeypatch, capsys):
 def test_run_files_and_exit_reports_parse_failure_count(monkeypatch, capsys):
     import mutate4py._dispatch as m
 
-    def fake_run_on_file(args, py_file, source, cwd, baseline_duration=None):
+    def fake_run_on_file(args, py_file, source, cwd, measurement=None):
         if py_file in ("bad1.py", "bad2.py"):
             raise SyntaxError("invalid syntax", (py_file, 1, 1, "?\n", 1, 2))
         return 0
@@ -819,7 +717,7 @@ def test_run_files_and_exit_reports_parse_failure_count(monkeypatch, capsys):
     monkeypatch.setattr(m, "_run_on_file", fake_run_on_file)
 
     with pytest.raises(SystemExit) as exc:
-        m._run_files_and_exit(_make_args(scan=True), ["bad1.py", "good.py", "bad2.py"])
+        m._run_files_and_exit(make_args(scan=True), ["bad1.py", "good.py", "bad2.py"])
 
     assert exc.value.code == 2
     assert "error: 2 files could not be parsed" in capsys.readouterr().err
@@ -833,7 +731,7 @@ def test_run_files_and_exit_no_parse_failure_summary_when_all_parse(monkeypatch,
     monkeypatch.setattr(m, "_run_on_file", lambda *a, **k: 0)
 
     with pytest.raises(SystemExit) as exc:
-        m._run_files_and_exit(_make_args(scan=True), ["a.py", "b.py"])
+        m._run_files_and_exit(make_args(scan=True), ["a.py", "b.py"])
 
     assert exc.value.code == 0
     assert "could not be parsed" not in capsys.readouterr().err
@@ -848,7 +746,7 @@ def test_run_files_and_exit_syntax_error_worst_code_wins_either_order(
     loop reaches first."""
     import mutate4py._dispatch as m
 
-    def fake_run_on_file(args, py_file, source, cwd, baseline_duration=None):
+    def fake_run_on_file(args, py_file, source, cwd, measurement=None):
         if py_file == "bad.py":
             raise SyntaxError("invalid syntax", ("bad.py", 1, 1, "?\n", 1, 2))
         return 1
@@ -858,7 +756,7 @@ def test_run_files_and_exit_syntax_error_worst_code_wins_either_order(
 
     for files in (["fails.py", "bad.py"], ["bad.py", "fails.py"]):
         with pytest.raises(SystemExit) as exc:
-            m._run_files_and_exit(_make_args(scan=True), files)
+            m._run_files_and_exit(make_args(scan=True), files)
         assert exc.value.code == 2
 
 
@@ -873,7 +771,7 @@ def test_run_on_file_propagates_syntax_error(monkeypatch):
         raise SyntaxError("invalid syntax", ("mod.py", 2, 1, "def f(:\n", 2, 2))
 
     monkeypatch.setattr(m, "run_mutations", fake_run_mutations)
-    args = _make_args(file="mod.py")
+    args = make_args(file="mod.py")
 
     with pytest.raises(SyntaxError):
         m._run_on_file(args, "mod.py", "def f(:\n", os.getcwd())
@@ -892,7 +790,7 @@ def test_collect_union_files_unions_and_dedups_across_roots(tmp_path):
     b_dir.mkdir()
     (a_dir / "a.py").write_text("x = 1\n")
     (b_dir / "b.py").write_text("x = 2\n")
-    args = _make_args(exclude=None, verbose=False)
+    args = make_args(exclude=None, verbose=False)
     files = _collect_union_files(args, [str(a_dir), str(b_dir), str(a_dir)])
     assert files == [str(a_dir / "a.py"), str(b_dir / "b.py")]
 
@@ -906,7 +804,7 @@ def test_collect_union_files_raises_when_the_whole_union_is_empty(tmp_path):
     b_dir = tmp_path / "b_pkg"
     a_dir.mkdir()
     b_dir.mkdir()
-    args = _make_args(exclude=None, verbose=False)
+    args = make_args(exclude=None, verbose=False)
     with pytest.raises(NoFilesToProcessError):
         _collect_union_files(args, [str(a_dir), str(b_dir)])
 
@@ -921,7 +819,7 @@ def test_collect_union_files_verbose_reports_excluded_per_root(tmp_path, capsys)
     b_dir.mkdir()
     (a_dir / "a.py").write_text("x = 1\n")
     (b_dir / "b.py").write_text("x = 2\n")
-    args = _make_args(exclude=["**/b.py"], verbose=True)
+    args = make_args(exclude=["**/b.py"], verbose=True)
     files = _collect_union_files(args, [str(a_dir), str(b_dir)])
     assert files == [str(a_dir / "a.py")]
     assert f"Excluded: {b_dir / 'b.py'}" in capsys.readouterr().out

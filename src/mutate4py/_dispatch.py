@@ -20,12 +20,13 @@ import sys
 
 from mutate4py._cli_validation import check_run_env
 from mutate4py._exit_codes import EXIT_USAGE, worse_exit_code
+from mutate4py._measurement import CoverageCoreRefused, Measurement, MeasurementFailed, measure_in_scratch
+from mutate4py._report import batch_summary_lines, measurement_failure
 from mutate4py._runner import (
     CoverageError,
     CoverageSource,
     RunMutationsRequest,
     check_manifest,
-    run_baseline,
     run_mutations,
     run_scan,
     update_manifest,
@@ -124,7 +125,7 @@ def _run_on_file(
     py_file: str,
     source: str,
     cwd: str,
-    baseline_duration: float | None = None,
+    measurement: Measurement | None = None,
 ) -> int:
     if args.check_manifest:
         return check_manifest(path=py_file, source=source, manifest_file=args.manifest_file)
@@ -152,7 +153,7 @@ def _run_on_file(
             warning_threshold=args.warning_threshold,
             max_workers=max_workers,
             cwd=cwd,
-            baseline_duration=baseline_duration,
+            measurement=measurement,
             test_contexts_path=args.test_contexts,
             manifest_file=args.manifest_file,
             forking_requested=not args.no_fork,
@@ -193,18 +194,21 @@ def _build_isolated_session_runner(*, no_fork: bool, cwd: str) -> IsolatedSessio
     return run_isolated_session
 
 
-def _needs_directory_baseline(files: list[str], args: argparse.Namespace) -> bool:
-    """A shared baseline is only needed when the run will actually execute mutants."""
+def _needs_measurement(files: list[str], args: argparse.Namespace) -> bool:
+    """A shared Measurement is only needed when the run will actually execute mutants."""
     return bool(files) and not (args.scan or args.update_manifest or args.check_manifest)
 
 
-def _prepare_directory_baseline(args: argparse.Namespace, files: list[str], cwd: str) -> float:
-    """Acquire coverage once and time the baseline for a directory run.
+def _acquire_directory_coverage(args: argparse.Namespace, files: list[str], cwd: str) -> None:
+    """Acquire the coverage a directory run's flags ask for, before the suite runs.
 
-    Exits the process on failure, matching the single-file dispatch behavior.
+    A bad --lcov or a failing --cov-cmd exits the process here. With no coverage
+    flag this is a no-op.
     """
     from mutate4py._coverage import acquire_coverage
 
+    if not (args.cov_cmd or args.lcov or args.reuse_coverage):
+        return
     try:
         acquire_coverage(
             cov_cmd=args.cov_cmd,
@@ -216,11 +220,26 @@ def _prepare_directory_baseline(args: argparse.Namespace, files: list[str], cwd:
     except CoverageError as exc:
         _logger.error(f"error: {exc}")
         sys.exit(1)
-    baseline_duration, baseline_error = run_baseline(args.pytest_args, cwd)
-    if baseline_error is not None:
-        _logger.error(f"baseline failed: {baseline_error}")
-        sys.exit(1)
-    return baseline_duration
+
+
+def _prepare_directory_measurement(args: argparse.Namespace, files: list[str], cwd: str) -> Measurement:
+    """Take the one Measurement a directory run shares across all its files.
+
+    A coverage flag still acquires its coverage first (see
+    _acquire_directory_coverage). Exits the process on failure, matching the
+    single-file dispatch behavior.
+    """
+    _acquire_directory_coverage(args, files, cwd)
+    try:
+        return measure_in_scratch(
+            cwd=cwd,
+            pytest_args=args.pytest_args,
+            target_files=tuple(os.path.abspath(path) for path in files),
+        )
+    except (MeasurementFailed, CoverageCoreRefused) as exc:
+        code, message = measurement_failure(exc)
+        _logger.error(message)
+        sys.exit(code)
 
 
 def _report_excluded(excluded: list[str]) -> None:
@@ -247,6 +266,28 @@ def _collect_union_files(args: argparse.Namespace, roots: list[str]) -> list[str
     return kept
 
 
+def _run_each_file(
+    args: argparse.Namespace, files: list[str], cwd: str, measurement: Measurement | None
+) -> tuple[int, int]:
+    """Run the configured mode over every file; return (worst code, parse failures).
+
+    A failing file never stops the batch, including a file that fails to parse:
+    it contributes code 2 and is counted in the parse-failure total."""
+    exit_code = 0
+    parse_failures = 0
+    for py_file in files:
+        try:
+            exit_code = worse_exit_code(
+                exit_code,
+                _run_on_file(args, py_file, _load_source(py_file), cwd, measurement=measurement),
+            )
+        except SyntaxError as exc:
+            _report_parse_error(py_file, exc)
+            exit_code = worse_exit_code(exit_code, EXIT_USAGE)
+            parse_failures += 1
+    return exit_code, parse_failures
+
+
 def _run_files_and_exit(args: argparse.Namespace, files: list[str]) -> None:
     """Run the configured mode over every file; exit with the most severe
     per-file code, 2 > 1 > 3 > 0, so a survivor never masks a parse or usage
@@ -254,28 +295,17 @@ def _run_files_and_exit(args: argparse.Namespace, files: list[str]) -> None:
     to parse, which contributes code 2 and is tallied into the trailing
     parse-failure summary line."""
     cwd = os.getcwd()
-    baseline_duration = None
-    if _needs_directory_baseline(files, args):
-        baseline_duration = _prepare_directory_baseline(args, files, cwd)
-    exit_code = 0
-    parse_failures = 0
-    for py_file in files:
-        try:
-            exit_code = worse_exit_code(
-                exit_code,
-                _run_on_file(args, py_file, _load_source(py_file), cwd, baseline_duration),
-            )
-        except SyntaxError as exc:
-            _report_parse_error(py_file, exc)
-            exit_code = worse_exit_code(exit_code, EXIT_USAGE)
-            parse_failures += 1
+    measurement = _prepare_directory_measurement(args, files, cwd) if _needs_measurement(files, args) else None
+    exit_code, parse_failures = _run_each_file(args, files, cwd, measurement)
+    if measurement is not None:
+        _logger.info("\n".join(batch_summary_lines(measurement)))
     if parse_failures:
         _logger.error(f"error: {parse_failures} files could not be parsed")
     sys.exit(exit_code)
 
 
 def _dispatch_batch(args: argparse.Namespace, roots: list[str]) -> None:
-    """One or more resolved roots: one shared baseline, and one exit code — the
+    """One or more resolved roots: one shared Measurement, and one exit code — the
     worst per-file code across the batch."""
     _run_files_and_exit(args, _collect_union_files(args, roots))
 

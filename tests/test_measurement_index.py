@@ -229,6 +229,32 @@ def test_a_passing_exit_without_a_record_still_fails():
 
 
 @pytest.mark.unit
+def test_a_failed_session_reason_reads_the_error_line_pytest_printed_to_stdout():
+    output = b"ImportError while loading conftest\nModuleNotFoundError: No module named 'demo'\n"
+
+    with pytest.raises(MeasurementFailed) as failed:
+        raise_for_session(2, output, None)
+
+    assert failed.value.reason == "ModuleNotFoundError: No module named 'demo' (exit code 2)"
+
+
+@pytest.mark.unit
+def test_a_failed_session_reason_prefers_the_last_error_line():
+    with pytest.raises(MeasurementFailed) as failed:
+        raise_for_session(2, b"Error: first\nunrelated line\nError: last one\n", None)
+
+    assert failed.value.reason == "Error: last one (exit code 2)"
+
+
+@pytest.mark.unit
+def test_a_failed_session_without_an_error_line_reports_its_last_line():
+    with pytest.raises(MeasurementFailed) as failed:
+        raise_for_session(3, b"all quiet\n", None)
+
+    assert failed.value.reason == "all quiet (exit code 3)"
+
+
+@pytest.mark.unit
 def test_a_request_needs_at_least_one_target_file():
     with pytest.raises(ValueError, match="target file"):
         MeasureRequest(cwd="/p", pytest_args=(), target_files=(), scratch_dir="/s")

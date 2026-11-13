@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-08-09T20:06:57Z",
-  "module_hash": "f0731e9d3f85282264d8b7318d34908d477c7e3427b7d58f6a6093205c1ef0a8",
-  "source_sha256": "4117562492b09ebbc37f44c84e422606add9d0721c5045965d54569135baaf23",
+  "tested_at": "2026-11-13T08:15:48Z",
+  "module_hash": "dbde4f9f9acd05693087440d046bf94aad68ae0e3f0bd9b0333e55be1c93e72c",
+  "source_sha256": "a0b2970822ea48567e3807790f29a7c312cd7dabdcd6356546cd97ee77b9aee9",
   "functions": [
     {
       "id": "func/_filter_by_lines",
@@ -33,24 +33,31 @@
       "hash": "2c9a528fdb317c9409bb5532a9bce89b5798fc1ff1198cf07f32233696b9b48a"
     },
     {
+      "id": "func/flagged_covered_lines",
+      "name": "flagged_covered_lines",
+      "line": 63,
+      "end_line": 74,
+      "hash": "8c8d1cb62ea2201215a06e3f66cbc33cfe4df3e937b6ce5080a452e25fe45123"
+    },
+    {
       "id": "func/_is_effective_since_last_run",
       "name": "_is_effective_since_last_run",
-      "line": 63,
-      "end_line": 70,
+      "line": 77,
+      "end_line": 84,
       "hash": "4ab182b08d24d414c154b7c752f4d97ee36950db02d17626f7a0a8fa213eb4f5"
     },
     {
       "id": "func/_should_run_parallel",
       "name": "_should_run_parallel",
-      "line": 73,
-      "end_line": 74,
+      "line": 87,
+      "end_line": 88,
       "hash": "15249ea2817e81a958e42069ced55937242a9097ca031e88d4843613b8cf330d"
     },
     {
       "id": "func/_uncovered_lines_if_needed",
       "name": "_uncovered_lines_if_needed",
-      "line": 77,
-      "end_line": 92,
+      "line": 91,
+      "end_line": 106,
       "hash": "aede366f281f1725e2cbbaa2eda1949749e40b1bae0d61cb8c71cec08cc6d724"
     }
   ]

@@ -242,9 +242,16 @@ def test_main_missing_file_exits(tmp_path):
 
 
 @pytest.mark.unit
-def test_main_no_scan_flag_exits(tmp_path):
+def test_main_no_scan_flag_exits(tmp_path, monkeypatch):
+    # The Measurement is faked: an unfaked one runs the repo's own suite in a nested
+    # session, which reaches this test again and recurses.
     import mutate4py.__main__ as m
+    from mutate4py._measurement import MeasurementFailed
 
+    def no_tests(**kwargs):
+        raise MeasurementFailed(no_tests=True)
+
+    monkeypatch.setattr("mutate4py._runner.measure_in_scratch", no_tests)
     p = tmp_path / "s.py"
     p.write_text("pass\n")
     sys.argv = ["mutate4py", str(p)]

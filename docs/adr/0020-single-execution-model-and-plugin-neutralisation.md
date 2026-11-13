@@ -34,3 +34,11 @@ cannot tell which. Remaining per-Mutant plugin cost is measured once at Baseline
 with a `--collect-only` pass and reported as `Per-Mutant overhead`, with a hint to
 audit via `-p no:<plugin>` in `--pytest-args` — which is correct for a *manual*
 audit even though the tool can't use it automatically.
+
+## Superseded in part: the `--collect-only` overhead probe (2026-11-13)
+
+The per-Mutant overhead is no longer measured by a `--collect-only` pass. It is
+derived from the single ctrace pytest session that builds the Measurement (ADR
+0027): wall time minus the summed test durations, floored at 0, printed once per
+run. The rest of this ADR still holds, including the rule that no other plugin is
+touched and the `-p no:<plugin>` audit hint.

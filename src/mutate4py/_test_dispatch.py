@@ -13,6 +13,7 @@ import logging
 from mutate4py._discovery import Site
 
 __all__ = [
+    "NO_TESTS_HINT",
     "MutantPlan",
     "NoTestsCollectedError",
     "TestSelectionError",
@@ -56,6 +57,8 @@ _ABORT_HINTS = {
     "usage-error": "pytest exited with a usage error before collecting any test (exit 4): "
     "check --pytest-args, or a stale test-context db naming a since-renamed/deleted test",
 }
+NO_TESTS_HINT = _ABORT_HINTS["no-tests-collected"]
+"""The hint a run whose pytest collected nothing carries, shared by every path that reports it."""
 
 
 def _check_execution_status(status: str, abs_source_path: str, site: Site) -> None:
