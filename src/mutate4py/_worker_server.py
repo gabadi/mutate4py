@@ -27,7 +27,7 @@ from collections.abc import Sequence
 from typing import TextIO
 
 from mutate4py._executor import Executor
-from mutate4py._executor_selection import _prepare_executor
+from mutate4py._executor_selection import ForkingOptions, _prepare_executor
 from mutate4py._plugin_neutralisation import neutralising_args
 
 __all__ = ["WorkerServerArgs", "main", "parse_worker_argv", "worker_environ_updates"]
@@ -116,8 +116,7 @@ def main(argv: list[str]) -> None:
         requested=args.forking_requested,
         cwd=args.cwd,
         guarded_path=args.guarded_path,
-        prime_args=args.prime_args,
-        ran_at_import=args.ran_at_import,
+        forking=ForkingOptions(prime_args=args.prime_args, ran_at_import=args.ran_at_import),
     )
     sys.stdout.write(json.dumps({"ready": True}) + "\n")
     sys.stdout.flush()

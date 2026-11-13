@@ -144,9 +144,9 @@ def _prepare_baseline_and_executor(
     # A caller-supplied executor is used as-is, never re-primed: the caller owns it
     # (a fake in tests, or one primed by a longer-lived caller).
     executor = request.executor
-    if executor is None:
+    # A parallel run primes one Executor per Worker, in that Worker's own process (issue 04b).
+    if executor is None and not use_parallel:
         executor = select_executor(
-            use_parallel=use_parallel,
             no_fork_reason=no_fork_reason,
             cwd=request.cwd,
             guarded_path=os.path.abspath(request.path),

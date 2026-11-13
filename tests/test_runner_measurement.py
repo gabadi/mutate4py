@@ -252,3 +252,29 @@ def test_a_caller_supplied_executor_is_used_unprimed_serial_or_parallel(tmp_path
     prep = _prepare_baseline_and_executor(request, setup, measurement, ["a site"], use_parallel=use_parallel)
 
     assert prep.executor is supplied
+
+
+@pytest.mark.unit
+def test_a_parallel_run_selects_no_executor_and_leaves_priming_to_each_worker(tmp_path, monkeypatch):
+    """None, not a prepared executor: a parallel run primes one Executor per
+    Worker in that Worker's own process (issue 04b)."""
+    from types import SimpleNamespace
+
+    from mutate4py._runner import _prepare_baseline_and_executor
+
+    monkeypatch.setattr("mutate4py._runner.select_executor", lambda **kwargs: pytest.fail("must not select"))
+    measurement = SimpleNamespace(
+        wall=1.0, per_mutant_overhead=0.0, budget_of=lambda node_ids: 1.0, empty_lines=lambda path: frozenset()
+    )
+    request = SimpleNamespace(
+        timeout_factor=3.0,
+        min_timeout=1.0,
+        forking_requested=True,
+        executor=None,
+        cwd=str(tmp_path),
+        path=str(tmp_path / "calc.py"),
+        pytest_args=[],
+    )
+    setup = SimpleNamespace(bak_path=str(tmp_path / "calc.py.bak"), loaded=SimpleNamespace(clean_source="x = 1\n"))
+
+    assert _prepare_baseline_and_executor(request, setup, measurement, ["a site"], use_parallel=True).executor is None

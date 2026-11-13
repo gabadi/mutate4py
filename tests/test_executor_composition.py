@@ -40,7 +40,6 @@ _ARGS = ["-p", "no:tach", "-q", "tests"]
 
 def _serial_executor(cwd, target, pytest_args=tuple(_ARGS), no_fork_reason=None, ran_at_import=frozenset()):
     return select_executor(
-        use_parallel=False,
         no_fork_reason=no_fork_reason,
         cwd=str(cwd),
         guarded_path=target,
