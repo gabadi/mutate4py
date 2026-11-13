@@ -3,21 +3,17 @@
 import io
 import json
 import os
-import shutil
 import subprocess
 import sys
-import threading
 import types
 
 import pytest
 
 from mutate4py._discovery import Site, discover_sites
-from mutate4py._test_dispatch import NoTestsCollectedError
+from mutate4py._test_dispatch import MutantPlan, NoTestsCollectedError
 from mutate4py._worker_protocol import WorkerProcessError, check_worker_python
-from mutate4py._worker_provision import _SKIP_ENTRIES, _copy_tree, _link_import_root
+from mutate4py._worker_provision import _copy_tree, _link_import_root
 from mutate4py._workers import (
-    ParallelRunError,
-    ParallelRunRequest,
     SiteAssignment,
     WorkerFailureError,
     WorkerRunSettings,
@@ -29,8 +25,9 @@ from mutate4py._workers import (
     _provision_workers,
     _run_one_site,
     _summarize_results,
-    run_parallel,
 )
+
+from ._worker_fakes_helpers import FakeExecutor, noop_on_result
 
 
 def _make_site(index: int, line: int, fid: str = "func/f") -> Site:
@@ -288,7 +285,7 @@ def test_provision_worker_executors_assigns_distinct_worker_ids():
 def test_provision_worker_executors_injected_fake_ignores_worker_id():
     from mutate4py._workers import _provision_worker_executors
 
-    fake = _FakeExecutor("survived")
+    fake = FakeExecutor("survived")
     executors = _provision_worker_executors(
         ["/tmp/worker-1", "/tmp/worker-2"],
         "calc.py",
@@ -530,34 +527,6 @@ def test_summarize_results_timeout_tallied():
 # ── _run_one_site ─────────────────────────────────────────────────────────────
 
 
-def _noop_on_result(result: dict) -> None:
-    pass
-
-
-class _FakeExecutor:
-    """Minimal stand-in for the Executor protocol: no forking, no subprocess.
-
-    Lock-guarded so multiple Worker threads can share one instance (as
-    happens when a test injects a single fake executor at max_workers>=2)
-    without racing on prime_calls/calls.
-    """
-
-    def __init__(self, status: str) -> None:
-        self._status = status
-        self._lock = threading.Lock()
-        self.calls: list[list[str]] = []
-        self.prime_calls = 0
-
-    def prime(self) -> None:
-        with self._lock:
-            self.prime_calls += 1
-
-    def run(self, args: list[str], timeout: float) -> str:
-        with self._lock:
-            self.calls.append(args)
-        return self._status
-
-
 @pytest.mark.unit
 def test_run_one_site_survived(tmp_path, monkeypatch):
     src = "def f(a, b):\n    return a > b\n"
@@ -575,13 +544,12 @@ def test_run_one_site_survived(tmp_path, monkeypatch):
             total=1,
             worker_root=str(tmp_path),
             worker_file_path=str(worker_file),
+            plan=MutantPlan(args=[], timeout=5.0, selection=None),
         ),
-        _FakeExecutor("survived"),
+        FakeExecutor("survived"),
         WorkerRunSettings(
             clean_source=src,
-            pytest_args=[],
-            mutant_timeout=5.0,
-            on_result=_noop_on_result,
+            on_result=noop_on_result,
         ),
     )
     assert result["status"] == "survived"
@@ -605,13 +573,12 @@ def test_run_one_site_killed(tmp_path, monkeypatch):
             total=1,
             worker_root=str(tmp_path),
             worker_file_path=str(worker_file),
+            plan=MutantPlan(args=[], timeout=5.0, selection=None),
         ),
-        _FakeExecutor("killed"),
+        FakeExecutor("killed"),
         WorkerRunSettings(
             clean_source=src,
-            pytest_args=[],
-            mutant_timeout=5.0,
-            on_result=_noop_on_result,
+            on_result=noop_on_result,
         ),
     )
     assert result["status"] == "killed"
@@ -640,13 +607,12 @@ def test_run_one_site_no_tests_collected_raises_and_still_restores(tmp_path, mon
                 total=1,
                 worker_root=str(tmp_path),
                 worker_file_path=str(worker_file),
+                plan=MutantPlan(args=[], timeout=5.0, selection=None),
             ),
-            _FakeExecutor(status),
+            FakeExecutor(status),
             WorkerRunSettings(
                 clean_source=src,
-                pytest_args=[],
-                mutant_timeout=5.0,
-                on_result=_noop_on_result,
+                on_result=noop_on_result,
                 abs_source_path=str(worker_file),
             ),
         )
@@ -670,13 +636,12 @@ def test_run_one_site_write_fail_env_hook(tmp_path, monkeypatch):
                 total=1,
                 worker_root=str(tmp_path),
                 worker_file_path=str(worker_file),
+                plan=MutantPlan(args=[], timeout=5.0, selection=None),
             ),
-            _FakeExecutor("survived"),
+            FakeExecutor("survived"),
             WorkerRunSettings(
                 clean_source=src,
-                pytest_args=[],
-                mutant_timeout=5.0,
-                on_result=_noop_on_result,
+                on_result=noop_on_result,
             ),
         )
 
@@ -712,287 +677,55 @@ def test_run_one_site_write_oserror(tmp_path, monkeypatch):
                 total=1,
                 worker_root=str(tmp_path),
                 worker_file_path=str(worker_file),
+                plan=MutantPlan(args=[], timeout=5.0, selection=None),
             ),
-            _FakeExecutor("survived"),
+            FakeExecutor("survived"),
             WorkerRunSettings(
                 clean_source=src,
-                pytest_args=[],
-                mutant_timeout=5.0,
-                on_result=_noop_on_result,
+                on_result=noop_on_result,
             ),
         )
 
 
-# ── run_parallel: ParallelRunError on result count mismatch ──────────────────
+class _TimedFakeExecutor:
+    """Records each dispatch's (args, timeout) so a test can see both halves of a plan."""
+
+    def __init__(self, status: str) -> None:
+        self._status = status
+        self.dispatched: list[tuple[list[str], float]] = []
+
+    def prime(self) -> None:
+        pass
+
+    def run(self, args: list[str], timeout: float) -> str:
+        self.dispatched.append((list(args), timeout))
+        return self._status
 
 
 @pytest.mark.unit
-def test_run_parallel_short_result_raises(tmp_path, monkeypatch):
-    """_MUTATE4PY_TEST_WORKER_SHORT_RESULT=1 drops one result → ParallelRunError."""
-    import mutate4py._workers as workers_mod
+def test_run_one_site_dispatches_the_plan_its_assignment_carries(tmp_path, monkeypatch):
+    """The Worker never re-derives args or timeout: it dispatches the MutantPlan
+    its SiteAssignment carries and reports that plan's selection tally."""
+    src = "def f(a, b):\n    return a > b\n"
+    site = discover_sites(src)[0]
+    worker_file = tmp_path / "calc.py"
+    worker_file.write_text(src)
+    monkeypatch.delenv("_MUTATE4PY_TEST_WORKER_WRITE_FAIL", raising=False)
+    executor = _TimedFakeExecutor("killed")
 
-    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
-    monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
-    monkeypatch.setenv("_MUTATE4PY_TEST_WORKER_SHORT_RESULT", "1")
-
-    src = "def f(a, b):\n    return a > b\ndef g(a, b):\n    return a < b\n"
-    sites = discover_sites(src)
-    src_file = tmp_path / "calc.py"
-    src_file.write_text(src)
-
-    with pytest.raises(ParallelRunError, match="mutation workers stopped"):
-        run_parallel(
-            ParallelRunRequest(
-                selected_sites=sites,
-                clean_source=src,
-                source_path=str(src_file),
-                cwd=str(tmp_path),
-                pytest_args=[],
-                mutant_timeout=5.0,
-                max_workers=2,
-                on_result=_noop_on_result,
-                executor=_FakeExecutor("survived"),
-            )
-        )
-
-
-# ── run_parallel: narrowing composes with Worker dispatch (issue 04b) ────────
-
-
-class _FakeTestContextDB:
-    def __init__(self, outcome: str, node_ids: tuple = ()) -> None:
-        self._result = (outcome, list(node_ids))
-
-    def tests_for_line(self, source_path, line):
-        return self._result
-
-
-@pytest.mark.unit
-def test_run_parallel_composes_narrowed_dispatch_with_workers(tmp_path, monkeypatch):
-    """A test-context db in play must reach each Worker's dispatch args, not
-    just the serial loop's — the old parallel engine never called
-    _build_mutant_args at all."""
-    import mutate4py._workers as workers_mod
-
-    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
-    monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
-
-    src = "def f(a, b):\n    return a > b\ndef g(a, b):\n    return a < b\n"
-    sites = discover_sites(src)
-    src_file = tmp_path / "calc.py"
-    src_file.write_text(src)
-    executor = _FakeExecutor("killed")
-
-    counts, survivors, selection_counts = run_parallel(
-        ParallelRunRequest(
-            selected_sites=sites,
-            clean_source=src,
-            source_path=str(src_file),
-            cwd=str(tmp_path),
-            pytest_args=["-q"],
-            mutant_timeout=5.0,
-            max_workers=2,
-            on_result=_noop_on_result,
-            test_ctx_db=_FakeTestContextDB("narrowed", ("tests/test_calc.py::test_f",)),
-            abs_source_path=str(src_file),
-            executor=executor,
-        )
+    result = _run_one_site(
+        SiteAssignment(
+            worker_idx=1,
+            site=site,
+            site_idx=1,
+            total=1,
+            worker_root=str(tmp_path),
+            worker_file_path=str(worker_file),
+            plan=MutantPlan(args=["-q", "tests/test_calc.py::test_f"], timeout=7.5, selection="narrowed"),
+        ),
+        executor,
+        WorkerRunSettings(clean_source=src, on_result=noop_on_result),
     )
-    assert counts == {"killed": 2, "timeout": 0, "survived": 0}
-    assert survivors == []
-    assert selection_counts == {"narrowed": 2, "static": 0, "degraded": 0}
-    assert executor.calls == [["-q", "tests/test_calc.py::test_f"]] * 2
-
-
-@pytest.mark.unit
-def test_run_parallel_composes_static_dispatch_with_workers(tmp_path, monkeypatch):
-    import mutate4py._workers as workers_mod
-
-    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
-    monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
-
-    src = "def f(a, b):\n    return a > b\ndef g(a, b):\n    return a < b\n"
-    sites = discover_sites(src)
-    src_file = tmp_path / "calc.py"
-    src_file.write_text(src)
-    executor = _FakeExecutor("killed")
-
-    _, _, selection_counts = run_parallel(
-        ParallelRunRequest(
-            selected_sites=sites,
-            clean_source=src,
-            source_path=str(src_file),
-            cwd=str(tmp_path),
-            pytest_args=["-q"],
-            mutant_timeout=5.0,
-            max_workers=2,
-            on_result=_noop_on_result,
-            test_ctx_db=_FakeTestContextDB("static"),
-            abs_source_path=str(src_file),
-            executor=executor,
-        )
-    )
-    assert selection_counts == {"narrowed": 0, "static": 2, "degraded": 0}
-    assert executor.calls == [["-q"]] * 2
-
-
-@pytest.mark.unit
-def test_run_parallel_composes_degraded_dispatch_with_workers(tmp_path, monkeypatch):
-    """An under-listed line (issue #69) must reach every Worker's tally as
-    "degraded", not "narrowed" -- the parallel engine mirrors the serial
-    loop's _build_mutant_args dispatch exactly."""
-    import mutate4py._workers as workers_mod
-
-    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
-    monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
-
-    src = "def f(a, b):\n    return a > b\ndef g(a, b):\n    return a < b\n"
-    sites = discover_sites(src)
-    src_file = tmp_path / "calc.py"
-    src_file.write_text(src)
-    executor = _FakeExecutor("killed")
-
-    _, _, selection_counts = run_parallel(
-        ParallelRunRequest(
-            selected_sites=sites,
-            clean_source=src,
-            source_path=str(src_file),
-            cwd=str(tmp_path),
-            pytest_args=["-q"],
-            mutant_timeout=5.0,
-            max_workers=2,
-            on_result=_noop_on_result,
-            test_ctx_db=_FakeTestContextDB("under-listed", ("tests/test_calc.py::test_f",)),
-            abs_source_path=str(src_file),
-            executor=executor,
-        )
-    )
-    assert selection_counts == {"narrowed": 0, "static": 0, "degraded": 2}
-    assert executor.calls == [["-q"]] * 2
-
-
-# ── run_parallel: one Worker is primed once and serves every assigned site ───
-
-
-@pytest.mark.unit
-def test_run_parallel_primes_worker_executor_once_for_multiple_sites(tmp_path, monkeypatch):
-    """max_workers=1 keeps everything in one Worker/one thread, so prime()
-    and run() call counts are deterministic without reasoning about
-    thread-interleaving across multiple Worker groups."""
-    import mutate4py._workers as workers_mod
-
-    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
-    monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
-
-    src = "def f(a, b):\n    return a > b\ndef g(a, b):\n    return a < b\ndef h(a, b):\n    return a >= b\n"
-    sites = discover_sites(src)
-    assert len(sites) == 3
-    src_file = tmp_path / "calc.py"
-    src_file.write_text(src)
-    executor = _FakeExecutor("survived")
-
-    counts, _, _ = run_parallel(
-        ParallelRunRequest(
-            selected_sites=sites,
-            clean_source=src,
-            source_path=str(src_file),
-            cwd=str(tmp_path),
-            pytest_args=[],
-            mutant_timeout=5.0,
-            max_workers=1,
-            on_result=_noop_on_result,
-            executor=executor,
-        )
-    )
-    assert counts == {"killed": 0, "timeout": 0, "survived": 3}
-    assert executor.prime_calls == 1
-    assert len(executor.calls) == 3
-
-
-@pytest.mark.unit
-def test_run_parallel_shared_injected_executor_primed_per_worker_thread(tmp_path, monkeypatch):
-    """A single injected fake executor handed to multiple Worker threads
-    (max_workers>=2) is primed once per Worker thread that uses it, and
-    every site still gets exactly one run() call — the per-thread .prime()
-    calls race on the same instance but must not lose or duplicate results."""
-    import mutate4py._workers as workers_mod
-
-    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
-    monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
-
-    src = (
-        "def f(a, b):\n    return a > b\n"
-        "def g(a, b):\n    return a < b\n"
-        "def h(a, b):\n    return a >= b\n"
-        "def k(a, b):\n    return a <= b\n"
-    )
-    sites = discover_sites(src)
-    assert len(sites) == 4
-    src_file = tmp_path / "calc.py"
-    src_file.write_text(src)
-    executor = _FakeExecutor("survived")
-
-    counts, _, _ = run_parallel(
-        ParallelRunRequest(
-            selected_sites=sites,
-            clean_source=src,
-            source_path=str(src_file),
-            cwd=str(tmp_path),
-            pytest_args=[],
-            mutant_timeout=5.0,
-            max_workers=2,
-            on_result=_noop_on_result,
-            executor=executor,
-        )
-    )
-    assert counts == {"killed": 0, "timeout": 0, "survived": 4}
-    assert executor.prime_calls == 2
-    assert len(executor.calls) == 4
-
-
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-
-
-def _outcome_lines(stdout: str) -> list[str]:
-    return [ln.strip() for ln in stdout.splitlines() if ln.strip().startswith(("Killed:", "Survived:"))]
-
-
-@pytest.mark.integration
-def test_parallel_dogfood_run_scores_the_same_as_the_serial_run(tmp_path):
-    """C1: mutate4py mutating its own source must score the same under workers as serially.
-    The Worker copy's mutate4py has to be the one imported; an import root on PYTHONPATH
-    would resolve to the unmutated original, and every Mutant would survive."""
-    project = tmp_path / "project"
-    project.mkdir()
-    for name in ("pyproject.toml", "uv.lock", ".python-version", "README.md", "LICENSE"):
-        shutil.copy2(os.path.join(REPO_ROOT, name), project / name)
-    for name in ("src", "tests", "scripts"):
-        shutil.copytree(os.path.join(REPO_ROOT, name), project / name, ignore=shutil.ignore_patterns(*_SKIP_ENTRIES))
-    env = {k: v for k, v in os.environ.items() if k not in ("VIRTUAL_ENV", "PYTHONPATH")}
-    subprocess.run(["uv", "sync"], cwd=project, env=env, capture_output=True, text=True, check=True)
-    subprocess.run(
-        ["uv", "run", "pytest", "--cov=src", "--cov-report=lcov:lcov.info", "tests/test_cmd.py"],
-        cwd=project,
-        env=env,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    base = [
-        "uv",
-        "run",
-        "mutate4py",
-        "src/mutate4py/_cmd.py",
-        "--mutate-all",
-        "--lcov",
-        "lcov.info",
-        "--pytest-args",
-        "tests/test_cmd.py",
-    ]
-    serial = subprocess.run(base, cwd=project, env=env, capture_output=True, text=True)
-    parallel = subprocess.run(base + ["--max-workers", "2"], cwd=project, env=env, capture_output=True, text=True)
-    serial_lines = _outcome_lines(serial.stdout)
-    assert any(ln.startswith("Killed:") for ln in serial_lines), serial.stdout + serial.stderr
-    assert any(ln.startswith("Survived:") for ln in serial_lines), serial.stdout + serial.stderr
-    assert _outcome_lines(parallel.stdout) == serial_lines, parallel.stdout + parallel.stderr
-    assert not any(ln == "Killed: 0" for ln in serial_lines)
+    assert executor.dispatched == [(["-q", "tests/test_calc.py::test_f"], 7.5)]
+    assert result["selection"] == "narrowed"
+    assert worker_file.read_text() == src

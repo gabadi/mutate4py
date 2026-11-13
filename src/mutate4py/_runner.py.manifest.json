@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-10-11T13:52:30Z",
-  "module_hash": "e3ce471b20aa08410ac1b5f6409bdbaf22fa474f54e96687b4e6bf9cad61b28f",
-  "source_sha256": "f18ff2ac4504b5b7388ff517107c6c4ebd1ba06147bf7fda84c13a565e735b80",
+  "tested_at": "2026-11-13T05:32:58Z",
+  "module_hash": "c1f77400df3a7f1e5716e0394e8b505431c47fa2504343608ff87636ee15547c",
+  "source_sha256": "4d747a5dc0c58f7bc4ee880b72b84a37b3c4d72e018969b8b11fbfdec6c00682",
   "functions": [
     {
       "id": "func/_print_lines",
@@ -22,49 +22,49 @@
       "id": "func/_prepare_baseline_and_executor",
       "name": "_prepare_baseline_and_executor",
       "line": 152,
-      "end_line": 182,
-      "hash": "44ef57b7a2958e24802718ba95f15760cb5b0fb9d5a89f72e17a3cd1ac6b84da"
+      "end_line": 186,
+      "hash": "687031ec156e155ef73608bafa25e4d6afc9c68bf2dec485a2aedd643692e94e"
     },
     {
       "id": "func/_select_and_prepare",
       "name": "_select_and_prepare",
-      "line": 185,
-      "end_line": 267,
-      "hash": "3a11089f23dcb9166aa088eea5d0ffed8264ea01e68e8c00dcd3867ac02636be"
+      "line": 189,
+      "end_line": 271,
+      "hash": "249a869ff7f81a19f425f2567d37467da23fd8de36b1bd426958dfdd951a6863"
     },
     {
       "id": "func/_open_test_context_db",
       "name": "_open_test_context_db",
-      "line": 270,
-      "end_line": 281,
+      "line": 274,
+      "end_line": 285,
       "hash": "d7317e54209542288bb6254c8c0a052bcedb65927cd52c5e1fe5ee8a4d2e08ec"
     },
     {
       "id": "func/_recorded_survivor_keys",
       "name": "_recorded_survivor_keys",
-      "line": 284,
-      "end_line": 288,
+      "line": 288,
+      "end_line": 292,
       "hash": "2caf9f350eb375bc9a0154107e5892a37bc35603559ebd8b29828156b307bdc3"
     },
     {
       "id": "func/_scored_run_for",
       "name": "_scored_run_for",
-      "line": 291,
-      "end_line": 305,
+      "line": 295,
+      "end_line": 309,
       "hash": "c721eb5dbab34f508f0b6a269fd8ba77d976ad61fe4334eb195c68499d885a1e"
     },
     {
       "id": "func/_mutant_exec_ctx",
       "name": "_mutant_exec_ctx",
-      "line": 308,
-      "end_line": 323,
-      "hash": "acfc42409b5137095365fb1279adcd42e4974d6c6016f2f0b67b328fb26666a6"
+      "line": 312,
+      "end_line": 327,
+      "hash": "de19b6f6621f47446287198062ba5f62ef8304d12ace60ca20ebba8f44e427f5"
     },
     {
       "id": "func/run_mutations",
       "name": "run_mutations",
-      "line": 326,
-      "end_line": 382,
+      "line": 330,
+      "end_line": 386,
       "hash": "379277068cb09da2a4dacfd45e5ec67b01cb37984740075d39cdb3b7506e52bc"
     }
   ]
