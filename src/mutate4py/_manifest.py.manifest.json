@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-10-11T13:53:06Z",
-  "module_hash": "343662369ec26066face6637f58115818f66a96904a42076cf4e3a4ba70165eb",
-  "source_sha256": "fd776663f6d5d1cc5b2ed73fae3dcb8ae47857ffd0e4da73663a4e6a60bdbe35",
+  "tested_at": "2026-11-13T17:43:32Z",
+  "module_hash": "8d3837e3b9321d0c36248a84db90732c07becfafa6c16d0c3a31de9e908006f8",
+  "source_sha256": "725b2739c372e4a693f880eab42557156e1d994901c15747ead6cc7207c64054",
   "functions": [
     {
       "id": "func/strip_manifest",
@@ -64,119 +64,119 @@
       "id": "func/_scored_fields",
       "name": "_scored_fields",
       "line": 108,
-      "end_line": 134,
-      "hash": "d4b2764f792c29f9274f0976a78a59268d9a0d35fc699527be35da3952f0f1c4"
+      "end_line": 133,
+      "hash": "e5783ac84b3e58231a305e8e180376f6422a3f677abf69cdeb1de0a077d8c715"
     },
     {
-      "id": "func/_list_field",
-      "name": "_list_field",
-      "line": 137,
-      "end_line": 139,
-      "hash": "643ada966f4d31a6759fcf15148d6d4754d441a2a35cba2cfccb132e4f4a0326"
+      "id": "func/_dict_entries",
+      "name": "_dict_entries",
+      "line": 136,
+      "end_line": 138,
+      "hash": "3f4dc7fde5a1c063d59420540ff991026278768165f161ed07a03f367aee0905"
     },
     {
       "id": "func/_fields_for",
       "name": "_fields_for",
-      "line": 142,
-      "end_line": 149,
-      "hash": "219c4967048a5e4efc5c73a874b9def8b92c030179d6efc106146349dbeb822b"
+      "line": 141,
+      "end_line": 157,
+      "hash": "1aab41d4af3826d485dd347bab5616f5ce1118106d8b51563c8f829e8b89b441"
     },
     {
-      "id": "func/_scored_by_id",
-      "name": "_scored_by_id",
-      "line": 152,
-      "end_line": 155,
-      "hash": "aeb968fded2fcd5a74f732431a5a9c9cb81f92fdc2b697b0a1a4d25b8e573450"
+      "id": "func/_fields_with_digest",
+      "name": "_fields_with_digest",
+      "line": 160,
+      "end_line": 168,
+      "hash": "b155612b5f8fafa2007aa857c5b74eb1e0c6ac00d5da5a8a8fde2b5f6b974444"
     },
     {
       "id": "func/reconcile_manifest",
       "name": "reconcile_manifest",
-      "line": 158,
-      "end_line": 173,
-      "hash": "b264d57ee75e9115fc2ec86f316c4d608983a29c29f7702f9563cc354fd5eea9"
+      "line": 171,
+      "end_line": 192,
+      "hash": "6ca529eaeec347ebc61252f58e115d24d64539f3555c446cced92f17bd976e52"
     },
     {
       "id": "func/_carry_entry",
       "name": "_carry_entry",
-      "line": 176,
-      "end_line": 180,
-      "hash": "ca242ddb4fe663c7648fb86dcfc285dbe1a7b62ef57a67daf6ebe477c3850700"
+      "line": 195,
+      "end_line": 201,
+      "hash": "6a23e3bb84c735b449d86b46d9cab2fd19c686eef3aacad1b8809868193d641e"
     },
     {
       "id": "func/_unchanged",
       "name": "_unchanged",
-      "line": 183,
-      "end_line": 189,
-      "hash": "844807aa3014e7a89adf9c58fb58806470869b5cf9ebc7e2f30bfdd071513a88"
+      "line": 204,
+      "end_line": 211,
+      "hash": "8959b1fd3f057e29c557873088d6a51f314b674791b194eb08d1d31ac57b7805"
     },
     {
       "id": "func/functions_with_survivors",
       "name": "functions_with_survivors",
-      "line": 192,
-      "end_line": 196,
+      "line": 214,
+      "end_line": 218,
       "hash": "f60a76bcc5035152cd83afa753849a88d764cc5443d24f93877e91456ab33591"
     },
     {
       "id": "func/functions_with_unmarked_acceptances",
       "name": "functions_with_unmarked_acceptances",
-      "line": 199,
-      "end_line": 215,
+      "line": 221,
+      "end_line": 237,
       "hash": "3de1a53bd7a2c1e39107489949b5e47eeb8a26427bc6a3a74d775c0a0415bb09"
     },
     {
       "id": "func/_acceptance_unmarked",
       "name": "_acceptance_unmarked",
-      "line": 218,
-      "end_line": 230,
+      "line": 240,
+      "end_line": 252,
       "hash": "3bd62171d50ed8d66836cd688fd4d01c457a8d04167fa2e12a6ea1f1c0ca8c53"
     },
     {
       "id": "func/_markers_in_span",
       "name": "_markers_in_span",
-      "line": 233,
-      "end_line": 235,
+      "line": 255,
+      "end_line": 257,
       "hash": "fd4c4af8e05d383546fcf085c84edcac0d1b0c8d2a94158702066f8f9d6e3257"
     },
     {
       "id": "func/has_accepted_survivors",
       "name": "has_accepted_survivors",
-      "line": 238,
-      "end_line": 240,
+      "line": 260,
+      "end_line": 262,
       "hash": "9ab85b996769543a83999af6b72f5a2b52afd65f76288858a523f499a9b05ab0"
     },
     {
       "id": "func/recorded_survivors",
       "name": "recorded_survivors",
-      "line": 243,
-      "end_line": 245,
+      "line": 265,
+      "end_line": 267,
       "hash": "06ebd788dd3ab126d50b237d9bc7c53211215815c2113c91735913584f970552"
     },
     {
       "id": "func/is_unscored",
       "name": "is_unscored",
-      "line": 248,
-      "end_line": 250,
+      "line": 270,
+      "end_line": 272,
       "hash": "b1522d8a6ac438c3d624e4b3f566b8144cefcaffb61a1bb4d24212e9c6c52bd5"
     },
     {
       "id": "func/build_manifest",
       "name": "build_manifest",
-      "line": 253,
-      "end_line": 272,
+      "line": 275,
+      "end_line": 294,
       "hash": "95ab3c837ccac33062a208ce466ebfdd3aff815ca8357b69baa58c6fe952abcd"
     },
     {
       "id": "func/_extract_functions",
       "name": "_extract_functions",
-      "line": 275,
-      "end_line": 302,
+      "line": 297,
+      "end_line": 324,
       "hash": "3de7d42663139b5f954dc01f0fd172f4d3429d72803a46ddc9ef6939e265d9eb"
     },
     {
       "id": "func/diff_manifests",
       "name": "diff_manifests",
-      "line": 305,
-      "end_line": 322,
+      "line": 327,
+      "end_line": 344,
       "hash": "7dace38d003dfc04471fbace27a7ab228e09f8aeb32129ae570598ba2b40eeb5"
     }
   ]

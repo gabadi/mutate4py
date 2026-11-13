@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pytest
 
+from ._digest_project import digest_project  # noqa: F401  (pytest fixture, shared by the digest tests)
+
 _CATEGORY_MARKERS = ("unit", "component", "integration")
 _COMPONENT_THRESHOLD_SECONDS = 0.5
 

@@ -27,6 +27,12 @@ def _measured(src_path: str, source: str, reached_by: str = ""):
     return measurement_for(os.path.abspath(src_path), {reached_by: lines}, wall=0.01)
 
 
+def _write_test_calc(tmp_path) -> None:
+    """The file the injected node ids name. The run's digest reads it, so it must exist."""
+    (tmp_path / "tests").mkdir(exist_ok=True)
+    (tmp_path / "tests" / "test_calc.py").write_text("def test_f():\n    assert True\n")
+
+
 # ── run_mutations: warning threshold ───────────────────────
 
 
@@ -358,6 +364,7 @@ def test_injected_executor_receives_narrowed_dispatch_and_is_never_primed(tmp_pa
     # is orthogonal and depends on what's importable in whoever runs this, so
     # it's pinned off here rather than made environment-dependent.
     monkeypatch.setattr(runner_mod, "neutralising_args", lambda: [])
+    _write_test_calc(tmp_path)
 
     fake_executor = _FakeExecutor()
     src = _make_multi_site_source(3)
@@ -496,6 +503,7 @@ def test_narrowing_and_parallel_workers_compose_in_one_run(tmp_path, monkeypatch
 
     monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
     monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
+    _write_test_calc(tmp_path)
 
     fake_executor = _FakeExecutor()
     src = _make_multi_site_source(3)
