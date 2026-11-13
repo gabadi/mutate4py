@@ -4,11 +4,7 @@ import dataclasses
 import logging
 import os
 
-from mutate4py._coverage import CoverageError
-
 __all__ = [
-    "CoverageError",
-    "CoverageSource",
     "NoTestsCollectedError",
     "RunMutationsRequest",
     "TestSelectionError",
@@ -16,7 +12,6 @@ __all__ = [
     "run_mutations",
     "run_scan",
     "scan_report",
-    "scan_report_with_coverage",
     "update_manifest",
 ]
 from mutate4py._discovery import Site, partition_sites
@@ -36,7 +31,6 @@ from mutate4py._measurement import ALL, CoverageCoreRefused, Measurement, Measur
 from mutate4py._plugin_neutralisation import neutralising_args
 from mutate4py._report import (
     _accepted_block_lines,
-    CoverageSource,
     RunStats,
     SelectionTally,
     _mutation_report_lines,
@@ -47,7 +41,6 @@ from mutate4py._report import (
     measurement_lines,
     overhead_info,
     scan_report,
-    scan_report_with_coverage,
 )
 from mutate4py._run_request import RunMutationsRequest
 from mutate4py._scoring import ScoredRun
@@ -56,7 +49,6 @@ from mutate4py._site_selection import (
     _select_sites,
     _should_run_parallel,
     _uncovered_lines_if_needed,
-    flagged_covered_lines,
 )
 from mutate4py._source_loading import (
     RunSetup,
@@ -80,21 +72,16 @@ def run_scan(
     path: str,
     source: str,
     warning_threshold: int,
-    coverage: CoverageSource,
     manifest_file: bool = False,
 ) -> None:
-    """Execute --scan: log site counts. Raises CoverageError on acquisition failure."""
-    has_coverage = coverage.cov_cmd is not None or coverage.lcov_path is not None or coverage.reuse_coverage
-    if has_coverage:
-        lines, _ = scan_report_with_coverage(path, source, warning_threshold, coverage, manifest_file=manifest_file)
-    else:
-        lines, _ = scan_report(path, source, warning_threshold, manifest_file=manifest_file)
+    """Execute --scan: log site counts. Coverage-free: no Measurement runs."""
+    lines, _ = scan_report(path, source, warning_threshold, manifest_file=manifest_file)
     _logger.info("\n".join(lines))
 
 
 @dataclasses.dataclass
 class SelectionOutcome:
-    """Result of coverage acquisition, site selection, and mutant-run prep.
+    """Result of the Measurement, site selection, and mutant-run prep.
 
     error_code is set (and every other field left at its default) when the run
     must stop early — the caller checks it before touching anything else.
@@ -171,36 +158,24 @@ def _prepare_baseline_and_executor(
 def _select_and_prepare(
     request: RunMutationsRequest, setup: RunSetup, test_ctx_db, max_workers: int
 ) -> SelectionOutcome:
-    """Gate the run's Mutants on coverage, select sites, print the header, and prepare the executor.
+    """Gate the run's Mutants on the Measurement's covered lines (Empty context included),
+    select sites, print the header, and prepare the executor.
 
-    The Coverage gate is the coverage flag's lines when a flag is given, else the
-    Measurement's, Empty context included. Returns a SelectionOutcome with error_code
-    set if coverage acquisition or the Measurement fails — the caller must check that
-    before using any other field.
+    Returns a SelectionOutcome with error_code set if the Measurement fails — the caller
+    must check that before using any other field.
     """
     abs_source = os.path.abspath(request.path)
-    flagged_lines, cov_error = flagged_covered_lines(
-        cov_cmd=request.cov_cmd,
-        lcov_path=request.lcov_path,
-        reuse_coverage=request.reuse_coverage,
-        cwd=request.cwd,
-        abs_source=abs_source,
-    )
-    if cov_error is not None:
-        # .info, not .error: this single-file path has always written its
-        # coverage/baseline failures to stdout (unlike _dispatch.py's directory
-        # path, which sends the equivalent messages to stderr) — preserved
-        # verbatim rather than "fixed" as a side effect of this migration.
-        _logger.info(f"error: {cov_error}")
-        return SelectionOutcome(error_code=1)
     try:
         measurement = _run_measurement(request, abs_source)
     except (MeasurementFailed, CoverageCoreRefused) as exc:
         code, message = measurement_failure(exc)
-        # .info, not .error: see the matching note on the cov_error branch above.
+        # .info, not .error: this single-file path has always written its
+        # baseline failures to stdout (unlike _dispatch.py's directory
+        # path, which sends the equivalent messages to stderr) — preserved
+        # verbatim rather than "fixed" as a side effect of this migration.
         _logger.info(message)
         return SelectionOutcome(error_code=code)
-    covered_lines = flagged_lines if flagged_lines is not None else set(measurement.covered_lines(abs_source))
+    covered_lines = set(measurement.covered_lines(abs_source))
 
     covered_count, uncovered_count = partition_sites(setup.loaded.all_sites, covered_lines)
     effective_since_last_run = _is_effective_since_last_run(
@@ -309,7 +284,7 @@ def _mutant_exec_ctx(
 def run_mutations(request: RunMutationsRequest) -> int:
     """Execute the mutation run loop.
 
-    Returns 0, 1 (coverage/baseline/worker failure), 2 (selection disagreement or
+    Returns 0, 1 (baseline/worker failure), 2 (selection disagreement or
     usage error), or 3 (the run finished with at least one unaccepted survivor and
     allow_survivors is false).
     """

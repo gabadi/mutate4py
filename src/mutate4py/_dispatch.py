@@ -26,8 +26,6 @@ from mutate4py._exit_codes import EXIT_USAGE, worse_exit_code
 from mutate4py._measurement import CoverageCoreRefused, Measurement, MeasurementFailed, measure_in_scratch
 from mutate4py._report import batch_summary_lines, measurement_failure
 from mutate4py._runner import (
-    CoverageError,
-    CoverageSource,
     RunMutationsRequest,
     check_manifest,
     run_mutations,
@@ -103,24 +101,14 @@ def _parse_pytest_args(raw: str | None) -> list[str]:
         sys.exit(2)
 
 
-def _run_scan(args: argparse.Namespace, path: str, source: str, cwd: str) -> None:
-    """Execute --scan logic; exits with code 2 on CoverageError."""
-    try:
-        run_scan(
-            path=path,
-            source=source,
-            warning_threshold=args.warning_threshold,
-            coverage=CoverageSource(
-                cov_cmd=args.cov_cmd,
-                lcov_path=args.lcov,
-                reuse_coverage=args.reuse_coverage,
-                cwd=cwd,
-            ),
-            manifest_file=args.manifest_file,
-        )
-    except CoverageError as exc:
-        _logger.error(f"error: {exc}")
-        sys.exit(2)
+def _run_scan(args: argparse.Namespace, path: str, source: str) -> None:
+    """Execute --scan logic: count the sites; coverage-free, so no Measurement runs."""
+    run_scan(
+        path=path,
+        source=source,
+        warning_threshold=args.warning_threshold,
+        manifest_file=args.manifest_file,
+    )
 
 
 @dataclasses.dataclass
@@ -146,7 +134,7 @@ def _run_on_file(
         update_manifest(path=py_file, source=source, manifest_file=args.manifest_file)
         return 0
     if args.scan:
-        _run_scan(args, py_file, source, cwd)
+        _run_scan(args, py_file, source)
         return 0
     lines_filter = _parse_lines(args.lines)
     max_workers = args.max_workers if args.max_workers is not None else 0
@@ -154,9 +142,6 @@ def _run_on_file(
         RunMutationsRequest(
             path=py_file,
             source=source,
-            cov_cmd=args.cov_cmd,
-            lcov_path=args.lcov,
-            reuse_coverage=args.reuse_coverage,
             pytest_args=args.pytest_args,
             timeout_factor=args.timeout_factor,
             min_timeout=args.min_timeout,
@@ -213,37 +198,11 @@ def _needs_measurement(files: list[str], args: argparse.Namespace) -> bool:
     return bool(files) and not (args.scan or args.update_manifest or args.check_manifest)
 
 
-def _acquire_directory_coverage(args: argparse.Namespace, files: list[str], cwd: str) -> None:
-    """Acquire the coverage a directory run's flags ask for, before the suite runs.
-
-    A bad --lcov or a failing --cov-cmd exits the process here. With no coverage
-    flag this is a no-op.
-    """
-    from mutate4py._coverage import acquire_coverage
-
-    if not (args.cov_cmd or args.lcov or args.reuse_coverage):
-        return
-    try:
-        acquire_coverage(
-            cov_cmd=args.cov_cmd,
-            lcov_path=args.lcov,
-            reuse=args.reuse_coverage,
-            cwd=cwd,
-            source_path=os.path.abspath(files[0]),
-        )
-    except CoverageError as exc:
-        _logger.error(f"error: {exc}")
-        sys.exit(1)
-
-
 def _prepare_directory_measurement(args: argparse.Namespace, files: list[str], cwd: str) -> Measurement:
     """Take the one Measurement a directory run shares across all its files.
 
-    A coverage flag still acquires its coverage first (see
-    _acquire_directory_coverage). Exits the process on failure, matching the
-    single-file dispatch behavior.
+    Exits the process on failure, matching the single-file dispatch behavior.
     """
-    _acquire_directory_coverage(args, files, cwd)
     try:
         return measure_in_scratch(
             cwd=cwd,

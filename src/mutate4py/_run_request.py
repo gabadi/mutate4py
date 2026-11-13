@@ -10,15 +10,12 @@ __all__ = ["RunMutationsRequest"]
 
 @dataclasses.dataclass
 class RunMutationsRequest:
-    """Everything a mutation run needs: target, coverage source, test invocation,
+    """Everything a mutation run needs: target, test invocation,
     selection/execution knobs, and manifest storage.
     """
 
     path: str
     source: str
-    cov_cmd: str | None
-    lcov_path: str | None
-    reuse_coverage: bool
     pytest_args: list[str]
     timeout_factor: int
     lines_filter: set[int] | None

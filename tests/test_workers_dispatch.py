@@ -363,22 +363,12 @@ def test_parallel_dogfood_run_scores_the_same_as_the_serial_run(tmp_path):
         shutil.copytree(os.path.join(REPO_ROOT, name), project / name, ignore=shutil.ignore_patterns(*_SKIP_ENTRIES))
     env = {k: v for k, v in os.environ.items() if k not in ("VIRTUAL_ENV", "PYTHONPATH")}
     subprocess.run(["uv", "sync"], cwd=project, env=env, capture_output=True, text=True, check=True)
-    subprocess.run(
-        ["uv", "run", "pytest", "--cov=src", "--cov-report=lcov:lcov.info", "tests/test_cmd.py"],
-        cwd=project,
-        env=env,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
     base = [
         "uv",
         "run",
         "mutate4py",
         "src/mutate4py/_cmd.py",
         "--mutate-all",
-        "--lcov",
-        "lcov.info",
         "--pytest-args",
         "tests/test_cmd.py",
     ]

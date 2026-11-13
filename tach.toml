@@ -2,10 +2,9 @@
 #
 # `layers` is ordered highest first. A module may import anything in a strictly
 # lower layer for free; importing a sibling in its own layer needs an explicit
-# `depends_on`. That one mechanic is what enforces the "_coverage must not
-# import _discovery" invariant — both sit in `domain`, neither lists the other,
-# so tach rejects the import the moment someone adds it. It needs no rule of
-# its own.
+# `depends_on`. That one mechanic is what enforces same-layer isolation: two
+# modules in one layer that do not list each other stay apart, and tach rejects
+# the import the moment someone adds it. It needs no rule of its own.
 #
 # Most layers here hold a single module extracted from `__main__.py` or
 # `_runner.py` to keep those under their size caps. Their order relative to
@@ -115,11 +114,6 @@ depends_on = ["mutate4py._discovery"]
 
 [[modules]]
 path = "mutate4py._equivalent"
-layer = "domain"
-depends_on = []
-
-[[modules]]
-path = "mutate4py._coverage"
 layer = "domain"
 depends_on = []
 
