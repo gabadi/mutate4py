@@ -9,6 +9,7 @@ either caller. See tach.toml before moving it.
 
 import dataclasses
 import logging
+from collections.abc import Callable
 
 from mutate4py._discovery import Site
 
@@ -16,11 +17,13 @@ __all__ = [
     "NO_TESTS_HINT",
     "MutantPlan",
     "NoTestsCollectedError",
+    "PlanInputs",
     "TestSelectionError",
     "TimeoutPolicy",
     "_check_execution_status",
     "_log_dispatch_abort",
     "plan_mutant",
+    "plan_sites",
 ]
 
 _logger = logging.getLogger(__name__)
@@ -77,17 +80,76 @@ def _log_dispatch_abort(exc: TestSelectionError | NoTestsCollectedError) -> int:
     return 2
 
 
+# pytest options whose value is the next argv token. That token is an option
+# value, never a positional, even when it spells one (`-k tests`).
+_VALUE_OPTIONS = frozenset(
+    {
+        "-k",
+        "-m",
+        "-p",
+        "-o",
+        "-c",
+        "-W",
+        "-r",
+        "-n",
+        "--rootdir",
+        "--ignore",
+        "--ignore-glob",
+        "--deselect",
+        "--tb",
+        "--maxfail",
+        "--basetemp",
+        "--junitxml",
+        "--import-mode",
+        "--log-level",
+        "--capture",
+        "--durations",
+        "--confcutdir",
+        "--override-ini",
+    }
+)
+
+
+def _without_positionals(pytest_args: list[str], positionals: tuple[str, ...]) -> list[str]:
+    """pytest_args minus the run's positional path arguments, which a narrowed Mutant replaces with node ids.
+
+    A token is a positional only when it is not the value of a value-taking
+    option, so `-k tests` keeps its `tests`. Each positional is dropped once.
+    """
+    remaining = list(positionals)
+    kept: list[str] = []
+    value_next = False
+    for token in pytest_args:
+        if value_next:
+            kept.append(token)
+            value_next = False
+        elif token in _VALUE_OPTIONS:
+            kept.append(token)
+            value_next = True
+        elif token in remaining:
+            remaining.remove(token)
+        else:
+            kept.append(token)
+    return kept
+
+
 @dataclasses.dataclass(frozen=True)
 class TimeoutPolicy:
-    """How a Mutant's timeout is derived: factor x the Baseline duration, floored at min_timeout."""
+    """How a Mutant's timeout is derived: max(min_timeout, factor x budget) + overhead.
+
+    budget_of maps the node ids a Mutant runs to their budget (the summed measured
+    durations of those tests plus the largest fixture setup in their files);
+    budget_of(None) is the full test set's budget, which a static Mutant runs.
+    overhead is the Per-Mutant overhead, the wall time spent outside the tests.
+    """
 
     factor: float
     min_timeout: float
-    baseline_duration: float
+    overhead: float
+    budget_of: Callable[[frozenset[str] | None], float]
 
-    @property
-    def timeout(self) -> float:
-        return max(self.min_timeout, self.factor * self.baseline_duration)
+    def timeout_for(self, node_ids: frozenset[str] | None) -> float:
+        return max(self.min_timeout, self.factor * self.budget_of(node_ids)) + self.overhead
 
 
 @dataclasses.dataclass(frozen=True)
@@ -99,36 +161,54 @@ class MutantPlan:
     selection: str | None
 
 
-def plan_mutant(
-    site: Site,
-    *,
-    pytest_args: list[str],
-    test_ctx_db,
-    abs_source_path: str,
-    timeout_policy: TimeoutPolicy,
-) -> MutantPlan:
-    """Return the MutantPlan for site; selection is None without a context db.
-
-    "narrowed" runs only the tests covering site.line; "static" runs the full
-    pytest_args because the line executes at import time and no test owns it;
-    "degraded" also runs the full pytest_args — the db named covering tests
-    for site.line, but at least one came from a dynamic (pytest-cov
-    switch_context) session that ADR 0021 proved can silently drop covering
-    tests, so the named list can't be trusted to run alone. Tallied apart
-    from "static" so the run summary can't claim static 0 while sites were
-    actually degraded (issue #69).
+@dataclasses.dataclass(frozen=True)
+class PlanInputs:
+    """The per-run inputs every Mutant's plan is built from: the run's pytest args,
+    its positional path args (stripped from a narrowed Mutant's argv), its timeout
+    policy, and the selection source that answers for abs_source_path.
     """
-    timeout = timeout_policy.timeout
-    if test_ctx_db is None:
-        return MutantPlan(list(pytest_args), timeout, None)
-    outcome, node_ids = test_ctx_db.tests_for_line(abs_source_path, site.line)
+
+    pytest_args: list[str]
+    selection_source: object
+    abs_source_path: str
+    timeout_policy: TimeoutPolicy
+    positionals: tuple[str, ...]
+
+
+def plan_mutant(site: Site, inputs: PlanInputs) -> MutantPlan:
+    """Return the MutantPlan for site; selection is None without a selection source.
+
+    The selection source answers `tests_for_line(path, line)`: the Measurement
+    by default, the test-context db under --test-contexts. "narrowed" runs only
+    the tests covering site.line, with the run's positional path args
+    (`positionals`) removed from pytest_args so the path does not run beside the
+    node ids; "static" runs the full pytest_args because the line executes at
+    import time and no test owns it. "uncovered" (a line no context reached: only
+    a Coverage gate from a flag can select one) also runs the full pytest_args,
+    tallied as "static". "degraded" is the db's: it names covering tests from a
+    dynamic (pytest-cov switch_context) session that ADR 0021 proved can silently
+    drop covering tests, so the named list can't be trusted to run alone; it runs
+    the full pytest_args and is tallied apart from "static" (issue #69).
+    """
+    if inputs.selection_source is None:
+        return MutantPlan(list(inputs.pytest_args), inputs.timeout_policy.timeout_for(None), None)
+    outcome, node_ids = inputs.selection_source.tests_for_line(inputs.abs_source_path, site.line)
     if outcome == "narrowed":
-        return MutantPlan([*pytest_args, *node_ids], timeout, "narrowed")
-    if outcome == "static":
-        return MutantPlan(list(pytest_args), timeout, "static")
+        return MutantPlan(
+            [*_without_positionals(inputs.pytest_args, inputs.positionals), *node_ids],
+            inputs.timeout_policy.timeout_for(frozenset(node_ids)),
+            "narrowed",
+        )
+    if outcome in ("static", "uncovered"):
+        return MutantPlan(list(inputs.pytest_args), inputs.timeout_policy.timeout_for(None), "static")
     if outcome == "under-listed":
-        return MutantPlan(list(pytest_args), timeout, "degraded")
+        return MutantPlan(list(inputs.pytest_args), inputs.timeout_policy.timeout_for(None), "degraded")
     # Every other outcome raises, so an unrecognized one can never fall through to
     # a full-suite run that the report would then miscount as narrowed.
     hint = _DISAGREEMENT_HINTS.get(outcome, f"unrecognized selection outcome {outcome!r}")
-    raise TestSelectionError(f"{abs_source_path}:{site.line}: {hint}")
+    raise TestSelectionError(f"{inputs.abs_source_path}:{site.line}: {hint}")
+
+
+def plan_sites(sites: list[Site], inputs: PlanInputs) -> list[MutantPlan]:
+    """Return the MutantPlan of each site, in the order given."""
+    return [plan_mutant(site, inputs) for site in sites]

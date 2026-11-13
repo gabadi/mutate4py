@@ -25,9 +25,10 @@ Feature: Per-mutant test selection and directory run mode
   #         aborts with exit 2 and an actionable message. Selected sites are
   #         LCOV-covered by construction, so a db miss is always an input defect
   #         (stale db / path mismatch / subprocess coverage), never uncovered code.
-  #   report line — whenever --test-contexts is set, the Mutation Report block
-  #     carries "Test selection: narrowed <n>, static <k>" after the "Uncovered:"
-  #     line. Absent when --test-contexts is not supplied.
+  #   report line — the Mutation Report block carries "Test selection: narrowed <n>,
+  #     static <k>" after the "Uncovered:" line whenever a selection source answers:
+  #     the run's Measurement by default, or the --test-contexts db. Only a
+  #     --test-contexts run also tallies "degraded" (issue #96; ADR 0018 amendment).
   #   parallelism composition — --test-contexts and --max-workers >= 2 compose
   #     (issue 04b): the run proceeds in parallel, and each Worker's own
   #     dispatch is narrowed/static per mutant the same way the serial loop's
@@ -108,10 +109,10 @@ Feature: Per-mutant test selection and directory run mode
       | is absent though LCOV-covered   | absent from the test-context db |
       | is in a file absent from the db | not in the test-context db      |
 
-  Scenario: the report line is absent without --test-contexts
+  Scenario: the report line names the Measurement's selection without --test-contexts
     Given a Python source file with covered mutation sites
     When mutate4py is run without "--test-contexts"
-    Then no "Test selection:" line is printed
+    Then the "Test selection:" line is printed without a degraded tally
 
   Scenario: --test-contexts composes with --max-workers >= 2
     Given a Python source file with mutation sites covered by known tests

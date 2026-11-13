@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T09:29:05Z",
-  "module_hash": "a093c4793a9567dfee8241f2cb679111029c844e6e916bfd9e651602fb3dc2d7",
-  "source_sha256": "3e3d283d7271ada17e4798f6425ae671a5681f2efc03326e90e9d3b7e07bede9",
+  "tested_at": "2026-11-13T11:26:45Z",
+  "module_hash": "b7d29d28f2868621899b82e8078aa8319b41ae8e643cb6a5a707206d89ca9c4b",
+  "source_sha256": "74ed83e160e7b1dddcd858059daef0df5ad5de8cfe7d885f0f1f24e7592db353",
   "functions": [
     {
       "id": "func/_run_header_lines",
@@ -77,50 +77,50 @@
     {
       "id": "func/_selection_report_lines",
       "name": "_selection_report_lines",
-      "line": 176,
-      "end_line": 192,
-      "hash": "6bcf25d58fb61a693f2a57601d487d9de07d6472be22ffb362cb4f7bb4e81881"
+      "line": 188,
+      "end_line": 205,
+      "hash": "420bf1cdc0941f9cca5e37662a54d351e9a890cbe4ca071f123b3c38237fdc98"
     },
     {
       "id": "func/_mutation_report_lines",
       "name": "_mutation_report_lines",
-      "line": 195,
-      "end_line": 221,
-      "hash": "2252a3653828be2299f05ca8097631b15eb2afd26d485675ec80173880eb1a7f"
+      "line": 208,
+      "end_line": 234,
+      "hash": "217ddae3fd68cdd8e86fe80e8131df988c90df63a1205f7d35c5bbd5fea7008b"
     },
     {
       "id": "func/_accepted_block_lines",
       "name": "_accepted_block_lines",
-      "line": 224,
-      "end_line": 232,
+      "line": 237,
+      "end_line": 245,
       "hash": "d2db0ed78e38ee49bb5081e7c89a526d46086cc6754e487cc6e9efb15bdd175c"
     },
     {
       "id": "func/_workers_header_lines",
       "name": "_workers_header_lines",
-      "line": 235,
-      "end_line": 239,
+      "line": 248,
+      "end_line": 252,
       "hash": "45a887b31e2142ea6ee16ac8585dbe9ed7ee256035aa668275994ec504e3bfd8"
     },
     {
       "id": "func/_scan_manifest_state",
       "name": "_scan_manifest_state",
-      "line": 242,
-      "end_line": 260,
+      "line": 255,
+      "end_line": 273,
       "hash": "8866f3fc9d4c5fd02c6263bdcce7e9fbadceb020feb92a9497515effd0c3a7ab"
     },
     {
       "id": "func/scan_report",
       "name": "scan_report",
-      "line": 263,
-      "end_line": 279,
+      "line": 276,
+      "end_line": 292,
       "hash": "266a66f3c40d09563d5b6c962ec8afa5a233c6e855e551c745fd890d23afe504"
     },
     {
       "id": "func/scan_report_with_coverage",
       "name": "scan_report_with_coverage",
-      "line": 282,
-      "end_line": 313,
+      "line": 295,
+      "end_line": 326,
       "hash": "abbfcdf392bd6616b157f900ae3be8cd28db869d65552ad60ae9502e76cc5078"
     }
   ]

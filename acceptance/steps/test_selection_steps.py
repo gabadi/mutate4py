@@ -491,11 +491,11 @@ def then_source_restored(m, params):
     assert ">=" not in content, f"Mutant still in source:\n{content}"
 
 
-@step(r'no "Test selection:" line is printed')
-def then_no_test_selection_line(m, params):
-    assert "Test selection:" not in ctx.cli_result.stdout, (
-        f"Unexpected 'Test selection:' line in:\n{ctx.cli_result.stdout}"
-    )
+@step(r'the "Test selection:" line is printed without a degraded tally')
+def then_selection_line_without_degraded(m, params):
+    lines = [ln for ln in ctx.cli_result.stdout.splitlines() if ln.startswith("Test selection:")]
+    assert len(lines) == 1, f"Expected one 'Test selection:' line in:\n{ctx.cli_result.stdout}"
+    assert "degraded" not in lines[0], f"Unexpected degraded tally in: {lines[0]!r}"
 
 
 @step(r"worker-N tokens are present in the progress lines")

@@ -33,12 +33,13 @@ from mutate4py._execution import (
 )
 from mutate4py._manifest import recorded_survivors
 from mutate4py._manifest_modes import check_manifest, update_manifest
-from mutate4py._measurement import CoverageCoreRefused, Measurement, MeasurementFailed, measure_in_scratch
+from mutate4py._measurement import ALL, CoverageCoreRefused, Measurement, MeasurementFailed, measure_in_scratch
 from mutate4py._plugin_neutralisation import neutralising_args
 from mutate4py._report import (
     _accepted_block_lines,
     CoverageSource,
     RunStats,
+    SelectionTally,
     _mutation_report_lines,
     _run_header_lines,
     _workers_header_lines,
@@ -86,7 +87,7 @@ class RunMutationsRequest:
     warning_threshold: int
     cwd: str
     max_workers: int = 0
-    min_timeout: float = 1.0
+    min_timeout: float = 5.0
     test_contexts_path: str | None = None
     manifest_file: bool = False
     forking_requested: bool = True
@@ -175,7 +176,8 @@ def _prepare_baseline_and_executor(
     timeout_policy = TimeoutPolicy(
         factor=request.timeout_factor,
         min_timeout=request.min_timeout,
-        baseline_duration=measurement.wall,
+        overhead=measurement.per_mutant_overhead,
+        budget_of=lambda node_ids: measurement.budget_of(ALL if node_ids is None else node_ids),
     )
     executor = select_executor(
         caller_supplied=request.executor,
@@ -314,8 +316,10 @@ def _mutant_exec_ctx(request: RunMutationsRequest, outcome: SelectionOutcome, te
         max_workers=outcome.max_workers,
         use_parallel=outcome.use_parallel,
         abs_source_path=os.path.abspath(request.path),
-        test_ctx_db=test_ctx_db,
+        # Without --test-contexts the Measurement selects: it names the tests that reached each line (issue #96).
+        selection_source=test_ctx_db if test_ctx_db is not None else outcome.measurement,
         forking_requested=request.forking_requested,
+        positionals=outcome.measurement.positional_args,
     )
 
 
@@ -366,8 +370,7 @@ def _run_loop(request: RunMutationsRequest, test_ctx_db) -> int:
             scored_run=scored_run,
         )
     if result.error_msg is not None:
-        # .info, not .error: this has always gone to stdout, same as the
-        # cov_error/baseline_error branches in _select_and_prepare above.
+        # .info, not .error: this has always gone to stdout, like the cov_error branch above.
         _logger.info(result.error_msg)
         return 1
     return _report_run(request, outcome, result, scored_run)
@@ -379,12 +382,15 @@ def _report_run(request: RunMutationsRequest, outcome, result, scored_run: Score
     # Measurement and overhead lines once for the whole batch.
     measured_here = request.measurement is None
     overhead = overhead_info(outcome.overhead_duration, outcome.baseline_duration) if measured_here else None
+    selection = None
+    if result.selection_counts is not None:
+        selection = SelectionTally(result.selection_counts, tally_degraded=request.test_contexts_path is not None)
     _print_lines(
         _mutation_report_lines(
             result.counts,
             scored_run.unaccepted(),
             outcome.uncovered_count,
-            result.selection_counts,
+            selection=selection,
             overhead=overhead,
         )
     )

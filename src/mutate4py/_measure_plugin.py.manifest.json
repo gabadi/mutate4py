@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T05:39:47Z",
-  "module_hash": "5c3f802efc54ebcf2e38bb139bc9f9e10bae8627b96ae2a8d3e634d6441a5382",
-  "source_sha256": "0869d7f8339924a33a9e88caf6393347aec79aa4827c1bfd76b885849c712271",
+  "tested_at": "2026-11-13T11:20:41Z",
+  "module_hash": "895b83905371c20c6c2d3801d56b025b05d368beb646fdcacf26f16e0759c087",
+  "source_sha256": "d585aa9a973eb6e55c771d69083063711d52267883a884d2cc8b704e3b4d9c98",
   "functions": [
     {
       "id": "func/MeasurePlugin.__init__",
@@ -50,14 +50,14 @@
       "id": "func/MeasurePlugin.pytest_sessionfinish",
       "name": "pytest_sessionfinish",
       "line": 56,
-      "end_line": 69,
-      "hash": "4f0298e9be2fd18a62edca51706956a143cea095fb4e70f86de01950795215c9"
+      "end_line": 71,
+      "hash": "a07c81ce59e7ba6d7bad6e53e9ad44c39ecdeaad8fad616c1a6fce27bf0182f6"
     },
     {
       "id": "func/_files",
       "name": "_files",
-      "line": 72,
-      "end_line": 73,
+      "line": 74,
+      "end_line": 75,
       "hash": "3f1c815b5a2dbe491657e8aa9cb635c7db673f1a1ae6965e3955a22df2571b47"
     }
   ]

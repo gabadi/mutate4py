@@ -67,7 +67,7 @@ def _check_scan_only_incompatibilities(args: argparse.Namespace) -> None:
     """Raise if scan-only flags are paired with non-scan flags."""
     if args.timeout_factor != 10:
         _exit_incompatible("--scan", "--timeout-factor")
-    if args.min_timeout != 1.0:
+    if args.min_timeout != 5.0:
         _exit_incompatible("--scan", "--min-timeout")
     if args.pytest_args:
         _exit_incompatible("--scan", "--pytest-args")

@@ -28,10 +28,10 @@ class _FakeExecutor:
 
 def _policy(timeout: float) -> TimeoutPolicy:
     """A TimeoutPolicy whose floor is `timeout`, so the Mutant timeout comes out exactly `timeout`."""
-    return TimeoutPolicy(factor=1.0, min_timeout=timeout, baseline_duration=0.0)
+    return TimeoutPolicy(factor=1.0, min_timeout=timeout, overhead=0.0, budget_of=lambda node_ids: 0.0)
 
 
-class _FakeTestContextDB:
+class _FakeSelectionSource:
     def __init__(self, outcome, node_ids=()):
         self._result = (outcome, list(node_ids))
 
@@ -63,7 +63,7 @@ def test_run_mutation_loop_empty_sites_returns_zero_counts(tmp_path):
     assert selection_counts is None
 
 
-def _loop_over_two_sites(tmp_path, ctx_db):
+def _loop_over_two_sites(tmp_path, selection_source):
     src = "def f(a, b):\n    return a > b\n\n\ndef g(a, b):\n    return a + b\n"
     src_file = tmp_path / "calc.py"
     src_file.write_text(src)
@@ -76,7 +76,7 @@ def _loop_over_two_sites(tmp_path, ctx_db):
             pytest_args=[],
             executor=_FakeExecutor(status="killed"),
             timeout_policy=_policy(5.0),
-            test_ctx_db=ctx_db,
+            selection_source=selection_source,
             abs_source_path=str(src_file),
         ),
     )
@@ -85,21 +85,21 @@ def _loop_over_two_sites(tmp_path, ctx_db):
 @pytest.mark.unit
 def test_run_mutation_loop_tallies_narrowed_selections(tmp_path):
     _, _, selection_counts = _loop_over_two_sites(
-        tmp_path, _FakeTestContextDB("narrowed", ["tests/test_calc.py::test_f"])
+        tmp_path, _FakeSelectionSource("narrowed", ["tests/test_calc.py::test_f"])
     )
     assert selection_counts == {"narrowed": 2, "static": 0, "degraded": 0}
 
 
 @pytest.mark.unit
 def test_run_mutation_loop_tallies_static_selections(tmp_path):
-    _, _, selection_counts = _loop_over_two_sites(tmp_path, _FakeTestContextDB("static"))
+    _, _, selection_counts = _loop_over_two_sites(tmp_path, _FakeSelectionSource("static"))
     assert selection_counts == {"narrowed": 0, "static": 2, "degraded": 0}
 
 
 @pytest.mark.unit
 def test_run_mutation_loop_tallies_degraded_selections(tmp_path):
     _, _, selection_counts = _loop_over_two_sites(
-        tmp_path, _FakeTestContextDB("under-listed", ["tests/test_calc.py::test_f"])
+        tmp_path, _FakeSelectionSource("under-listed", ["tests/test_calc.py::test_f"])
     )
     assert selection_counts == {"narrowed": 0, "static": 0, "degraded": 2}
 
@@ -142,7 +142,7 @@ def test_run_mutation_loop_disagreement_aborts_before_applying_the_mutant(tmp_pa
                 pytest_args=[],
                 executor=_FakeExecutor(),
                 timeout_policy=_policy(5.0),
-                test_ctx_db=_FakeTestContextDB("line-absent"),
+                selection_source=_FakeSelectionSource("line-absent"),
                 abs_source_path=str(src_file),
             ),
         )
@@ -217,4 +217,4 @@ def test_run_parallel_workers_passes_timeout(tmp_path, monkeypatch):
             max_workers=2,
         ),
     )
-    assert captured["timeout_policy"].timeout == 42.0
+    assert captured["timeout_policy"].timeout_for(None) == 42.0

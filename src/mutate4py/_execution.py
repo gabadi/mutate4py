@@ -13,6 +13,7 @@ from mutate4py._executor import Executor
 from mutate4py._report import _on_parallel_result, _serial_progress_line
 from mutate4py._test_dispatch import (
     NoTestsCollectedError,
+    PlanInputs,
     TestSelectionError,
     TimeoutPolicy,
     _check_execution_status,
@@ -36,8 +37,9 @@ class MutantExecCtx:
     max_workers: int = 0
     use_parallel: bool = False
     abs_source_path: str = ""
-    test_ctx_db: object = None
+    selection_source: object = None  # the Measurement, or the --test-contexts db; None selects nothing
     forking_requested: bool = True
+    positionals: tuple[str, ...] = ()
 
 
 def _run_mutation_loop(
@@ -46,7 +48,7 @@ def _run_mutation_loop(
     ctx: MutantExecCtx,
 ) -> tuple[dict, list[Site], dict[str, int] | None]:
     """Run each selected site through ctx.executor; the third return is the
-    narrowed/static/degraded tally, or None when no context db is in play.
+    narrowed/static/degraded tally, or None when no selection source is in play.
     Raises TestSelectionError on a selection disagreement, or
     NoTestsCollectedError if a mutant's test run exercised no test at all.
 
@@ -58,15 +60,16 @@ def _run_mutation_loop(
     counts: dict[str, int] = {"killed": 0, "timeout": 0, "survived": 0}
     selection_counts: dict[str, int] = {"narrowed": 0, "static": 0, "degraded": 0}
     survivors: list[Site] = []
+    plan_inputs = PlanInputs(
+        pytest_args=ctx.pytest_args,
+        selection_source=ctx.selection_source,
+        abs_source_path=ctx.abs_source_path,
+        timeout_policy=ctx.timeout_policy,
+        positionals=ctx.positionals,
+    )
     for i, site in enumerate(selected_sites, 1):
         # Planned before the splice so a disagreement aborts with the source untouched.
-        plan = plan_mutant(
-            site,
-            pytest_args=ctx.pytest_args,
-            test_ctx_db=ctx.test_ctx_db,
-            abs_source_path=ctx.abs_source_path,
-            timeout_policy=ctx.timeout_policy,
-        )
+        plan = plan_mutant(site, plan_inputs)
         if plan.selection is not None:
             selection_counts[plan.selection] += 1
         mutated = apply_mutant(clean_source, site)
@@ -81,7 +84,7 @@ def _run_mutation_loop(
         if status == "survived":
             survivors.append(site)
         _logger.info(_serial_progress_line(i, total_selected, status, site))
-    return counts, survivors, (selection_counts if ctx.test_ctx_db is not None else None)
+    return counts, survivors, (selection_counts if ctx.selection_source is not None else None)
 
 
 def _run_parallel_workers(
@@ -109,10 +112,11 @@ def _run_parallel_workers(
                 timeout_policy=ctx.timeout_policy,
                 max_workers=ctx.max_workers,
                 on_result=_on_parallel_result,
-                test_ctx_db=ctx.test_ctx_db,
+                selection_source=ctx.selection_source,
                 abs_source_path=ctx.abs_source_path,
                 forking_requested=ctx.forking_requested,
                 executor=ctx.executor,
+                positionals=ctx.positionals,
             )
         )
         return counts, survivors, selection_counts, None
