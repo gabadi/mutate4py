@@ -40,18 +40,21 @@ def compare_source(count: int) -> tuple[str, list[int]]:
     return "\n".join(lines) + "\n", site_lines
 
 
-def outcome_test_body(module: str, outcomes: dict[str, str]) -> str:
+def outcome_test_body(module: str, outcomes: dict[str, str], probe: str = "") -> str:
     """Tests, one per function, whose result under that function's `>=` Mutant is `outcome`.
 
     "kill" fails on the Mutant (the original is false for equal operands, the
     Mutant true), "timeout" sleeps past any timeout on the Mutant, and "survive"
-    calls the function without checking the result. All pass on the original code."""
+    calls the function without checking the result. All pass on the original code.
+    `probe`, when given, is one statement that opens every test, to observe where and when it runs."""
     unknown = sorted(set(outcomes.values()) - set(_OUTCOMES))
     if unknown:
         raise ValueError(f"Unknown outcome: {unknown[0]!r}; expected one of {_OUTCOMES}")
     parts = ["import time", "", f"import {module}", "", ""]
     for name, outcome in outcomes.items():
         parts.append(f"def test_{name}():")
+        if probe:
+            parts.append(f"    {probe}")
         if outcome == _KILL:
             parts.append(f"    assert not {module}.{name}(1, 1)")
         elif outcome == _TIMEOUT:

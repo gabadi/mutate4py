@@ -134,3 +134,18 @@ def test_uncalled_source_numbers_its_functions_from_the_first_index():
     source = uncalled_source(2, 4)
     assert [node.name for node in ast.parse(source).body] == ["u4", "u5"]
     assert uncalled_source(0, 1).strip() == ""
+
+
+@pytest.mark.unit
+def test_a_probe_opens_every_test_before_its_check():
+    body = outcome_test_body("sample", {"f1": "kill", "f2": "survive"}, probe="seen.append(1)")
+    tree = ast.parse(body)
+    tests = [node for node in tree.body if isinstance(node, ast.FunctionDef)]
+    assert [ast.unparse(t.body[0]) for t in tests] == ["seen.append(1)", "seen.append(1)"]
+    assert len(tests[0].body) == 2
+
+
+@pytest.mark.unit
+def test_no_probe_leaves_the_tests_unchanged():
+    assert outcome_test_body("sample", {"f1": "kill"}) == outcome_test_body("sample", {"f1": "kill"}, probe="")
+    assert "seen" not in outcome_test_body("sample", {"f1": "kill"})
