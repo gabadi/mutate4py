@@ -5,8 +5,10 @@ orchestrator never forks a Mutant and its own imports never reach a child.
 Real fork server, real pytest, no fakes.
 """
 
+import importlib.util
 import io
 import os
+import shutil
 import sys
 import types
 from contextlib import redirect_stdout
@@ -31,7 +33,12 @@ def _write_calc_project(root, body="    return a + b\n") -> str:
     return str(target)
 
 
-def _serial_executor(cwd, target, pytest_args=("-q", "tests"), no_fork_reason=None):
+# This repo's own environment has tach installed, a fork-unsafe plugin: a run
+# that does not block it gets the subprocess executor (tested below).
+_ARGS = ["-p", "no:tach", "-q", "tests"]
+
+
+def _serial_executor(cwd, target, pytest_args=tuple(_ARGS), no_fork_reason=None):
     return select_executor(
         use_parallel=False,
         no_fork_reason=no_fork_reason,
@@ -56,9 +63,9 @@ def test_a_target_the_orchestrator_imported_still_forks_from_the_fork_server(tmp
 
     executor = _serial_executor(tmp_path, target)
     try:
-        assert executor.run(["-q", "tests"], timeout=30.0) == "survived"
+        assert executor.run(_ARGS, timeout=30.0) == "survived"
         (tmp_path / "calc.py").write_text("def add(a, b):\n    return a - b\n")
-        assert executor.run(["-q", "tests"], timeout=30.0) == "killed"
+        assert executor.run(_ARGS, timeout=30.0) == "killed"
         assert executor.describe() == ExecutorDescription(mode="forking", fresh_import=2)
     finally:
         _close(executor)
@@ -69,9 +76,9 @@ def test_a_hanging_mutant_times_out_and_the_fork_server_keeps_serving(tmp_path):
     target = _write_calc_project(tmp_path, body="    while True:\n        pass\n")
     executor = _serial_executor(tmp_path, target)
     try:
-        assert executor.run(["-q", "tests"], timeout=1.0) == "timeout"
+        assert executor.run(_ARGS, timeout=1.0) == "timeout"
         (tmp_path / "calc.py").write_text("def add(a, b):\n    return a + b\n")
-        assert executor.run(["-q", "tests"], timeout=30.0) == "survived"
+        assert executor.run(_ARGS, timeout=30.0) == "survived"
     finally:
         _close(executor)
 
@@ -83,9 +90,9 @@ def test_forking_and_subprocess_executors_classify_the_same_mutant_identically(t
     forking = _serial_executor(tmp_path, target)
     plain = _serial_executor(tmp_path, target, no_fork_reason="--no-fork")
     try:
-        assert [forking.run(["-q", "tests"], 30.0), plain.run(["-q", "tests"], 30.0)] == ["survived"] * 2
+        assert [forking.run(_ARGS, 30.0), plain.run(_ARGS, 30.0)] == ["survived"] * 2
         (tmp_path / "calc.py").write_text("def add(a, b):\n    return a - b\n")
-        assert [forking.run(["-q", "tests"], 30.0), plain.run(["-q", "tests"], 30.0)] == ["killed"] * 2
+        assert [forking.run(_ARGS, 30.0), plain.run(_ARGS, 30.0)] == ["killed"] * 2
     finally:
         _close(forking)
 
@@ -131,15 +138,89 @@ def test_pytest_not_importable_in_the_fork_server_gives_the_subprocess_executor(
 
 
 @pytest.mark.component
-def test_a_target_the_conftest_imports_at_prime_still_falls_back_and_classifies(tmp_path, monkeypatch):
+def test_a_target_the_conftest_imports_at_prime_runs_each_mutant_in_a_fresh_interpreter(tmp_path, monkeypatch):
     target = _write_calc_project(tmp_path)
     (tmp_path / "conftest.py").write_text("import calc\n")
     monkeypatch.setenv("PYTHONDONTWRITEBYTECODE", "1")
     executor = _serial_executor(tmp_path, target)
     try:
-        assert executor.describe().render().startswith("subprocess (forking executor unavailable: module(s) ")
+        assert executor.run(_ARGS, timeout=30.0) == "survived"
         (tmp_path / "calc.py").write_text("def add(a, b):\n    return a - b\n")
-        assert executor.run(["-q", "tests"], timeout=30.0) == "killed"
+        assert executor.run(_ARGS, timeout=30.0) == "killed"
+        assert executor.describe().render() == "forking (fresh import 0, swap 0, fresh interpreter 2)"
+    finally:
+        _close(executor)
+
+
+@pytest.mark.component
+def test_a_hanging_mutant_in_a_fresh_interpreter_times_out_and_the_fork_server_keeps_serving(tmp_path):
+    target = _write_calc_project(tmp_path, body="    while True:\n        pass\n")
+    (tmp_path / "conftest.py").write_text("import calc\n")
+    (tmp_path / "calc.py").write_text("def add(a, b):\n    return a + b\n")
+    executor = _serial_executor(tmp_path, target)
+    try:
+        (tmp_path / "calc.py").write_text("def add(a, b):\n    while True:\n        pass\n")
+        assert executor.run(_ARGS, timeout=2.0) == "timeout"
+        (tmp_path / "calc.py").write_text("def add(a, b):\n    return a + b\n")
+        assert executor.run(_ARGS, timeout=30.0) == "survived"
+    finally:
+        _close(executor)
+
+
+_SRC_PACKAGE = os.path.join(os.path.dirname(__file__), "..", "src", "mutate4py")
+
+# Asserts the harness's own pytest runner reports a failing session as a failure.
+_HARNESS_TEST = """\
+import pytest
+
+from mutate4py._forking_executor import _run_pytest_output_suppressed
+
+
+def test_a_usage_error_is_reported_as_a_failure(tmp_path):
+    assert _run_pytest_output_suppressed(pytest, ["--not-a-real-flag-xyz"], str(tmp_path)) != 0
+"""
+
+_EXIT_STATUS_LINE = "        return int(pytest_module.main(args, plugins=list(plugins)))\n"
+
+
+def _write_harness_project(root) -> str:
+    """A project holding its own copy of mutate4py, so the fork server, started in
+    it, runs that copy: the guarded file is one of the fork server's own modules."""
+    shutil.copytree(_SRC_PACKAGE, root / "mutate4py", ignore=shutil.ignore_patterns("__pycache__", "*.manifest.json"))
+    (root / "conftest.py").write_text("")
+    (root / "tests").mkdir()
+    (root / "tests" / "test_harness.py").write_text(_HARNESS_TEST)
+    return str(root / "mutate4py" / "_forking_executor.py")
+
+
+@pytest.mark.component
+def test_a_target_that_is_a_fork_server_module_runs_each_mutant_in_a_fresh_interpreter(tmp_path, monkeypatch):
+    monkeypatch.setenv("PYTHONDONTWRITEBYTECODE", "1")
+    target = _write_harness_project(tmp_path)
+    clean = open(target).read()
+    assert _EXIT_STATUS_LINE in clean
+    executor = _serial_executor(tmp_path, target)
+    try:
+        assert executor.run(_ARGS, timeout=60.0) == "survived"
+        # Swapped into the child's own harness, this Mutant would report every
+        # pytest session as a pass, its own included: a false Survivor.
+        mutant = clean.replace(
+            _EXIT_STATUS_LINE, "        return 0 * int(pytest_module.main(args, plugins=list(plugins)))\n"
+        )
+        open(target, "w").write(mutant)
+        assert executor.run(_ARGS, timeout=60.0) == "killed"
+        assert executor.describe().render() == "forking (fresh import 0, swap 0, fresh interpreter 2)"
+    finally:
+        _close(executor)
+
+
+@pytest.mark.component
+@pytest.mark.skipif(importlib.util.find_spec("tach") is None, reason="needs tach, a fork-unsafe plugin, installed")
+def test_a_fork_unsafe_plugin_in_the_run_gives_the_subprocess_executor_and_says_why(tmp_path):
+    target = _write_calc_project(tmp_path)
+    executor = _serial_executor(tmp_path, target, pytest_args=["-q", "tests"])
+    try:
+        assert executor.describe().render() == "subprocess (fork-unsafe plugin: tach.pytest_plugin)"
     finally:
         _close(executor)
 
@@ -153,7 +234,7 @@ def _write_marking_plugin(root) -> "os.PathLike":
 
 
 @pytest.mark.component
-@pytest.mark.parametrize(("pytest_args", "loaded"), [(["-p", "no:marking_plugin", "-q"], False), (["-q"], True)])
+@pytest.mark.parametrize(("pytest_args", "loaded"), [(["-p", "no:marking_plugin", *_ARGS], False), (_ARGS, True)])
 def test_the_fork_server_primes_without_a_plugin_the_run_disables(tmp_path, pytest_args, loaded):
     target = _write_calc_project(tmp_path)
     marker = _write_marking_plugin(tmp_path)
@@ -182,7 +263,7 @@ def _write_per_function_project(root, n: int) -> str:
     return src
 
 
-def _run_serial(root, src: str, monkeypatch, pytest_args=("-q", "tests")) -> tuple[int, str]:
+def _run_serial(root, src: str, monkeypatch, pytest_args=tuple(_ARGS)) -> tuple[int, str]:
     """run_mutations over calc.py, serially, each Site narrowed to its own test."""
     src_path = str(root / "calc.py")
     sites = discover_sites(src)
@@ -214,7 +295,7 @@ def test_a_serial_run_narrows_each_mutant_and_forks_every_one_from_the_fork_serv
     rc, output = _run_serial(tmp_path, src, monkeypatch)
     assert rc == 0, output
     assert "Test selection: narrowed 3, static 0" in output
-    assert "Executor: forking (fresh import 3)" in output
+    assert "Executor: forking (fresh import 3, swap 0, fresh interpreter 0)" in output
     assert _live_children() == [], "the run must close its fork server"
 
 

@@ -21,10 +21,16 @@ class ExecutorDescription:
     mode: str
     reason: str = ""
     fresh_import: int = 0
+    swap: int = 0
+    fresh_interpreter: int = 0
+
+    def mode_counts(self) -> str:
+        """How many Mutants ran by each forking mode, as the Executor line spells it."""
+        return f"fresh import {self.fresh_import}, swap {self.swap}, fresh interpreter {self.fresh_interpreter}"
 
     def render(self) -> str:
         if self.mode == "forking":
-            return f"forking (fresh import {self.fresh_import})"
+            return f"forking ({self.mode_counts()})"
         return f"{self.mode} ({self.reason})"
 
 
@@ -39,8 +45,13 @@ def _reasons(plain: list[ExecutorDescription]) -> str:
     return "; ".join(dict.fromkeys(d.reason for d in plain))
 
 
-def _fresh_import(descriptions: list[ExecutorDescription]) -> int:
-    return sum(d.fresh_import for d in descriptions)
+def _summed_forking(forked: list[ExecutorDescription]) -> ExecutorDescription:
+    return ExecutorDescription(
+        mode="forking",
+        fresh_import=sum(d.fresh_import for d in forked),
+        swap=sum(d.swap for d in forked),
+        fresh_interpreter=sum(d.fresh_interpreter for d in forked),
+    )
 
 
 def _mixed_description(forked: list[ExecutorDescription], plain: list[ExecutorDescription]) -> ExecutorDescription:
@@ -48,7 +59,7 @@ def _mixed_description(forked: list[ExecutorDescription], plain: list[ExecutorDe
     return ExecutorDescription(
         mode="mixed",
         reason=(
-            f"forking on {len(forked)} of {total} workers, fresh import {_fresh_import(forked)}; "
+            f"forking on {len(forked)} of {total} workers, {_summed_forking(forked).mode_counts()}; "
             f"subprocess on {len(plain)} of {total} workers: {_reasons(plain)}"
         ),
     )
@@ -57,7 +68,7 @@ def _mixed_description(forked: list[ExecutorDescription], plain: list[ExecutorDe
 def combine_descriptions(descriptions: list[ExecutorDescription]) -> ExecutorDescription:
     """One Executor line for a parallel run, from the description each Worker gave of its own executor.
 
-    All forking: forking, with the Workers' fresh imports summed. None forking:
+    All forking: forking, with each of the Workers' mode counts summed. None forking:
     subprocess, with the distinct reasons they gave. A mix: mixed, naming how many
     Workers forked and why the rest did not.
     """
@@ -65,7 +76,7 @@ def combine_descriptions(descriptions: list[ExecutorDescription]) -> ExecutorDes
         raise ValueError("no Workers to describe")
     forked, plain = _split_by_mode(descriptions)
     if not plain:
-        return ExecutorDescription(mode="forking", fresh_import=_fresh_import(forked))
+        return _summed_forking(forked)
     if forked:
         return _mixed_description(forked, plain)
     return ExecutorDescription(mode="subprocess", reason=_reasons(plain))

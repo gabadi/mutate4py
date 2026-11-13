@@ -7,11 +7,16 @@ both the single-Worker path and each parallel Worker's own subprocess can
 reach it.
 """
 
+import importlib.util
 import sys
 
 import pytest
 
 from mutate4py._executor_selection import _prepare_executor, select_executor
+
+# This repo's own environment has tach, a fork-unsafe plugin: an in-process
+# prime that does not block it gets the subprocess executor.
+_NO_TACH = ("-p", "no:tach")
 
 
 # ── select_executor ───────────────────────────────────────────────────────
@@ -81,18 +86,23 @@ def test_prepare_executor_fallback_on_a_non_posix_platform_reports_the_platform(
 
 
 @pytest.mark.component
-def test_prepare_executor_fallback_on_a_leaked_target_reports_the_unavailability(tmp_path, monkeypatch):
-    import types
-
+@pytest.mark.skipif(importlib.util.find_spec("tach") is None, reason="needs tach, a fork-unsafe plugin, installed")
+def test_prepare_executor_fallback_on_a_fork_unsafe_plugin_names_the_plugin(tmp_path):
     (tmp_path / "conftest.py").write_text("")
-    target = tmp_path / "leaked.py"
-    target.write_text("x = 1\n")
-    fake_module = types.ModuleType("leaked")
-    fake_module.__file__ = str(target)
-    monkeypatch.setitem(sys.modules, "leaked", fake_module)
+    executor = _prepare_executor(requested=True, cwd=str(tmp_path), guarded_path=str(tmp_path / "x.py"))
+    assert executor.describe().render() == "subprocess (fork-unsafe plugin: tach.pytest_plugin)"
 
-    executor = _prepare_executor(requested=True, cwd=str(tmp_path), guarded_path=str(target))
-    assert executor.describe().render().startswith("subprocess (forking executor unavailable: ")
+
+@pytest.mark.unit
+def test_prepare_executor_fallback_on_any_other_unavailability_reports_it_as_unavailable(tmp_path, monkeypatch):
+    import mutate4py._forking_executor as forking_mod
+
+    def refuse(self):
+        raise forking_mod.ForkingExecutorUnavailable("no pytest here")
+
+    monkeypatch.setattr(forking_mod.ForkingExecutor, "prime", refuse)
+    executor = _prepare_executor(requested=True, cwd=str(tmp_path), guarded_path=str(tmp_path / "x.py"))
+    assert executor.describe().render() == "subprocess (forking executor unavailable: no pytest here)"
 
 
 @pytest.mark.unit
@@ -111,27 +121,29 @@ def test_prepare_executor_returns_forking_executor_when_requested_and_available(
     from mutate4py._forking_executor import ForkingExecutor
 
     (tmp_path / "conftest.py").write_text("")
-    executor = _prepare_executor(requested=True, cwd=str(tmp_path), guarded_path=str(tmp_path / "not_imported.py"))
+    executor = _prepare_executor(
+        requested=True, cwd=str(tmp_path), guarded_path=str(tmp_path / "not_imported.py"), prime_args=_NO_TACH
+    )
     assert isinstance(executor, ForkingExecutor)
 
 
 @pytest.mark.component
-def test_prepare_executor_falls_back_when_target_already_leaked(tmp_path, monkeypatch):
-    """A module-leak during priming must fall back to the subprocess
-    executor rather than propagate."""
+def test_prepare_executor_forks_for_a_target_already_imported(tmp_path, monkeypatch):
+    """A target this process already imported is a harness file, run in a fresh
+    interpreter per Mutant: no whole-run fallback to the subprocess executor."""
     import types
 
-    from mutate4py._subprocess_executor import SubprocessExecutor
+    from mutate4py._forking_executor import ForkingExecutor
 
     (tmp_path / "conftest.py").write_text("")
-    target = tmp_path / "leaked.py"
+    target = tmp_path / "imported.py"
     target.write_text("x = 1\n")
-    fake_module = types.ModuleType("leaked")
+    fake_module = types.ModuleType("imported")
     fake_module.__file__ = str(target)
-    monkeypatch.setitem(sys.modules, "leaked", fake_module)
+    monkeypatch.setitem(sys.modules, "imported", fake_module)
 
-    executor = _prepare_executor(requested=True, cwd=str(tmp_path), guarded_path=str(target))
-    assert isinstance(executor, SubprocessExecutor)
+    executor = _prepare_executor(requested=True, cwd=str(tmp_path), guarded_path=str(target), prime_args=_NO_TACH)
+    assert isinstance(executor, ForkingExecutor)
 
 
 @pytest.mark.component
@@ -144,7 +156,9 @@ def test_prepare_executor_does_not_import_subprocess_module_when_forking_succeed
     monkeypatch.delitem(sys.modules, "mutate4py._subprocess_executor", raising=False)
     monkeypatch.delattr(mutate4py, "_subprocess_executor", raising=False)
     (tmp_path / "conftest.py").write_text("")
-    _prepare_executor(requested=True, cwd=str(tmp_path), guarded_path=str(tmp_path / "not_imported.py"))
+    _prepare_executor(
+        requested=True, cwd=str(tmp_path), guarded_path=str(tmp_path / "not_imported.py"), prime_args=_NO_TACH
+    )
     assert "mutate4py._subprocess_executor" not in sys.modules
 
 
