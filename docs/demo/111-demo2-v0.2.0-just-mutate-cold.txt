@@ -1,0 +1,130 @@
+# Demo 2 (#111): 0.2.0 just mutate, same edit as Demo 1, cold test-context-db
+# 0.2.0 = tag v0.2.0 at 21482f5; 0.3.0 = Demo 1 worktree at t-111 43c7919
+# machine: 27.0.1 arm64, 8 cores
+# load before run: load averages: 3.86 3.66 3.60
+
+$ git -C /Users/gabadi/workspace/gabadi/mutate4py/.claude/worktrees/wf_247a7432-5c4-44 worktree add --detach /Users/gabadi/workspace/gabadi/mutate4py/.claude/worktrees/wf_247a7432-5c4-44-v020 v0.2.0
+Preparing worktree (detached HEAD 21482f5)
+HEAD is now at 21482f5 Bump version: 0.1.4 → 0.2.0
+[add worktree] wall 0.08s, exit 0
+
+$ uv sync
+Using CPython 3.14.10 interpreter at: /opt/homebrew/opt/python@3.14/bin/python3.14
+Creating virtual environment at: .venv
+Resolved 53 packages in 3ms
+   Building mutate4py @ file:///Users/gabadi/workspace/gabadi/mutate4py/.claude/worktrees/wf_247a7432-5c4-44-v020
+      Built mutate4py @ file:///Users/gabadi/workspace/gabadi/mutate4py/.claude/worktrees/wf_247a7432-5c4-44-v020
+Prepared 1 package in 292ms
+Installed 51 packages in 131ms
+ + annotated-types==0.7.0
+ + anyio==4.14.1
+ + asgiref==3.12.1
+ + bracex==3.0
+ + bump-my-version==1.5.1
+ + click==8.4.2
+ + coverage==7.13.5
+ + crap4py==0.1.1
+ + django==5.2.17
+ + gitdb==4.0.12
+ + gitpython==3.1.58
+ + h11==0.16.0
+ + httpcore2==2.5.0
+ + httpx2==2.5.0
+ + hypothesis==6.165.2
+ + idna==3.18
+ + iniconfig==2.3.0
+ + markdown-it-py==4.2.0
+ + mdurl==0.1.2
+ + mutate4py==0.2.0 (from file:///Users/gabadi/workspace/gabadi/mutate4py/.claude/worktrees/wf_247a7432-5c4-44-v020)
+ + networkx==3.6.1
+ + packaging==26.2
+ + pluggy==1.6.0
+ + prompt-toolkit==3.0.52
+ + pydantic==2.13.3
+ + pydantic-core==2.46.3
+ + pydantic-settings==2.14.2
+ + pydot==4.0.1
+ + pygments==2.20.0
+ + pyparsing==3.3.2
+ + pytest==9.1.1
+ + pytest-cov==7.1.0
+ + pytest-django==4.13.0
+ + python-dotenv==1.2.2
+ + pyyaml==6.0.3
+ + questionary==2.1.1
+ + rich==15.0.0
+ + rich-click==1.9.8
+ + ruff==0.16.2
+ + smmap==5.0.3
+ + sortedcontainers==2.4.0
+ + sqlparse==0.5.5
+ + tach==0.35.0
+ + tomli==2.4.1
+ + tomli-w==1.2.0
+ + tomlkit==0.15.0
+ + truststore==0.10.4
+ + typing-extensions==4.15.0
+ + typing-inspection==0.4.2
+ + wcmatch==10.2
+ + wcwidth==0.8.2
+[uv sync] wall 0.51s, exit 0
+
+# same edit as Demo 1: killing test first (red), then the classify_exit_code edit (green)
+
+$ uv run pytest tests/test_cmd.py -k above_128 -q -p no:tach
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________ test_classify_exit_code_above_128_is_timeout_and_128_is_not __________
+tests/test_cmd.py:94: in test_classify_exit_code_above_128_is_timeout_and_128_is_not
+    assert classify_exit_code(129) == "timeout"
+E   AssertionError: assert 'killed' == 'timeout'
+E     
+E     - timeout
+E     + killed
+=========================== short test summary info ============================
+FAILED tests/test_cmd.py::test_classify_exit_code_above_128_is_timeout_and_128_is_not
+1 failed, 13 deselected in 0.65s
+[red] wall 1.51s, exit 1
+diff --git a/src/mutate4py/_cmd.py b/src/mutate4py/_cmd.py
+index 8bd437a..a9873d4 100644
+--- a/src/mutate4py/_cmd.py
++++ b/src/mutate4py/_cmd.py
+@@ -25,6 +25,8 @@ def classify_exit_code(returncode: int) -> str:
+     status (no-tests-collected, usage-error) meaning no test ran at all."""
+     if returncode == 0:
+         return "survived"
++    if returncode > 128:
++        return "timeout"
+     return _ABORT_EXIT_CODES.get(returncode, "killed")
+ 
+ 
+
+$ uv run pytest tests/test_cmd.py -k above_128 -q -p no:tach
+.                                                                        [100%]
+1 passed, 13 deselected in 0.10s
+[green] wall 0.36s, exit 0
+
+# prep, NOT part of the timed run: 0.2.0's mutate reads lcov.info written by test-unit
+
+$ just check test-unit
+  ✓ test-unit
+✓ check OK  (log: check.log, 156 lines, 12 KB, ~3k tokens; start with: tail -80 check.log)
+[prep: just check test-unit] wall 12.29s, exit 0
+
+# the timed run: cold test-context-db build (mutate's dependency), then the scored run
+
+$ just mutate src/mutate4py/_cmd.py
+uv run mutate4py --build-test-contexts contexts.db --pytest-args "-p no:tach -m 'not integration'"
+Test-context db written: contexts.db (1282 tests)
+Mutation Report
+===============
+Killed: 4
+Survived: 0
+Uncovered: 0
+Test selection: narrowed 4, static 0, degraded 0
+Per-Mutant overhead: 0.63s
+[just mutate, cold] wall 955.75s, exit 0
+
+# worktree state at the end (demo worktree only):
+ M src/mutate4py/_cmd.py
+ M tests/test_cmd.py
