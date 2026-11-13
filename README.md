@@ -21,7 +21,7 @@ uv tool install mutate4py
 ## Usage
 
 ```bash
-mutate4py path/to/file.py --lcov lcov.info
+mutate4py path/to/file.py
 ```
 
 pytest is the only supported test runner, invoked directly (never through a
@@ -161,7 +161,7 @@ mutate4py can't turn it on for you, because it changes what's on disk between ru
 environment:
 
 ```bash
-mutate4py polls/models.py --max-workers 4 --pytest-args="-q --reuse-db" --lcov lcov.info
+mutate4py polls/models.py --max-workers 4 --pytest-args="-q --reuse-db"
 ```
 
 A migration-signal count in your terminal is not evidence that `--reuse-db` skipped
@@ -235,40 +235,16 @@ off, check the `Mutation workers: <n>` line against the `Selected mutation
 sites:` count in the run header and compare a serial run's wall time against a
 parallel one before assuming parallelism should always be on.
 
-## Building a test-context db
-
-`--test-contexts` needs a coverage.py context db to read; `--build-test-contexts
-OUTPUT_PATH` builds one:
-
-```
-mutate4py --build-test-contexts contexts.db --pytest-args '-q'
-mutate4py src/ --test-contexts contexts.db
-```
-
-It runs every test pytest would collect (scoped by `--pytest-args`, same as any
-other run) in its own isolated `coverage run` session, then combines the
-per-test data files into `OUTPUT_PATH`. That one-session-per-test approach
-costs one pytest startup per test, but it's the only sound way to build the
-db: a single shared `pytest --cov-context=test` session silently drops every
-test after the first to touch a shared line, so a line covered by several
-tests would narrow to only one of them. See
-[ADR 0021](docs/adr/0021-test-context-db-isolated-session-build.md) for the
-full failure mode and why it rules out the faster alternative.
-
-`--build-test-contexts` is a no-run mode like `--scan` or `--check-manifest`:
-it builds the db and exits, accepts no positional `PATH` target (it builds a
-db for whatever pytest collects, not for a mutation target), and can't be
-combined with an execution option.
-
 ## Test selection and the `static` outcome
 
-With `--test-contexts`, most Mutants get **narrowed** to just the tests that
-cover their line. A `static` outcome — the line executed only under coverage.py's
+Each run measures coverage itself, once, before any Mutant runs. From that
+measurement most Mutants get **narrowed** to just the tests that cover their
+line. A `static` outcome — the line executed only under coverage.py's
 whole-run context, e.g. module-level constants, imports, or class headers — is
 not a narrowing failure: mutate4py runs the full test set verbatim for that one
-Mutant, same as it would without `--test-contexts` at all. A run with several
-`static` Mutants will show a longer tail than a fully narrowed one; that's
-expected, not a defect. See [ADR 0018](docs/adr/0018-test-selection-three-case-no-silent-fallback.md)
+Mutant. A run with several `static` Mutants will show a longer tail than a
+fully narrowed one; that's expected, not a defect. See
+[ADR 0018](docs/adr/0018-test-selection-three-case-no-silent-fallback.md)
 for the full three-case model (`narrowed` / `static` / hard-error on
 disagreement) and why the third case aborts instead of silently falling back.
 
@@ -277,8 +253,8 @@ disagreement) and why the third case aborts instead of silently falling back.
 - **`--max-workers` uses clone-per-worker, not tree-copy+`cwd`** — mutate4go's
   tree-copy model is unsound under Python editable installs (`pip install -e .`), so
   each worker gets its own `uv`-provisioned venv instead.
-- **Coverage is acquired explicitly** — `--lcov` / `--cov-cmd` / `--reuse-coverage`
-  (Python has no universal `-coverprofile` equivalent).
+- **Coverage is measured by the run itself** — there is no coverage flag to pass
+  (Python has no universal `-coverprofile` equivalent to hand in).
 - **Manifest hash is structural** (`ast.unparse()`), so reformatting and comment edits
   don't trigger a re-test, but any behavior-affecting edit does.
 - **Operators are localized** to Python: adds `and`/`or`, `True`/`False`, and the

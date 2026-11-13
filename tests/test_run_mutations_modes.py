@@ -2,7 +2,7 @@
 
 Split out of test_runner.py by testing concern (issue #38 gate 16): warning
 threshold handling, F6 serial-vs-parallel worker dispatch, and
---test-contexts end-to-end behavior are all "run_mutations under a different
+test-selection end-to-end behavior are all "run_mutations under a different
 execution mode or config" — a coherent concern distinct from the core serial
 integration tests that stayed in test_runner.py.
 """
@@ -19,10 +19,12 @@ from mutate4py._executor import ExecutorDescription
 from mutate4py._runner import RunMutationsRequest, run_mutations
 
 
-def _measured(src_path: str, source: str):
-    """The run's Measurement: the suite reaches every Site's line under the Empty context."""
+def _measured(src_path: str, source: str, reached_by: str = ""):
+    """The run's Measurement: every Site's line is reached by `reached_by`, a test
+    node id (the Site is narrowed), or by the Empty context "" (import-time only,
+    so the Site is static)."""
     lines = [s.line for s in discover_sites(source)]
-    return measurement_for(os.path.abspath(src_path), {"": lines}, wall=0.01)
+    return measurement_for(os.path.abspath(src_path), {reached_by: lines}, wall=0.01)
 
 
 # ── run_mutations: warning threshold ───────────────────────
@@ -276,23 +278,12 @@ def test_parallel_path_original_file_restored(tmp_path, monkeypatch):
     assert "mutate4py-manifest-begin" in final
 
 
-# ── --test-contexts end-to-end: report line and the case-3 abort ──────────────
+# ── test selection: the report line, from the Measurement ────────────────────
 
 
-def _run_with_stub_ctx_db(tmp_path, monkeypatch, outcome, node_ids=(), *, test_contexts=".coverage"):
-    import mutate4py._test_selection as ts
-
-    class _StubDB:
-        def __init__(self, db_path):
-            self.closed = False
-
-        def tests_for_line(self, source_path, line):
-            return outcome, list(node_ids)
-
-        def close(self):
-            self.closed = True
-
-    monkeypatch.setattr(ts, "TestContextDB", _StubDB)
+def _run_selected(tmp_path, reached_by):
+    """Run three Sites through the real executor, the Measurement saying every one
+    is reached by `reached_by`: a node id narrows them, "" leaves them static."""
     src = _make_multi_site_source(3)
     src_path = str(tmp_path / "calc.py")
     with open(src_path, "w") as f:
@@ -302,7 +293,7 @@ def _run_with_stub_ctx_db(tmp_path, monkeypatch, outcome, node_ids=(), *, test_c
         RunMutationsRequest(
             path=src_path,
             source=src,
-            measurement=_measured(src_path, src),
+            measurement=_measured(src_path, src, reached_by),
             pytest_args=pytest_args,
             timeout_factor=10,
             lines_filter=None,
@@ -310,64 +301,36 @@ def _run_with_stub_ctx_db(tmp_path, monkeypatch, outcome, node_ids=(), *, test_c
             mutate_all=False,
             warning_threshold=1000,
             cwd=str(tmp_path),
-            test_contexts_path=test_contexts,
         )
     )
     return rc, src_path, src
 
 
 @pytest.mark.component
-def test_report_counts_narrowed_selections(tmp_path, monkeypatch, capsys):
-    # Node ID must actually exist: _run_with_stub_ctx_db runs a real executor
-    # here (no injected fake), and a node ID pytest can't find is exactly the
-    # exit-4 usage-error abort issue #55 added — a fictional node ID would
-    # now correctly abort the run instead of silently reporting `narrowed 3`.
-    rc, _, _ = _run_with_stub_ctx_db(tmp_path, monkeypatch, "narrowed", ["tests/test_always_passes.py::test_ok"])
+def test_report_counts_narrowed_selections(tmp_path, capsys):
+    # The node id must exist: this run uses the real executor, and a node id pytest
+    # can't find is the exit-4 usage-error abort issue #55 added, not a narrowed count.
+    rc, _, _ = _run_selected(tmp_path, "tests/test_always_passes.py::test_ok")
     assert rc == 3
-    assert "Test selection: narrowed 3, static 0, degraded 0" in capsys.readouterr().out
+    assert "Test selection: narrowed 3, static 0" in capsys.readouterr().out
 
 
 @pytest.mark.component
-def test_report_counts_static_selections(tmp_path, monkeypatch, capsys):
-    rc, _, _ = _run_with_stub_ctx_db(tmp_path, monkeypatch, "static")
-    assert rc == 3
-    assert "Test selection: narrowed 0, static 3, degraded 0" in capsys.readouterr().out
-
-
-@pytest.mark.component
-def test_report_prints_test_selection_on_the_measured_path_without_a_context_db(tmp_path, monkeypatch, capsys):
-    """With no --test-contexts db the Measurement is the selection source, so the
-    line still prints: narrowed and static together account for every selected Site,
-    and no degraded tally appears (the Measurement never degrades a Site)."""
-    import re
-
-    rc, _, _ = _run_with_stub_ctx_db(tmp_path, monkeypatch, "narrowed", test_contexts=None)
+def test_report_counts_static_selections(tmp_path, capsys):
+    rc, _, _ = _run_selected(tmp_path, "")
     assert rc == 3
     out = capsys.readouterr().out
-    match = re.search(r"^Test selection: narrowed (\d+), static (\d+)$", out, re.MULTILINE)
-    assert match is not None, out
-    assert int(match.group(1)) + int(match.group(2)) == 3
+    assert "Test selection: narrowed 0, static 3" in out
     assert "degraded" not in out
 
 
 @pytest.mark.component
-def test_test_selection_line_sits_after_uncovered_in_the_report(tmp_path, monkeypatch, capsys):
-    _run_with_stub_ctx_db(tmp_path, monkeypatch, "static")
+def test_test_selection_line_sits_after_uncovered_in_the_report(tmp_path, capsys):
+    _run_selected(tmp_path, "")
     lines = capsys.readouterr().out.splitlines()
     report = lines[lines.index("Mutation Report") :]
     assert report[4].startswith("Uncovered: ")
     assert report[5].startswith("Test selection: ")
-
-
-@pytest.mark.component
-@pytest.mark.parametrize("outcome", ["line-absent", "file-absent"])
-def test_disagreement_exits_2_with_no_report(tmp_path, monkeypatch, capsys, outcome):
-    rc, src_path, src = _run_with_stub_ctx_db(tmp_path, monkeypatch, outcome)
-    captured = capsys.readouterr()
-    assert rc == 2
-    assert "Mutation Report" not in captured.out
-    assert "error: test-context db disagrees with coverage" in captured.err
-    assert f"{src_path}:2" in captured.err
 
 
 # ── injected executor: all three levers compose without a real fork/subprocess ─
@@ -398,19 +361,7 @@ def test_injected_executor_receives_narrowed_dispatch_and_is_never_primed(tmp_pa
     subprocess or fork(), and confirms run_mutations never (re-)primes a
     caller-supplied executor."""
     import mutate4py._runner as runner_mod
-    import mutate4py._test_selection as ts
 
-    class _StubDB:
-        def __init__(self, db_path):
-            pass
-
-        def tests_for_line(self, source_path, line):
-            return "narrowed", ["tests/test_calc.py::test_f"]
-
-        def close(self):
-            pass
-
-    monkeypatch.setattr(ts, "TestContextDB", _StubDB)
     # Dispatch-shape assertion below is exact; plugin neutralisation (issue 06)
     # is orthogonal and depends on what's importable in whoever runs this, so
     # it's pinned off here rather than made environment-dependent.
@@ -433,9 +384,8 @@ def test_injected_executor_receives_narrowed_dispatch_and_is_never_primed(tmp_pa
             mutate_all=False,
             warning_threshold=1000,
             cwd=str(tmp_path),
-            test_contexts_path=".coverage",
             executor=fake_executor,
-            measurement=_measured(src_path, src),
+            measurement=_measured(src_path, src, "tests/test_calc.py::test_f"),
         )
     )
     assert rc == 0
@@ -448,19 +398,7 @@ def test_injected_executor_receives_static_dispatch(tmp_path, monkeypatch):
     """A 'static' classification runs the full pytest_args, unnarrowed — same
     injected-executor isolation as the narrowed case above."""
     import mutate4py._runner as runner_mod
-    import mutate4py._test_selection as ts
 
-    class _StubDB:
-        def __init__(self, db_path):
-            pass
-
-        def tests_for_line(self, source_path, line):
-            return "static", []
-
-        def close(self):
-            pass
-
-    monkeypatch.setattr(ts, "TestContextDB", _StubDB)
     # See the matching note in the narrowed-dispatch test above.
     monkeypatch.setattr(runner_mod, "neutralising_args", lambda: [])
 
@@ -481,7 +419,6 @@ def test_injected_executor_receives_static_dispatch(tmp_path, monkeypatch):
             mutate_all=False,
             warning_threshold=1000,
             cwd=str(tmp_path),
-            test_contexts_path=".coverage",
             executor=fake_executor,
             measurement=_measured(src_path, src),
         )
@@ -497,20 +434,8 @@ def test_a_dispatch_error_message_is_logged_and_the_run_returns_1(tmp_path, monk
     import logging
 
     import mutate4py._runner as runner_mod
-    import mutate4py._test_selection as ts
     from mutate4py._execution import ExecutionOutcome
 
-    class _StubDB:
-        def __init__(self, db_path):
-            pass
-
-        def tests_for_line(self, source_path, line):
-            return "static", []
-
-        def close(self):
-            pass
-
-    monkeypatch.setattr(ts, "TestContextDB", _StubDB)
     monkeypatch.setattr(
         runner_mod, "_execute_mutations", lambda **_kw: ExecutionOutcome(error_msg="mutation worker failed: boom")
     )
@@ -532,7 +457,6 @@ def test_a_dispatch_error_message_is_logged_and_the_run_returns_1(tmp_path, monk
                 mutate_all=False,
                 warning_threshold=1000,
                 cwd=str(tmp_path),
-                test_contexts_path=".coverage",
                 executor=_FakeExecutor(),
                 measurement=_measured(src_path, src),
             )
@@ -581,26 +505,13 @@ def test_neutralising_args_reach_every_mutant_dispatch(tmp_path, monkeypatch):
 
 
 @pytest.mark.unit
-def test_test_context_db_and_parallel_workers_compose_in_one_run(tmp_path, monkeypatch, capsys):
-    """A test-context db and max_workers >= 2 both take effect in the same
-    run — no forced-serial fallback (issue 04b deleted that clamp)."""
+def test_narrowing_and_parallel_workers_compose_in_one_run(tmp_path, monkeypatch, capsys):
+    """Narrowing from the Measurement and max_workers >= 2 both take effect in the
+    same run — no forced-serial fallback (issue 04b deleted that clamp)."""
     import mutate4py._workers as workers_mod
-    import mutate4py._test_selection as ts
 
     monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
     monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
-
-    class _StubDB:
-        def __init__(self, db_path):
-            pass
-
-        def tests_for_line(self, source_path, line):
-            return "narrowed", ["tests/test_calc.py::test_f"]
-
-        def close(self):
-            pass
-
-    monkeypatch.setattr(ts, "TestContextDB", _StubDB)
 
     fake_executor = _FakeExecutor()
     src = _make_multi_site_source(3)
@@ -619,32 +530,18 @@ def test_test_context_db_and_parallel_workers_compose_in_one_run(tmp_path, monke
             mutate_all=False,
             warning_threshold=1000,
             cwd=str(tmp_path),
-            test_contexts_path=".coverage",
             max_workers=3,
             executor=fake_executor,
-            measurement=_measured(src_path, src),
+            measurement=_measured(src_path, src, "tests/test_calc.py::test_f"),
         )
     )
     output = capsys.readouterr().out
     assert rc == 0
     assert "Mutation workers: 3" in output
-    assert "Test selection: narrowed 3, static 0, degraded 0" in output
+    assert "Test selection: narrowed 3, static 0" in output
     for line in output.splitlines():
         if line.startswith("["):
             assert "worker-" in line, f"Expected worker token, forced serial: {line}"
-
-
-@pytest.mark.component
-def test_disagreement_restores_the_source_and_removes_the_backup(tmp_path, monkeypatch, capsys):
-    from mutate4py._manifest import strip_manifest
-
-    rc, src_path, src = _run_with_stub_ctx_db(tmp_path, monkeypatch, "line-absent")
-    capsys.readouterr()
-    assert rc == 2
-    with open(src_path) as f:
-        final = f.read()
-    assert strip_manifest(final).rstrip("\n") == src.rstrip("\n")
-    assert not os.path.isfile(src_path + ".bak")
 
 
 # ── no tests collected / usage error: the fourth ADR 0018 case (issue #55) ────
@@ -652,8 +549,8 @@ def test_disagreement_restores_the_source_and_removes_the_backup(tmp_path, monke
 
 def _run_with_abort_status(tmp_path, status):
     """Run a single-site mutation with an injected executor forced to return
-    an abort status — reachable without --test-contexts too, since a bare
-    --pytest-args filter can deselect every mutant just as easily."""
+    an abort status — reachable from a bare --pytest-args filter that deselects
+    every mutant."""
     fake_executor = _FakeExecutor(status=status)
     src = _make_multi_site_source(1)
     src_path = str(tmp_path / "calc.py")

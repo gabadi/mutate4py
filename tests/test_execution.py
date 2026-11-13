@@ -6,7 +6,6 @@ from mutate4py._discovery import apply_mutant, discover_sites
 from mutate4py._execution import (
     MutantExecCtx,
     NoTestsCollectedError,
-    TestSelectionError,
     _confirm_survivors,
     _execute_mutations,
     _run_mutation_loop,
@@ -105,21 +104,15 @@ def test_run_mutation_loop_tallies_narrowed_selections(tmp_path):
     _, _, selection_counts = _loop_over_two_sites(
         tmp_path, _FakeSelectionSource("narrowed", ["tests/test_calc.py::test_f"])
     )
-    assert selection_counts == {"narrowed": 2, "static": 0, "degraded": 0}
+    assert selection_counts == {"narrowed": 2, "static": 0}
 
 
 @pytest.mark.unit
-def test_run_mutation_loop_tallies_static_selections(tmp_path):
-    _, _, selection_counts = _loop_over_two_sites(tmp_path, _FakeSelectionSource("static"))
-    assert selection_counts == {"narrowed": 0, "static": 2, "degraded": 0}
-
-
-@pytest.mark.unit
-def test_run_mutation_loop_tallies_degraded_selections(tmp_path):
-    _, _, selection_counts = _loop_over_two_sites(
-        tmp_path, _FakeSelectionSource("under-listed", ["tests/test_calc.py::test_f"])
-    )
-    assert selection_counts == {"narrowed": 0, "static": 0, "degraded": 2}
+@pytest.mark.parametrize("outcome", ["static", "uncovered"])
+def test_run_mutation_loop_tallies_static_selections(tmp_path, outcome):
+    """A line no test owns (static) and a line no test reached (uncovered) both run the full set, tallied static."""
+    _, _, selection_counts = _loop_over_two_sites(tmp_path, _FakeSelectionSource(outcome))
+    assert selection_counts == {"narrowed": 0, "static": 2}
 
 
 @pytest.mark.unit
@@ -146,11 +139,11 @@ def test_run_mutation_loop_calls_executor_with_planned_args_and_timeout(tmp_path
 
 
 @pytest.mark.unit
-def test_run_mutation_loop_disagreement_aborts_before_applying_the_mutant(tmp_path):
+def test_run_mutation_loop_unrecognized_selection_outcome_aborts_before_applying_the_mutant(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_file = tmp_path / "calc.py"
     src_file.write_text(src)
-    with pytest.raises(TestSelectionError):
+    with pytest.raises(ValueError, match="unrecognized selection outcome"):
         _run_mutation_loop(
             selected_sites=discover_sites(src),
             clean_source=src,
@@ -160,7 +153,7 @@ def test_run_mutation_loop_disagreement_aborts_before_applying_the_mutant(tmp_pa
                 pytest_args=[],
                 executor=_FakeExecutor(),
                 timeout_policy=_policy(5.0),
-                selection_source=_FakeSelectionSource("line-absent"),
+                selection_source=_FakeSelectionSource("bogus"),
                 abs_source_path=str(src_file),
             ),
         )

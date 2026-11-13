@@ -1,12 +1,10 @@
 """Reading and writing dict-shaped JSON sidecar files.
 
-Two unrelated things in this project keep state in a JSON file sitting beside
-the file it describes: the Manifest (`<source>.py.manifest.json`, see
-`_manifest_storage.py`) and the --build-test-contexts staleness cache
-(`<db>.test-context-cache.json`, see `_test_context_cache.py`). This module is
-the file format alone and knows neither schema, which is why it sits in
-`primitives` — both domains reach it for free, with no dependency edge between
-them (see tach.toml's header).
+The Manifest keeps its state in a JSON file sitting beside the source file it
+describes (`<source>.py.manifest.json`, see `_manifest_storage.py`). This module
+is the file format alone and knows no schema, which is why it sits in
+`primitives`, where the Manifest layers reach it for free (see tach.toml's
+header).
 """
 
 import json

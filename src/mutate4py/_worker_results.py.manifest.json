@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T13:18:58Z",
-  "module_hash": "70b1cc6bc726471dca375f53dcfed7b6472280f7dabf67031c142b1660957d03",
-  "source_sha256": "88f8ca02f585d3f4e9af5bef62469915937f8a5df946c0e0b0a59c4f1101efac",
+  "tested_at": "2026-11-13T15:52:08Z",
+  "module_hash": "f275e07f5cd2306c08e4f3e5985660acf53765879bcd3a79a50775c30f3aeb9a",
+  "source_sha256": "b17e19253b4c78625f51b85b550e54193f98167f1e3ccbf6feff2c786fe65276",
   "functions": [
     {
       "id": "func/_assign_sites_to_workers",
@@ -30,7 +30,7 @@
       "name": "_summarize_selection",
       "line": 48,
       "end_line": 55,
-      "hash": "11a4354b6c8bd6ff98a2905019aec59f9abd1cc1490515aa74fbe25d3f78ebef"
+      "hash": "f6f2a670384ec5358b5f0be84f9b77b503897335b9363bf8eefb63b67c93c4f8"
     },
     {
       "id": "func/_drop_one_result_if_injected",

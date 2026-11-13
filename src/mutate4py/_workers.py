@@ -339,7 +339,7 @@ def run_parallel(request: ParallelRunRequest) -> ParallelRunResult:
     timing, and the combined description of the Workers that ran Mutants.
     Raises WorkerFailureError on write/restore/dispatch failure.
     Raises ParallelRunError if collected results != selected site count.
-    A TestSelectionError (case 3) or NoTestsCollectedError (case 4) propagates uncaught.
+    A NoTestsCollectedError (case 4) propagates uncaught.
     """
     real_source = os.path.realpath(request.source_path)
     real_cwd = os.path.realpath(request.cwd)

@@ -15,8 +15,7 @@ import pytest
 from mutate4py import _cli_validation
 from mutate4py._cli_validation import (
     ValidationError,
-    _check_removed_coverage_flags,
-    _check_no_run_incompatibilities,
+    _check_removed_flags,
     _validate_mutual_exclusions,
 )
 
@@ -52,16 +51,6 @@ def _make_args(**kwargs):
     return argparse.Namespace(**defaults)
 
 
-@pytest.mark.unit
-def test_check_no_run_incompatibilities_test_contexts_raises():
-    """--test-contexts paired with --scan (a no-run flag) must raise."""
-    args = _make_args(scan=True, test_contexts=".coverage")
-    with pytest.raises(ValidationError) as exc:
-        _check_no_run_incompatibilities(args)
-    assert exc.value.exit_code == 2
-    assert "--test-contexts" in str(exc.value)
-
-
 # ── Mutant-killing gap tests ──────────────────────────────────────────────────
 
 
@@ -72,25 +61,27 @@ def test_check_no_run_incompatibilities_test_contexts_raises():
         ("--cov-cmd", dict(cov_cmd="pytest --cov")),
         ("--lcov", dict(lcov="/some/path")),
         ("--reuse-coverage", dict(reuse_coverage=True)),
+        ("--test-contexts", dict(test_contexts=".coverage")),
+        ("--build-test-contexts", dict(build_test_contexts="out.coverage")),
     ],
-    ids=["cov-cmd", "lcov", "reuse-coverage"],
+    ids=["cov-cmd", "lcov", "reuse-coverage", "test-contexts", "build-test-contexts"],
 )
-def test_check_removed_coverage_flags_names_the_flag(flag, args_kwargs):
+def test_check_removed_flags_names_the_flag(flag, args_kwargs):
     args = _make_args(**args_kwargs)
     with pytest.raises(ValidationError) as exc:
-        _check_removed_coverage_flags(args)
+        _check_removed_flags(args)
     assert exc.value.exit_code == 2
     assert str(exc.value) == f"{flag} removed in 0.3.0: the run measures coverage itself"
 
 
 @pytest.mark.unit
-def test_check_removed_coverage_flags_no_flags_passes():
-    _check_removed_coverage_flags(_make_args())
+def test_check_removed_flags_no_flags_passes():
+    _check_removed_flags(_make_args())
 
 
 @pytest.mark.unit
-def test_check_removed_coverage_flags_reuse_coverage_false_passes():
-    _check_removed_coverage_flags(_make_args(reuse_coverage=False))
+def test_check_removed_flags_reuse_coverage_false_passes():
+    _check_removed_flags(_make_args(reuse_coverage=False))
 
 
 @pytest.mark.unit
@@ -241,49 +232,6 @@ def test_validate_check_manifest_with_update_manifest_raises():
         _validate_mutual_exclusions(_make_args(check_manifest=True, update_manifest=True))
     assert exc.value.exit_code == 2
     assert "--check-manifest" in str(exc.value)
-
-
-# ── --build-test-contexts ──────────────────────────────────────────────────────
-
-
-@pytest.mark.unit
-def test_validate_build_test_contexts_alone_passes():
-    _validate_mutual_exclusions(_make_args(build_test_contexts="out.db"))  # must not raise
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize("other", ["scan", "update_manifest", "check_manifest"])
-def test_validate_build_test_contexts_with_another_no_run_mode_raises(other):
-    with pytest.raises(ValidationError) as exc:
-        _validate_mutual_exclusions(_make_args(build_test_contexts="out.db", **{other: True}))
-    assert exc.value.exit_code == 2
-    assert "--build-test-contexts" in str(exc.value)
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    "extra",
-    [
-        {"lines": "7"},
-        {"since_last_run": True},
-        {"mutate_all": True},
-        {"max_workers": 4},
-        {"test_contexts": ".coverage"},
-    ],
-)
-def test_validate_build_test_contexts_with_run_only_flag_raises(extra):
-    with pytest.raises(ValidationError) as exc:
-        _validate_mutual_exclusions(_make_args(build_test_contexts="out.db", **extra))
-    assert exc.value.exit_code == 2
-    assert "--build-test-contexts" in str(exc.value)
-
-
-@pytest.mark.unit
-def test_validate_build_test_contexts_with_positional_files_raises():
-    with pytest.raises(ValidationError) as exc:
-        _validate_mutual_exclusions(_make_args(build_test_contexts="out.db", files=["f.py"]))
-    assert exc.value.exit_code == 2
-    assert "--build-test-contexts" in str(exc.value)
 
 
 # ── check_project_env (foreign-interpreter guard) ───────────────────────────

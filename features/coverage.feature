@@ -26,7 +26,8 @@ Feature: Measurement as coverage, the core refusal, removed flags
   #   the core: the session runs with COVERAGE_CORE=ctrace whatever the caller's
   #     environment asks for. A run whose effective core reads back as sysmon exits 2
   #     (covered by the unit tests, which can stub the core; no feature can force it).
-  #   removed flags: --cov-cmd, --lcov and --reuse-coverage were removed in 0.3.0. Each
+  #   removed flags: --cov-cmd, --lcov, --reuse-coverage, --test-contexts and
+  #     --build-test-contexts were removed in 0.3.0. Each
   #     exits 2 with "<flag> removed in 0.3.0: the run measures coverage itself", prints
   #     no partition counts, runs no test and leaves the source and its backup alone.
   #   --scan stays coverage-free: it prints the Total line and no Covered/Uncovered lines.
@@ -91,8 +92,8 @@ Feature: Measurement as coverage, the core refusal, removed flags
     When I run mutate4py on that source with its tests
     Then the first run of the tests saw the "ctrace" core
 
-  # coverage-5: each removed coverage flag is refused with the replacement message
-  Scenario Outline: a removed coverage flag exits 2 and says the run measures coverage itself
+  # coverage-5: each removed coverage or test-context flag is refused with the replacement message
+  Scenario Outline: a removed flag exits 2 and says the run measures coverage itself
     When I run mutate4py on that source with the removed flag "<flag>"
     Then the command exits with status "2"
     And the output names the refusal of "<flag>"
@@ -105,6 +106,8 @@ Feature: Measurement as coverage, the core refusal, removed flags
       | --cov-cmd CMD   |
       | --lcov cov.info |
       | --reuse-coverage |
+      | --test-contexts DB |
+      | --build-test-contexts OUT |
 
   # coverage-6: --scan stays coverage-free
   Scenario: scanning prints the total and no coverage partition

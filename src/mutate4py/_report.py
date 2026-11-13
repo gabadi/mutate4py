@@ -165,34 +165,15 @@ def measurement_failure(exc: MeasurementFailed | CoverageCoreRefused) -> tuple[i
 
 @dataclasses.dataclass(frozen=True)
 class SelectionTally:
-    """A run's narrowed/static/degraded counts, paired with whether its degraded
-    count is printed — bundled into one param so _mutation_report_lines stays at
-    the project's 5-argument cap. Only a --test-contexts run can degrade a Site,
-    so only that run tallies degraded.
-    """
+    """A run's narrowed and static Mutant counts, as the Measurement selected them."""
 
     counts: dict[str, int]
-    tally_degraded: bool
 
 
 def _selection_report_lines(selection: SelectionTally) -> list[str]:
-    """The Test selection summary line. The degraded tally and its Warning belong to a
-    --test-contexts db only: the Measurement never degrades a Site, so its line is narrowed and static."""
+    """The Test selection summary line: Mutants narrowed to their covering tests, and Mutants run on the full set."""
     counts = selection.counts
-    if not selection.tally_degraded:
-        return [f"Test selection: narrowed {counts['narrowed']}, static {counts['static']}"]
-    degraded = counts.get("degraded", 0)
-    lines = [f"Test selection: narrowed {counts['narrowed']}, static {counts['static']}, degraded {degraded}"]
-    if degraded:
-        lines.append(
-            f"Warning: {degraded} Site(s) had test-context data rejected as incomplete "
-            "(named covering tests came from a single shared --cov-context=test session, "
-            "which docs/adr/0021 established silently drops every covering test but the "
-            "first to reach a shared line) -- their Mutants ran the full test set instead "
-            "of the narrowed one. Rebuild the db with --build-test-contexts for sound "
-            "narrowing."
-        )
-    return lines
+    return [f"Test selection: narrowed {counts['narrowed']}, static {counts['static']}"]
 
 
 def _mutation_report_lines(

@@ -54,6 +54,8 @@ def test_called_names_of_an_empty_cell_is_empty():
         ("--cov-cmd CMD", ["--cov-cmd", "true"]),
         ("--lcov cov.info", ["--lcov", "cov.info"]),
         ("--reuse-coverage", ["--reuse-coverage"]),
+        ("--test-contexts DB", ["--test-contexts", "tests.coverage"]),
+        ("--build-test-contexts OUT", ["--build-test-contexts", "out.coverage"]),
     ],
 )
 def test_removed_flag_tokens_supply_the_flag(description, tokens):

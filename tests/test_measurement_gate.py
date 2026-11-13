@@ -102,7 +102,6 @@ def _batch_args(**overrides) -> argparse.Namespace:
         timeout_factor=10,
         min_timeout=1.0,
         pytest_args=[],
-        test_contexts=None,
         warning_threshold=1000,
         manifest_file=False,
         verbose=False,

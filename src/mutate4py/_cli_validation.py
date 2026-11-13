@@ -20,14 +20,20 @@ class ValidationError(Exception):
         self.exit_code = exit_code
 
 
-# The coverage flags removed in 0.3.0 (ADR 0008 superseded): the run measures
+# The flags removed in 0.3.0 (ADR 0008, 0021, 0022 superseded): the run measures
 # coverage itself, so each is refused rather than silently ignored.
-_REMOVED_COVERAGE_FLAGS = (("--cov-cmd", "cov_cmd"), ("--lcov", "lcov"), ("--reuse-coverage", "reuse_coverage"))
+_REMOVED_FLAGS = (
+    ("--cov-cmd", "cov_cmd"),
+    ("--lcov", "lcov"),
+    ("--reuse-coverage", "reuse_coverage"),
+    ("--test-contexts", "test_contexts"),
+    ("--build-test-contexts", "build_test_contexts"),
+)
 
 
-def _check_removed_coverage_flags(args: argparse.Namespace) -> None:
-    """Raise, naming the flag, for the first coverage flag removed in 0.3.0 that is set."""
-    for flag, dest in _REMOVED_COVERAGE_FLAGS:
+def _check_removed_flags(args: argparse.Namespace) -> None:
+    """Raise, naming the flag, for the first flag removed in 0.3.0 that is set."""
+    for flag, dest in _REMOVED_FLAGS:
         value = getattr(args, dest)
         if value is None or value is False:
             continue
@@ -40,8 +46,6 @@ def _no_run_flag(args: argparse.Namespace) -> str:
         return "--scan"
     if args.update_manifest:
         return "--update-manifest"
-    if args.build_test_contexts is not None:
-        return "--build-test-contexts"
     return "--check-manifest"
 
 
@@ -60,8 +64,6 @@ def _check_no_run_incompatibilities(args: argparse.Namespace) -> None:
         _exit_incompatible(flag, "--mutate-all")
     if args.max_workers is not None:
         _exit_incompatible(flag, "--max-workers")
-    if args.test_contexts is not None:
-        _exit_incompatible(flag, "--test-contexts")
 
 
 def _check_no_run_survivor_flag(args: argparse.Namespace) -> None:
@@ -80,15 +82,6 @@ def _check_scan_only_incompatibilities(args: argparse.Namespace) -> None:
         _exit_incompatible("--scan", "--pytest-args")
 
 
-def _check_build_test_contexts_incompatibilities(args: argparse.Namespace) -> None:
-    """Raise if --build-test-contexts is combined with a positional PATH
-    target: it builds a db for whatever pytest collects (scoped via
-    --pytest-args), not for a mutation target, so a PATH given alongside it
-    would otherwise be silently ignored."""
-    if args.files:
-        _exit_incompatible("--build-test-contexts", "a positional PATH target")
-
-
 def _check_selection_exclusivity(args: argparse.Namespace) -> None:
     """Raise if more than one selection flag is set."""
     selection_count = sum([args.since_last_run, args.mutate_all, args.lines is not None])
@@ -100,8 +93,6 @@ def _check_no_run_mode_specific_incompatibilities(args: argparse.Namespace) -> N
     """Raise the extra checks specific to whichever no-run mode is active."""
     if args.scan:
         _check_scan_only_incompatibilities(args)
-    if args.build_test_contexts is not None:
-        _check_build_test_contexts_incompatibilities(args)
 
 
 def _validate_mutual_exclusions(args: argparse.Namespace) -> None:
@@ -110,7 +101,6 @@ def _validate_mutual_exclusions(args: argparse.Namespace) -> None:
         ("--scan", args.scan),
         ("--update-manifest", args.update_manifest),
         ("--check-manifest", args.check_manifest),
-        ("--build-test-contexts", args.build_test_contexts is not None),
     ]
     active = [name for name, v in no_run if v]
     if len(active) > 1:
@@ -120,11 +110,6 @@ def _validate_mutual_exclusions(args: argparse.Namespace) -> None:
         _check_no_run_survivor_flag(args)
         _check_no_run_mode_specific_incompatibilities(args)
     _check_selection_exclusivity(args)
-
-
-def _check_test_contexts_file(args: argparse.Namespace) -> None:
-    if args.test_contexts is not None and not os.path.isfile(args.test_contexts):
-        raise ValidationError(f"--test-contexts file not found: {args.test_contexts}")
 
 
 def _nearest_project_root(target: str, cwd: str) -> str:

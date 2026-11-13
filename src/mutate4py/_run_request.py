@@ -25,7 +25,6 @@ class RunMutationsRequest:
     cwd: str
     max_workers: int = 0
     min_timeout: float = 5.0
-    test_contexts_path: str | None = None
     manifest_file: bool = False
     forking_requested: bool = True
     executor: Executor | None = None
