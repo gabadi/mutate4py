@@ -468,7 +468,9 @@ def test_main_directory_run_mode_continues_past_syntax_error(tmp_path, capsys, m
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
     (tests_dir / "test_suite.py").write_text(
-        "from good import f\nfrom zlast import g\n\n\ndef test_f():\n    assert f(2, 1)\n\n\ndef test_g():\n    assert g(2, 1)\n"
+        "from good import f\nfrom zlast import g\n\n\n"
+        "def test_f():\n    assert f(2, 1)\n\n\n"
+        "def test_g():\n    assert g(2, 1)\n"
     )
     monkeypatch.chdir(tmp_path)
 

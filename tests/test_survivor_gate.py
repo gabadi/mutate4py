@@ -253,9 +253,7 @@ def test_mutate_all_scores_uncovered_function(tmp_path):
     assert _recorded_function(src_path, "func/g")["survivors"] != []
 
     f_line = next(s.line for s in sites if s.function_id == "func/f")
-    assert (
-        _run(tmp_path, src_path, _covering(src_path, [f_line]), pytest_args, mutate_all=True, **run) == 3
-    )
+    assert _run(tmp_path, src_path, _covering(src_path, [f_line]), pytest_args, mutate_all=True, **run) == 3
 
     fn = _recorded_function(src_path, "func/g")
     assert fn["score"] == {"killed": 0, "survived": 0, "uncovered": 1}
@@ -337,7 +335,9 @@ _UNMARKED = "def f(a, b):\n    return a > b\n"
 def test_default_rerun_retests_function_whose_marker_was_removed(tmp_path):
     src_path, sites = _write_source(tmp_path, _MARKED)
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
-    assert _run(tmp_path, src_path, _covering_all(src_path, sites), pytest_args, source=_MARKED, manifest_file=True) == 0
+    assert (
+        _run(tmp_path, src_path, _covering_all(src_path, sites), pytest_args, source=_MARKED, manifest_file=True) == 0
+    )
     assert _recorded_function(src_path)["accepted"] == [
         {"line": sites[0].line, "desc": sites[0].desc, "reason": "same for all inputs"}
     ]
@@ -345,8 +345,7 @@ def test_default_rerun_retests_function_whose_marker_was_removed(tmp_path):
     # The reviewer rejects the claim: the developer deletes the marker and nothing else changes.
     src_path, sites = _write_source(tmp_path, _UNMARKED)
     assert (
-        _run(tmp_path, src_path, _covering_all(src_path, sites), pytest_args, source=_UNMARKED, manifest_file=True)
-        == 3
+        _run(tmp_path, src_path, _covering_all(src_path, sites), pytest_args, source=_UNMARKED, manifest_file=True) == 3
     )
 
     assert _recorded_function(src_path)["accepted"] == []
