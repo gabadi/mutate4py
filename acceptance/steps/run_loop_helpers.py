@@ -1,86 +1,78 @@
-"""Shared helpers for run-loop acceptance step handlers."""
+"""Pure builders for the pytest projects the acceptance steps write to disk.
 
-import os
-import subprocess
+A run measures coverage itself (ADR 0027), so a scenario's fixture is a real
+pytest project: a source module plus tests that import it and reach its mutation
+sites. These functions build the source and test texts from parameters, with no
+filesystem or subprocess coupling, so they have unit tests in
+tests/test_run_loop_helpers.py.
+"""
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "src"))
+SAMPLE_MODULE = "sample"
+
+# An empty conftest.py in the project root puts that directory on sys.path, so
+# tests under tests/ import the module next to it.
+ROOT_CONFTEST = ""
+
+_KILL = "kill"
+_SURVIVE = "survive"
+_TIMEOUT = "timeout"
+_OUTCOMES = (_KILL, _SURVIVE, _TIMEOUT)
+
+FAILING_TEST_BODY = "def test_qa():\n    assert False\n"
 
 
-def make_source_with_compare_on_line(target_lines: list[int]) -> str:
-    """Generate a Python source file with Compare sites on target_lines.
+def function_names(count: int) -> list[str]:
+    """The function names f1..f<count> that compare_source defines."""
+    return [f"f{i}" for i in range(1, count + 1)]
 
-    Each target line gets a comparison expression in a function.
-    Lines 1..max are filled so that target_lines have mutable sites.
-    """
-    max_line = max(target_lines) if target_lines else 1
-    lines = []
-    fn_counter = [0]
 
-    def fn_for_line(ln: int) -> str:
-        fn_counter[0] += 1
-        return f"func_{fn_counter[0]}"
+def compare_source(count: int) -> tuple[str, list[int]]:
+    """A module of `count` functions, each returning `a > b`.
 
-    # Build source: pad to have comparison on each target line
-    # Strategy: one function per target line site
-    # We'll build functions that start just before each target line
-    src_lines: list[str] = [""] * (max_line + 2)
+    Returns (source, the line of each function's comparison site)."""
+    lines: list[str] = []
+    site_lines: list[int] = []
+    for name in function_names(count):
+        lines.append(f"def {name}(a, b):")
+        lines.append("    return a > b")
+        site_lines.append(len(lines))
+        lines.append("")
+    return "\n".join(lines) + "\n", site_lines
 
-    fn_idx = 0
-    for target in sorted(target_lines):
-        fn_idx += 1
-        fn_name = f"f{fn_idx}"
-        # Place def on target-1, comparison on target
-        def_line = target - 1
-        if def_line < 1:
-            def_line = 1
-        # We need target to be the comparison line
-        # Simple: put function on target-1, return on target
-        if def_line > 0 and def_line < target:
-            src_lines[def_line] = f"def {fn_name}(a, b):"
-            src_lines[target] = f"    return a > b"
 
-    # Fill empty lines with pass statements
-    in_fn = False
-    result = []
-    for i in range(1, max_line + 2):
-        line = src_lines[i]
-        if not line:
-            if in_fn:
-                result.append("    pass")
-            else:
-                result.append("")
+def outcome_test_body(module: str, outcomes: dict[str, str]) -> str:
+    """Tests, one per function, whose result under that function's `>=` Mutant is `outcome`.
+
+    "kill" fails on the Mutant (the original is false for equal operands, the
+    Mutant true), "timeout" sleeps past any timeout on the Mutant, and "survive"
+    calls the function without checking the result. All pass on the original code."""
+    unknown = sorted(set(outcomes.values()) - set(_OUTCOMES))
+    if unknown:
+        raise ValueError(f"Unknown outcome: {unknown[0]!r}; expected one of {_OUTCOMES}")
+    parts = ["import time", "", f"import {module}", "", ""]
+    for name, outcome in outcomes.items():
+        parts.append(f"def test_{name}():")
+        if outcome == _KILL:
+            parts.append(f"    assert not {module}.{name}(1, 1)")
+        elif outcome == _TIMEOUT:
+            parts.append(f"    if {module}.{name}(1, 1):")
+            parts.append("        time.sleep(60)")
         else:
-            result.append(line)
-            in_fn = line.startswith("def ")
-
-    return "\n".join(result) + "\n"
-
-
-def make_lcov(source_abs: str, covered_lines: list[int]) -> str:
-    """Build LCOV text marking the given lines covered for source_abs."""
-    da_lines = "\n".join(f"DA:{ln},1" for ln in sorted(covered_lines))
-    return f"SF:{source_abs}\n{da_lines}\nend_of_record\n"
+            parts.append(f"    {module}.{name}(2, 1)")
+        parts.extend(["", ""])
+    return "\n".join(parts).rstrip("\n") + "\n"
 
 
-def write_pass_script(path: str) -> None:
-    """Write a shell script that always exits 0."""
-    with open(path, "w") as f:
-        f.write("#!/bin/sh\nexit 0\n")
-    os.chmod(path, 0o755)
+def reaching_test_body(module: str, names: list[str]) -> str:
+    """Tests that call every name once and check nothing: all sites covered, every Mutant survives."""
+    return outcome_test_body(module, {name: _SURVIVE for name in names})
 
 
-def write_fail_script(path: str) -> None:
-    """Write a shell script that always exits 1."""
-    with open(path, "w") as f:
-        f.write("#!/bin/sh\nexit 1\n")
-    os.chmod(path, 0o755)
-
-
-def run_mutate4py(cwd: str, *args: str) -> subprocess.CompletedProcess:
-    """Run mutate4py via uv in the given cwd."""
-    return subprocess.run(
-        ["uv", "run", "mutate4py"] + list(args),
-        capture_output=True,
-        text=True,
-        cwd=cwd,
-    )
+def uncalled_source(count: int, first_index: int) -> str:
+    """`count` further comparison functions u<first_index>.. that no test calls."""
+    lines: list[str] = []
+    for i in range(first_index, first_index + count):
+        lines.append(f"def u{i}(a, b):")
+        lines.append("    return a > b")
+        lines.append("")
+    return "\n".join(lines) + "\n"
