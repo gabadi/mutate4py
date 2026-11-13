@@ -251,3 +251,23 @@ def _seed(path, clean):
     with open(path, "w") as f:
         f.write(clean)
     return clean
+
+
+# ── --check-manifest: tests digests are not checked (#106) ──────────────
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("manifest_file", [True, False], ids=["sidecar", "embedded"])
+def test_check_manifest_ignores_a_tests_digest_that_no_run_would_reproduce(tmp_path, caplog, manifest_file):
+    """No Measurement exists here, so a digest cannot be recomputed: it never makes a Manifest stale."""
+    path = str(tmp_path / "calc.py")
+    clean_scores = {fid: {"score": _G_SCORE, "survivors": [], "accepted": []} for fid in ("func/f", "func/g")}
+    manifest = _apply_scores(build_manifest(SRC, tested_at=TESTED_AT), clean_scores)
+    _fn(manifest, "func/f")["tests_digest"] = "digest-of-tests-that-have-since-changed"
+    _store(path, SRC, manifest, manifest_file)
+
+    with caplog.at_level(logging.INFO):
+        rc = check_manifest(path=path, source=_read_source(path), manifest_file=manifest_file)
+
+    assert rc == 0
+    assert "Manifest current: " + path in caplog.text

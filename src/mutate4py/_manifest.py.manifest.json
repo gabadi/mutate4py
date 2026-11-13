@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T17:43:32Z",
-  "module_hash": "8d3837e3b9321d0c36248a84db90732c07becfafa6c16d0c3a31de9e908006f8",
-  "source_sha256": "725b2739c372e4a693f880eab42557156e1d994901c15747ead6cc7207c64054",
+  "tested_at": "2026-11-13T19:33:56Z",
+  "module_hash": "1b1319a36926455c6e55557693efe64f20e6a5f11f542c50576c1835ac59ea38",
+  "source_sha256": "1a23704e4e16dfc717c6cfb04b3106dcb005cc1e3f8679ac14fe317ec94fa6ee",
   "functions": [
     {
       "id": "func/strip_manifest",
@@ -113,70 +113,70 @@
       "id": "func/functions_with_survivors",
       "name": "functions_with_survivors",
       "line": 214,
-      "end_line": 218,
-      "hash": "f60a76bcc5035152cd83afa753849a88d764cc5443d24f93877e91456ab33591"
+      "end_line": 223,
+      "hash": "2724c11a331adb9b725368f2ff428c7744c2a7bf329a3b15b1169d07d95397ba"
     },
     {
       "id": "func/functions_with_unmarked_acceptances",
       "name": "functions_with_unmarked_acceptances",
-      "line": 221,
-      "end_line": 237,
+      "line": 226,
+      "end_line": 242,
       "hash": "3de1a53bd7a2c1e39107489949b5e47eeb8a26427bc6a3a74d775c0a0415bb09"
     },
     {
       "id": "func/_acceptance_unmarked",
       "name": "_acceptance_unmarked",
-      "line": 240,
-      "end_line": 252,
+      "line": 245,
+      "end_line": 257,
       "hash": "3bd62171d50ed8d66836cd688fd4d01c457a8d04167fa2e12a6ea1f1c0ca8c53"
     },
     {
       "id": "func/_markers_in_span",
       "name": "_markers_in_span",
-      "line": 255,
-      "end_line": 257,
+      "line": 260,
+      "end_line": 262,
       "hash": "fd4c4af8e05d383546fcf085c84edcac0d1b0c8d2a94158702066f8f9d6e3257"
     },
     {
       "id": "func/has_accepted_survivors",
       "name": "has_accepted_survivors",
-      "line": 260,
-      "end_line": 262,
+      "line": 265,
+      "end_line": 267,
       "hash": "9ab85b996769543a83999af6b72f5a2b52afd65f76288858a523f499a9b05ab0"
     },
     {
       "id": "func/recorded_survivors",
       "name": "recorded_survivors",
-      "line": 265,
-      "end_line": 267,
+      "line": 270,
+      "end_line": 272,
       "hash": "06ebd788dd3ab126d50b237d9bc7c53211215815c2113c91735913584f970552"
     },
     {
       "id": "func/is_unscored",
       "name": "is_unscored",
-      "line": 270,
-      "end_line": 272,
+      "line": 275,
+      "end_line": 277,
       "hash": "b1522d8a6ac438c3d624e4b3f566b8144cefcaffb61a1bb4d24212e9c6c52bd5"
     },
     {
       "id": "func/build_manifest",
       "name": "build_manifest",
-      "line": 275,
-      "end_line": 294,
+      "line": 280,
+      "end_line": 299,
       "hash": "95ab3c837ccac33062a208ce466ebfdd3aff815ca8357b69baa58c6fe952abcd"
     },
     {
       "id": "func/_extract_functions",
       "name": "_extract_functions",
-      "line": 297,
-      "end_line": 324,
+      "line": 302,
+      "end_line": 329,
       "hash": "3de7d42663139b5f954dc01f0fd172f4d3429d72803a46ddc9ef6939e265d9eb"
     },
     {
       "id": "func/diff_manifests",
       "name": "diff_manifests",
-      "line": 327,
-      "end_line": 344,
+      "line": 332,
+      "end_line": 349,
       "hash": "7dace38d003dfc04471fbace27a7ab228e09f8aeb32129ae570598ba2b40eeb5"
     }
   ]

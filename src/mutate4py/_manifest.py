@@ -212,10 +212,15 @@ def _unchanged(existing: dict | None, merged: dict) -> bool:
 
 
 def functions_with_survivors(manifest: dict | None) -> set[str]:
-    """Ids of functions with recorded survivors: they are not current. None gives an empty set."""
+    """Ids of functions with recorded survivors and no tests digest: they are not current.
+
+    A digest-less entry is re-scored once, as 0.2.x did every run, so it gains a digest. Once it has
+    one, the digest decides whether the function is current (#106). None gives an empty set.
+    """
     if manifest is None:
         return set()
-    return {fn["id"] for fn in manifest["functions"] if (_scored_fields(fn) or {}).get("survivors")}
+    digested = {fn["id"] for fn in manifest["functions"] if "tests_digest" in fn}
+    return {fid for fid, _ in recorded_survivors(manifest)} - digested
 
 
 def functions_with_unmarked_acceptances(manifest: dict | None, current: dict, markers: dict[int, str]) -> set[str]:

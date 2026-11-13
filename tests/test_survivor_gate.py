@@ -192,15 +192,18 @@ def test_scored_run_records_survivor_in_sidecar(tmp_path):
 
 
 @pytest.mark.component
-def test_default_rerun_retries_survivor_function_and_clears_it(tmp_path):
+def test_default_rerun_retries_survivor_function_once_its_tests_change_and_clears_it(tmp_path):
     src_path, sites = _write_source(tmp_path)
-    measurement = _covering_all(src_path, sites)
-    pytest_args = write_always_passing_pytest_project(str(tmp_path))
+    # The Measurement names the content-check test as reaching the function, so the digest
+    # reads that file. Its content is the only thing that changes between the two runs.
+    context = "tests/test_content_check.py::test_not_mutated"
+    measurement = measurement_for(os.path.abspath(src_path), {context: [s.line for s in sites]}, wall=0.01)
+    pytest_args = write_content_check_pytest_project(str(tmp_path), src_path, "NEVER_PRESENT_IN_THE_SOURCE")
     assert _run(tmp_path, src_path, measurement, pytest_args, manifest_file=True) == 3
     assert _recorded_function(src_path)["survivors"] == [{"line": sites[0].line, "desc": sites[0].desc}]
 
     # The suite now kills the survivor: it fails only when the mutated text is on disk.
-    # A default rerun (no --mutate-all) must retry the survivor's function.
+    # The edit moves the stored tests digest, so the function is re-scored and the survivor clears.
     pytest_args = write_content_check_pytest_project(str(tmp_path), src_path, sites[0].mutant_text)
     assert _run(tmp_path, src_path, measurement, pytest_args, manifest_file=True) == 0
 
@@ -212,12 +215,13 @@ def test_default_rerun_retries_survivor_function_and_clears_it(tmp_path):
 @pytest.mark.component
 def test_default_run_without_coverage_keeps_recorded_survivor(tmp_path):
     # A default run that selects no Site (its coverage misses the survivor's line) must not
-    # clear the survivor it never retested.
+    # clear the survivor it never retested. The skipped function's recorded survivor still
+    # counts toward the exit code (spec 89 §5), so the run exits 3.
     src_path, sites = _write_source(tmp_path)
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
     assert _run(tmp_path, src_path, _covering_all(src_path, sites), pytest_args, manifest_file=True) == 3
 
-    assert _run(tmp_path, src_path, _covering(src_path, []), pytest_args, manifest_file=True) == 0
+    assert _run(tmp_path, src_path, _covering(src_path, []), pytest_args, manifest_file=True) == 3
 
     assert _recorded_function(src_path)["survivors"] == [{"line": sites[0].line, "desc": sites[0].desc}]
     with open(src_path) as f:

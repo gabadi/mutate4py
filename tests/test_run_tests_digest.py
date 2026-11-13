@@ -8,7 +8,9 @@ scored clean and no test has to tell mutants apart.
 
 import io
 import json
+import logging
 import os
+import re
 from contextlib import redirect_stdout
 
 import pytest
@@ -36,7 +38,7 @@ def _on_disk(src_path: str) -> str:
         return f.read()
 
 
-def _run(src_path: str, executor: FakeExecutor, *, manifest_file: bool) -> int:
+def _run(src_path: str, executor: FakeExecutor, *, manifest_file: bool, allow_survivors: bool = False) -> int:
     request = RunMutationsRequest(
         path=src_path,
         source=_on_disk(src_path),
@@ -47,6 +49,7 @@ def _run(src_path: str, executor: FakeExecutor, *, manifest_file: bool) -> int:
         cwd=os.path.dirname(src_path),
         executor=executor,
         manifest_file=manifest_file,
+        allow_survivors=allow_survivors,
     )
     with redirect_stdout(io.StringIO()):
         return run_mutations(request)
@@ -181,7 +184,7 @@ def test_an_acceptance_helper_or_a_file_outside_the_test_roots_never_changes_the
     ],
     ids=["support-module-under-the-tests", "reaching-test"],
 )
-def test_a_change_under_the_test_roots_changes_the_digest_on_a_run_that_does_not_rescore(tmp_path, relpath, text):
+def test_a_digestless_entry_adopts_a_test_root_change_as_its_digest_without_rescoring(tmp_path, relpath, text):
     src_path = _write_project_with_helpers(tmp_path)
     _run(src_path, FakeExecutor("killed"), manifest_file=False)
     (first,) = _manifest_of(src_path, manifest_file=False)["functions"]
@@ -195,3 +198,184 @@ def test_a_change_under_the_test_roots_changes_the_digest_on_a_run_that_does_not
     assert executor.calls == [], "an unchanged, Survivor-free function is not rescored"
     (second,) = _manifest_of(src_path, manifest_file=False)["functions"]
     assert second["tests_digest"] != first["tests_digest"]
+
+
+# ── #106: a stored digest that changes re-scores its function; the skip rule ──
+
+# Two functions, each reached by its own test file, so a test can tell which
+# FunctionIDs a run re-scored from the per-Mutant progress lines.
+TWO_FUNCTIONS = "def f(a, b):\n    return a > b\n\n\ndef g(a, b):\n    return a > b\n"
+TEST_F = "from calc import f\n\n\ndef test_f():\n    assert f(2, 1) is True\n"
+TEST_G = "from calc import g\n\n\ndef test_g():\n    assert g(2, 1) is True\n"
+TEST_UNRELATED = "def test_unrelated():\n    assert 1 + 1 == 2\n"
+# Imports both functions and calls neither: its reach is the two def lines only.
+TEST_IMPORT_ONLY = "from calc import f, g\n\n\ndef test_nothing():\n    pass\n"
+_PROGRESS_FID = re.compile(r"^\[\d+/\d+\] \S+ line \d+ .*: (\S+)$")
+
+
+def _write_two_function_project(tmp_path) -> str:
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(TWO_FUNCTIONS)
+    _write_files(tmp_path, {"tests/test_f.py": TEST_F, "tests/test_g.py": TEST_G})
+    return src_path
+
+
+def _digests(src_path: str) -> dict[str, str]:
+    return {fn["id"]: fn["tests_digest"] for fn in _manifest_of(src_path, manifest_file=False)["functions"]}
+
+
+def _rescored_ids(caplog) -> set[str]:
+    """The FunctionIDs whose Mutants ran in the run, read from its per-Mutant progress lines."""
+    lines = [line for record in caplog.records for line in record.getMessage().splitlines()]
+    return {m.group(1) for m in (_PROGRESS_FID.match(line) for line in lines) if m}
+
+
+@pytest.mark.component
+def test_an_edit_to_a_test_that_reaches_a_function_re_scores_only_that_function(tmp_path, caplog):
+    caplog.set_level(logging.INFO)
+    src_path = _write_two_function_project(tmp_path)
+    _run(src_path, FakeExecutor("killed"), manifest_file=False)
+    first = _digests(src_path)
+    _write_files(tmp_path, {"tests/test_f.py": TEST_F.replace("f(2, 1)", "f(3, 1)")})
+    caplog.clear()
+
+    rc = _run(src_path, FakeExecutor("killed"), manifest_file=False)
+
+    assert rc == 0
+    assert _rescored_ids(caplog) == {"func/f"}
+    second = _digests(src_path)
+    assert second["func/f"] != first["func/f"]
+    assert second["func/g"] == first["func/g"]
+
+
+@pytest.mark.component
+@pytest.mark.parametrize(
+    ("relpath", "text"),
+    [
+        ("tests/test_calc.py", TEST_CALC_WITH_HELPERS.replace("f(2, 1)", "f(3, 1)")),
+        ("tests/calc_support.py", "LABEL = 'second, and longer'\n"),
+        ("tests/conftest.py", "CONF = 'second'\n"),
+    ],
+    ids=["reaching-test", "factories-helper-under-the-tests", "conftest"],
+)
+def test_an_edit_under_the_test_roots_re_scores_the_function_it_reaches(tmp_path, caplog, relpath, text):
+    caplog.set_level(logging.INFO)
+    src_path = _write_project_with_helpers(tmp_path)
+    _write_files(tmp_path, {"tests/conftest.py": "CONF = 'first'\n"})
+    _run(src_path, FakeExecutor("killed"), manifest_file=False)
+    first = _digests(src_path)
+    _write_files(tmp_path, {relpath: text})
+    caplog.clear()
+
+    rc = _run(src_path, FakeExecutor("killed"), manifest_file=False)
+
+    assert rc == 0
+    assert _rescored_ids(caplog) == {"func/f"}
+    assert _digests(src_path)["func/f"] != first["func/f"]
+
+
+@pytest.mark.component
+def test_a_file_outside_the_test_roots_re_scores_nothing_once_a_digest_is_stored(tmp_path, caplog):
+    caplog.set_level(logging.INFO)
+    src_path = _write_project_with_helpers(tmp_path)
+    _run(src_path, FakeExecutor("killed"), manifest_file=False)
+    first = _digests(src_path)
+    _write_files(
+        tmp_path,
+        {
+            "acceptance/steps.py": "STEP = 'second, and longer'\n",
+            "outside_helper.py": "VALUE = 'second, and longer'\n",
+        },
+    )
+    caplog.clear()
+
+    rc = _run(src_path, FakeExecutor("killed"), manifest_file=False)
+
+    assert rc == 0
+    assert _rescored_ids(caplog) == set()
+    assert _digests(src_path) == first
+
+
+@pytest.mark.component
+def test_an_unrelated_test_edit_re_scores_nothing(tmp_path, caplog):
+    caplog.set_level(logging.INFO)
+    src_path = _write_two_function_project(tmp_path)
+    _write_files(tmp_path, {"tests/test_unrelated.py": TEST_UNRELATED})
+    _run(src_path, FakeExecutor("killed"), manifest_file=False)
+    first = _digests(src_path)
+    _write_files(tmp_path, {"tests/test_unrelated.py": TEST_UNRELATED.replace("1 + 1", "2 + 0")})
+    caplog.clear()
+
+    rc = _run(src_path, FakeExecutor("killed"), manifest_file=False)
+
+    assert rc == 0
+    assert _rescored_ids(caplog) == set()
+    assert _digests(src_path) == first
+
+
+@pytest.mark.component
+def test_a_definition_line_only_reach_change_re_scores_nothing(tmp_path, caplog):
+    caplog.set_level(logging.INFO)
+    src_path = _write_two_function_project(tmp_path)
+    _write_files(tmp_path, {"tests/test_import_only.py": TEST_IMPORT_ONLY})
+    _run(src_path, FakeExecutor("killed"), manifest_file=False)
+    first = _digests(src_path)
+    _write_files(tmp_path, {"tests/test_import_only.py": TEST_IMPORT_ONLY.replace("pass", "pass  # edited")})
+    caplog.clear()
+
+    rc = _run(src_path, FakeExecutor("killed"), manifest_file=False)
+
+    assert rc == 0
+    assert _rescored_ids(caplog) == set()
+    assert _digests(src_path) == first
+
+
+@pytest.mark.component
+@pytest.mark.parametrize("manifest_file", [False, True], ids=["footer", "sidecar"])
+def test_a_0_2_x_entry_with_survivors_is_re_scored_once_then_skipped(tmp_path, manifest_file):
+    src_path = _write_project(tmp_path)
+    assert _run(src_path, FakeExecutor("survived"), manifest_file=manifest_file) == 3
+    _forget_digests(src_path, manifest_file=manifest_file)
+    once = FakeExecutor("survived")
+
+    assert _run(src_path, once, manifest_file=manifest_file) == 3
+    assert once.calls, "a 0.2.x entry with recorded survivors is re-scored once"
+    (fn,) = _manifest_of(src_path, manifest_file=manifest_file)["functions"]
+    assert isinstance(fn["tests_digest"], str) and fn["tests_digest"]
+
+    skipped = FakeExecutor("survived")
+    assert _run(src_path, skipped, manifest_file=manifest_file) == 3
+    assert skipped.calls == [], "once it has a digest, an unchanged function with survivors is skipped"
+
+
+@pytest.mark.component
+@pytest.mark.parametrize(
+    ("allow_survivors", "rc"),
+    [(False, 3), (True, 0)],
+    ids=["gate", "allow-survivors"],
+)
+def test_recorded_survivors_of_a_skipped_function_print_apart_and_count_toward_the_exit_code(
+    tmp_path, caplog, allow_survivors, rc
+):
+    caplog.set_level(logging.INFO)
+    src_path = _write_two_function_project(tmp_path)
+    _run(src_path, FakeExecutor("survived"), manifest_file=False)
+    # Editing g's body moves its hash, so g is re-scored and f, unchanged, is skipped.
+    # The edit goes into the file as it stands, so the Manifest footer run 1 wrote survives it.
+    with open(src_path) as f:
+        current = f.read()
+    with open(src_path, "w") as f:
+        f.write(current.replace("def g(a, b):\n    return a > b", "def g(a, b):\n    return a >= b"))
+    caplog.clear()
+
+    got = _run(src_path, FakeExecutor("survived"), manifest_file=False, allow_survivors=allow_survivors)
+
+    assert got == rc
+    report = caplog.text
+    this_run, marker, recorded = report.partition("Recorded survivors (not re-run):")
+    assert marker, "the recorded survivors print in their own block"
+    assert "func/g" in this_run and "Survivors:" in this_run
+    assert "func/f" not in this_run
+    assert "  line 2 a > b -> a >= b func/f" in recorded
+    assert "func/g" not in recorded

@@ -431,3 +431,12 @@ def test_manifest_file_check_missing_sidecar_reports_missing(tmp_path):
 
     assert result.returncode == 1
     assert "Manifest missing:" in result.stdout
+
+
+@pytest.mark.unit
+def test_check_manifest_help_states_what_it_checks_and_what_it_does_not():
+    from mutate4py.__main__ import _build_parser
+
+    help_text = " ".join(_build_parser().format_help().split())
+
+    assert "checks hashes, recorded Survivors and equivalent markers, not tests digests" in help_text

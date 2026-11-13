@@ -66,7 +66,8 @@ def _build_parser() -> argparse.ArgumentParser:
         "--check-manifest",
         action="store_true",
         dest="check_manifest",
-        help="Verify the manifest footer is up to date; exit 1 if missing or stale; no test run",
+        help="Verify the manifest footer is up to date; exit 1 if missing or stale; "
+        "checks hashes, recorded Survivors and equivalent markers, not tests digests; no test run",
     )
     parser.add_argument(
         "--manifest-file",

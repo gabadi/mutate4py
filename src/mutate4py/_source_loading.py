@@ -8,6 +8,7 @@ import datetime
 import logging
 import os
 
+from mutate4py._digest_changes import functions_with_changed_digest
 from mutate4py._discovery import Site, discover_sites
 from mutate4py._equivalent import marker_lines
 from mutate4py._manifest import (
@@ -45,10 +46,12 @@ def _compute_manifest_diff(source: str, loc: ManifestLocation) -> tuple[str, dic
     """Strip manifest, discover sites, diff.
 
     Returns (clean_source, existing_manifest, manifest_exists, changed_fn_ids, tested_at).
-    changed_fn_ids also holds every function with recorded survivors: such a
-    function is not current, so the next default run retries it even when its
-    hash is unchanged. It also holds every function whose accepted survivor lost
-    its marker. The "Changed mutation sites" count includes those Sites too.
+    changed_fn_ids also holds every function with recorded survivors and no tests
+    digest: such a function is not current, so the next default run retries it
+    even when its hash is unchanged. It also holds every function whose accepted
+    survivor lost its marker. The "Changed mutation sites" count includes those
+    Sites too. Functions whose stored tests digest changed join it later, once the
+    Measurement has run (apply_digest_changes).
     """
     clean_source = strip_manifest(source)
     existing_manifest, manifest_exists = _read_existing_manifest(source, loc)
@@ -71,7 +74,7 @@ def _finalize_source(  # noqa: PLR0913 - keeps the positional contract tests/tes
     existing_manifest: dict | None = None,
     scored_run: ScoredRun | None = None,
     fresh_digests: dict[str, str] | None = None,
-) -> None:
+) -> dict:
     # Unlike update_manifest, the write can't be skipped outright: a run with
     # selected sites leaves the last-tested mutant on disk (the per-site loop
     # never reverts), so clean_source must always be restored. Only the
@@ -85,6 +88,7 @@ def _finalize_source(  # noqa: PLR0913 - keeps the positional contract tests/tes
     _write_manifest_output(clean_source, manifest_to_embed, loc)
     if os.path.isfile(bak_path):
         os.remove(bak_path)
+    return manifest_to_embed
 
 
 @dataclasses.dataclass
@@ -113,7 +117,6 @@ def _load_clean_source(bak_path: str, source: str, loc: ManifestLocation) -> Loa
         tested_at,
     ) = _compute_manifest_diff(source, loc)
     all_sites = discover_sites(clean_source)
-    changed_count = len([s for s in all_sites if s.function_id in changed_fn_ids])
     return LoadedSource(
         clean_source=clean_source,
         existing_manifest=existing_manifest,
@@ -121,8 +124,26 @@ def _load_clean_source(bak_path: str, source: str, loc: ManifestLocation) -> Loa
         changed_fn_ids=changed_fn_ids,
         tested_at=tested_at,
         all_sites=all_sites,
-        changed_count=changed_count,
+        changed_count=_changed_site_count(all_sites, changed_fn_ids),
     )
+
+
+def _changed_site_count(all_sites: list[Site], changed_fn_ids: set[str]) -> int:
+    """How many Sites belong to a changed function."""
+    return len([s for s in all_sites if s.function_id in changed_fn_ids])
+
+
+def apply_digest_changes(loaded: LoadedSource, fresh_digests: dict[str, str]) -> None:
+    """Add the functions whose stored tests digest this run's Measurement no longer matches (#106).
+
+    Called after the Measurement and before any Site is selected, so the added functions are
+    selected like any changed function. The changed Site count is updated to match.
+    """
+    changed = functions_with_changed_digest(loaded.existing_manifest, fresh_digests)
+    if not changed:
+        return
+    loaded.changed_fn_ids |= changed
+    loaded.changed_count = _changed_site_count(loaded.all_sites, loaded.changed_fn_ids)
 
 
 @dataclasses.dataclass

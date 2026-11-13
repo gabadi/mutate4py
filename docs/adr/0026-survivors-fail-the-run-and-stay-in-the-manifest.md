@@ -17,7 +17,11 @@ a survivor's line clears it: on an explicit full run, coverage is the truth.
 
 `--check-manifest` exits 1 while any function records a survivor, and checks this
 before the `source_sha256` fast path, so a matching footer hash cannot hide one.
-Survivor-carrying functions count as changed, so the next default run retries them.
+Survivor-carrying functions count as changed only while their entry has no
+`tests_digest`, so a 0.2.x entry with Survivors is retried once. Once an entry has a
+digest, a function whose hash and digest are unchanged is skipped even with
+Survivors, and its recorded Survivors print apart from the run's own and still fail
+it (amended by ADR 0029, which replaces "the next default run retries them").
 
 An equivalent is accepted by `# mutate4py: equivalent <reason>` on the mutated line.
 It accepts every survived Site on that line, so to accept one of two Sites, split the

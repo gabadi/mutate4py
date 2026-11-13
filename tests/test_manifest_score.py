@@ -471,3 +471,86 @@ def test_tests_digest_round_trips_through_the_embedded_footer():
     assert stored["version"] == 1
     assert _fn(stored, "func/f")["tests_digest"] == "abc"
     assert "tests_digest" not in _fn(stored, "func/g")
+
+
+# ── functions_with_survivors: only while the entry has no tests_digest (#106) ─
+
+
+@pytest.mark.unit
+def test_functions_with_survivors_skips_an_entry_that_has_a_digest():
+    from mutate4py._manifest import functions_with_survivors
+
+    manifest = _with_digest(_scored(SRC), {"func/f": "stored"})
+
+    assert functions_with_survivors(manifest) == set()
+
+
+@pytest.mark.unit
+def test_functions_with_survivors_names_only_the_entry_without_a_digest():
+    from mutate4py._manifest import functions_with_survivors
+
+    manifest = _with_digest(_scored(SRC), {"func/f": "stored"})
+    _fn(manifest, "func/g").update(score=_F_SCORE, survivors=_F_SURVIVORS, accepted=[])
+
+    assert functions_with_survivors(manifest) == {"func/g"}
+
+
+# ── functions_with_changed_digest: stored digest differs from this run's (#106) ─
+
+
+@pytest.mark.unit
+def test_functions_with_changed_digest_names_a_stored_digest_that_differs():
+    from mutate4py._digest_changes import functions_with_changed_digest
+
+    manifest = _with_digest(_scored(SRC), {"func/f": "old", "func/g": "same"})
+
+    assert functions_with_changed_digest(manifest, {"func/f": "new", "func/g": "same"}) == {"func/f"}
+
+
+@pytest.mark.unit
+def test_functions_with_changed_digest_ignores_an_entry_without_a_stored_digest():
+    """No stored digest is adoption (ADR 0026 precedent), not a change."""
+    from mutate4py._digest_changes import functions_with_changed_digest
+
+    manifest = _scored(SRC)
+
+    assert functions_with_changed_digest(manifest, {"func/f": "new", "func/g": "new"}) == set()
+
+
+@pytest.mark.unit
+def test_functions_with_changed_digest_ignores_a_function_with_no_fresh_digest():
+    from mutate4py._digest_changes import functions_with_changed_digest
+
+    manifest = _with_digest(_scored(SRC), {"func/f": "old", "func/g": "old"})
+
+    assert functions_with_changed_digest(manifest, {"func/g": "old"}) == set()
+
+
+@pytest.mark.unit
+def test_functions_with_changed_digest_none_is_empty():
+    from mutate4py._digest_changes import functions_with_changed_digest
+
+    assert functions_with_changed_digest(None, {"func/f": "new"}) == set()
+
+
+# ── recorded-survivor block: apart from this run's Survivors (#106) ───────────
+
+
+@pytest.mark.unit
+def test_recorded_block_lines_format():
+    from mutate4py._report import _recorded_block_lines
+
+    lines = _recorded_block_lines([("func/f", {"line": 2, "desc": "a > b -> a >= b"})])
+
+    assert lines == [
+        "",
+        "Recorded survivors (not re-run):",
+        "  line 2 a > b -> a >= b func/f",
+    ]
+
+
+@pytest.mark.unit
+def test_recorded_block_lines_empty():
+    from mutate4py._report import _recorded_block_lines
+
+    assert _recorded_block_lines([]) == []

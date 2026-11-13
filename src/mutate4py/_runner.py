@@ -3,6 +3,7 @@
 import dataclasses
 import logging
 import os
+from collections.abc import Sequence
 
 __all__ = [
     "NoTestsCollectedError",
@@ -33,6 +34,7 @@ from mutate4py._report import (
     RunStats,
     SelectionTally,
     _mutation_report_lines,
+    _recorded_block_lines,
     _run_header_lines,
     _workers_header_lines,
     executor_block_lines,
@@ -53,6 +55,7 @@ from mutate4py._source_loading import (
     RunSetup,
     _finalize_source,
     _prepare_run_setup,
+    apply_digest_changes,
 )
 from mutate4py._test_dispatch import TimeoutPolicy, _log_dispatch_abort
 
@@ -98,6 +101,7 @@ class SelectionOutcome:
     overhead_duration: float | None = None
     full_selection: bool = False
     measurement: Measurement | None = None
+    fresh_digests: dict[str, str] | None = None
 
 
 @dataclasses.dataclass
@@ -177,6 +181,10 @@ def _select_and_prepare(request: RunMutationsRequest, setup: RunSetup, max_worke
         _logger.info(message)
         return SelectionOutcome(error_code=code)
     covered_lines = set(measurement.covered_lines(abs_source))
+    # The digests read the Measurement, not the Mutants, so they are taken before any Site is selected: a function
+    # whose stored tests digest moved joins the changed set and is selected like any changed function (#106).
+    digests = fresh_digests(measurement, abs_source, setup.loaded.clean_source)
+    apply_digest_changes(setup.loaded, digests)
 
     covered_count, uncovered_count = partition_sites(setup.loaded.all_sites, covered_lines)
     differential = _is_differential(manifest_exists=setup.loaded.manifest_exists, mutate_all=request.mutate_all)
@@ -223,6 +231,7 @@ def _select_and_prepare(request: RunMutationsRequest, setup: RunSetup, max_worke
         overhead_duration=prep.overhead_duration,
         full_selection=not differential,
         measurement=measurement,
+        fresh_digests=digests,
     )
 
 
@@ -286,6 +295,16 @@ def _close_executor(executor: object) -> None:
         close()
 
 
+def _recorded_survivors_kept(written: dict, scored_run: ScoredRun) -> list[tuple[str, dict]]:
+    """The survivors the written Manifest keeps on functions this run did not re-score (#106).
+
+    A skipped function is not re-run, so its recorded survivors stay as they were; they are
+    reported apart from this run's Survivors and count toward the exit code.
+    """
+    rescored = scored_run.function_scores([fn["id"] for fn in written["functions"]])
+    return [(fid, s) for fid, s in recorded_survivors(written) if fid not in rescored]
+
+
 def run_mutations(request: RunMutationsRequest) -> int:
     """Execute the mutation run loop.
 
@@ -312,10 +331,7 @@ def _run_loop(request: RunMutationsRequest) -> int:
 
     ctx = _mutant_exec_ctx(request, outcome, markers)
     scored_run: ScoredRun | None = None
-    digests: dict[str, str] | None = None
     try:
-        # The digests read the Measurement, not the Mutants, so they are taken before any Mutant runs.
-        digests = fresh_digests(outcome.measurement, os.path.abspath(request.path), setup.loaded.clean_source)
         result = _execute_mutations(
             selected_sites=outcome.selected_sites,
             clean_source=setup.loaded.clean_source,
@@ -325,24 +341,35 @@ def _run_loop(request: RunMutationsRequest) -> int:
     finally:
         if request.executor is None:
             _close_executor(outcome.executor)
-        _finalize_source(
+        written = _finalize_source(
             setup.loaded.clean_source,
             setup.loaded.tested_at,
             setup.bak_path,
             setup.loc,
             existing_manifest=setup.loaded.existing_manifest,
             scored_run=scored_run,
-            fresh_digests=digests,
+            fresh_digests=outcome.fresh_digests,
         )
     if result.error_msg is not None:
         # .info, not .error: this has always gone to stdout, like the cov_error branch above.
         _logger.info(result.error_msg)
         return 1
-    return _report_run(request, outcome, result, scored_run)
+    recorded = _recorded_survivors_kept(written, scored_run)
+    return _report_run(request, outcome, result, scored_run, recorded=recorded)
 
 
-def _report_run(request: RunMutationsRequest, outcome, result, scored_run: ScoredRun) -> int:
-    """Print the run's report block and return its exit code."""
+def _report_run(
+    request: RunMutationsRequest,
+    outcome,
+    result,
+    scored_run: ScoredRun,
+    recorded: Sequence[tuple[str, dict]] = (),
+) -> int:
+    """Print the run's report block and return its exit code.
+
+    recorded holds the survivors the Manifest kept on functions this run did not re-score (#106). They print
+    apart from this run's Survivors and count toward the exit code the same way.
+    """
     # A run handed its Measurement is one file of a batch: the caller prints the
     # Measurement and overhead lines once for the whole batch.
     measured_here = request.measurement is None
@@ -360,9 +387,11 @@ def _report_run(request: RunMutationsRequest, outcome, result, scored_run: Score
         )
         + executor_block_lines(result.executor_description, result.timing)
     )
+    _print_lines(_recorded_block_lines(recorded))
     if request.timing_sink is not None:
         request.timing_sink.merge(result.timing)
     if measured_here and outcome.measurement is not None:
         _print_lines(measurement_lines(outcome.measurement))
     _print_lines(_accepted_block_lines(scored_run.accepted()))
-    return scored_run_exit_code(len(scored_run.unaccepted()), allow_survivors=request.allow_survivors)
+    survived = len(scored_run.unaccepted()) + len(recorded)
+    return scored_run_exit_code(survived, allow_survivors=request.allow_survivors)
