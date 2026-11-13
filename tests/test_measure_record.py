@@ -113,6 +113,30 @@ def test_support_modules_are_loaded_files_under_a_test_root_other_than_tests_and
 
 
 @pytest.mark.unit
+def test_a_test_file_whose_tests_were_all_deselected_is_not_a_support_module():
+    """A `-m`-deselected test module is a test file, not a helper (#110).
+
+    pytest imports it to collect it, but none of its tests runs, so it must not
+    enter every function's digest: editing a component-only test file would
+    otherwise re-score every function under unit-only scoring.
+    """
+    facts = _session(
+        test_files=("/proj/tests/test_a.py",),
+        deselected_files=("/proj/tests/test_slow.py", "/proj/tests/test_a.py"),
+        module_files=(
+            "/proj/tests/test_a.py",
+            "/proj/tests/test_slow.py",  # every test in it was deselected
+            "/proj/tests/factories.py",
+        ),
+    )
+
+    record = SessionLog().finish(facts)
+
+    assert record.support_modules == ("/proj/tests/factories.py",)
+    assert record.test_files == ("/proj/tests/test_a.py",)
+
+
+@pytest.mark.unit
 def test_a_record_survives_its_json_round_trip():
     log = SessionLog()
     log.test_started("tests/test_a.py::test_x", ("db",))
