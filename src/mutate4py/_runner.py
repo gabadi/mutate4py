@@ -45,6 +45,7 @@ from mutate4py._report import (
 )
 from mutate4py._run_request import RunMutationsRequest
 from mutate4py._scoring import ScoredRun
+from mutate4py._skipped_run import recorded_survivors_kept
 from mutate4py._site_selection import (
     _is_differential,
     _select_sites,
@@ -295,16 +296,6 @@ def _close_executor(executor: object) -> None:
         close()
 
 
-def _recorded_survivors_kept(written: dict, scored_run: ScoredRun) -> list[tuple[str, dict]]:
-    """The survivors the written Manifest keeps on functions this run did not re-score (#106).
-
-    A skipped function is not re-run, so its recorded survivors stay as they were; they are
-    reported apart from this run's Survivors and count toward the exit code.
-    """
-    rescored = scored_run.function_scores([fn["id"] for fn in written["functions"]])
-    return [(fid, s) for fid, s in recorded_survivors(written) if fid not in rescored]
-
-
 def run_mutations(request: RunMutationsRequest) -> int:
     """Execute the mutation run loop.
 
@@ -323,7 +314,13 @@ def run_mutations(request: RunMutationsRequest) -> int:
 
 def _run_loop(request: RunMutationsRequest) -> int:
     """Select, execute and finalize the run, then report it. Errors propagate to run_mutations."""
-    setup = _prepare_run_setup(path=request.path, source=request.source, manifest_file=request.manifest_file)
+    setup = _prepare_run_setup(
+        path=request.path,
+        source=request.source,
+        manifest_file=request.manifest_file,
+        cwd=request.cwd,
+        pytest_args=request.pytest_args,
+    )
     markers = equivalent_markers(setup.loaded.clean_source)
     outcome = _select_and_prepare(request, setup, request.max_workers)
     if outcome.error_code is not None:
@@ -349,12 +346,13 @@ def _run_loop(request: RunMutationsRequest) -> int:
             existing_manifest=setup.loaded.existing_manifest,
             scored_run=scored_run,
             fresh_digests=outcome.fresh_digests,
+            fingerprint=setup.fingerprint,
         )
     if result.error_msg is not None:
         # .info, not .error: this has always gone to stdout, like the cov_error branch above.
         _logger.info(result.error_msg)
         return 1
-    recorded = _recorded_survivors_kept(written, scored_run)
+    recorded = recorded_survivors_kept(written, scored_run)
     return _report_run(request, outcome, result, scored_run, recorded=recorded)
 
 

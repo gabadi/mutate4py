@@ -173,6 +173,7 @@ def reconcile_manifest(
     candidate: dict,
     scores: dict[str, dict] | None = None,
     fresh_digests: dict[str, str] | None = None,
+    fingerprint: str | None = None,
 ) -> dict:
     """Return the manifest to embed, carrying each function's score block forward.
 
@@ -180,13 +181,19 @@ def reconcile_manifest(
     function (same hash as in existing) keeps its fields. A changed or new
     function has none, so it stays unscored until a scored run records it.
     fresh_digests maps function id to this run's tests digest; see _fields_for.
+    fingerprint, when given, is the run's tests_fingerprint and is recorded on the manifest;
+    otherwise the stored tests_fingerprint is kept, so a run that records no scores never claims one.
 
     Returns existing itself when nothing but tested_at or source_sha256 would
     change (ADR 0006), so callers detect "unchanged" by identity.
     """
-    prior = {fn["id"]: fn for fn in existing["functions"]} if existing is not None else {}
+    base = existing or {}
+    prior = {fn["id"]: fn for fn in base.get("functions", [])}
     entries = [_carry_entry(fn, prior.get(fn["id"]), scores, fresh_digests) for fn in candidate["functions"]]
-    merged = {**candidate, "functions": entries}
+    # The stored top-level keys the candidate lacks (tests_fingerprint) carry forward; a fingerprint given replaces it.
+    merged = {**base, **candidate, "functions": entries}
+    if fingerprint is not None:
+        merged["tests_fingerprint"] = fingerprint
     if _unchanged(existing, merged):
         return existing
     return merged
@@ -202,10 +209,14 @@ def _carry_entry(
 
 
 def _unchanged(existing: dict | None, merged: dict) -> bool:
-    """True when merged differs from existing only in tested_at or source_sha256, scores included (ADR 0006)."""
+    """True when merged differs from existing only in tested_at or source_sha256 (ADR 0006).
+
+    Scores and the tests fingerprint must match too.
+    """
     return (
         existing is not None
         and manifests_structurally_equal(existing, merged)
+        and existing.get("tests_fingerprint") == merged.get("tests_fingerprint")
         and {fn["id"]: _scored_fields(fn) for fn in existing["functions"]}
         == {fn["id"]: _scored_fields(fn) for fn in merged["functions"]}
     )

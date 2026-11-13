@@ -112,7 +112,7 @@ depends_on = ["mutate4py._manifest"]
 [[modules]]
 path = "mutate4py._tests_fingerprint"
 layer = "domain"
-depends_on = []
+depends_on = ["mutate4py._manifest"]
 
 [[modules]]
 path = "mutate4py._scoring"
@@ -196,6 +196,20 @@ depends_on = []
 path = "mutate4py._source_loading"
 layer = "source_loading"
 depends_on = []
+
+# The stored Manifests an invocation reads to decide its skip (design #89 §5b). Reads
+# files and Manifests, decides nothing about the run itself.
+[[modules]]
+path = "mutate4py._skip_facts"
+layer = "source_loading"
+depends_on = []
+
+# The report of a skipped run (design #89 §5b): the Measurement line, the recorded
+# Survivors and the exit code, with no Mutation Report.
+[[modules]]
+path = "mutate4py._skipped_run"
+layer = "report"
+depends_on = ["mutate4py._report"]
 
 # The Measurement (design #89 §2) sits in `baseline`: above `domain`, whose
 # `_plugin_neutralisation` it uses, and below the layers that read from it.

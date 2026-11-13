@@ -104,3 +104,40 @@ Rejected alternatives:
   nothing to re-prove, and its digest costs one read.
 
 **Do not "fix" these back.** Each gap is a deliberate trade of a rerun for a guess.
+
+## Addendum (issue #89): the tests fingerprint and the no-change rerun
+
+The per-function rule above decides which functions a rerun re-scores. A coarser
+check decides whether a rerun runs at all: when nothing it depends on has changed,
+the rerun skips its Measurement and every Mutant.
+
+**Fingerprint.** A scored run records a `tests_fingerprint` in the Manifest: a SHA-256
+over the test inputs its `--pytest-args` collect (the test files and conftests under
+each collection root, the pytest config and `uv.lock`), the pytest args, the Python
+version and the mutate4py version. It is computed after the `.bak` restore, with the
+Manifest footer stripped. Only a run that writes at least one score block records it;
+a run that scores nothing keeps the stored fingerprint. `--update-manifest` keeps the
+stored fingerprint and `--check-manifest` ignores it.
+
+**Skip.** An invocation skips its Measurement and every Mutant when every target it
+names (one file, or every file of a batch) has a Manifest that is readable and
+parseable, has no `.bak` beside it, records the fresh fingerprint, has an unchanged
+source body, has a score and a digest for every function, and has its accepted
+Survivors' equivalent markers intact. `--mutate-all` never skips. The decision is taken
+once per invocation, before any Measurement: one target that blocks it blocks the
+whole batch, since a batch shares one Measurement.
+
+A skipped run prints the skipped Measurement line, the `Recorded survivors (not re-run):`
+block of the stored Manifests, and a Time line of zero. It writes nothing and prints no
+Mutation Report, because it scored nothing. Its exit code follows the survivor rule
+above: 3 for an unaccepted recorded Survivor, or 0 with `--allow-survivors`.
+
+Rejected alternatives:
+
+- **Printing a Mutation Report from the stored totals on a skipped run:** the numbers
+  would read as this run's score when this run scored nothing.
+- **Skipping per target inside a batch:** the batch's one Measurement is shared, so a
+  partial skip would still measure the files it was meant to skip.
+
+**Do not "fix" these back.** The fingerprint's inputs and the all-or-nothing batch rule
+are what make a skip safe; narrowing either lets a stale proof read as current.

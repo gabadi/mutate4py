@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "tested_at": "2026-11-13T20:28:54Z",
+  "module_hash": "31f35d169782a5b32fa389e0af991c3cb58f2dadd7e7cfab8a12e3a0cad9ff69",
+  "source_sha256": "ec9eb6c5e3fd38eabcce226b7eb48388e3b7c899e32ca17938ccba393287b11c",
+  "functions": [
+    {
+      "id": "func/_facts_for",
+      "name": "_facts_for",
+      "line": 34,
+      "end_line": 42,
+      "hash": "2823bc38cf2fd9cbe6e18abf721c83c48cf9d0fa075482f4bc53bbdec2ffe481"
+    },
+    {
+      "id": "func/_read_target",
+      "name": "_read_target",
+      "line": 45,
+      "end_line": 60,
+      "hash": "c76c40a23ab253c97492dedec44b71b19ff52a95480baff82e33672f5669fa0a"
+    },
+    {
+      "id": "func/skipped_manifests",
+      "name": "skipped_manifests",
+      "line": 63,
+      "end_line": 84,
+      "hash": "99e1ad1f82bfca8684d82f315f33d0e35fbb8ff5ee25a02735d3aae053991c67"
+    }
+  ]
+}
