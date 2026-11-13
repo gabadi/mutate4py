@@ -89,8 +89,8 @@ LOG := "check.log"
 
 # Test selection for `mutate`'s scored runs (#98): unit tests only. `integration`
 # tests are coverage-blind and `component` tests are excluded too, so a Mutant
-# that only a component test kills is scored a Survivor until #108 adds unit
-# tests for it. `-p no:tach` skips tach's pytest plugin, which re-runs its
+# that only a component test kills is scored a Survivor; the fix is a unit test
+# that kills it (ADR 0023). `-p no:tach` skips tach's pytest plugin, which re-runs its
 # impact analysis uncached on every subprocess spawn (~1-1.3s per Mutant, issue
 # #26); `tach check` already covers it in the `lint` gate.
 MUTATE_PYTEST_ARGS := "-p no:tach -m 'not integration and not component'"
@@ -334,7 +334,7 @@ mutate-sample:
 # MUTATE_PYTEST_ARGS (declared above the gates) selects unit tests only.
 # `integration` tests are coverage-blind (see `test-integration`), and
 # `component` tests are excluded too: a Mutant only a component test kills
-# scores as a Survivor until #108 adds unit tests for it. `{{args}}` can
+# scores as a Survivor; the fix is a unit test that kills it (ADR 0023). `{{args}}` can
 # override with an explicit --pytest-args, which changes this run's selection
 # scope. `-p no:tach` skips tach's pytest plugin, which re-runs its impact
 # analysis uncached on every subprocess spawn (~1-1.3s per mutant, issue #26);

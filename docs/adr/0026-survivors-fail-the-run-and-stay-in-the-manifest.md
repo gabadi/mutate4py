@@ -52,3 +52,17 @@ Rejected alternatives:
 - `--require-scored`: not needed yet.
 - Per-Site merging of partial runs: a partly selected function's score cannot be known,
   so it is skipped.
+
+## Addendum (issue #89)
+
+A function is changed when its Unit hash or its Tests digest (ADR 0029) differs from
+the stored one, so an edit to a test that reaches a function re-scores it with no hash
+change. Recorded Survivors still make a function changed only while its entry has no
+stored `tests_digest`, so a 0.2.x entry with Survivors is retried once. Once an entry
+has a digest, a function whose hash and digest are both unchanged is skipped even with
+Survivors. Its recorded Survivors print on their own block and still fail the run: exit
+3, or 0 with `--allow-survivors`.
+
+The adoption rule follows this ADR's precedent: an entry with a score, no Survivors and
+no digest adopts the fresh digest without a re-score. `--check-manifest` still fails on
+recorded Survivors and equivalent markers, and does not check digests (ADR 0029).
