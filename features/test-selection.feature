@@ -23,7 +23,7 @@ Feature: Per-mutant test selection and directory run mode
   #       3 disagreement — the db has nothing for the line, or the file is absent
   #         from the db entirely: the two coverage sources disagree, so the run
   #         aborts with exit 2 and an actionable message. Selected sites are
-  #         LCOV-covered by construction, so a db miss is always an input defect
+  #         measured as covered by construction, so a db miss is always an input defect
   #         (stale db / path mismatch / subprocess coverage), never uncovered code.
   #   report line — the Mutation Report block carries "Test selection: narrowed <n>,
   #     static <k>" after the "Uncovered:" line whenever a selection source answers:
@@ -105,9 +105,9 @@ Feature: Per-mutant test selection and directory run mode
     And after the run the source has no mutant spliced in
 
     Examples:
-      | state                           | hint                            |
-      | is absent though LCOV-covered   | absent from the test-context db |
-      | is in a file absent from the db | not in the test-context db      |
+      | state                                | hint                            |
+      | is absent though measured as covered | absent from the test-context db |
+      | is in a file absent from the db      | not in the test-context db      |
 
   Scenario: the report line names the Measurement's selection without --test-contexts
     Given a Python source file with covered mutation sites

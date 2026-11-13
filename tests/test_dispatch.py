@@ -39,37 +39,11 @@ def test_run_scan_no_coverage(tmp_path, capsys):
     args = argparse.Namespace(
         file=str(src_file),
         warning_threshold=1000,
-        cov_cmd=None,
-        lcov=None,
-        reuse_coverage=False,
         manifest_file=False,
     )
-    _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
+    _run_scan(args, str(src_file), src_file.read_text())
     out = capsys.readouterr().out
     assert "Total mutation sites: 1" in out
-
-
-@pytest.mark.unit
-def test_run_scan_with_lcov(tmp_path, capsys):
-    import argparse
-
-    from mutate4py._dispatch import _run_scan
-
-    src_file = tmp_path / "foo.py"
-    src_file.write_text("x = a + b\n")
-    lcov_file = tmp_path / "cov.info"
-    lcov_file.write_text(f"SF:{src_file}\nDA:1,1\nend_of_record\n")
-    args = argparse.Namespace(
-        file=str(src_file),
-        warning_threshold=1000,
-        cov_cmd=None,
-        lcov=str(lcov_file),
-        reuse_coverage=False,
-        manifest_file=False,
-    )
-    _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
-    out = capsys.readouterr().out
-    assert "Covered mutation sites:" in out
 
 
 # ── _run_on_file: CLI-args → run_mutations wiring ─────────────────────────────
@@ -98,7 +72,6 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
     monkeypatch.setattr("mutate4py._dispatch.run_mutations", fake_run_mutations)
 
     args = make_args(
-        cov_cmd="echo hi",
         pytest_args=["-x", "-k", "foo"],
         timeout_factor=7,
         min_timeout=2.5,
@@ -114,9 +87,6 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
     assert dataclasses.asdict(captured["request"]) == {
         "path": "f.py",
         "source": "x = 1\n",
-        "cov_cmd": "echo hi",
-        "lcov_path": None,
-        "reuse_coverage": False,
         "pytest_args": ["-x", "-k", "foo"],
         "timeout_factor": 7,
         "min_timeout": 2.5,
@@ -158,24 +128,6 @@ def test_run_on_file_mutate_all_wired_when_lines_and_since_last_run_absent(
     assert request.max_workers == 0  # None -> 0 default, per _run_on_file
     assert request.lines_filter is None
     assert request.measurement is None
-
-
-@pytest.mark.unit
-def test_run_on_file_scan_coverage_error_exits_2(monkeypatch, capsys):
-    """The --scan branch's own try/except (distinct from _run_scan's) must exit(2)."""
-    from mutate4py._coverage import CoverageError
-    from mutate4py._dispatch import _run_on_file
-
-    def raise_coverage_error(**kwargs):
-        raise CoverageError("no coverage source")
-
-    monkeypatch.setattr("mutate4py._dispatch.run_scan", raise_coverage_error)
-
-    args = make_args(scan=True)
-    with pytest.raises(SystemExit) as exc:
-        _run_on_file(args, "f.py", "x = 1\n", "/cwd")
-    assert exc.value.code == 2
-    assert "no coverage source" in capsys.readouterr().err
 
 
 @pytest.mark.unit
@@ -232,51 +184,6 @@ def test_load_source_error_on_stderr(tmp_path, capsys):
 
 
 @pytest.mark.unit
-def test_run_scan_coverage_error_exits_2(tmp_path):
-    # mutant_21-26: CoverageError → sys.exit(2) exactly
-    import argparse
-
-    from mutate4py._dispatch import _run_scan
-
-    src_file = tmp_path / "foo.py"
-    src_file.write_text("x = a + b\n")
-    args = argparse.Namespace(
-        file=str(src_file),
-        warning_threshold=1000,
-        cov_cmd=None,
-        lcov=str(tmp_path / "missing.info"),
-        reuse_coverage=False,
-        manifest_file=False,
-    )
-    with pytest.raises(SystemExit) as exc:
-        _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
-    assert exc.value.code == 2
-
-
-@pytest.mark.unit
-def test_run_scan_coverage_error_goes_to_stderr(tmp_path, capsys):
-    # mutant_21-26: error message goes to stderr
-    import argparse
-
-    from mutate4py._dispatch import _run_scan
-
-    src_file = tmp_path / "foo.py"
-    src_file.write_text("x = a + b\n")
-    args = argparse.Namespace(
-        file=str(src_file),
-        warning_threshold=1000,
-        cov_cmd=None,
-        lcov=str(tmp_path / "missing.info"),
-        reuse_coverage=False,
-        manifest_file=False,
-    )
-    with pytest.raises(SystemExit):
-        _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
-    err = capsys.readouterr().err
-    assert "error" in err.lower()
-
-
-@pytest.mark.unit
 def test_run_scan_output_newline_separated(tmp_path, capsys):
     # mutant_28,_36: print("\n".join(lines)) — output lines are newline-separated
     import argparse
@@ -288,67 +195,14 @@ def test_run_scan_output_newline_separated(tmp_path, capsys):
     args = argparse.Namespace(
         file=str(src_file),
         warning_threshold=1000,
-        cov_cmd=None,
-        lcov=None,
-        reuse_coverage=False,
         manifest_file=False,
     )
-    _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
+    _run_scan(args, str(src_file), src_file.read_text())
     out = capsys.readouterr().out
     assert "Mutation scan:" in out
     assert "Total mutation sites:" in out
     # Lines are separated by newlines (not spaces, tabs, etc.)
     assert "\n" in out
-
-
-@pytest.mark.unit
-def test_run_scan_passes_cov_cmd_to_coverage(tmp_path, capsys):
-    # mutant_10: cov_cmd=None vs args.cov_cmd — cov_cmd must be passed through
-    import argparse
-
-    from mutate4py._dispatch import _run_scan
-
-    src_file = tmp_path / "foo.py"
-    src_file.write_text("x = a + b\n")
-    lcov_file = tmp_path / "coverage.lcov"
-    # Create a cov_cmd that writes the lcov file
-    cmd = f"printf 'SF:{src_file}\\nDA:1,1\\nend_of_record\\n' > '{lcov_file}'"
-    args = argparse.Namespace(
-        file=str(src_file),
-        warning_threshold=1000,
-        cov_cmd=cmd,
-        lcov=None,
-        reuse_coverage=False,
-        manifest_file=False,
-    )
-    _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
-    out = capsys.readouterr().out
-    assert "Covered mutation sites:" in out
-
-
-@pytest.mark.unit
-def test_run_scan_reuse_coverage_with_cwd(tmp_path, capsys):
-    # mutant_12/13: reuse_coverage and cwd are passed through to acquire_coverage;
-    # coverage.lcov in cwd is found only when cwd is correct
-    import argparse
-
-    from mutate4py._dispatch import _run_scan
-
-    src_file = tmp_path / "foo.py"
-    src_file.write_text("x = a + b\n")
-    lcov_file = tmp_path / "coverage.lcov"
-    lcov_file.write_text(f"SF:{src_file}\nDA:1,1\nend_of_record\n")
-    args = argparse.Namespace(
-        file=str(src_file),
-        warning_threshold=1000,
-        cov_cmd=None,
-        lcov=None,
-        reuse_coverage=True,
-        manifest_file=False,
-    )
-    _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
-    out = capsys.readouterr().out
-    assert "Covered mutation sites:" in out
 
 
 @pytest.mark.unit
@@ -364,12 +218,9 @@ def test_run_scan_passes_args_file_path(tmp_path, capsys):
     args = argparse.Namespace(
         file=str(src_file),
         warning_threshold=1000,
-        cov_cmd=None,
-        lcov=None,
-        reuse_coverage=False,
         manifest_file=False,
     )
-    _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
+    _run_scan(args, str(src_file), src_file.read_text())
     out = capsys.readouterr().out
     assert "mymod.py" in out
 
@@ -386,12 +237,9 @@ def test_run_scan_separator_is_newline_not_other_string(tmp_path, capsys):
     args = argparse.Namespace(
         file=str(src_file),
         warning_threshold=1000,
-        cov_cmd=None,
-        lcov=None,
-        reuse_coverage=False,
         manifest_file=False,
     )
-    _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
+    _run_scan(args, str(src_file), src_file.read_text())
     out = capsys.readouterr().out
     assert "XX" not in out
     # Output must have each label on its own line

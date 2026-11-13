@@ -38,7 +38,7 @@ class NoTestsCollectedError(Exception):
     """A selected site whose test run exercised no test at all (case 4)."""
 
 
-# The selected sites are LCOV-covered by construction, so a miss is always an
+# The selected sites are measured as covered by construction, so a miss is always an
 # input defect, never uncovered code — hence a hard error rather than a fallback.
 #
 # Not `pytest --cov-context=test`: that single shared session under-lists
@@ -46,7 +46,7 @@ class NoTestsCollectedError(Exception):
 # never the fix for a stale/absent line either — --build-test-contexts'
 # isolated per-test sessions are the sound way to (re)build the db.
 _DISAGREEMENT_HINTS = {
-    "line-absent": "line is LCOV-covered but absent from the test-context db "
+    "line-absent": "line is covered by the Measurement but absent from the test-context db "
     "(stale db: regenerate it with --build-test-contexts)",
     "file-absent": "file is not in the test-context db at all "
     "(path-format mismatch, or its coverage was recorded in a subprocess)",

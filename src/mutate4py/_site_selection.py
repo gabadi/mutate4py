@@ -1,14 +1,9 @@
-"""Site selection for the run loop: coverage acquisition, since-last-run/lines-filter
-narrowing of which sites get mutated, and the serial/parallel switch.
+"""Site selection for the run loop: since-last-run/lines-filter narrowing of which
+sites get mutated, and the serial/parallel switch.
 """
 
-import logging
-
-from mutate4py._coverage import CoverageError, acquire_coverage
 from mutate4py._discovery import Site
 from mutate4py._report import _uncovered_block_lines
-
-_logger = logging.getLogger(__name__)
 
 
 def _filter_by_lines(covered: list[Site], lines_filter: set[int]) -> list[Site]:
@@ -34,44 +29,6 @@ def _select_sites(
     if effective_since_last_run:
         return covered, _filter_by_fn(covered, changed_fn_ids)
     return covered, covered
-
-
-def _acquire_covered_lines(
-    cov_cmd: str | None,
-    lcov_path: str | None,
-    *,
-    reuse_coverage: bool,
-    cwd: str,
-    abs_source: str,
-) -> tuple[set[int] | None, str | None]:
-    """Acquire coverage; return (covered_lines, error_message_or_None)."""
-    if reuse_coverage:
-        _logger.info("Reusing existing coverage; covered/uncovered classification may be stale.")
-    try:
-        covered_lines = acquire_coverage(
-            cov_cmd=cov_cmd,
-            lcov_path=lcov_path,
-            reuse=reuse_coverage,
-            cwd=cwd,
-            source_path=abs_source,
-        )
-        return covered_lines, None
-    except CoverageError as exc:
-        return None, str(exc)
-
-
-def flagged_covered_lines(
-    *,
-    cov_cmd: str | None,
-    lcov_path: str | None,
-    reuse_coverage: bool,
-    cwd: str,
-    abs_source: str,
-) -> tuple[set[int] | None, str | None]:
-    """The covered lines a coverage flag names, or (None, None) for a run given no coverage flag."""
-    if cov_cmd is None and lcov_path is None and not reuse_coverage:
-        return None, None
-    return _acquire_covered_lines(cov_cmd, lcov_path, reuse_coverage=reuse_coverage, cwd=cwd, abs_source=abs_source)
 
 
 def _is_effective_since_last_run(

@@ -6,7 +6,7 @@
 Feature: The CLI surface parses, validates, and dispatches the flag matrix
 
   # TRACKING: F5 (cli-surface) — docs/adr/0015-parallel-workers-via-uv-clone-per-worker.md;
-  #           docs/adr/0008-coverage-flags-pairwise-exclusive.md
+  #           docs/adr/0027-single-session-ctrace-measurement-unit-only-scoring.md (the coverage flags are removed)
   #           Upstream ground truth: unclebob/mutate4go internal/cli/cli.go
   #           (ValidateArgs, consumeValueOption, parsePositiveInt, parseLines).
   #
@@ -35,7 +35,9 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #                             through a shell — pytest is the only supported
   #                             runner by contract.
   #     --max-workers N       — positive int, default 0/unset = serial.
-  #     --cov-cmd CMD | --lcov PATH | --reuse-coverage — the three coverage flags.
+  #     --cov-cmd CMD | --lcov PATH | --reuse-coverage — REMOVED in 0.3.0: each exits 2
+  #                             with "<flag> removed in 0.3.0: the run measures coverage
+  #                             itself" (refusal scenarios live in coverage.feature).
   #     --exclude PATTERN     — repeatable; skip files whose walked path matches the
   #                             shared glob dialect (union across patterns) — the
   #                             same dialect <targets> and uv members/exclude use
@@ -62,7 +64,6 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #         option (--lines, --since-last-run, --mutate-all, non-default --timeout-factor,
   #         a non-empty --pytest-args, --max-workers).
   #       * --since-last-run / --mutate-all / --lines: PAIRWISE exclusive.
-  #       * --cov-cmd / --lcov / --reuse-coverage: PAIRWISE exclusive (F3 ADR 0008).
   #   - --max-workers joins ONLY the scan/update-manifest exclusion; it MAY combine with
   #     the selection flags (it does not conflict with --lines/--since-last-run/--mutate-all).
   #   - A literal target path that does not exist, or a glob pattern matching
@@ -95,7 +96,7 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #   - Does NOT: execute parallel workers (F6) — F5 validates --max-workers and passes
   #     the count through; the serial/parallel switch and worker engine are F6.
   #   - Does NOT: re-implement --scan counting (F1), --update-manifest writing (F2), the
-  #     LCOV gate (F3), or the run loop (F4) — it dispatches to them.
+  #     coverage gate (F3), or the run loop (F4) — it dispatches to them.
   #   - Does NOT: re-create the --scan / --update-manifest output strings (F1/F2 own
   #     them); F5 only routes to the mode that prints them.
   #   - ASSUMED: the exact arg-parser (argparse vs hand-rolled) and the exact non-zero
@@ -193,6 +194,30 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
       | --build-test-contexts out.db | --allow-survivors |
       | --check-manifest  | --allow-survivors |
 
+  # cli-surface-4b: a rejected invocation does no work: it names the problem,
+  # leaves the source byte-identical and creates no backup
+  Scenario Outline: a rejected invocation exits non-zero and leaves the source untouched
+    When I run the rejected invocation "<invocation>"
+    Then the command exits with a non-zero status
+    And the printed output names the offending flag or combination
+    And the source file is byte-identical to before the run
+    And no ".mutate4py.bak" file was created
+
+    Examples:
+      | invocation                     |
+      | --mutation-warning 0           |
+      | --max-workers -1               |
+      | --timeout-factor 1.5           |
+      | --lines 7,x                    |
+      | --scan --max-workers 4         |
+      | --scan --mutate-all            |
+      | --update-manifest --lines 7    |
+      | --since-last-run --mutate-all  |
+      | --bogus-flag                   |
+      | (a path that does not exist)   |
+      | (no source file argument)      |
+      | --max-workers (with no value)  |
+
   # cli-surface-5: the three selection flags are pairwise exclusive
   Scenario Outline: combining two selection flags is a usage error
     When I run mutate4py with "<one>" and "<two>"
@@ -254,11 +279,11 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
       | flags             | target          |
       | --scan            | scan surface    |
       | --update-manifest | manifest write  |
-      | (a coverage flag) | run loop        |
+      | (a scored run) | run loop        |
 
   # cli-surface-10: the accepted --max-workers count is passed through to the dispatcher
   Scenario: an accepted --max-workers count reaches the run dispatcher
-    When I run mutate4py with the accepted flags "--max-workers 4 (a coverage flag)"
+    When I run mutate4py with the accepted flags "--max-workers 4 (a scored run)"
     Then the run is dispatched to the "run loop" behaviour
     And the dispatcher receives a worker count of "4"
 
@@ -297,7 +322,7 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   # Baseline with an uninformative "exit code 2")
   Scenario: a run from outside the project environment is rejected before any baseline
     Given a project with a ".venv" that the running interpreter is not
-    When I run mutate4py with the accepted flags "(a coverage flag)" from outside that environment
+    When I run mutate4py with the accepted flags "(a scored run)" from outside that environment
     Then the command exits with status "2"
     And the error names the running interpreter and the project environment
     And no baseline pytest run is started
@@ -307,5 +332,5 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   # above is not satisfied vacuously.
   Scenario: the same project without a ".venv" starts its baseline
     Given a project with no ".venv"
-    When I run mutate4py with the accepted flags "(a coverage flag)" from that project
+    When I run mutate4py with the accepted flags "(a scored run)" from that project
     Then a baseline pytest run is started

@@ -25,13 +25,6 @@ def _make_functions_source(n: int) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _write_lcov(path: str, source_abs: str, covered_lines: list[int]) -> None:
-    da_lines = "\n".join(f"DA:{ln},1" for ln in covered_lines)
-    content = f"SF:{source_abs}\n{da_lines}\nend_of_record\n"
-    with open(path, "w") as f:
-        f.write(content)
-
-
 def _make_coverage_db(db_path: str, source_abs: str, tests_by_line: dict[int, str]) -> None:
     """Minimal .coverage SQLite db (line-only coverage, has_arcs=0): one named
     test context per line, mirroring what an isolated-session build
@@ -139,8 +132,6 @@ def test_forking_executor_composes_with_real_test_context_db(tmp_path, monkeypat
 
     sites = discover_sites(src)
     assert len(sites) == 3
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
     db_path = str(tmp_path / ".coverage")
     _make_coverage_db(db_path, src_path, {s.line: f"tests/test_calc.py::test_f{i}" for i, s in enumerate(sites, 1)})
@@ -154,9 +145,6 @@ def test_forking_executor_composes_with_real_test_context_db(tmp_path, monkeypat
             RunMutationsRequest(
                 path=src_path,
                 source=src,
-                cov_cmd=None,
-                lcov_path=lcov_path,
-                reuse_coverage=False,
                 pytest_args=["-q", "tests"],
                 timeout_factor=10,
                 lines_filter=None,
@@ -201,8 +189,6 @@ def test_leaked_target_degrades_to_subprocess_and_still_narrows_correctly(tmp_pa
     _write_per_function_pytest_project(cwd, 2)
 
     sites = discover_sites(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
     db_path = str(tmp_path / ".coverage")
     _make_coverage_db(db_path, src_path, {s.line: f"tests/test_calc.py::test_f{i}" for i, s in enumerate(sites, 1)})
@@ -223,9 +209,6 @@ def test_leaked_target_degrades_to_subprocess_and_still_narrows_correctly(tmp_pa
             RunMutationsRequest(
                 path=src_path,
                 source=src,
-                cov_cmd=None,
-                lcov_path=lcov_path,
-                reuse_coverage=False,
                 pytest_args=["-q", "tests"],
                 timeout_factor=10,
                 lines_filter=None,

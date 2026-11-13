@@ -20,11 +20,18 @@ class ValidationError(Exception):
         self.exit_code = exit_code
 
 
-def _check_coverage_flags(args: argparse.Namespace) -> None:
-    """Raise if more than one coverage flag is supplied (ADR 0008)."""
-    cov_flags = [args.cov_cmd is not None, args.lcov is not None, args.reuse_coverage]
-    if sum(cov_flags) > 1:
-        raise ValidationError("--cov-cmd, --lcov, and --reuse-coverage are mutually exclusive; supply at most one.")
+# The coverage flags removed in 0.3.0 (ADR 0008 superseded): the run measures
+# coverage itself, so each is refused rather than silently ignored.
+_REMOVED_COVERAGE_FLAGS = (("--cov-cmd", "cov_cmd"), ("--lcov", "lcov"), ("--reuse-coverage", "reuse_coverage"))
+
+
+def _check_removed_coverage_flags(args: argparse.Namespace) -> None:
+    """Raise, naming the flag, for the first coverage flag removed in 0.3.0 that is set."""
+    for flag, dest in _REMOVED_COVERAGE_FLAGS:
+        value = getattr(args, dest)
+        if value is None or value is False:
+            continue
+        raise ValidationError(f"{flag} removed in 0.3.0: the run measures coverage itself")
 
 
 def _no_run_flag(args: argparse.Namespace) -> str:

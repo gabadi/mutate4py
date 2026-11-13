@@ -33,14 +33,6 @@ def _run_mutate4py(cwd: str, *args: str) -> subprocess.CompletedProcess:
     )
 
 
-def _make_lcov(entries: dict[str, list[int]]) -> str:
-    blocks = []
-    for source_abs, lines in entries.items():
-        da = "\n".join(f"DA:{ln},1" for ln in sorted(lines))
-        blocks.append(f"SF:{source_abs}\n{da}\nend_of_record\n")
-    return "".join(blocks)
-
-
 def _write_test(path: str, body: str) -> None:
     with open(path, "w") as f:
         f.write(body)
@@ -88,7 +80,6 @@ class Context:
     def __init__(self):
         self.tmpdir: str | None = None
         self.src_path: str | None = None
-        self.lcov_path: str | None = None
         self.db_path: str | None = None
         self.log_path: str | None = None
         self.cli_result: subprocess.CompletedProcess | None = None
@@ -102,7 +93,6 @@ ctx = Context()
 def _reset_ctx():
     ctx.tmpdir = None
     ctx.src_path = None
-    ctx.lcov_path = None
     ctx.db_path = None
     ctx.log_path = None
     ctx.cli_result = None
@@ -144,7 +134,7 @@ def _write_uv_project_files(d: str) -> None:
         )
 
 
-def _write_arg_logging_fixture(cwd: str, log_path: str) -> None:
+def _write_arg_logging_fixture(cwd: str, log_path: str, calls: tuple[str, ...] = ("calc",)) -> None:
     """A real pytest project that always passes when invoked with no extra
     args, and logs the exact args pytest received (mirrors the old shell
     stand-in's `echo "ARGS:[$*]"`) via a pytest_configure hook — this fires
@@ -163,7 +153,10 @@ def _write_arg_logging_fixture(cwd: str, log_path: str) -> None:
         "        f.write('ARGS:[' + ' '.join(config.invocation_params.args) + ']\\n')\n"
     )
     _write_test(os.path.join(cwd, "conftest.py"), conftest_body)
-    _write_test(os.path.join(cwd, "test_dummy.py"), "def test_dummy():\n    pass\n")
+    # The test calls the sample's functions, so the run's Measurement covers their sites.
+    body = "from sample import " + ", ".join(calls) + "\n\n\ndef test_dummy():\n"
+    body += "".join(f"    {name}(2, 1)\n" for name in calls)
+    _write_test(os.path.join(cwd, "test_dummy.py"), body)
 
 
 def _confirmation_runs() -> int:
@@ -234,9 +227,6 @@ def given_dir_files(m, params):
     broken = os.path.join(ctx.dir_path, "b.py")
     with open(broken, "w") as f:
         f.write("def broken(:\n    pass\n")
-    ctx.lcov_path = os.path.join(d, "cov.lcov")
-    with open(ctx.lcov_path, "w") as f:
-        f.write(_make_lcov({good: []}))
     tests_dir = os.path.join(d, "tests")
     os.makedirs(tests_dir, exist_ok=True)
     _write_test(os.path.join(tests_dir, "test_qa.py"), "def test_qa():\n    pass\n")
@@ -262,9 +252,6 @@ def given_db_naming_test(m, params):
     ctx.src_path = os.path.join(d, "sample.py")
     with open(ctx.src_path, "w") as f:
         f.write(_default_source())
-    ctx.lcov_path = os.path.join(d, "cov.lcov")
-    with open(ctx.lcov_path, "w") as f:
-        f.write(_make_lcov({ctx.src_path: [2]}))
     ctx.db_path = os.path.join(d, ".coverage")
     _write_context_db(ctx.db_path, {ctx.src_path: {node_id: {2}}})
     ctx.log_path = os.path.join(d, "invocations.log")
@@ -279,9 +266,6 @@ def given_db_static_line(m, params):
     ctx.src_path = os.path.join(d, "sample.py")
     with open(ctx.src_path, "w") as f:
         f.write(_default_source())
-    ctx.lcov_path = os.path.join(d, "cov.lcov")
-    with open(ctx.lcov_path, "w") as f:
-        f.write(_make_lcov({ctx.src_path: [2]}))
     ctx.db_path = os.path.join(d, ".coverage")
     _write_context_db(ctx.db_path, {ctx.src_path: {"": {2}}})
     ctx.log_path = os.path.join(d, "invocations.log")
@@ -296,11 +280,8 @@ def given_db_disagreement(m, params):
     ctx.src_path = os.path.join(d, "sample.py")
     with open(ctx.src_path, "w") as f:
         f.write(_default_source())
-    ctx.lcov_path = os.path.join(d, "cov.lcov")
-    with open(ctx.lcov_path, "w") as f:
-        f.write(_make_lcov({ctx.src_path: [2]}))
     ctx.db_path = os.path.join(d, ".coverage")
-    if state == "is absent though LCOV-covered":
+    if state == "is absent though measured as covered":
         # File is in the db, but no context recorded line 2 (only line 99).
         _write_context_db(ctx.db_path, {ctx.src_path: {"tests/test_x.py::test_a": {99}}})
     else:
@@ -318,9 +299,6 @@ def given_source_with_covered_sites(m, params):
     ctx.src_path = os.path.join(d, "sample.py")
     with open(ctx.src_path, "w") as f:
         f.write(_default_source())
-    ctx.lcov_path = os.path.join(d, "cov.lcov")
-    with open(ctx.lcov_path, "w") as f:
-        f.write(_make_lcov({ctx.src_path: [2]}))
     ctx.log_path = os.path.join(d, "invocations.log")
     _write_arg_logging_fixture(d, ctx.log_path)
 
@@ -340,11 +318,8 @@ def given_source_two_sites(m, params):
             def f2(a, b):
                 return a > b
         """))
-    ctx.lcov_path = os.path.join(d, "cov.lcov")
-    with open(ctx.lcov_path, "w") as f:
-        f.write(_make_lcov({ctx.src_path: [2, 6]}))
     ctx.log_path = os.path.join(d, "invocations.log")
-    _write_arg_logging_fixture(d, ctx.log_path)
+    _write_arg_logging_fixture(d, ctx.log_path, ("f1", "f2"))
 
 
 @step(r"a \.coverage db with per-test context data")
@@ -377,7 +352,7 @@ def when_run_dir_scan(m, params):
 def when_run_dir_run(m, params):
     d = os.path.dirname(ctx.dir_path)
     ctx.cli_result = _run_mutate4py(
-        d, ctx.dir_path, "--lcov", ctx.lcov_path, "--pytest-args", "tests"
+        d, ctx.dir_path, "--pytest-args", "tests"
     )
 
 
@@ -387,8 +362,6 @@ def when_run_with_contexts(m, params):
     ctx.cli_result = _run_mutate4py(
         d,
         ctx.src_path,
-        "--lcov",
-        ctx.lcov_path,
         "--pytest-args",
         "",
         "--test-contexts",
@@ -400,7 +373,7 @@ def when_run_with_contexts(m, params):
 def when_run_without_contexts(m, params):
     d = _ensure_tmpdir()
     ctx.cli_result = _run_mutate4py(
-        d, ctx.src_path, "--lcov", ctx.lcov_path, "--pytest-args", ""
+        d, ctx.src_path, "--pytest-args", ""
     )
 
 
@@ -410,8 +383,6 @@ def when_run_with_contexts_and_workers(m, params):
     ctx.cli_result = _run_mutate4py(
         d,
         ctx.src_path,
-        "--lcov",
-        ctx.lcov_path,
         "--pytest-args",
         "",
         "--test-contexts",

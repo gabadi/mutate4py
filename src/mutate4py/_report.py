@@ -6,10 +6,8 @@ itself just a formatting call wrapped for use as a worker-thread callback.
 
 import dataclasses
 import logging
-import os
 
-from mutate4py._coverage import acquire_coverage
-from mutate4py._discovery import Site, discover_sites, partition_sites
+from mutate4py._discovery import Site, discover_sites
 from mutate4py._executor import ExecutorDescription, MutantTiming
 from mutate4py._exit_codes import EXIT_FAILURE, EXIT_USAGE
 from mutate4py._manifest_storage import ManifestLocation
@@ -18,7 +16,6 @@ from mutate4py._source_loading import _compute_manifest_diff
 from mutate4py._test_dispatch import NO_TESTS_HINT
 
 __all__ = [
-    "CoverageSource",
     "OverheadInfo",
     "RunStats",
     "batch_summary_lines",
@@ -26,7 +23,6 @@ __all__ = [
     "measurement_lines",
     "overhead_info",
     "scan_report",
-    "scan_report_with_coverage",
 ]
 
 _logger = logging.getLogger(__name__)
@@ -43,16 +39,6 @@ class RunStats:
     manifest_exists: bool
     selected_count: int
     warning_threshold: int
-
-
-@dataclasses.dataclass(frozen=True)
-class CoverageSource:
-    """Where scan-time coverage comes from."""
-
-    cov_cmd: str | None
-    lcov_path: str | None
-    reuse_coverage: bool
-    cwd: str
 
 
 def _run_header_lines(path: str, stats: RunStats) -> list[str]:
@@ -285,47 +271,13 @@ def _scan_manifest_state(path: str, source: str, *, manifest_file: bool) -> tupl
 def scan_report(
     path: str, source: str, warning_threshold: int, *, manifest_file: bool = False
 ) -> tuple[list[str], bool]:
-    """Return (output_lines, exceeded_threshold) for a --scan run without coverage."""
+    """Return (output_lines, exceeded_threshold) for a --scan run: coverage-free."""
     sites, changed_count, manifest_exists = _scan_manifest_state(path, source, manifest_file=manifest_file)
     total = len(sites)
     manifest_str = "true" if manifest_exists else "false"
     lines = [
         f"Mutation scan: {path}",
         f"Total mutation sites: {total}",
-        f"Changed mutation sites: {changed_count}",
-        f"Manifest exists: {manifest_str}",
-    ]
-    exceeded = total > warning_threshold
-    if exceeded:
-        lines.append(f"Warning: {total} mutation sites exceeds threshold {warning_threshold}.")
-    return lines, exceeded
-
-
-def scan_report_with_coverage(
-    path: str,
-    source: str,
-    warning_threshold: int,
-    coverage: CoverageSource,
-    *,
-    manifest_file: bool = False,
-) -> tuple[list[str], bool]:
-    """Return (output_lines, exceeded_threshold) for a --scan run with coverage."""
-    sites, changed_count, manifest_exists = _scan_manifest_state(path, source, manifest_file=manifest_file)
-    total = len(sites)
-    covered_lines = acquire_coverage(
-        cov_cmd=coverage.cov_cmd,
-        lcov_path=coverage.lcov_path,
-        reuse=coverage.reuse_coverage,
-        cwd=coverage.cwd,
-        source_path=os.path.abspath(path),
-    )
-    covered, uncovered = partition_sites(sites, covered_lines)
-    manifest_str = "true" if manifest_exists else "false"
-    lines = [
-        f"Mutation scan: {path}",
-        f"Total mutation sites: {total}",
-        f"Covered mutation sites: {covered}",
-        f"Uncovered mutation sites: {uncovered}",
         f"Changed mutation sites: {changed_count}",
         f"Manifest exists: {manifest_str}",
     ]

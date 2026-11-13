@@ -1,84 +1,84 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T13:18:58Z",
-  "module_hash": "12993f80ecc559e2156347d54330aae9aa2414ae3e07e0ffa93a027ce9e44a58",
-  "source_sha256": "859d54aec72a1e77275c8621be523e2532ee3c3d1ff89449b2c22b3bf39a74f6",
+  "tested_at": "2026-11-13T15:09:07Z",
+  "module_hash": "a91e0ca93ae6e0c76fa693a891db77b678c888aead71363d97c402b096896eb9",
+  "source_sha256": "8f17ff0d2d171f66ac6b642014d013bb793c2a6ded802806a8f99fc639c0334c",
   "functions": [
     {
       "id": "func/_print_lines",
       "name": "_print_lines",
-      "line": 72,
-      "end_line": 75,
+      "line": 64,
+      "end_line": 67,
       "hash": "293a679429a50caa6e29b9629d5412338bb3d9541f0affa9c5d5669ac0e09682"
     },
     {
       "id": "func/run_scan",
       "name": "run_scan",
-      "line": 78,
-      "end_line": 92,
-      "hash": "a5b01cc0f8dd5d9bb0b0adb9504bac885c5a880163d74f8492d5bc97d739f0e7"
+      "line": 70,
+      "end_line": 79,
+      "hash": "f003fc44e7c3cdd31cb1c17a7b083d0438c91ec73f4b77e167ab73ee2280a81c"
     },
     {
       "id": "func/_run_measurement",
       "name": "_run_measurement",
-      "line": 128,
-      "end_line": 132,
+      "line": 115,
+      "end_line": 119,
       "hash": "c1467df27d204a82544fdcd96cb97b972b7b2a81dc7f878623dbbb7e1272b685"
     },
     {
       "id": "func/_prepare_baseline_and_executor",
       "name": "_prepare_baseline_and_executor",
-      "line": 135,
-      "end_line": 168,
+      "line": 122,
+      "end_line": 155,
       "hash": "589c144395235b8adac517e41ebd2a46de823f12031caa7a27bc4c06d61b1951"
     },
     {
       "id": "func/_select_and_prepare",
       "name": "_select_and_prepare",
-      "line": 171,
-      "end_line": 257,
-      "hash": "cf62852b4f1a97e0a7902427d2bb28dbf2b4c374b4985ab0213425ed37477b9c"
+      "line": 158,
+      "end_line": 232,
+      "hash": "c9e07924a1f6f94a09c54b9d1a848e1c9b598dea7cf961c739f7480cebf2bf34"
     },
     {
       "id": "func/_recorded_survivor_keys",
       "name": "_recorded_survivor_keys",
-      "line": 260,
-      "end_line": 264,
+      "line": 235,
+      "end_line": 239,
       "hash": "2caf9f350eb375bc9a0154107e5892a37bc35603559ebd8b29828156b307bdc3"
     },
     {
       "id": "func/_scored_run_for",
       "name": "_scored_run_for",
-      "line": 267,
-      "end_line": 281,
+      "line": 242,
+      "end_line": 256,
       "hash": "c721eb5dbab34f508f0b6a269fd8ba77d976ad61fe4334eb195c68499d885a1e"
     },
     {
       "id": "func/_mutant_exec_ctx",
       "name": "_mutant_exec_ctx",
-      "line": 284,
-      "end_line": 306,
+      "line": 259,
+      "end_line": 281,
       "hash": "5dd535d9110d4e8c8c796f88f1097178355a146ed912eac09af79ec9bf5c6f18"
     },
     {
       "id": "func/run_mutations",
       "name": "run_mutations",
-      "line": 309,
-      "end_line": 326,
-      "hash": "26322031e5ae58968e050588a537b171d26c341d9407317335bad72a50ad2030"
+      "line": 284,
+      "end_line": 301,
+      "hash": "089698c1f0ac37bf9fcab19797bb04c306a725bf31e7b6bd09a131093d96caf1"
     },
     {
       "id": "func/_run_loop",
       "name": "_run_loop",
-      "line": 329,
-      "end_line": 359,
+      "line": 304,
+      "end_line": 334,
       "hash": "1667d113e60c4b0cb00a4206a04cc050eff1748083c468cd55a38f00ccde66bc"
     },
     {
       "id": "func/_report_run",
       "name": "_report_run",
-      "line": 362,
-      "end_line": 386,
+      "line": 337,
+      "end_line": 361,
       "hash": "9be6e1dbffe52fcc3c0a6078b4aedcb6cad35c7f1b726d48fb84984485a38054"
     }
   ]

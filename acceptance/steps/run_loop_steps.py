@@ -9,7 +9,18 @@ import textwrap
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 from acceptance.steps.cli_surface_helpers import assert_exit_status, mark_site_lines, survivor_flag
+from acceptance.steps.run_loop_helpers import (
+    FAILING_TEST_BODY,
+    ROOT_CONFTEST,
+    SAMPLE_MODULE,
+    compare_source,
+    function_names,
+    outcome_test_body,
+    reaching_test_body,
+    uncalled_source,
+)
 from acceptance.steps.step_lib import make_registry
+from mutate4py._manifest import strip_manifest
 
 STEP_HANDLERS, step, run_step = make_registry()
 
@@ -25,11 +36,6 @@ def _run_mutate4py(cwd: str, *args: str) -> subprocess.CompletedProcess:
     )
 
 
-def _make_lcov(source_abs: str, covered_lines: list[int]) -> str:
-    da = "\n".join(f"DA:{ln},1" for ln in sorted(covered_lines))
-    return f"SF:{source_abs}\n{da}\nend_of_record\n"
-
-
 def _write_test(path: str, body: str) -> None:
     with open(path, "w") as f:
         f.write(body)
@@ -39,13 +45,14 @@ class Context:
     def __init__(self):
         self.tmpdir: str | None = None
         self.src_path: str | None = None
-        self.lcov_path: str | None = None
         self.test_script: str | None = None
         self.cli_result: subprocess.CompletedProcess | None = None
         self.extra_cli_args: list[str] = []
         self.outcome_config: dict = {}
         self.bak_exists_setup: bool = False
         self.survivor_gate_under_test: bool = False
+        self.timeout_args: list[str] = []
+        self.expected_body: str | None = None
 
 
 ctx = Context()
@@ -54,13 +61,14 @@ ctx = Context()
 def _reset_ctx():
     ctx.tmpdir = None
     ctx.src_path = None
-    ctx.lcov_path = None
     ctx.test_script = None
     ctx.cli_result = None
     ctx.extra_cli_args = []
     ctx.outcome_config = {}
     ctx.bak_exists_setup = False
     ctx.survivor_gate_under_test = False
+    ctx.timeout_args = []
+    ctx.expected_body = None
 
 
 def _ensure_tmpdir() -> str:
@@ -82,9 +90,8 @@ def _write_default_source(src_path: str) -> None:
         f.write(_default_source())
 
 
-def _write_default_lcov(lcov_path: str, src_path: str, lines: list[int]) -> None:
-    with open(lcov_path, "w") as f:
-        f.write(_make_lcov(src_path, lines))
+def _set_tests(body: str) -> None:
+    _write_test(ctx.test_script, body)
 
 
 # ── Background ────────────────────────────────────────────────────────────────
@@ -94,11 +101,10 @@ def _write_default_lcov(lcov_path: str, src_path: str, lines: list[int]) -> None
 def given_source_with_covered_sites(m, params):
     _reset_ctx()
     d = _ensure_tmpdir()
-    ctx.src_path = os.path.join(d, "sample.py")
+    ctx.src_path = os.path.join(d, f"{SAMPLE_MODULE}.py")
     _write_default_source(ctx.src_path)
-    ctx.lcov_path = os.path.join(d, "cov.lcov")
-    # line 2 is the comparison site
-    _write_default_lcov(ctx.lcov_path, ctx.src_path, [2])
+    # An empty conftest.py puts the project root on sys.path for the tests.
+    _write_test(os.path.join(d, "conftest.py"), ROOT_CONFTEST)
 
 
 @step(r"a baseline test command that passes")
@@ -107,122 +113,53 @@ def given_baseline_passes(m, params):
     tests_dir = os.path.join(d, "tests")
     os.makedirs(tests_dir, exist_ok=True)
     ctx.test_script = os.path.join(tests_dir, "test_qa.py")
-    # By default, the test passes; mutant outcome setup will override
-    _write_test(ctx.test_script, "def test_qa():\n    pass\n")
+    # By default the tests reach the site and check nothing; outcome steps override
+    _set_tests(reaching_test_body(SAMPLE_MODULE, ["calc"]))
 
 
 # ── Given steps ───────────────────────────────────────────────────────────────
 
 
+_OUTCOME_FOR_RUN = {"exit nonzero": "kill", "exit zero": "survive", "exceed timeout": "timeout"}
+
+# The mutant timeout is max(min-timeout, factor x baseline); a short floor keeps timeout scenarios quick.
+_FAST_TIMEOUT_ARGS = ["--timeout-factor", "1", "--min-timeout", "0.1"]
+
+
 @step(r'the mutated test run will "([^"]*)"')
 def given_mutated_outcome(m, params):
     outcome = params.get("outcome") or m.group(1)
-    src_path = ctx.src_path
-    if outcome == "exit nonzero":
-        # The test passes on baseline (original) but fails when mutant is present
-        body = (
-            "def test_qa():\n"
-            f"    with open({src_path!r}) as f:\n"
-            "        content = f.read()\n"
-            "    assert '>=' not in content\n"
-        )
-    elif outcome == "exit zero":
-        # Always passes (mutant survives)
-        body = "def test_qa():\n    pass\n"
-    elif outcome == "exceed timeout":
-        # Baseline is fast; mutant causes timeout via sleep
-        body = (
-            "import time\n\n"
-            "def test_qa():\n"
-            f"    with open({src_path!r}) as f:\n"
-            "        content = f.read()\n"
-            "    if '>=' in content:\n"
-            "        time.sleep(30)\n"
-        )
-    else:
+    if outcome not in _OUTCOME_FOR_RUN:
         raise ValueError(f"Unknown outcome: {outcome}")
     ctx.outcome_config["outcome"] = outcome
-    _write_test(ctx.test_script, body)
+    _set_tests(outcome_test_body(SAMPLE_MODULE, {"calc": _OUTCOME_FOR_RUN[outcome]}))
+    if outcome == "exceed timeout":
+        ctx.timeout_args = list(_FAST_TIMEOUT_ARGS)
 
 
 @step(r"(\d+) mutants exit nonzero and (\d+) time out and (\d+) exit zero")
 def given_multi_outcome(m, params):
-    killed = params.get("killed") or m.group(1)
-    timed = params.get("timed") or m.group(2)
-    survived = params.get("survived") or m.group(3)
-    ctx.outcome_config["killed"] = int(killed)
-    ctx.outcome_config["timed"] = int(timed)
-    ctx.outcome_config["survived"] = int(survived)
-    d = _ensure_tmpdir()
-    src_path = ctx.src_path
-
-    # We need a source with killed+timed+survived covered sites
-    # and a script that behaves differently per mutant.
-    # Strategy: use a counter file to track which call this is.
-    total_mutants = int(killed) + int(timed) + int(survived)
-
-    # Write source with enough sites
-    src_lines = ["def f{}(a, b):".format(i) for i in range(total_mutants)]
-    src_body_lines = []
-    for i in range(total_mutants):
-        src_body_lines.append(f"def f{i}(a, b):")
-        src_body_lines.append(f"    return a > b")
-    source_content = "\n".join(src_body_lines) + "\n"
+    killed = int(params.get("killed") or m.group(1))
+    timed = int(params.get("timed") or m.group(2))
+    survived = int(params.get("survived") or m.group(3))
+    ctx.outcome_config.update(killed=killed, timed=timed, survived=survived)
+    names = function_names(killed + timed + survived)
+    outcomes = ["kill"] * killed + ["timeout"] * timed + ["survive"] * survived
+    source, _ = compare_source(len(names))
     with open(ctx.src_path, "w") as f:
-        f.write(source_content)
-
-    # Update LCOV to cover all the comparison lines (even-indexed lines: 2, 4, 6...)
-    covered = [2 * (i + 1) for i in range(total_mutants)]
-    _write_default_lcov(ctx.lcov_path, ctx.src_path, covered)
-
-    # Counter file
-    counter_path = os.path.join(d, "call_counter.txt")
-    with open(counter_path, "w") as f:
-        f.write("0")
-
-    # Test that reads the counter and decides outcome: call 0 is baseline
-    # (always passes), then the first killed_n calls fail, the next timed_n
-    # calls sleep past the timeout, and the rest pass.
-    killed_n = int(killed)
-    timed_n = int(timed)
-    body = (
-        "import time\n\n"
-        "def test_qa():\n"
-        f"    counter_path = {counter_path!r}\n"
-        "    with open(counter_path) as f:\n"
-        "        count = int(f.read())\n"
-        "    with open(counter_path, 'w') as f:\n"
-        "        f.write(str(count + 1))\n"
-        "    if count == 0:\n"
-        "        return\n"
-        f"    if count <= {killed_n}:\n"
-        "        assert False\n"
-        f"    if count <= {killed_n} + {timed_n}:\n"
-        "        time.sleep(30)\n"
-    )
-    _write_test(ctx.test_script, body)
-    ctx.extra_cli_args = ["--timeout-factor", "1", "--min-timeout", "0.1"]
+        f.write(source)
+    _set_tests(outcome_test_body(SAMPLE_MODULE, dict(zip(names, outcomes))))
+    ctx.timeout_args = list(_FAST_TIMEOUT_ARGS)
 
 
 @step(r"there are (\d+) uncovered sites")
 def given_uncovered_sites(m, params):
-    uncovered = params.get("uncovered") or m.group(1)
-    n = int(uncovered)
+    n = int(params.get("uncovered") or m.group(1))
     if n == 0:
         return
-    d = _ensure_tmpdir()
-    # Add n sites to the source that are NOT in the LCOV
-    with open(ctx.src_path) as f:
-        src = f.read()
-    extra_lines = []
-    for i in range(n):
-        extra_lines.append(f"def uncov{i}(a, b):")
-        extra_lines.append("    return a > b")
-    extra_src = "\n".join(extra_lines) + "\n"
-    new_src = src + extra_src
-    with open(ctx.src_path, "w") as f:
-        f.write(new_src)
-    # LCOV remains unchanged — the extra lines are uncovered
+    # Functions no test calls: their sites are never reached by the Measurement.
+    with open(ctx.src_path, "a") as f:
+        f.write(uncalled_source(n, 1))
 
 
 @step(
@@ -232,7 +169,6 @@ def given_single_site_line7(m, params):
     fid = params.get("func/calc") or m.group(1)
     orig = params.get("a > b") or m.group(2)
     mutant = params.get("a >= b") or m.group(3)
-    d = _ensure_tmpdir()
     # Build source with exactly one site on line 7 in function func/calc
     source = textwrap.dedent("""\
         # line 1
@@ -245,19 +181,11 @@ def given_single_site_line7(m, params):
     """)
     with open(ctx.src_path, "w") as f:
         f.write(source)
-    _write_default_lcov(ctx.lcov_path, ctx.src_path, [7])
 
 
 @step(r"that mutant exits nonzero")
 def given_that_mutant_exits_nonzero(m, params):
-    src_path = ctx.src_path
-    body = (
-        "def test_qa():\n"
-        f"    with open({src_path!r}) as f:\n"
-        "        content = f.read()\n"
-        "    assert '>=' not in content\n"
-    )
-    _write_test(ctx.test_script, body)
+    _set_tests(outcome_test_body(SAMPLE_MODULE, {"calc": "kill"}))
 
 
 @step(r'the baseline takes "([^"]*)" to pass')
@@ -277,7 +205,7 @@ def given_timeout_factor(m, params):
 
 @step(r"the baseline test command fails")
 def given_baseline_fails(m, params):
-    _write_test(ctx.test_script, "def test_qa():\n    assert False\n")
+    _set_tests(FAILING_TEST_BODY)
 
 
 @step(r'the file "([^"]*)" an existing manifest')
@@ -343,25 +271,17 @@ def given_at_least_one_uncovered(m, params):
         new_src = new_clean
     with open(ctx.src_path, "w") as f:
         f.write(new_src)
-    # LCOV not updated — the extra lines are uncovered
+    # No test calls the extra function, so its site is uncovered
 
 
 @step(r'the file has "([^"]*)" total mutation sites')
 def given_total_sites(m, params):
-    total = params.get("total") or m.group(1)
-    n = int(total)
-    d = _ensure_tmpdir()
-    # Build source with exactly n mutation sites (all covered)
-    lines = []
-    for i in range(n):
-        lines.append(f"def f{i}(a, b):")
-        lines.append(f"    return a > b")
-    source = "\n".join(lines) + "\n"
+    n = int(params.get("total") or m.group(1))
+    source, _ = compare_source(n)
     with open(ctx.src_path, "w") as f:
         f.write(source)
-    # Cover all sites (every even line)
-    covered = [2 * (i + 1) for i in range(n)]
-    _write_default_lcov(ctx.lcov_path, ctx.src_path, covered)
+    # The warning counts every site, reached or not; nothing calls these, so no mutant runs.
+    _set_tests("def test_qa():\n    pass\n")
 
 
 @step(r'the mutation warning threshold is "([^"]*)"')
@@ -372,7 +292,6 @@ def given_warning_threshold(m, params):
 
 @step(r'a "\.mutate4py\.bak" file exists from a previous interrupted run')
 def given_bak_exists(m, params):
-    d = _ensure_tmpdir()
     bak_path = ctx.src_path + ".bak"
     # bak holds the clean source
     with open(ctx.src_path) as f:
@@ -383,14 +302,7 @@ def given_bak_exists(m, params):
     with open(ctx.src_path, "w") as f:
         f.write(clean.replace("a > b", "a >= b"))
     ctx.bak_exists_setup = True
-
-
-@step(r"a readable LCOV file at the default coverage path")
-def given_reuse_lcov(m, params):
-    d = _ensure_tmpdir()
-    lcov_path = os.path.join(d, "coverage.lcov")
-    _write_default_lcov(lcov_path, ctx.src_path, [2])
-    ctx.extra_cli_args = []  # --reuse-coverage will be added at run time
+    ctx.expected_body = clean
 
 
 # ── When steps ────────────────────────────────────────────────────────────────
@@ -399,20 +311,13 @@ def given_reuse_lcov(m, params):
 @step(r"I run mutate4py mutating that file")
 def when_run(m, params):
     d = _ensure_tmpdir()
-    args = [ctx.src_path, "--lcov", ctx.lcov_path, "--pytest-args", "tests"]
-    args += ctx.extra_cli_args
+    if ctx.expected_body is None:
+        with open(ctx.src_path) as f:
+            ctx.expected_body = strip_manifest(f.read())
+    args = [ctx.src_path, "--pytest-args", "tests"]
+    args += ctx.extra_cli_args + ctx.timeout_args
     # Scored runs exit 3 on an unaccepted survivor. Only the survivor-gate
     # scenario runs without --allow-survivors; the rest assert exit 0 for other reasons.
-    if not ctx.survivor_gate_under_test:
-        args += survivor_flag(args)
-    ctx.cli_result = _run_mutate4py(d, *args)
-
-
-@step(r'I run mutate4py mutating that file with "([^"]*)"')
-def when_run_with_flags(m, params):
-    extra = params.get("--reuse-coverage") or m.group(1)
-    d = _ensure_tmpdir()
-    args = [ctx.src_path, "--pytest-args", "tests"] + extra.split()
     if not ctx.survivor_gate_under_test:
         args += survivor_flag(args)
     ctx.cli_result = _run_mutate4py(d, *args)
@@ -610,16 +515,10 @@ def then_warning_conditional(m, params):
 def then_source_restored(m, params):
     with open(ctx.src_path) as f:
         content = f.read()
-    # The original source had "a > b"; after run it should be restored
-    # (manifest footer may be present, but the body should be unchanged)
-    assert ">=" not in content or "# mutate4py-manifest" in content, (
-        f"Source appears to still have mutant:\n{content}"
+    # Byte for byte: the body above the manifest footer is what it was before the run.
+    assert strip_manifest(content) == ctx.expected_body, (
+        f"source body differs from the pre-run body:\n{strip_manifest(content)!r}\n!=\n{ctx.expected_body!r}"
     )
-    # More specifically: the actual code body should not have the mutant
-    from mutate4py._manifest import strip_manifest
-
-    body = strip_manifest(content)
-    assert ">=" not in body, f"Mutant still in source body:\n{body}"
 
 
 @step(r'the source ends with a fresh "mutate4py-manifest" footer')
@@ -646,26 +545,10 @@ def then_restored_from_backup(m, params):
 
 @step(r"the source matches the backup before discovery proceeds")
 def then_source_matches_backup(m, params):
-    # After the run, source should be restored to original (not the mutant-spliced version)
     with open(ctx.src_path) as f:
         content = f.read()
-    from mutate4py._manifest import strip_manifest
-
-    body = strip_manifest(content)
-    assert "a > b" in body or ">=" not in body, (
-        f"Source does not match original:\n{body}"
-    )
-
-
-@step(r'that line appears before the "Mutation run:" line')
-def then_line_before_header(m, params):
-    stdout = ctx.cli_result.stdout
-    assert "Reusing existing coverage" in stdout
-    assert "Mutation run:" in stdout
-    warn_pos = stdout.index("Reusing existing coverage")
-    header_pos = stdout.index("Mutation run:")
-    assert warn_pos < header_pos, (
-        f"Stale-coverage warning must appear before 'Mutation run:' header"
+    assert strip_manifest(content) == ctx.expected_body, (
+        f"source body is not the backup body:\n{strip_manifest(content)!r}\n!=\n{ctx.expected_body!r}"
     )
 
 

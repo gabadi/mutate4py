@@ -6,7 +6,7 @@ import sys
 
 from mutate4py._cli_validation import (
     ValidationError,
-    _check_coverage_flags,
+    _check_removed_coverage_flags,
     _check_test_contexts_file,
     _validate_mutual_exclusions,
 )
@@ -84,18 +84,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Skip files whose path matches PATTERN "
         "('*' matches one path segment, '**' matches zero or more; repeatable)",
     )
-    parser.add_argument(
-        "--cov-cmd",
-        dest="cov_cmd",
-        default=None,
-        help="Shell command to run once to generate LCOV coverage",
-    )
-    parser.add_argument("--lcov", dest="lcov", default=None, help="Path to a pre-generated LCOV file")
+    # Removed in 0.3.0: parsed so that _check_removed_coverage_flags can refuse
+    # them with a message naming the flag, and hidden from --help.
+    parser.add_argument("--cov-cmd", dest="cov_cmd", default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--lcov", dest="lcov", default=None, help=argparse.SUPPRESS)
     parser.add_argument(
         "--reuse-coverage",
         action="store_true",
         dest="reuse_coverage",
-        help="Read LCOV from coverage.lcov (default path)",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--pytest-args",
@@ -204,7 +201,7 @@ def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
     try:
-        _check_coverage_flags(args)
+        _check_removed_coverage_flags(args)
         _validate_mutual_exclusions(args)
         _check_test_contexts_file(args)
         _dispatch(args)

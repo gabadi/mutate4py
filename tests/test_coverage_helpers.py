@@ -1,330 +1,158 @@
 """Unit tests for acceptance/steps/coverage_helpers.py."""
 
-import os
-import tempfile
+import ast
+import types
 
 import pytest
 
 from acceptance.steps.coverage_helpers import (
-    assert_cmd_ran_n_times,
-    make_calc_source,
-    make_lcov,
-    make_source_with_sites_on_lines,
-    resolve_sf_path,
-    substitute_cmd_placeholders,
-    substitute_qa_cmd_placeholders,
-    write_counter_script,
-)
-
-
-# ── make_source_with_sites_on_lines ──────────────────────────────────────────
-
-
-@pytest.mark.unit
-def test_make_source_sites_on_given_lines():
-    src = make_source_with_sites_on_lines("3,5")
-    lines = src.splitlines()
-    assert lines[2] == "x = a + b"
-    assert lines[4] == "x = a + b"
-    assert lines[0] == ""
-    assert lines[1] == ""
-
-
-@pytest.mark.unit
-def test_make_source_empty_string():
-    src = make_source_with_sites_on_lines("")
-    assert src == "\n"
-
-
-@pytest.mark.unit
-def test_make_source_single_line():
-    src = make_source_with_sites_on_lines("1")
-    assert src.splitlines()[0] == "x = a + b"
-
-
-# ── make_calc_source ─────────────────────────────────────────────────────────
-
-
-@pytest.mark.unit
-def test_make_calc_source_puts_compare_expr():
-    src = make_calc_source("2,4")
-    lines = src.splitlines()
-    assert lines[1] == "x = a > b"
-    assert lines[3] == "x = a > b"
-    assert lines[0] == ""
-    assert lines[2] == ""
-
-
-# ── make_lcov ────────────────────────────────────────────────────────────────
-
-
-@pytest.mark.unit
-def test_make_lcov_format():
-    text = make_lcov("/src/foo.py", {3, 5})
-    assert "SF:/src/foo.py" in text
-    assert "DA:3,1" in text
-    assert "DA:5,1" in text
-    assert "end_of_record" in text
-
-
-@pytest.mark.unit
-def test_make_lcov_empty_lines():
-    text = make_lcov("/src/foo.py", set())
-    assert "SF:/src/foo.py" in text
-    assert "DA:" not in text
-
-
-# ── resolve_sf_path ──────────────────────────────────────────────────────────
-
-
-@pytest.mark.unit
-def test_resolve_sf_absolute_suffix():
-    result = resolve_sf_path("absolute-suffix", "/abs/path/foo.py")
-    assert result == "/abs/path/foo.py"
-
-
-@pytest.mark.unit
-def test_resolve_sf_relative_suffix():
-    result = resolve_sf_path("relative-suffix", "/abs/path/foo.py")
-    assert result == "foo.py"
-
-
-@pytest.mark.unit
-def test_resolve_sf_passthrough():
-    result = resolve_sf_path("/other/path.py", "/abs/path/foo.py")
-    assert result == "/other/path.py"
-
-
-# ── write_counter_script ─────────────────────────────────────────────────────
-
-
-@pytest.mark.unit
-def test_write_counter_script_creates_executable():
-    with tempfile.TemporaryDirectory() as d:
-        script = os.path.join(d, "run.sh")
-        counter = os.path.join(d, "count.log")
-        lcov = os.path.join(d, "cov.lcov")
-        write_counter_script(script, counter, lcov, "SF:foo\nend_of_record\n")
-        assert os.access(script, os.X_OK)
-
-
-# ── assert_cmd_ran_n_times ───────────────────────────────────────────────────
-
-
-@pytest.mark.unit
-def test_assert_cmd_ran_zero_no_file():
-    with tempfile.TemporaryDirectory() as d:
-        assert_cmd_ran_n_times(d, 0)  # no file → passes
-
-
-@pytest.mark.unit
-def test_assert_cmd_ran_zero_fails_if_file_exists():
-    with tempfile.TemporaryDirectory() as d:
-        open(os.path.join(d, "cov_runs.log"), "w").close()
-        try:
-            assert_cmd_ran_n_times(d, 0)
-            assert False, "expected AssertionError"
-        except AssertionError:
-            pass
-
-
-@pytest.mark.unit
-def test_assert_cmd_ran_once():
-    with tempfile.TemporaryDirectory() as d:
-        with open(os.path.join(d, "cov_runs.log"), "w") as f:
-            f.write("x")
-        assert_cmd_ran_n_times(d, 1)
-
-
-@pytest.mark.unit
-def test_assert_cmd_ran_mismatch_fails():
-    with tempfile.TemporaryDirectory() as d:
-        with open(os.path.join(d, "cov_runs.log"), "w") as f:
-            f.write("xx")
-        try:
-            assert_cmd_ran_n_times(d, 1)
-            assert False, "expected AssertionError"
-        except AssertionError:
-            pass
-
-
-# ── substitute_cmd_placeholders ───────────────────────────────────────────────
-
-
-@pytest.mark.unit
-def test_substitute_cmd_cmd_token():
-    result = substitute_cmd_placeholders("--cov-cmd CMD", "/tmp/d", "/scripts/run.sh")
-    assert result == "--cov-cmd /scripts/run.sh"
-
-
-@pytest.mark.unit
-def test_substitute_cmd_lcov_token():
-    result = substitute_cmd_placeholders("--lcov cov.info", "/tmp/d", None)
-    assert result == f"--lcov {os.path.join('/tmp/d', 'cov.info')}"
-
-
-@pytest.mark.unit
-def test_substitute_cmd_no_change():
-    result = substitute_cmd_placeholders("--scan", "/tmp/d", None)
-    assert result == "--scan"
-
-
-# ── substitute_qa_cmd_placeholders ────────────────────────────────────────────
-
-
-@pytest.mark.unit
-def test_substitute_qa_cmd_token():
-    result = substitute_qa_cmd_placeholders("--cov-cmd CMD", "/tmp/d", "/run.sh", None)
-    assert "--cov-cmd /run.sh" in result
-
-
-@pytest.mark.unit
-def test_substitute_qa_that_command_token():
-    result = substitute_qa_cmd_placeholders("--cov-cmd '<that command>'", "/tmp/d", "/run.sh", None)
-    assert "--cov-cmd /run.sh" in result
-
-
-@pytest.mark.unit
-def test_substitute_qa_abspath_calc():
-    result = substitute_qa_cmd_placeholders("<abspath>/calc.py --scan", "/tmp/d", None, "/abs/calc.py")
-    assert result.startswith("/abs/calc.py")
-
-
-@pytest.mark.unit
-def test_substitute_qa_bare_calc():
-    result = substitute_qa_cmd_placeholders("calc.py --scan", "/tmp/d", None, "/abs/calc.py")
-    assert result.startswith("/abs/calc.py")
-
-
-@pytest.mark.unit
-def test_substitute_qa_lcov_path():
-    result = substitute_qa_cmd_placeholders("calc.py --lcov cov.info", "/tmp/d", None, "/abs/calc.py")
-    assert f"--lcov {os.path.join('/tmp/d', 'cov.info')}" in result
-
-
-# ── assert_stdout_contains / assert_stdout_not_contains ──────────────────────
-
-
-class _FakeResult:
-    def __init__(self, stdout, stderr="", returncode=0):
-        self.stdout = stdout
-        self.stderr = stderr
-        self.returncode = returncode
-
-
-from acceptance.steps.coverage_helpers import (  # noqa: E402
-    assert_baseline_scan,
-    assert_exit_nonzero,
-    assert_exit_zero,
+    HALF_TAKEN_BRANCH_SOURCE,
+    HALF_TAKEN_BRANCH_TEST,
+    IMPORT_TIME_SOURCE,
+    IMPORTING_CONFTEST,
+    REMOVED_FLAG_MESSAGE,
+    assert_exit_status,
+    assert_no_backup_beside,
+    assert_no_partition_counts,
+    assert_output_contains,
     assert_stdout_contains,
     assert_stdout_not_contains,
-    make_lcov_brda_only,
-    make_lcov_da_zero,
-    make_lcov_single_da,
-    make_noop_script,
+    called_names,
+    core_recording_test,
+    first_recorded_core,
+    removed_flag_refusal,
+    removed_flag_tokens,
     step_param,
 )
 
 
-@pytest.mark.unit
-def test_assert_stdout_contains_passes():
-    assert_stdout_contains(_FakeResult("Total mutation sites: 5"), "Total mutation sites: 5")
+def _result(stdout="", stderr="", returncode=0):
+    return types.SimpleNamespace(stdout=stdout, stderr=stderr, returncode=returncode)
 
 
 @pytest.mark.unit
-def test_assert_stdout_contains_fails():
+def test_step_param_prefers_the_outline_value_over_the_regex_group():
+    match = types.SimpleNamespace(group=lambda i: "from-regex")
+    assert step_param(match, {"key": "from-outline"}, "key") == "from-outline"
+    assert step_param(match, {}, "key") == "from-regex"
+
+
+@pytest.mark.unit
+def test_called_names_splits_on_commas_and_trims():
+    assert called_names("f1, f3") == ["f1", "f3"]
+
+
+@pytest.mark.unit
+def test_called_names_of_an_empty_cell_is_empty():
+    assert called_names("") == []
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "description, tokens",
+    [
+        ("--cov-cmd CMD", ["--cov-cmd", "true"]),
+        ("--lcov cov.info", ["--lcov", "cov.info"]),
+        ("--reuse-coverage", ["--reuse-coverage"]),
+    ],
+)
+def test_removed_flag_tokens_supply_the_flag(description, tokens):
+    assert removed_flag_tokens(description) == tokens
+
+
+@pytest.mark.unit
+def test_removed_flag_tokens_rejects_an_unknown_row():
+    with pytest.raises(NotImplementedError, match="Unknown removed flag"):
+        removed_flag_tokens("--cov-all")
+
+
+@pytest.mark.unit
+def test_removed_flag_refusal_names_the_bare_flag_and_the_replacement():
+    assert removed_flag_refusal("--lcov cov.info") == "--lcov removed in 0.3.0: the run measures coverage itself"
+    assert REMOVED_FLAG_MESSAGE in removed_flag_refusal("--reuse-coverage")
+
+
+@pytest.mark.unit
+def test_fixture_sources_parse_and_the_conftest_imports_the_module():
+    for source in (IMPORT_TIME_SOURCE, HALF_TAKEN_BRANCH_SOURCE, HALF_TAKEN_BRANCH_TEST):
+        ast.parse(source)
+    assert IMPORTING_CONFTEST.startswith("import sample")
+
+
+@pytest.mark.unit
+def test_the_half_taken_branch_test_never_enters_the_if_arm():
+    namespace: dict = {}
+    exec(compile(HALF_TAKEN_BRANCH_SOURCE, "<sample>", "exec"), namespace)
+    assert namespace["f1"](0, 1) == 0
+
+
+@pytest.mark.unit
+def test_core_recording_test_appends_the_core_it_ran_under(tmp_path, monkeypatch):
+    record = tmp_path / "cores.txt"
+    namespace: dict = {}
+    exec(compile(core_recording_test(str(record)), "<test>", "exec"), namespace)
+    monkeypatch.setenv("COVERAGE_CORE", "ctrace")
+    namespace["test_core"]()
+    monkeypatch.delenv("COVERAGE_CORE")
+    namespace["test_core"]()
+    assert record.read_text() == "ctrace\n(unset)\n"
+
+
+@pytest.mark.unit
+def test_first_recorded_core_is_the_first_line(tmp_path):
+    record = tmp_path / "cores.txt"
+    record.write_text("ctrace\nsysmon\n")
+    assert first_recorded_core(str(record)) == "ctrace"
+
+
+@pytest.mark.unit
+def test_first_recorded_core_fails_when_nothing_was_recorded(tmp_path):
+    with pytest.raises(AssertionError, match="no run recorded"):
+        first_recorded_core(str(tmp_path / "missing.txt"))
+    empty = tmp_path / "empty.txt"
+    empty.write_text("")
+    with pytest.raises(AssertionError, match="is empty"):
+        first_recorded_core(str(empty))
+
+
+@pytest.mark.unit
+def test_stdout_assertions():
+    assert_stdout_contains(_result(stdout="a b"), "a")
+    assert_stdout_not_contains(_result(stdout="a b"), "z")
+    with pytest.raises(AssertionError, match="expected 'z'"):
+        assert_stdout_contains(_result(stdout="a b"), "z")
+    with pytest.raises(AssertionError, match="unexpected 'a'"):
+        assert_stdout_not_contains(_result(stdout="a b"), "a")
+
+
+@pytest.mark.unit
+def test_assert_exit_status_compares_the_return_code():
+    assert_exit_status(_result(returncode=2), 2)
+    with pytest.raises(AssertionError, match="expected exit 2, got 0"):
+        assert_exit_status(_result(returncode=0), 2)
+
+
+@pytest.mark.unit
+def test_assert_output_contains_reads_both_streams():
+    assert_output_contains(_result(stderr="boom"), "boom")
+    assert_output_contains(_result(stdout="fine"), "fine")
+    with pytest.raises(AssertionError, match="expected 'boom'"):
+        assert_output_contains(_result(stdout="fine"), "boom")
+
+
+@pytest.mark.unit
+def test_assert_no_partition_counts():
+    assert_no_partition_counts(_result(stdout="Mutation scan: x"))
     with pytest.raises(AssertionError):
-        assert_stdout_contains(_FakeResult("something else"), "Total mutation sites: 5")
-
-
-@pytest.mark.unit
-def test_assert_stdout_not_contains_passes():
-    assert_stdout_not_contains(_FakeResult("unrelated"), "Covered mutation sites:")
-
-
-@pytest.mark.unit
-def test_assert_stdout_not_contains_fails():
+        assert_no_partition_counts(_result(stdout="Covered mutation sites: 1"))
     with pytest.raises(AssertionError):
-        assert_stdout_not_contains(_FakeResult("Covered mutation sites: 3"), "Covered mutation sites:")
+        assert_no_partition_counts(_result(stdout="Uncovered mutation sites: 1"))
 
 
 @pytest.mark.unit
-def test_assert_exit_zero_passes():
-    assert_exit_zero(_FakeResult("ok", returncode=0))
-
-
-@pytest.mark.unit
-def test_assert_exit_zero_fails():
-    with pytest.raises(AssertionError):
-        assert_exit_zero(_FakeResult("", returncode=1))
-
-
-@pytest.mark.unit
-def test_assert_exit_nonzero_passes():
-    assert_exit_nonzero(_FakeResult("", returncode=1))
-
-
-@pytest.mark.unit
-def test_assert_exit_nonzero_fails():
-    with pytest.raises(AssertionError):
-        assert_exit_nonzero(_FakeResult("", returncode=0))
-
-
-@pytest.mark.unit
-def test_assert_baseline_scan_passes():
-    assert_baseline_scan(_FakeResult("Total mutation sites: 3"), 3)
-
-
-@pytest.mark.unit
-def test_assert_baseline_scan_fails_wrong_count():
-    with pytest.raises(AssertionError):
-        assert_baseline_scan(_FakeResult("Total mutation sites: 5"), 3)
-
-
-@pytest.mark.unit
-def test_make_lcov_da_zero():
-    text = make_lcov_da_zero("/src/foo.py", 7)
-    assert "DA:7,0" in text
-    assert "SF:/src/foo.py" in text
-
-
-@pytest.mark.unit
-def test_make_lcov_brda_only():
-    text = make_lcov_brda_only("/src/foo.py", 3)
-    assert "BRDA:3,0,0,1" in text
-    assert "\nDA:" not in text
-
-
-@pytest.mark.unit
-def test_make_lcov_single_da():
-    text = make_lcov_single_da("foo.py", 5)
-    assert "DA:5,1" in text
-    assert "SF:foo.py" in text
-
-
-@pytest.mark.unit
-def test_make_noop_script_runs():
-    import subprocess
-
-    with tempfile.TemporaryDirectory() as d:
-        script = make_noop_script(os.path.join(d, "noop.sh"))
-        result = subprocess.run([script], capture_output=True)
-        assert result.returncode == 0
-
-
-@pytest.mark.unit
-def test_step_param_uses_params_when_present():
-    class FakeM:
-        def group(self, n):
-            return "from_match"
-
-    assert step_param(FakeM(), {"key": "from_params"}, "key") == "from_params"
-
-
-@pytest.mark.unit
-def test_step_param_falls_back_to_match():
-    class FakeM:
-        def group(self, n):
-            return "from_match"
-
-    assert step_param(FakeM(), {}, "key") == "from_match"
+def test_assert_no_backup_beside(tmp_path):
+    source = tmp_path / "s.py"
+    assert_no_backup_beside(str(source))
+    (tmp_path / "s.py.bak").write_text("")
+    with pytest.raises(AssertionError, match="unexpected backup file"):
+        assert_no_backup_beside(str(source))

@@ -14,7 +14,7 @@ states, one of which is damaging.
 | `line-absent` / `file-absent` | the db cannot account for the line | **abort, exit 2** |
 | `no-tests-collected` / `usage-error` | dispatch built a command (pytest exit 5 / 4), but pytest ran no test at all for the Mutant | **abort, exit 2** |
 
-**Why case 3 is an error and not a fallback.** Selected sites are LCOV-covered *by
+**Why case 3 is an error and not a fallback.** Selected sites are covered *by
 construction* — the coverage gate runs before selection. So a db miss can only be an
 input defect: a stale db, a path-format mismatch, or coverage recorded in a
 subprocess `--cov-context` cannot see. Never "uncovered code". Silently falling back

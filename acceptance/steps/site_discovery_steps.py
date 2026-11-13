@@ -1,6 +1,8 @@
 """Step handlers for features/site-discovery.feature."""
 
 import os
+import shutil
+import subprocess
 import sys
 import tempfile
 
@@ -16,6 +18,8 @@ from acceptance.steps.step_lib import (
 STEP_HANDLERS, step, run_step = make_registry()
 
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+_FIXTURES_DIR = os.path.join(_REPO_ROOT, "acceptance", "fixtures")
+_MARKER = "test_ran.marker"
 
 
 _CONSTRUCT_SOURCES = {
@@ -75,6 +79,8 @@ class Context:
         self.source_path = None
         self.source_content = None
         self.cli_result = None
+        self.scans: list = []
+        self.listing_before: list[str] = []
 
 
 ctx = Context()
@@ -240,3 +246,76 @@ def then_usage_error(m, params):
 @step(r"no mutation scan block is printed")
 def then_no_scan_block_main(m, params):
     assert_no_scan_block(ctx.cli_result)
+
+
+# Committed fixtures: scanned from a scratch copy beside a real test, so "runs no tests" is observed
+
+
+def _scan_in_place(path: str) -> subprocess.CompletedProcess:
+    """`mutate4py <path> --scan` run from the copy's own directory, as a user would."""
+    return subprocess.run(
+        ["uv", "run", "--project", _REPO_ROOT, "python", "-m", "mutate4py", path, "--scan"],
+        capture_output=True,
+        text=True,
+        cwd=os.path.dirname(path),
+    )
+
+
+def _listing(directory: str) -> list[str]:
+    found = []
+    for root, dirs, files in os.walk(directory):
+        dirs[:] = [d for d in dirs if d != "__pycache__"]
+        found.extend(os.path.relpath(os.path.join(root, f), directory) for f in files)
+    return sorted(found)
+
+
+@step(r'a copy of the committed fixture "([^"]+)"')
+def given_fixture_copy(m, params):
+    fixture = params.get("fixture") or m.group(1)
+    ctx.tmpdir = tempfile.mkdtemp(prefix="site_discovery_")
+    ctx.source_path = os.path.join(ctx.tmpdir, fixture)
+    shutil.copy2(os.path.join(_FIXTURES_DIR, fixture), ctx.source_path)
+    with open(ctx.source_path, "rb") as f:
+        ctx.source_content = f.read()
+    ctx.scans = []
+
+
+@step(r"a test beside it that leaves a marker file when it runs")
+def given_marker_test(m, params):
+    tests_dir = os.path.join(ctx.tmpdir, "tests")
+    os.makedirs(tests_dir)
+    marker = os.path.join(ctx.tmpdir, _MARKER)
+    with open(os.path.join(tests_dir, "test_marker.py"), "w") as f:
+        f.write(f"def test_marker():\n    open({marker!r}, 'w').close()\n")
+    ctx.listing_before = _listing(ctx.tmpdir)
+
+
+@step(r"the copy is scanned from its own directory")
+def when_copy_scanned(m, params):
+    ctx.scans = [_scan_in_place(ctx.source_path)]
+
+
+@step(r"the copy is scanned twice from its own directory")
+def when_copy_scanned_twice(m, params):
+    ctx.scans = [_scan_in_place(ctx.source_path), _scan_in_place(ctx.source_path)]
+
+
+@step(r"the copy is byte for byte what it was")
+def then_copy_unchanged(m, params):
+    assert ctx.scans and ctx.scans[0].returncode == 0, f"the scan failed: {ctx.scans[0].stderr}"
+    with open(ctx.source_path, "rb") as f:
+        assert f.read() == ctx.source_content, "the scan modified the fixture copy"
+
+
+@step(r"the test left no marker and nothing else was written beside the copy")
+def then_no_test_ran(m, params):
+    assert not os.path.exists(os.path.join(ctx.tmpdir, _MARKER)), "a test ran during the scan"
+    assert _listing(ctx.tmpdir) == ctx.listing_before, f"the scan wrote files: {_listing(ctx.tmpdir)}"
+
+
+@step(r"both scans print the same block")
+def then_scans_agree(m, params):
+    first, second = ctx.scans
+    assert first.returncode == 0 and second.returncode == 0, f"a scan failed:\n{first.stderr}\n{second.stderr}"
+    assert first.stdout.strip(), "the first scan printed nothing"
+    assert first.stdout == second.stdout, f"scans differ:\n{first.stdout}\n!=\n{second.stdout}"

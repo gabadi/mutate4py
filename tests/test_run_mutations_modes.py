@@ -1,7 +1,7 @@
 """Unit tests for run_mutations under alternate execution modes (F4 run loop).
 
 Split out of test_runner.py by testing concern (issue #38 gate 16): warning
-threshold / CoverageError handling, F6 serial-vs-parallel worker dispatch, and
+threshold handling, F6 serial-vs-parallel worker dispatch, and
 --test-contexts end-to-end behavior are all "run_mutations under a different
 execution mode or config" — a coherent concern distinct from the core serial
 integration tests that stayed in test_runner.py.
@@ -19,14 +19,13 @@ from mutate4py._executor import ExecutorDescription
 from mutate4py._runner import RunMutationsRequest, run_mutations
 
 
-def _write_lcov(path: str, source_abs: str, covered_lines: list[int]) -> None:
-    da_lines = "\n".join(f"DA:{ln},1" for ln in covered_lines)
-    content = f"SF:{source_abs}\n{da_lines}\nend_of_record\n"
-    with open(path, "w") as f:
-        f.write(content)
+def _measured(src_path: str, source: str):
+    """The run's Measurement: the suite reaches every Site's line under the Empty context."""
+    lines = [s.line for s in discover_sites(source)]
+    return measurement_for(os.path.abspath(src_path), {"": lines}, wall=0.01)
 
 
-# ── run_mutations: warning threshold and CoverageError ───────────────────────
+# ── run_mutations: warning threshold ───────────────────────
 
 
 @pytest.mark.component
@@ -35,10 +34,6 @@ def test_run_mutations_warning_threshold_exceeded(tmp_path):
     src_path = str(tmp_path / "calc.py")
     with open(src_path, "w") as f:
         f.write(src)
-
-    sites = discover_sites(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
@@ -51,9 +46,7 @@ def test_run_mutations_warning_threshold_exceeded(tmp_path):
             RunMutationsRequest(
                 path=src_path,
                 source=src,
-                cov_cmd=None,
-                lcov_path=lcov_path,
-                reuse_coverage=False,
+                measurement=_measured(src_path, src),
                 pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
@@ -68,48 +61,6 @@ def test_run_mutations_warning_threshold_exceeded(tmp_path):
     assert "Warning:" in output
 
 
-@pytest.mark.unit
-def test_run_mutations_coverage_error_returns_1(tmp_path, monkeypatch):
-    from mutate4py._coverage import CoverageError
-    import mutate4py._site_selection as site_selection_mod
-
-    src = "def f(a, b):\n    return a > b\n"
-    src_path = str(tmp_path / "calc.py")
-    with open(src_path, "w") as f:
-        f.write(src)
-
-    monkeypatch.setattr(
-        site_selection_mod,
-        "acquire_coverage",
-        lambda **_kw: (_ for _ in ()).throw(CoverageError("no coverage")),
-    )
-
-    import io
-    from contextlib import redirect_stdout
-
-    buf = io.StringIO()
-    with redirect_stdout(buf):
-        rc = run_mutations(
-            RunMutationsRequest(
-                path=src_path,
-                source=src,
-                cov_cmd=None,
-                lcov_path=str(tmp_path / "cov.lcov"),
-                reuse_coverage=False,
-                pytest_args=[],
-                timeout_factor=10,
-                lines_filter=None,
-                since_last_run=False,
-                mutate_all=False,
-                warning_threshold=1000,
-                cwd=str(tmp_path),
-            )
-        )
-    output = buf.getvalue()
-    assert rc == 1
-    assert "error:" in output
-
-
 # ── F6 parallel workers — serial/parallel switch ──────────────────────────────
 
 
@@ -122,16 +73,7 @@ def _make_multi_site_source(n_funcs: int) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _write_lcov_for_source(lcov_path: str, src_path: str, source: str) -> None:
-    from mutate4py._discovery import discover_sites
-
-    sites = discover_sites(source)
-    _write_lcov(lcov_path, src_path, [s.line for s in sites])
-
-
 def _run_with_capture(tmp_path, src_path, src, *, max_workers, pytest_args=None):
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov_for_source(lcov_path, src_path, src)
     if pytest_args is None:
         pytest_args = write_always_passing_pytest_project(str(tmp_path))
     import io
@@ -143,9 +85,7 @@ def _run_with_capture(tmp_path, src_path, src, *, max_workers, pytest_args=None)
             RunMutationsRequest(
                 path=src_path,
                 source=src,
-                cov_cmd=None,
-                lcov_path=lcov_path,
-                reuse_coverage=False,
+                measurement=_measured(src_path, src),
                 pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
@@ -271,8 +211,6 @@ def test_parallel_path_target_outside_cwd_error(tmp_path, monkeypatch):
         with open(src_path, "w") as f:
             f.write(src)
 
-        lcov_path = str(tmp_path / "cov.lcov")
-        _write_lcov_for_source(lcov_path, src_path, src)
         pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
         import io
@@ -284,9 +222,7 @@ def test_parallel_path_target_outside_cwd_error(tmp_path, monkeypatch):
                 RunMutationsRequest(
                     path=src_path,
                     source=src,
-                    cov_cmd=None,
-                    lcov_path=lcov_path,
-                    reuse_coverage=False,
+                    measurement=_measured(src_path, src),
                     pytest_args=pytest_args,
                     timeout_factor=10,
                     lines_filter=None,
@@ -361,16 +297,12 @@ def _run_with_stub_ctx_db(tmp_path, monkeypatch, outcome, node_ids=(), *, test_c
     src_path = str(tmp_path / "calc.py")
     with open(src_path, "w") as f:
         f.write(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov_for_source(lcov_path, src_path, src)
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
     rc = run_mutations(
         RunMutationsRequest(
             path=src_path,
             source=src,
-            cov_cmd=None,
-            lcov_path=lcov_path,
-            reuse_coverage=False,
+            measurement=_measured(src_path, src),
             pytest_args=pytest_args,
             timeout_factor=10,
             lines_filter=None,
@@ -489,16 +421,11 @@ def test_injected_executor_receives_narrowed_dispatch_and_is_never_primed(tmp_pa
     src_path = str(tmp_path / "calc.py")
     with open(src_path, "w") as f:
         f.write(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov_for_source(lcov_path, src_path, src)
 
     rc = run_mutations(
         RunMutationsRequest(
             path=src_path,
             source=src,
-            cov_cmd=None,
-            lcov_path=lcov_path,
-            reuse_coverage=False,
             pytest_args=["-q"],
             timeout_factor=10,
             lines_filter=None,
@@ -508,7 +435,7 @@ def test_injected_executor_receives_narrowed_dispatch_and_is_never_primed(tmp_pa
             cwd=str(tmp_path),
             test_contexts_path=".coverage",
             executor=fake_executor,
-            measurement=measurement_for(src_path, {}, wall=0.01),
+            measurement=_measured(src_path, src),
         )
     )
     assert rc == 0
@@ -542,16 +469,11 @@ def test_injected_executor_receives_static_dispatch(tmp_path, monkeypatch):
     src_path = str(tmp_path / "calc.py")
     with open(src_path, "w") as f:
         f.write(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov_for_source(lcov_path, src_path, src)
 
     rc = run_mutations(
         RunMutationsRequest(
             path=src_path,
             source=src,
-            cov_cmd=None,
-            lcov_path=lcov_path,
-            reuse_coverage=False,
             pytest_args=["-q"],
             timeout_factor=10,
             lines_filter=None,
@@ -561,7 +483,7 @@ def test_injected_executor_receives_static_dispatch(tmp_path, monkeypatch):
             cwd=str(tmp_path),
             test_contexts_path=".coverage",
             executor=fake_executor,
-            measurement=measurement_for(src_path, {}, wall=0.01),
+            measurement=_measured(src_path, src),
         )
     )
     assert rc == 0
@@ -597,17 +519,12 @@ def test_a_dispatch_error_message_is_logged_and_the_run_returns_1(tmp_path, monk
     src_path = str(tmp_path / "calc.py")
     with open(src_path, "w") as f:
         f.write(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov_for_source(lcov_path, src_path, src)
 
     with caplog.at_level(logging.INFO):
         rc = run_mutations(
             RunMutationsRequest(
                 path=src_path,
                 source=src,
-                cov_cmd=None,
-                lcov_path=lcov_path,
-                reuse_coverage=False,
                 pytest_args=["-q"],
                 timeout_factor=10,
                 lines_filter=None,
@@ -617,7 +534,7 @@ def test_a_dispatch_error_message_is_logged_and_the_run_returns_1(tmp_path, monk
                 cwd=str(tmp_path),
                 test_contexts_path=".coverage",
                 executor=_FakeExecutor(),
-                measurement=measurement_for(src_path, {}, wall=0.01),
+                measurement=_measured(src_path, src),
             )
         )
     assert rc == 1
@@ -643,16 +560,11 @@ def test_neutralising_args_reach_every_mutant_dispatch(tmp_path, monkeypatch):
     src_path = str(tmp_path / "calc.py")
     with open(src_path, "w") as f:
         f.write(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov_for_source(lcov_path, src_path, src)
 
     rc = run_mutations(
         RunMutationsRequest(
             path=src_path,
             source=src,
-            cov_cmd=None,
-            lcov_path=lcov_path,
-            reuse_coverage=False,
             pytest_args=["-q"],
             timeout_factor=10,
             lines_filter=None,
@@ -661,7 +573,7 @@ def test_neutralising_args_reach_every_mutant_dispatch(tmp_path, monkeypatch):
             warning_threshold=1000,
             cwd=str(tmp_path),
             executor=fake_executor,
-            measurement=measurement_for(src_path, {}, wall=0.01),
+            measurement=_measured(src_path, src),
         )
     )
     assert rc == 0
@@ -695,16 +607,11 @@ def test_test_context_db_and_parallel_workers_compose_in_one_run(tmp_path, monke
     src_path = str(tmp_path / "calc.py")
     with open(src_path, "w") as f:
         f.write(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov_for_source(lcov_path, src_path, src)
 
     rc = run_mutations(
         RunMutationsRequest(
             path=src_path,
             source=src,
-            cov_cmd=None,
-            lcov_path=lcov_path,
-            reuse_coverage=False,
             pytest_args=["-q"],
             timeout_factor=10,
             lines_filter=None,
@@ -715,7 +622,7 @@ def test_test_context_db_and_parallel_workers_compose_in_one_run(tmp_path, monke
             test_contexts_path=".coverage",
             max_workers=3,
             executor=fake_executor,
-            measurement=measurement_for(src_path, {}, wall=0.01),
+            measurement=_measured(src_path, src),
         )
     )
     output = capsys.readouterr().out
@@ -752,16 +659,11 @@ def _run_with_abort_status(tmp_path, status):
     src_path = str(tmp_path / "calc.py")
     with open(src_path, "w") as f:
         f.write(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov_for_source(lcov_path, src_path, src)
 
     rc = run_mutations(
         RunMutationsRequest(
             path=src_path,
             source=src,
-            cov_cmd=None,
-            lcov_path=lcov_path,
-            reuse_coverage=False,
             pytest_args=["-q"],
             timeout_factor=10,
             lines_filter=None,
@@ -770,7 +672,7 @@ def _run_with_abort_status(tmp_path, status):
             warning_threshold=1000,
             cwd=str(tmp_path),
             executor=fake_executor,
-            measurement=measurement_for(src_path, {}, wall=0.01),
+            measurement=_measured(src_path, src),
         )
     )
     return rc, src_path, src

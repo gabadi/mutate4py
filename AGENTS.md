@@ -27,7 +27,7 @@ Navigation and universal invariants for all agents in this project.
 - `mutate4py --scan`: accepts exactly ONE file argument; loop over files separately for multi-file scans
 
 ## Acceptance Test Safety
-- Manifest QA fixtures (`acceptance/fixtures/plain.py`, `acceptance/fixtures/stale.py`) are committed inputs and MUST NOT be overwritten; all manifest QA steps must use a writable-copy pattern (see `acceptance/steps/manifest_qa_steps.py:setup_copy()`)
+- Committed fixtures in `acceptance/fixtures/` (`plain.py`, `stale.py` for `manifest.feature`; `mixed_operators.py` and the others for `site-discovery.feature`) are committed inputs and MUST NOT be overwritten; steps that run mutate4py against one work on a writable copy (see `acceptance/steps/manifest_steps.py:setup_copy()` and `site_discovery_steps.py:given_fixture_copy()`). There is no separate QA feature pass: each `X_qa.feature` was folded into `X.feature`.
 - `runner_adapter.py` must be executable (`chmod +x`) before gherkin-mutator can use it; tool does not emit a clear permission error; supports `RUNNER_WORKERS` env var (default 4) for concurrent job execution
 - When modifying source with an embedded manifest, always strip manifest first, modify body, then re-embed; never append after the manifest footer — `strip_manifest` removes everything from begin-marker to EOF
 
@@ -36,7 +36,8 @@ Navigation and universal invariants for all agents in this project.
 - Acceptance step files are boundary files (15-site mutation threshold); extractable pure logic belongs in `*_helpers.py` modules with their own unit tests.
 - `coverage_helpers.py` is the testable module for acceptance step helper functions; unit tests live in `tests/test_coverage_helpers.py`.
 - `cli_surface_helpers.py` is the testable module for CLI surface acceptance step helpers; unit tests live in `tests/test_cli_surface_helpers.py`.
-- `__main__.py` is a pure CLI adapter. `_runner.py` re-exports `scan_report`, `scan_report_with_coverage` (defined in `_report.py`), `update_manifest` and `check_manifest` (defined in `_manifest_modes.py`); test them directly. Do not move domain functions back to `__main__.py`.
+- `run_loop_helpers.py` and `parallel_workers_helpers.py` are the testable modules for the run-loop and parallel-workers acceptance steps; unit tests live in `tests/test_run_loop_helpers.py` and `tests/test_parallel_workers_helpers.py`.
+- `__main__.py` is a pure CLI adapter. `_runner.py` re-exports `scan_report` (defined in `_report.py`), `update_manifest` and `check_manifest` (defined in `_manifest_modes.py`); test them directly. Do not move domain functions back to `__main__.py`.
 
 ## References
 - `CONTEXT.md` — the project's glossary. Use its terms; don't drift to synonyms.

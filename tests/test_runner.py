@@ -9,10 +9,11 @@ from ._pytest_project_helpers import (
     write_content_check_pytest_project,
     write_sleep_if_mutated_pytest_project,
 )
+from ._measurement_helpers import measurement_for
 from mutate4py._discovery import discover_sites
+from mutate4py._measurement import Measurement
 from mutate4py._manifest import build_manifest, embed_manifest, strip_manifest
 from mutate4py._runner import (
-    CoverageSource,
     RunMutationsRequest,
     check_manifest,
     run_mutations,
@@ -26,11 +27,9 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 # ── run_mutations integration ─────────────────────────────────────────────────
 
 
-def _write_lcov(path: str, source_abs: str, covered_lines: list[int]) -> None:
-    da_lines = "\n".join(f"DA:{ln},1" for ln in covered_lines)
-    content = f"SF:{source_abs}\n{da_lines}\nend_of_record\n"
-    with open(path, "w") as f:
-        f.write(content)
+def _measured(src_path: str, covered: list[int]) -> Measurement:
+    """The run's Measurement: `covered` lines reached by the suite at import time."""
+    return measurement_for(os.path.abspath(src_path), {"": covered}, wall=0.01)
 
 
 @pytest.mark.component
@@ -41,8 +40,6 @@ def test_run_mutations_killed_mutant(tmp_path):
         f.write(src)
 
     sites = discover_sites(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
     pytest_args = write_content_check_pytest_project(str(tmp_path), src_path, sites[0].mutant_text)
 
@@ -55,9 +52,7 @@ def test_run_mutations_killed_mutant(tmp_path):
             RunMutationsRequest(
                 path=src_path,
                 source=src,
-                cov_cmd=None,
-                lcov_path=lcov_path,
-                reuse_coverage=False,
+                measurement=_measured(src_path, [s.line for s in sites]),
                 pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
@@ -82,8 +77,6 @@ def test_run_mutations_survived_mutant(tmp_path):
         f.write(src)
 
     sites = discover_sites(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
@@ -96,9 +89,7 @@ def test_run_mutations_survived_mutant(tmp_path):
             RunMutationsRequest(
                 path=src_path,
                 source=src,
-                cov_cmd=None,
-                lcov_path=lcov_path,
-                reuse_coverage=False,
+                measurement=_measured(src_path, [s.line for s in sites]),
                 pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
@@ -131,8 +122,6 @@ def test_run_mutations_survives_project_addopts_that_enable_coverage(tmp_path):
         f.write(src)
 
     sites = discover_sites(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
     with open(os.path.join(str(tmp_path), "pytest.ini"), "w") as f:
@@ -147,9 +136,7 @@ def test_run_mutations_survives_project_addopts_that_enable_coverage(tmp_path):
             RunMutationsRequest(
                 path=src_path,
                 source=src,
-                cov_cmd=None,
-                lcov_path=lcov_path,
-                reuse_coverage=False,
+                measurement=_measured(src_path, [s.line for s in sites]),
                 pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
@@ -175,8 +162,6 @@ def test_run_mutations_sidecar_writes_manifest_file_and_footer_free_source(tmp_p
         f.write(src)
 
     sites = discover_sites(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
@@ -191,9 +176,7 @@ def test_run_mutations_sidecar_writes_manifest_file_and_footer_free_source(tmp_p
             RunMutationsRequest(
                 path=src_path,
                 source=src,
-                cov_cmd=None,
-                lcov_path=lcov_path,
-                reuse_coverage=False,
+                measurement=_measured(src_path, [s.line for s in sites]),
                 pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
@@ -224,8 +207,6 @@ def test_run_mutations_restores_source_after_run(tmp_path):
         f.write(src)
 
     sites = discover_sites(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
@@ -238,9 +219,7 @@ def test_run_mutations_restores_source_after_run(tmp_path):
             RunMutationsRequest(
                 path=src_path,
                 source=src,
-                cov_cmd=None,
-                lcov_path=lcov_path,
-                reuse_coverage=False,
+                measurement=_measured(src_path, [s.line for s in sites]),
                 pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
@@ -271,8 +250,6 @@ def test_run_mutations_crash_safety_restores_bak(tmp_path):
         f.write("def f(a, b):\n    return a >= b\n")  # mutant left in
 
     sites = discover_sites(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
@@ -285,9 +262,7 @@ def test_run_mutations_crash_safety_restores_bak(tmp_path):
             RunMutationsRequest(
                 path=src_path,
                 source=src,
-                cov_cmd=None,
-                lcov_path=lcov_path,
-                reuse_coverage=False,
+                measurement=_measured(src_path, [s.line for s in sites]),
                 pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
@@ -319,8 +294,6 @@ def test_run_mutations_refreshes_tested_at_on_scored_run_over_unscored_manifest(
         f.write(source_with_manifest)
 
     sites = discover_sites(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
@@ -333,9 +306,7 @@ def test_run_mutations_refreshes_tested_at_on_scored_run_over_unscored_manifest(
             RunMutationsRequest(
                 path=src_path,
                 source=source_with_manifest,
-                cov_cmd=None,
-                lcov_path=lcov_path,
-                reuse_coverage=False,
+                measurement=_measured(src_path, [s.line for s in sites]),
                 pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
@@ -356,49 +327,6 @@ def test_run_mutations_refreshes_tested_at_on_scored_run_over_unscored_manifest(
 
 
 @pytest.mark.component
-def test_run_mutations_reuse_coverage_warns(tmp_path):
-    src = "def f(a, b):\n    return a > b\n"
-    src_path = str(tmp_path / "calc.py")
-    with open(src_path, "w") as f:
-        f.write(src)
-
-    sites = discover_sites(src)
-    # Write to the default coverage.lcov path
-    lcov_path = str(tmp_path / "coverage.lcov")
-    _write_lcov(lcov_path, src_path, [s.line for s in sites])
-
-    pytest_args = write_always_passing_pytest_project(str(tmp_path))
-
-    import io
-    from contextlib import redirect_stdout
-
-    buf = io.StringIO()
-    with redirect_stdout(buf):
-        run_mutations(
-            RunMutationsRequest(
-                path=src_path,
-                source=src,
-                cov_cmd=None,
-                lcov_path=None,
-                reuse_coverage=True,
-                pytest_args=pytest_args,
-                timeout_factor=10,
-                lines_filter=None,
-                since_last_run=False,
-                mutate_all=False,
-                warning_threshold=1000,
-                cwd=str(tmp_path),
-            )
-        )
-    output = buf.getvalue()
-    assert "Reusing existing coverage" in output
-    # Warning must appear before the header
-    warn_pos = output.index("Reusing existing coverage")
-    header_pos = output.index("Mutation run:")
-    assert warn_pos < header_pos
-
-
-@pytest.mark.component
 def test_run_mutations_header_counts(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "calc.py")
@@ -406,8 +334,6 @@ def test_run_mutations_header_counts(tmp_path):
         f.write(src)
 
     sites = discover_sites(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
@@ -420,9 +346,7 @@ def test_run_mutations_header_counts(tmp_path):
             RunMutationsRequest(
                 path=src_path,
                 source=src,
-                cov_cmd=None,
-                lcov_path=lcov_path,
-                reuse_coverage=False,
+                measurement=_measured(src_path, [s.line for s in sites]),
                 pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
@@ -456,8 +380,6 @@ def test_run_mutations_prints_uncovered_block_for_uncovered_sites(tmp_path):
         f.write(src)
 
     sites = discover_sites(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov(lcov_path, src_path, [sites[0].line])  # only the first site is covered
 
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
@@ -470,9 +392,7 @@ def test_run_mutations_prints_uncovered_block_for_uncovered_sites(tmp_path):
             RunMutationsRequest(
                 path=src_path,
                 source=src,
-                cov_cmd=None,
-                lcov_path=lcov_path,
-                reuse_coverage=False,
+                measurement=_measured(src_path, [sites[0].line]),
                 pytest_args=pytest_args,
                 timeout_factor=10,
                 lines_filter=None,
@@ -495,8 +415,6 @@ def test_run_mutations_timeout_counts_as_killed(tmp_path):
         f.write(src)
 
     sites = discover_sites(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov(lcov_path, src_path, [s.line for s in sites])
 
     # Baseline passes quickly, mutant sleeps past the short timeout
     pytest_args = write_sleep_if_mutated_pytest_project(str(tmp_path), src_path, sites[0].mutant_text, 5)
@@ -510,9 +428,7 @@ def test_run_mutations_timeout_counts_as_killed(tmp_path):
             RunMutationsRequest(
                 path=src_path,
                 source=src,
-                cov_cmd=None,
-                lcov_path=lcov_path,
-                reuse_coverage=False,
+                measurement=_measured(src_path, [s.line for s in sites]),
                 pytest_args=pytest_args,
                 timeout_factor=1,
                 min_timeout=0.1,
@@ -709,7 +625,6 @@ def test_run_scan_propagates_syntax_error(tmp_path):
             path=str(p),
             source=src,
             warning_threshold=50,
-            coverage=CoverageSource(cov_cmd=None, lcov_path=None, reuse_coverage=False, cwd=str(tmp_path)),
         )
 
 
@@ -725,9 +640,7 @@ def test_run_mutations_propagates_syntax_error(tmp_path):
             RunMutationsRequest(
                 path=src_path,
                 source=src,
-                cov_cmd=None,
-                lcov_path=None,
-                reuse_coverage=False,
+                measurement=_measured(src_path, []),
                 pytest_args=[],
                 timeout_factor=10,
                 lines_filter=None,

@@ -1,63 +1,49 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T08:15:48Z",
-  "module_hash": "dbde4f9f9acd05693087440d046bf94aad68ae0e3f0bd9b0333e55be1c93e72c",
-  "source_sha256": "a0b2970822ea48567e3807790f29a7c312cd7dabdcd6356546cd97ee77b9aee9",
+  "tested_at": "2026-11-13T15:09:07Z",
+  "module_hash": "046b9665a00e5541e0e6387fcbe8214ee967c96b6431a9fc7f744f26e5ea1050",
+  "source_sha256": "6cff9d55813133c70915a058740588e50a410f24d81c4f29ca6720a2ca09d08e",
   "functions": [
     {
       "id": "func/_filter_by_lines",
       "name": "_filter_by_lines",
-      "line": 14,
-      "end_line": 15,
+      "line": 9,
+      "end_line": 10,
       "hash": "1e7c8b1b8930f0fc810c32e6cf5844f1d0f054da3a90b748c972c9db0f5cad1e"
     },
     {
       "id": "func/_filter_by_fn",
       "name": "_filter_by_fn",
-      "line": 18,
-      "end_line": 19,
+      "line": 13,
+      "end_line": 14,
       "hash": "7bde9d2b50f085b8aec9909193a5391e7967834e9797b3cf6069210bee7df73c"
     },
     {
       "id": "func/_select_sites",
       "name": "_select_sites",
-      "line": 22,
-      "end_line": 36,
+      "line": 17,
+      "end_line": 31,
       "hash": "07a1ea44bf0d2a19a2e1f55de96ff235008d1772dea5ebe04db65736b07278e5"
-    },
-    {
-      "id": "func/_acquire_covered_lines",
-      "name": "_acquire_covered_lines",
-      "line": 39,
-      "end_line": 60,
-      "hash": "2c9a528fdb317c9409bb5532a9bce89b5798fc1ff1198cf07f32233696b9b48a"
-    },
-    {
-      "id": "func/flagged_covered_lines",
-      "name": "flagged_covered_lines",
-      "line": 63,
-      "end_line": 74,
-      "hash": "8c8d1cb62ea2201215a06e3f66cbc33cfe4df3e937b6ce5080a452e25fe45123"
     },
     {
       "id": "func/_is_effective_since_last_run",
       "name": "_is_effective_since_last_run",
-      "line": 77,
-      "end_line": 84,
+      "line": 34,
+      "end_line": 41,
       "hash": "4ab182b08d24d414c154b7c752f4d97ee36950db02d17626f7a0a8fa213eb4f5"
     },
     {
       "id": "func/_should_run_parallel",
       "name": "_should_run_parallel",
-      "line": 87,
-      "end_line": 88,
+      "line": 44,
+      "end_line": 45,
       "hash": "15249ea2817e81a958e42069ced55937242a9097ca031e88d4843613b8cf330d"
     },
     {
       "id": "func/_uncovered_lines_if_needed",
       "name": "_uncovered_lines_if_needed",
-      "line": 91,
-      "end_line": 106,
+      "line": 48,
+      "end_line": 63,
       "hash": "aede366f281f1725e2cbbaa2eda1949749e40b1bae0d61cb8c71cec08cc6d724"
     }
   ]

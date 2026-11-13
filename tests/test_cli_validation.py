@@ -15,7 +15,7 @@ import pytest
 from mutate4py import _cli_validation
 from mutate4py._cli_validation import (
     ValidationError,
-    _check_coverage_flags,
+    _check_removed_coverage_flags,
     _check_no_run_incompatibilities,
     _validate_mutual_exclusions,
 )
@@ -66,35 +66,31 @@ def test_check_no_run_incompatibilities_test_contexts_raises():
 
 
 @pytest.mark.unit
-def test_check_coverage_flags_single_flag_allowed():
-    # mutant_5: sum(cov_flags) > 1 — with only one flag, sum=1, must NOT raise
-    args = argparse.Namespace(cov_cmd="echo hi", lcov=None, reuse_coverage=False)
-    _check_coverage_flags(args)  # must not raise
-
-
-@pytest.mark.unit
-def test_check_coverage_flags_two_flags_raises():
-    # mutant_2,3,6: sum > 1 → raise
-    args = argparse.Namespace(cov_cmd="echo hi", lcov="/some/path", reuse_coverage=False)
+@pytest.mark.parametrize(
+    ("flag", "args_kwargs"),
+    [
+        ("--cov-cmd", dict(cov_cmd="pytest --cov")),
+        ("--lcov", dict(lcov="/some/path")),
+        ("--reuse-coverage", dict(reuse_coverage=True)),
+    ],
+    ids=["cov-cmd", "lcov", "reuse-coverage"],
+)
+def test_check_removed_coverage_flags_names_the_flag(flag, args_kwargs):
+    args = _make_args(**args_kwargs)
     with pytest.raises(ValidationError) as exc:
-        _check_coverage_flags(args)
+        _check_removed_coverage_flags(args)
     assert exc.value.exit_code == 2
+    assert str(exc.value) == f"{flag} removed in 0.3.0: the run measures coverage itself"
 
 
 @pytest.mark.unit
-def test_check_coverage_flags_all_three_raises():
-    args = argparse.Namespace(cov_cmd="echo", lcov="/f", reuse_coverage=True)
-    with pytest.raises(ValidationError) as exc:
-        _check_coverage_flags(args)
-    assert exc.value.exit_code == 2
+def test_check_removed_coverage_flags_no_flags_passes():
+    _check_removed_coverage_flags(_make_args())
 
 
 @pytest.mark.unit
-def test_check_coverage_flags_error_text():
-    args = argparse.Namespace(cov_cmd="echo", lcov="/f", reuse_coverage=False)
-    with pytest.raises(ValidationError) as exc:
-        _check_coverage_flags(args)
-    assert "mutually exclusive" in str(exc.value)
+def test_check_removed_coverage_flags_reuse_coverage_false_passes():
+    _check_removed_coverage_flags(_make_args(reuse_coverage=False))
 
 
 @pytest.mark.unit

@@ -26,14 +26,6 @@ def _copy_fixture(tmp_path):
     return str(dest)
 
 
-def _write_lcov(path: str, covered_lines: list[int]) -> str:
-    da = "\n".join(f"DA:{ln},1" for ln in covered_lines)
-    lcov_path = os.path.join(os.path.dirname(path), "coverage.lcov")
-    with open(lcov_path, "w") as f:
-        f.write(f"SF:{path}\n{da}\nend_of_record\n")
-    return lcov_path
-
-
 def _run_cli(cwd: str, extra_args: list[str], *, extra_env: dict | None = None) -> subprocess.CompletedProcess:
     env = {**os.environ, "PYTHONPATH": os.path.join(REPO_ROOT, "src")}
     if extra_env:
@@ -59,13 +51,12 @@ def test_two_workers_get_distinct_test_databases_with_reuse_db(tmp_path):
     # is the one DB-using test on those lines, so it is what creates the
     # per-Worker test databases asserted below.
     project = _copy_fixture(tmp_path)
-    lcov = _write_lcov(os.path.join(project, "calc.py"), [6, 10])
     shared_db_dir = tmp_path / "shared_db"
     shared_db_dir.mkdir()
 
     result = _run_cli(
         project,
-        ["calc.py", "--mutate-all", "--pytest-args=-q --reuse-db", "--lcov", lcov, "--max-workers", "2"],
+        ["calc.py", "--mutate-all", "--pytest-args=-q --reuse-db", "--max-workers", "2"],
         extra_env={"MUTATE4PY_FIXTURE_DB_DIR": str(shared_db_dir)},
     )
     assert result.returncode == 0, result.stdout + result.stderr
@@ -87,9 +78,9 @@ def test_two_workers_get_distinct_test_databases_with_reuse_db(tmp_path):
 @pytest.mark.integration
 def test_app_loaded_module_degrades_to_subprocess_and_is_killed(tmp_path):
     project = _copy_fixture(tmp_path)
-    lcov = _write_lcov(os.path.join(project, "polls", "models.py"), [14])
-
-    result = _run_cli(project, ["polls/models.py", "--mutate-all", "--pytest-args=-q", "--lcov", lcov])
+    # --lines pins the one line the old lcov covered: the real measurement also
+    # reaches line 11 (votes default), whose surviving mutant would break the count.
+    result = _run_cli(project, ["polls/models.py", "--lines", "14", "--pytest-args=-q"])
     assert result.returncode == 0, result.stdout + result.stderr
     assert "forking executor unavailable" in result.stdout, (
         "polls/models.py is imported by django.setup() during priming, so the "
@@ -106,9 +97,7 @@ def test_app_loaded_module_degrades_to_subprocess_and_is_killed(tmp_path):
 @pytest.mark.integration
 def test_non_app_loaded_module_keeps_warm_path(tmp_path):
     project = _copy_fixture(tmp_path)
-    lcov = _write_lcov(os.path.join(project, "calc.py"), [6])
-
-    result = _run_cli(project, ["calc.py", "--mutate-all", "--pytest-args=-q", "--lcov", lcov])
+    result = _run_cli(project, ["calc.py", "--lines", "6", "--pytest-args=-q"])
     assert result.returncode == 0, result.stdout + result.stderr
     assert "forking executor unavailable" not in result.stdout, (
         "calc.py is never imported by django.setup(), so the forking executor must stay primed rather than degrading"
