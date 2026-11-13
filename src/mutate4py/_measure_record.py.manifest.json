@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "tested_at": "2026-11-13T05:39:47Z",
+  "module_hash": "dae7ac93d7ee05dbae1e0830db21440b998e36b608f1c905199ba834cc36b23e",
+  "source_sha256": "5514a3df7762026ad4704a74a0ac119cc8823dd79e3036c91aa5acef2f4a4be0",
+  "functions": [
+    {
+      "id": "func/core_from_sys_info",
+      "name": "core_from_sys_info",
+      "line": 34,
+      "end_line": 39,
+      "hash": "7117b7321f04157804ffd06dccc2f529a190cf496107062632eed88bbb69a9f8"
+    },
+    {
+      "id": "func/file_of_test",
+      "name": "file_of_test",
+      "line": 42,
+      "end_line": 44,
+      "hash": "191869ffbf30844d7a3087aaa57ceed682c4d571a91c82ceb1d8016a4e349d59"
+    },
+    {
+      "id": "func/_test_roots",
+      "name": "_test_roots",
+      "line": 102,
+      "end_line": 110,
+      "hash": "081971c2ec7ba7c7d30acec0d7b535b0f26aa3704e2911f1ffb0b21665998bad"
+    },
+    {
+      "id": "func/_support_modules",
+      "name": "_support_modules",
+      "line": 113,
+      "end_line": 120,
+      "hash": "afdd43c49761bfcaf83f36fa1df46060e1fb8ec65a62acc373369125cb04cd56"
+    },
+    {
+      "id": "func/SessionLog.test_started",
+      "name": "test_started",
+      "line": 133,
+      "end_line": 136,
+      "hash": "cb21d1a158dddbfbce474f7498dbca9a9e8db74c3bc618d788957b28b0c59774"
+    },
+    {
+      "id": "func/SessionLog.test_phase",
+      "name": "test_phase",
+      "line": 138,
+      "end_line": 141,
+      "hash": "f174f88ad7f24d75de4c51788f138fb020cc8e0fa614979dba09c9a17d8eb55d"
+    },
+    {
+      "id": "func/SessionLog.collection_failed",
+      "name": "collection_failed",
+      "line": 143,
+      "end_line": 144,
+      "hash": "085525721e70cd143e9d3aafcc5e7d976e698d98dfc3fff7af28f848a43816b4"
+    },
+    {
+      "id": "func/SessionLog.fixture_set_up",
+      "name": "fixture_set_up",
+      "line": 146,
+      "end_line": 147,
+      "hash": "b6625a2fe2ca82f878f94c6bdec9443903e7bddc9961d367fdb33ffa4dfef5c9"
+    },
+    {
+      "id": "func/SessionLog._fail",
+      "name": "_fail",
+      "line": 149,
+      "end_line": 151,
+      "hash": "7274d62df8a31a35893cfe8fc349634b3c08dc00f026ae9806951e6aff159103"
+    },
+    {
+      "id": "func/SessionLog.finish",
+      "name": "finish",
+      "line": 153,
+      "end_line": 172,
+      "hash": "8bda8aa78a449f194878d4fd393cb0331b933d49bb3ce518bc4736fabeb61c8a"
+    },
+    {
+      "id": "func/dump_record",
+      "name": "dump_record",
+      "line": 175,
+      "end_line": 176,
+      "hash": "404f4aa1f34ad6495147875245b4ff5d94a6d8345e358b021f27b38f7b35e0a5"
+    },
+    {
+      "id": "func/load_record",
+      "name": "load_record",
+      "line": 179,
+      "end_line": 194,
+      "hash": "6a19193f16d8533a9946d5b74ef1a4229225ace1787529d12b2334cd21473d87"
+    }
+  ]
+}

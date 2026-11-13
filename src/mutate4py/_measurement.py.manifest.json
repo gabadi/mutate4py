@@ -1,0 +1,183 @@
+{
+  "version": 1,
+  "tested_at": "2026-11-13T05:39:47Z",
+  "module_hash": "6ab18c341a3b7cf4f2da6b5274f50cbf65b076f374778c8cf916271b2c07bf93",
+  "source_sha256": "bfe6f4c8aeeaea0901bfd78c18fe8d990eea16516485cc55b456fe59bec70f50",
+  "functions": [
+    {
+      "id": "func/_All.__repr__",
+      "name": "__repr__",
+      "line": 82,
+      "end_line": 83,
+      "hash": "1051eafb92df616ddf2813024a633d9a109f288ac01ee74c630317a81650562f"
+    },
+    {
+      "id": "func/MeasureRequest.__post_init__",
+      "name": "__post_init__",
+      "line": 114,
+      "end_line": 117,
+      "hash": "77d9f3e94454ccd3dfb4f74575de7a0e238b4e9ba6db2e756595b0cf4f84519b"
+    },
+    {
+      "id": "func/MeasurementFailed.__init__",
+      "name": "__init__",
+      "line": 123,
+      "end_line": 133,
+      "hash": "32387e3415a523ce8370191276da65f4b8b50c11b9d39fe46b4ac25d4c99e774"
+    },
+    {
+      "id": "func/CoverageCoreRefused.__init__",
+      "name": "__init__",
+      "line": 137,
+      "end_line": 140,
+      "hash": "ec8b198264eb52efd29ce65b502802e834eb9f4e275cceb58cb4457d79b01171"
+    },
+    {
+      "id": "func/_canonical",
+      "name": "_canonical",
+      "line": 143,
+      "end_line": 144,
+      "hash": "de51d52e78ae5b67b4c30553e671bb0d8f7aa8dd79104f2afd7b7e5828ca2bbc"
+    },
+    {
+      "id": "func/Measurement.core",
+      "name": "core",
+      "line": 159,
+      "end_line": 160,
+      "hash": "27529f84eaff61c9dfa52d9a8aedd0deb40a917940da1a3a4409219ae686e326"
+    },
+    {
+      "id": "func/Measurement.note",
+      "name": "note",
+      "line": 163,
+      "end_line": 164,
+      "hash": "f968cecf73acfb7c23d944e1cc203f21ad876733457f1f299844958fdff9cea8"
+    },
+    {
+      "id": "func/Measurement.tests",
+      "name": "tests",
+      "line": 167,
+      "end_line": 168,
+      "hash": "39a26c153e277bd038b49b115582b89347881d348f9dc1a98cb79c68e997e7cf"
+    },
+    {
+      "id": "func/Measurement.positional_args",
+      "name": "positional_args",
+      "line": 171,
+      "end_line": 173,
+      "hash": "9b124abe8f9bfcbd42ddc04d4b41bf5176eacd742bb975655caeb1242aad7496"
+    },
+    {
+      "id": "func/Measurement.per_mutant_overhead",
+      "name": "per_mutant_overhead",
+      "line": 176,
+      "end_line": 177,
+      "hash": "27ce28b798adbe7c6ce6cc1f055e034a6eb0c339b12575e9f123ed5fb9895e94"
+    },
+    {
+      "id": "func/Measurement.budget_of",
+      "name": "budget_of",
+      "line": 179,
+      "end_line": 185,
+      "hash": "99e294eb9199fbc146abd60ed53609d68eb4bc4bfb41201784572f908f232330"
+    },
+    {
+      "id": "func/Measurement._line_contexts",
+      "name": "_line_contexts",
+      "line": 187,
+      "end_line": 188,
+      "hash": "e77cf8f4fa2658d8373cd448cd71920b2a89a902fcab165616c49c6caeae0505"
+    },
+    {
+      "id": "func/Measurement.outcome",
+      "name": "outcome",
+      "line": 190,
+      "end_line": 195,
+      "hash": "41dc2e7f9c8fb285b51dca8702649811948da8bca76dfbef14e59ad6a97ceebc"
+    },
+    {
+      "id": "func/Measurement.covered_lines",
+      "name": "covered_lines",
+      "line": 197,
+      "end_line": 198,
+      "hash": "ef9d766d557499bbba3b679ca92a58ea302748b89cff195c5383c29741bdd9f4"
+    },
+    {
+      "id": "func/Measurement.empty_lines",
+      "name": "empty_lines",
+      "line": 200,
+      "end_line": 201,
+      "hash": "19f9ac5bb704dd4f0cdd127c0ffab5da430fbedd3d0f932534ba6750dca4a49e"
+    },
+    {
+      "id": "func/_largest_setup_by_file",
+      "name": "_largest_setup_by_file",
+      "line": 204,
+      "end_line": 217,
+      "hash": "dd827f3b7a95d31485681f48c17fd6fc0c677d6de3add919979629499716c5cf"
+    },
+    {
+      "id": "func/_payable",
+      "name": "_payable",
+      "line": 220,
+      "end_line": 222,
+      "hash": "1ae7ef1e759f1a1ce779937940bbe08259489259640df17f9ea50e5894220332"
+    },
+    {
+      "id": "func/measurement_from",
+      "name": "measurement_from",
+      "line": 225,
+      "end_line": 243,
+      "hash": "8f8f7e1cf4f730644c173c2bf0bcd98e0fb58ae64a2605629e4f041912705ee0"
+    },
+    {
+      "id": "func/_session_env",
+      "name": "_session_env",
+      "line": 246,
+      "end_line": 253,
+      "hash": "5c112b4e87c07f0c9b91fc379f7f21e8138ee00929ee227f40c422937da454e5"
+    },
+    {
+      "id": "func/_read_record",
+      "name": "_read_record",
+      "line": 256,
+      "end_line": 261,
+      "hash": "7301ec4f499a44ba57b6eda6463c85c7386cd4c7602c423b316ad01eb5c159dd"
+    },
+    {
+      "id": "func/_failure_reason",
+      "name": "_failure_reason",
+      "line": 264,
+      "end_line": 269,
+      "hash": "e37e938deff1f02ce6b74f8aa3f5168ff6a006c2ed75beca9336200fab827df5"
+    },
+    {
+      "id": "func/_last_nonblank",
+      "name": "_last_nonblank",
+      "line": 272,
+      "end_line": 273,
+      "hash": "6da96875f2bc599f10d302be2a9953b69fec1aa67056544813ab509b1fe3f598"
+    },
+    {
+      "id": "func/raise_for_session",
+      "name": "raise_for_session",
+      "line": 276,
+      "end_line": 282,
+      "hash": "23064b21dee7ec6cc2ecafb684afccfa9ea71567ba849d56336a7091ab434ece"
+    },
+    {
+      "id": "func/_run_session",
+      "name": "_run_session",
+      "line": 285,
+      "end_line": 292,
+      "hash": "2b747b85094c25f81038469b06379b760d9c1b827f7843c68691751427b12838"
+    },
+    {
+      "id": "func/measure",
+      "name": "measure",
+      "line": 295,
+      "end_line": 318,
+      "hash": "5cbbda0040f5d95e0f6b5d184a3c7574dbd76bb465fea0d4817867ad2ce01223"
+    }
+  ]
+}

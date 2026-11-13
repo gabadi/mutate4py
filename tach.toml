@@ -213,6 +213,26 @@ path = "mutate4py._baseline"
 layer = "baseline"
 depends_on = []
 
+# The Measurement (design #89 §2) sits in `baseline`: above `domain`, whose
+# `_plugin_neutralisation` it uses, and below the layers that read from it.
+[[modules]]
+path = "mutate4py._measurement"
+layer = "baseline"
+depends_on = []
+
+# The record is the pure format both sides of the Measurement share, so it
+# has no deps. The plugin runs inside the user's pytest and may import only
+# coverage, pytest and the record: a sibling in `primitives`, listed here.
+[[modules]]
+path = "mutate4py._measure_record"
+layer = "primitives"
+depends_on = []
+
+[[modules]]
+path = "mutate4py._measure_plugin"
+layer = "primitives"
+depends_on = ["mutate4py._measure_record"]
+
 [[modules]]
 path = "mutate4py._executor"
 layer = "primitives"
