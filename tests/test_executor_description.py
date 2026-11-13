@@ -9,12 +9,15 @@ from mutate4py._executor import ExecutorDescription, MutantTiming, combine_descr
 
 
 @pytest.mark.unit
-def test_workers_that_all_forked_report_forking_with_their_fresh_imports_summed():
+def test_workers_that_all_forked_report_forking_with_each_mode_count_summed():
     combined = combine_descriptions(
-        [ExecutorDescription(mode="forking", fresh_import=2), ExecutorDescription(mode="forking", fresh_import=3)]
+        [
+            ExecutorDescription(mode="forking", fresh_import=2, fresh_interpreter=1),
+            ExecutorDescription(mode="forking", fresh_import=3, swap=4, fresh_interpreter=2),
+        ]
     )
 
-    assert combined.render() == "forking (fresh import 5)"
+    assert combined.render() == "forking (fresh import 5, swap 4, fresh interpreter 3)"
 
 
 @pytest.mark.unit
@@ -25,17 +28,17 @@ def test_workers_that_none_forked_report_the_subprocess_reason_they_share():
 
 
 @pytest.mark.unit
-def test_a_mix_of_forking_and_subprocess_workers_names_both_modes_and_the_forking_fresh_imports():
+def test_a_mix_of_forking_and_subprocess_workers_names_both_modes_and_the_forking_mode_counts():
     combined = combine_descriptions(
         [
-            ExecutorDescription(mode="forking", fresh_import=4),
+            ExecutorDescription(mode="forking", fresh_import=4, fresh_interpreter=2),
             ExecutorDescription(mode="subprocess", reason="the forking executor needs a POSIX platform"),
             ExecutorDescription(mode="forking", fresh_import=1),
         ]
     )
 
     assert combined.render() == (
-        "mixed (forking on 2 of 3 workers, fresh import 5; "
+        "mixed (forking on 2 of 3 workers, fresh import 5, swap 0, fresh interpreter 2; "
         "subprocess on 1 of 3 workers: the forking executor needs a POSIX platform)"
     )
 

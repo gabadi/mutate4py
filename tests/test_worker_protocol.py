@@ -126,8 +126,11 @@ def test_decode_status_raises_when_the_pipe_closed_mid_run():
 
 @pytest.mark.unit
 def test_decode_description_returns_the_executor_description_the_worker_reported():
-    line = json.dumps({"description": {"mode": "forking", "reason": "", "fresh_import": 2}}) + "\n"
-    assert _decode_description(line, worker_root="/w") == ExecutorDescription(mode="forking", fresh_import=2)
+    description = {"mode": "forking", "reason": "", "fresh_import": 2, "swap": 1, "fresh_interpreter": 3}
+    line = json.dumps({"description": description}) + "\n"
+    assert _decode_description(line, worker_root="/w") == ExecutorDescription(
+        mode="forking", fresh_import=2, swap=1, fresh_interpreter=3
+    )
 
 
 @pytest.mark.unit
@@ -495,14 +498,15 @@ def test_worker_forking_and_subprocess_parity(tmp_path):
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
     (tests_dir / "test_calc.py").write_text("from calc import add\ndef test_add():\n    assert add(2, 2) == 4\n")
-    args = ["-q", "tests"]
+    # This repo's environment has tach, a fork-unsafe plugin: block it, or both Workers run subprocess.
+    args = ["-p", "no:tach", "-q", "tests"]
 
     _provision_test_worker(tmp_path)
     forking_worker = WorkerProcessExecutor(
         worker_root=str(tmp_path),
         guarded_path=str(target),
         source_root=str(tmp_path),
-        launch=ServerLaunch(forking_requested=True),
+        launch=ServerLaunch(forking_requested=True, prime_args=("-p", "no:tach")),
     )
     subprocess_worker = WorkerProcessExecutor(
         worker_root=str(tmp_path),
@@ -519,12 +523,13 @@ def test_worker_forking_and_subprocess_parity(tmp_path):
         target.write_text("def add(a, b):\n    return a - b\n")
         assert forking_worker.run(args, timeout=30.0) == "killed"
         assert subprocess_worker.run(args, timeout=30.0) == "killed"
+        assert forking_worker.describe().mode == "forking"
     finally:
         forking_worker.close()
         subprocess_worker.close()
 
 
-# --- a leaked target inside a Worker degrades to the subprocess executor ------
+# --- a target the Worker already imported runs in a fresh interpreter --------
 
 
 @pytest.fixture
@@ -545,12 +550,16 @@ def restore_import_state(tmp_path):
 
 
 @pytest.mark.component
-def test_worker_server_degrades_to_subprocess_on_leaked_target(tmp_path, monkeypatch, capfd, restore_import_state):
-    """A module-leak has to happen in the Worker subprocess's own
-    sys.modules; a real subprocess boundary can't be seeded from outside, so
-    this drives `_worker_server.main` directly in-process instead — the same
-    code a real Worker subprocess runs, with a pre-seeded fake leaked module
-    standing in for the leak.
+def test_worker_server_runs_an_already_imported_target_in_a_fresh_interpreter(
+    tmp_path, monkeypatch, capfd, restore_import_state
+):
+    """The target has to be in the Worker subprocess's own sys.modules before
+    prime; a real subprocess boundary can't be seeded from outside, so this
+    drives `_worker_server.main` directly in-process instead — the same code a
+    real Worker subprocess runs, with a pre-seeded fake module standing in for
+    one of the Worker's own (harness) modules. No whole-run fallback: the
+    forking executor runs the Mutant in a fresh interpreter, whose output must
+    not reach the protocol's stdout either.
 
     Captures the real OS fd 1 with a raw pipe inside `capfd.disabled()`:
     `_run_pytest_output_suppressed`'s flush-before-dup2 fix operates on the
@@ -591,7 +600,8 @@ def test_worker_server_degrades_to_subprocess_on_leaked_target(tmp_path, monkeyp
     monkeypatch.setattr(forking_mod, "ForkingExecutor", _TrackingForkingExecutor)
     monkeypatch.setattr(subprocess_mod, "SubprocessExecutor", _TrackingSubprocessExecutor)
 
-    stdin = io.StringIO(json.dumps({"args": ["-q", "tests"], "timeout": 30.0}) + "\n")
+    run = {"args": ["-p", "no:tach", "-q", "tests"], "timeout": 30.0}
+    stdin = io.StringIO(json.dumps(run) + "\n" + json.dumps({"describe": True}) + "\n")
     monkeypatch.setattr(sys, "stdin", stdin)
 
     with capfd.disabled():
@@ -600,7 +610,8 @@ def test_worker_server_degrades_to_subprocess_on_leaked_target(tmp_path, monkeyp
         os.dup2(write_fd, 1)
         os.close(write_fd)
         try:
-            worker_server_mod.main([str(tmp_path), str(target), "1"])
+            # This repo's environment has tach, a fork-unsafe plugin: the prime blocks it.
+            worker_server_mod.main([str(tmp_path), str(target), "1", "", "-p", "no:tach"])
             sys.stdout.flush()
         finally:
             os.dup2(saved_stdout_fd, 1)
@@ -611,5 +622,7 @@ def test_worker_server_degrades_to_subprocess_on_leaked_target(tmp_path, monkeyp
     lines = captured_out.splitlines()
     assert json.loads(lines[0]) == {"ready": True}
     assert json.loads(lines[1])["status"] == "survived"
-    assert len(created_forking) == 1, "expected the forking executor to be attempted once"
-    assert len(created_subprocess) == 1, "expected the self-leak to fall back to the subprocess executor"
+    assert json.loads(lines[2])["description"]["fresh_interpreter"] == 1
+    assert len(lines) == 3, "the fresh interpreter's own output must not reach the protocol"
+    assert len(created_forking) == 1, "expected the forking executor to be primed once"
+    assert created_subprocess == [], "an already-imported target must not fall back to the subprocess executor"
