@@ -1,29 +1,36 @@
 {
   "version": 1,
-  "tested_at": "2026-08-12T15:49:32Z",
-  "module_hash": "0f232bfaf34b3cb17aac7c76605776fe89d1274cb17afaa2f7b28c31a2954753",
-  "source_sha256": "0d45a27ef51efdceaab0240545d30676f413019bcba3425e8c384a41113b09d4",
+  "tested_at": "2026-11-13T05:32:56Z",
+  "module_hash": "391e12eedd51ab78a5b921cdf2bf46f0acc6361ed0685d4bf2ca1020e223eb33",
+  "source_sha256": "95ce86e352de7d57da331275e7ae651bd785fee6fe65a8d9447da009466d2c75",
   "functions": [
     {
       "id": "func/_check_execution_status",
       "name": "_check_execution_status",
-      "line": 57,
-      "end_line": 61,
+      "line": 61,
+      "end_line": 65,
       "hash": "f129ab238daaf03b6bbf5522a05d812d0c382d32da5a7d4e7e7962fd438eac78"
     },
     {
       "id": "func/_log_dispatch_abort",
       "name": "_log_dispatch_abort",
-      "line": 64,
-      "end_line": 70,
+      "line": 68,
+      "end_line": 74,
       "hash": "1944e590dc505407d3dd486aae69a08553d3dfba068498f461056bd66ff11cd5"
     },
     {
-      "id": "func/_build_mutant_args",
-      "name": "_build_mutant_args",
-      "line": 73,
-      "end_line": 99,
-      "hash": "f57d42cd969706d9516b3b5c37b1238d1b278eb77750aceed6db8e4c9739240a"
+      "id": "func/TimeoutPolicy.timeout",
+      "name": "timeout",
+      "line": 86,
+      "end_line": 87,
+      "hash": "53bb97facf8bb9a1269cde755ddb414e23a939899d8844e44a5afa4aa73b2cd7"
+    },
+    {
+      "id": "func/plan_mutant",
+      "name": "plan_mutant",
+      "line": 99,
+      "end_line": 131,
+      "hash": "c2d11975d87859735c4565470e2fc46295e23794732029e610d69edea085c330"
     }
   ]
 }

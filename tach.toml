@@ -99,6 +99,11 @@ layer = "domain"
 depends_on = []
 
 [[modules]]
+path = "mutate4py._tests_fingerprint"
+layer = "domain"
+depends_on = []
+
+[[modules]]
 path = "mutate4py._scoring"
 layer = "domain"
 depends_on = ["mutate4py._discovery"]
