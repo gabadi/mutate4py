@@ -53,8 +53,6 @@ def _request(tmp_path, src_path, measurement, pytest_args, **extra):
         # The full-set confirmation runs a real pytest subprocess (about 1s), so the floor
         # must clear its startup or the confirmation times out and reads as a kill.
         min_timeout=extra.pop("min_timeout", 5.0),
-        lines_filter=None,
-        since_last_run=False,
         mutate_all=extra.pop("mutate_all", False),
         warning_threshold=1000,
         cwd=str(tmp_path),

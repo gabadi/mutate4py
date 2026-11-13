@@ -20,24 +20,27 @@ class ValidationError(Exception):
         self.exit_code = exit_code
 
 
-# The flags removed in 0.3.0 (ADR 0008, 0021, 0022 superseded): the run measures
-# coverage itself, so each is refused rather than silently ignored.
+# The flags removed in 0.3.0 (ADR 0008, 0021, 0022 superseded; spec #89): the run
+# measures coverage itself and re-scores only what changed, so each is refused rather
+# than silently ignored. The reason is the tail of the refusal message.
 _REMOVED_FLAGS = (
-    ("--cov-cmd", "cov_cmd"),
-    ("--lcov", "lcov"),
-    ("--reuse-coverage", "reuse_coverage"),
-    ("--test-contexts", "test_contexts"),
-    ("--build-test-contexts", "build_test_contexts"),
+    ("--cov-cmd", "cov_cmd", "the run measures coverage itself"),
+    ("--lcov", "lcov", "the run measures coverage itself"),
+    ("--reuse-coverage", "reuse_coverage", "the run measures coverage itself"),
+    ("--test-contexts", "test_contexts", "the run measures coverage itself"),
+    ("--build-test-contexts", "build_test_contexts", "the run measures coverage itself"),
+    ("--since-last-run", "since_last_run", "a default run already re-scores only changed functions"),
+    ("--lines", "lines", "re-score a function by editing it, or use --mutate-all"),
 )
 
 
 def _check_removed_flags(args: argparse.Namespace) -> None:
     """Raise, naming the flag, for the first flag removed in 0.3.0 that is set."""
-    for flag, dest in _REMOVED_FLAGS:
+    for flag, dest, reason in _REMOVED_FLAGS:
         value = getattr(args, dest)
         if value is None or value is False:
             continue
-        raise ValidationError(f"{flag} removed in 0.3.0: the run measures coverage itself")
+        raise ValidationError(f"{flag} removed in 0.3.0: {reason}")
 
 
 def _no_run_flag(args: argparse.Namespace) -> str:
@@ -56,10 +59,6 @@ def _exit_incompatible(flag_a: str, flag_b: str) -> None:
 def _check_no_run_incompatibilities(args: argparse.Namespace) -> None:
     """Raise if run-mode flags are paired with no-run-mode flags."""
     flag = _no_run_flag(args)
-    if args.lines is not None:
-        _exit_incompatible(flag, "--lines")
-    if args.since_last_run:
-        _exit_incompatible(flag, "--since-last-run")
     if args.mutate_all:
         _exit_incompatible(flag, "--mutate-all")
     if args.max_workers is not None:
@@ -82,13 +81,6 @@ def _check_scan_only_incompatibilities(args: argparse.Namespace) -> None:
         _exit_incompatible("--scan", "--pytest-args")
 
 
-def _check_selection_exclusivity(args: argparse.Namespace) -> None:
-    """Raise if more than one selection flag is set."""
-    selection_count = sum([args.since_last_run, args.mutate_all, args.lines is not None])
-    if selection_count > 1:
-        raise ValidationError("--since-last-run, --mutate-all, and --lines are pairwise exclusive; supply at most one.")
-
-
 def _check_no_run_mode_specific_incompatibilities(args: argparse.Namespace) -> None:
     """Raise the extra checks specific to whichever no-run mode is active."""
     if args.scan:
@@ -109,7 +101,6 @@ def _validate_mutual_exclusions(args: argparse.Namespace) -> None:
         _check_no_run_incompatibilities(args)
         _check_no_run_survivor_flag(args)
         _check_no_run_mode_specific_incompatibilities(args)
-    _check_selection_exclusivity(args)
 
 
 def _nearest_project_root(target: str, cwd: str) -> str:

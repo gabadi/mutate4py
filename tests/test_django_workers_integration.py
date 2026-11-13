@@ -78,16 +78,17 @@ def test_two_workers_get_distinct_test_databases_with_reuse_db(tmp_path):
 @pytest.mark.integration
 def test_app_loaded_module_degrades_to_subprocess_and_is_killed(tmp_path):
     project = _copy_fixture(tmp_path)
-    # --lines pins the one line the old lcov covered: the real measurement also
-    # reaches line 11 (votes default), whose surviving mutant would break the count.
-    result = _run_cli(project, ["polls/models.py", "--lines", "14", "--pytest-args=-q"])
+    # The whole file is mutated (no selection flag). Line 11 (votes default) survives: no test pins it,
+    # so the run exits 3 unless --allow-survivors accepts it. The assertions below are about the
+    # executor degrade and the line-14 kill, not about the survivor.
+    result = _run_cli(project, ["polls/models.py", "--allow-survivors", "--pytest-args=-q"])
     assert result.returncode == 0, result.stdout + result.stderr
     assert "forking executor unavailable" in result.stdout, (
         "polls/models.py is imported by django.setup() during priming, so the "
         "module-leak guard must force the subprocess executor"
     )
     assert "Killed: 1" in result.stdout
-    assert "Survived: 0" in result.stdout
+    assert "Survived: 1" in result.stdout
 
 
 # ── a Mutant in a module outside app loading keeps the warm path
@@ -97,12 +98,12 @@ def test_app_loaded_module_degrades_to_subprocess_and_is_killed(tmp_path):
 @pytest.mark.integration
 def test_non_app_loaded_module_keeps_warm_path(tmp_path):
     project = _copy_fixture(tmp_path)
-    result = _run_cli(project, ["calc.py", "--lines", "6", "--pytest-args=-q"])
+    result = _run_cli(project, ["calc.py", "--pytest-args=-q"])
     assert result.returncode == 0, result.stdout + result.stderr
     assert "forking executor unavailable" not in result.stdout, (
         "calc.py is never imported by django.setup(), so the forking executor must stay primed rather than degrading"
     )
-    assert "Killed: 1" in result.stdout
+    assert "Killed: 2" in result.stdout
     assert "Survived: 0" in result.stdout
 
 

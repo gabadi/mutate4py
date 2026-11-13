@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T16:25:35Z",
-  "module_hash": "f30b8c8d125e0e676d0aa692d5d5d68f145a17343f664139e9f347bc5e58ccd5",
-  "source_sha256": "9cd921f659c7fa11a6fc075a4a9833fb32dc2c66e061221f1754986e8e1fdac5",
+  "tested_at": "2026-11-13T16:34:37Z",
+  "module_hash": "2d4e049f07eb90f6cc5b839835e7177505acae9a5b051190784205e35196cb5e",
+  "source_sha256": "be3613efff0caf451ae1c257e5f09e5d56ca2edf0533e89cb4c5944faa549a26",
   "functions": [
     {
       "id": "func/_print_lines",
@@ -36,56 +36,56 @@
       "id": "func/_select_and_prepare",
       "name": "_select_and_prepare",
       "line": 159,
-      "end_line": 231,
-      "hash": "7b5f82fa5448da3683fe68efea2d1942c3b634c5ddf302e7faea0de26af598c9"
+      "end_line": 224,
+      "hash": "50766092f17b184638614686e2a9066d554ad5b53ca60f35624616d7d1847e8b"
     },
     {
       "id": "func/_recorded_survivor_keys",
       "name": "_recorded_survivor_keys",
-      "line": 234,
-      "end_line": 238,
+      "line": 227,
+      "end_line": 231,
       "hash": "2caf9f350eb375bc9a0154107e5892a37bc35603559ebd8b29828156b307bdc3"
     },
     {
       "id": "func/_scored_run_for",
       "name": "_scored_run_for",
-      "line": 241,
-      "end_line": 255,
+      "line": 234,
+      "end_line": 248,
       "hash": "c721eb5dbab34f508f0b6a269fd8ba77d976ad61fe4334eb195c68499d885a1e"
     },
     {
       "id": "func/_mutant_exec_ctx",
       "name": "_mutant_exec_ctx",
-      "line": 258,
-      "end_line": 280,
+      "line": 251,
+      "end_line": 273,
       "hash": "87c87b646d2858cb781856252a75e4a7614ee1348aef70e6a53516eeba41705d"
     },
     {
       "id": "func/_close_executor",
       "name": "_close_executor",
-      "line": 283,
-      "end_line": 290,
+      "line": 276,
+      "end_line": 283,
       "hash": "34bb68caac8ddacea2a9276699f884efc53f54a2f7302ff1758cd23559788815"
     },
     {
       "id": "func/run_mutations",
       "name": "run_mutations",
-      "line": 293,
-      "end_line": 306,
+      "line": 286,
+      "end_line": 299,
       "hash": "a913b808b21ba46ab1de6a58d2f02a28468b1291c61052da41d5cca90be28754"
     },
     {
       "id": "func/_run_loop",
       "name": "_run_loop",
-      "line": 309,
-      "end_line": 341,
+      "line": 302,
+      "end_line": 334,
       "hash": "4634a1d5af3702a92008894644c535509cfab216e6eddac79a43d853136f8f0a"
     },
     {
       "id": "func/_report_run",
       "name": "_report_run",
-      "line": 344,
-      "end_line": 368,
+      "line": 337,
+      "end_line": 361,
       "hash": "40786b071175ba4844a44dba01667aa34eb31f472018f771b527f9bc886d84c8"
     }
   ]

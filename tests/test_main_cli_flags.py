@@ -190,27 +190,6 @@ def test_mutation_warning_default_is_50():
     assert args.warning_threshold == 50
 
 
-# ── F5: --lines positive-int validation ──────────────────────────────────────
-
-
-@pytest.mark.unit
-def test_lines_zero_is_usage_error():
-    result = run_cli("--scan", "--lines", "0", source="x = 1\n")
-    assert result.returncode != 0
-
-
-@pytest.mark.unit
-def test_lines_negative_is_usage_error():
-    result = run_cli("--scan", "--lines", "7,-2", source="x = 1\n")
-    assert result.returncode != 0
-
-
-@pytest.mark.unit
-def test_lines_non_integer_is_usage_error():
-    result = run_cli("--scan", "--lines", "7,x", source="x = 1\n")
-    assert result.returncode != 0
-
-
 # ── F5: mutual exclusion — --scan / --update-manifest ────────────────────────
 #
 # Coverage for these flag-exclusivity combinations lives with the in-process

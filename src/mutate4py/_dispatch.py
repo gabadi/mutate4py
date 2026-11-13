@@ -65,27 +65,6 @@ def _report_parse_error(path: str, exc: SyntaxError) -> None:
     _logger.error(f"error: cannot parse {path}: {_syntax_error_reason(exc)}")
 
 
-def _parse_line_token(token: str) -> int:
-    """Parse a single --lines token into a positive int; exit on error."""
-    try:
-        n = int(token)
-    except ValueError:
-        _logger.error(f"error: --lines value {token!r} is not a valid integer.")
-        sys.exit(2)
-    if n < 1:
-        _logger.error(f"error: --lines value {token!r} must be a positive integer (>= 1).")
-        sys.exit(2)
-    return n
-
-
-def _parse_lines(lines_str: str | None) -> set[int] | None:
-    """Parse --lines argument into a set of positive ints, or None if not given."""
-    if lines_str is None:
-        return None
-    parts = [p.strip() for p in lines_str.split(",") if p.strip()]
-    return {_parse_line_token(p) for p in parts}
-
-
 def _parse_pytest_args(raw: str | None) -> list[str]:
     """Parse --pytest-args into a token list; exit on malformed quoting."""
     if not raw:
@@ -132,7 +111,6 @@ def _run_on_file(
     if args.scan:
         _run_scan(args, py_file, source)
         return 0
-    lines_filter = _parse_lines(args.lines)
     max_workers = args.max_workers if args.max_workers is not None else 0
     return run_mutations(
         RunMutationsRequest(
@@ -141,8 +119,6 @@ def _run_on_file(
             pytest_args=args.pytest_args,
             timeout_factor=args.timeout_factor,
             min_timeout=args.min_timeout,
-            lines_filter=lines_filter,
-            since_last_run=args.since_last_run,
             mutate_all=args.mutate_all,
             warning_threshold=args.warning_threshold,
             max_workers=max_workers,

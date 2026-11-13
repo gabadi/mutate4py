@@ -1,50 +1,43 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T15:09:07Z",
-  "module_hash": "046b9665a00e5541e0e6387fcbe8214ee967c96b6431a9fc7f744f26e5ea1050",
-  "source_sha256": "6cff9d55813133c70915a058740588e50a410f24d81c4f29ca6720a2ca09d08e",
+  "tested_at": "2026-11-13T16:27:01Z",
+  "module_hash": "5e0156278bf3323190990b30ca4f19441ee0038df68d3697f64f540938e55db8",
+  "source_sha256": "5a89a2e759338dc00a50924355152842f9475cbb91e3a89a2dce86d2a5f02903",
   "functions": [
-    {
-      "id": "func/_filter_by_lines",
-      "name": "_filter_by_lines",
-      "line": 9,
-      "end_line": 10,
-      "hash": "1e7c8b1b8930f0fc810c32e6cf5844f1d0f054da3a90b748c972c9db0f5cad1e"
-    },
     {
       "id": "func/_filter_by_fn",
       "name": "_filter_by_fn",
-      "line": 13,
-      "end_line": 14,
+      "line": 10,
+      "end_line": 11,
       "hash": "7bde9d2b50f085b8aec9909193a5391e7967834e9797b3cf6069210bee7df73c"
     },
     {
       "id": "func/_select_sites",
       "name": "_select_sites",
-      "line": 17,
-      "end_line": 31,
-      "hash": "07a1ea44bf0d2a19a2e1f55de96ff235008d1772dea5ebe04db65736b07278e5"
+      "line": 14,
+      "end_line": 25,
+      "hash": "049f4013b30ebde2cf659135e90cfabf192caf0da90c19b9df4d90059c91a04d"
     },
     {
-      "id": "func/_is_effective_since_last_run",
-      "name": "_is_effective_since_last_run",
-      "line": 34,
-      "end_line": 41,
-      "hash": "4ab182b08d24d414c154b7c752f4d97ee36950db02d17626f7a0a8fa213eb4f5"
+      "id": "func/_is_differential",
+      "name": "_is_differential",
+      "line": 28,
+      "end_line": 30,
+      "hash": "e203593768fb994e08e05e1760b86105d55ef34700f2b44f75af599b61bc067d"
     },
     {
       "id": "func/_should_run_parallel",
       "name": "_should_run_parallel",
-      "line": 44,
-      "end_line": 45,
+      "line": 33,
+      "end_line": 34,
       "hash": "15249ea2817e81a958e42069ced55937242a9097ca031e88d4843613b8cf330d"
     },
     {
       "id": "func/_uncovered_lines_if_needed",
       "name": "_uncovered_lines_if_needed",
-      "line": 48,
-      "end_line": 63,
-      "hash": "aede366f281f1725e2cbbaa2eda1949749e40b1bae0d61cb8c71cec08cc6d724"
+      "line": 37,
+      "end_line": 51,
+      "hash": "2fad17b9cc9e3cd9feb07afb785476c3ca4c8c0e6698a84b6838e96504629912"
     }
   ]
 }

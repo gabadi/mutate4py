@@ -95,6 +95,8 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--test-contexts", dest="test_contexts", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--build-test-contexts", dest="build_test_contexts", default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--lines", dest="lines", default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--since-last-run", action="store_true", dest="since_last_run", help=argparse.SUPPRESS)
     parser.add_argument(
         "--pytest-args",
         dest="pytest_args",
@@ -119,18 +121,6 @@ def _build_parser() -> argparse.ArgumentParser:
         dest="min_timeout",
         help="Floor for the Mutant's own tests' timeout in seconds, before the per-Mutant overhead "
         "is added (default: 5.0)",
-    )
-    parser.add_argument(
-        "--lines",
-        dest="lines",
-        default=None,
-        help="Comma-separated line numbers to mutate",
-    )
-    parser.add_argument(
-        "--since-last-run",
-        action="store_true",
-        dest="since_last_run",
-        help="Only mutate sites in changed functions",
     )
     parser.add_argument(
         "--mutate-all",
