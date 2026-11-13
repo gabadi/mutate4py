@@ -205,6 +205,30 @@ def test_a_single_file_run_that_measures_itself_prints_the_measurement_and_overh
     assert "Per-Mutant overhead:" in caplog.text
 
 
+class _SurvivingExecutor(_FakeExecutor):
+    def run(self, args, timeout):
+        self.calls.append(list(args))
+        return "survived"
+
+
+@pytest.mark.component
+def test_the_measurement_line_is_set_apart_from_the_survivors_block(tmp_path, caplog, monkeypatch):
+    """A reader of the Survivors block stops at the first blank line, so the
+    Measurement line, whose wall time varies run to run, must not follow it directly."""
+    caplog.set_level(logging.INFO)
+    src_path = _write_source(tmp_path)
+    measurement = measurement_for(os.path.abspath(src_path), {"tests/test_calc.py::test_gt": [2]}, wall=0.5)
+    monkeypatch.setattr("mutate4py._runner.measure_in_scratch", lambda **kwargs: measurement)
+
+    rc, _ = _run_without_coverage_flags(tmp_path, src_path, None, _SurvivingExecutor())
+
+    assert rc == 3
+    lines = "\n".join(caplog.messages).splitlines()
+    survivors_at = lines.index("Survivors:")
+    measurement_at = next(i for i, ln in enumerate(lines) if ln.startswith("Measurement:"))
+    assert "" in lines[survivors_at:measurement_at]
+
+
 @pytest.mark.component
 def test_an_injected_measurement_prints_neither_the_measurement_nor_the_overhead_lines(tmp_path, caplog):
     caplog.set_level(logging.INFO)

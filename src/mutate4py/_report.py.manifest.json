@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T08:15:46Z",
-  "module_hash": "c7097797e194132c47ef638315ddaa0923fc8ca04d356761faf7f96bfeaad2ed",
-  "source_sha256": "cba2ddc0d9e9c9ae0c881c140f5cacbd24bdc07e8115e198ec63910757cd5fa7",
+  "tested_at": "2026-11-13T09:29:05Z",
+  "module_hash": "a093c4793a9567dfee8241f2cb679111029c844e6e916bfd9e651602fb3dc2d7",
+  "source_sha256": "3e3d283d7271ada17e4798f6425ae671a5681f2efc03326e90e9d3b7e07bede9",
   "functions": [
     {
       "id": "func/_run_header_lines",
@@ -57,70 +57,70 @@
       "id": "func/measurement_lines",
       "name": "measurement_lines",
       "line": 147,
-      "end_line": 152,
-      "hash": "476a40644903cfa0424c83ea42571f5c14dadac25f0e64d732dbdb7fdd4c49f1"
+      "end_line": 156,
+      "hash": "9c2377196dfa29a4d2934b68cbc5619ed78b9f37ee9938526b7edb914c7c30b2"
     },
     {
       "id": "func/batch_summary_lines",
       "name": "batch_summary_lines",
-      "line": 155,
-      "end_line": 160,
+      "line": 159,
+      "end_line": 164,
       "hash": "29afb8db008e6097fc2ac63b6f3f9f287a7059622d886c39119f3b77c1a21bc2"
     },
     {
       "id": "func/measurement_failure",
       "name": "measurement_failure",
-      "line": 163,
-      "end_line": 169,
+      "line": 167,
+      "end_line": 173,
       "hash": "fa31ca1abf3dd3e3919cfe6abdd4bab106488f40125387483c317a2c4f560040"
     },
     {
       "id": "func/_selection_report_lines",
       "name": "_selection_report_lines",
-      "line": 172,
-      "end_line": 188,
+      "line": 176,
+      "end_line": 192,
       "hash": "6bcf25d58fb61a693f2a57601d487d9de07d6472be22ffb362cb4f7bb4e81881"
     },
     {
       "id": "func/_mutation_report_lines",
       "name": "_mutation_report_lines",
-      "line": 191,
-      "end_line": 217,
+      "line": 195,
+      "end_line": 221,
       "hash": "2252a3653828be2299f05ca8097631b15eb2afd26d485675ec80173880eb1a7f"
     },
     {
       "id": "func/_accepted_block_lines",
       "name": "_accepted_block_lines",
-      "line": 220,
-      "end_line": 228,
+      "line": 224,
+      "end_line": 232,
       "hash": "d2db0ed78e38ee49bb5081e7c89a526d46086cc6754e487cc6e9efb15bdd175c"
     },
     {
       "id": "func/_workers_header_lines",
       "name": "_workers_header_lines",
-      "line": 231,
-      "end_line": 235,
+      "line": 235,
+      "end_line": 239,
       "hash": "45a887b31e2142ea6ee16ac8585dbe9ed7ee256035aa668275994ec504e3bfd8"
     },
     {
       "id": "func/_scan_manifest_state",
       "name": "_scan_manifest_state",
-      "line": 238,
-      "end_line": 256,
+      "line": 242,
+      "end_line": 260,
       "hash": "8866f3fc9d4c5fd02c6263bdcce7e9fbadceb020feb92a9497515effd0c3a7ab"
     },
     {
       "id": "func/scan_report",
       "name": "scan_report",
-      "line": 259,
-      "end_line": 275,
+      "line": 263,
+      "end_line": 279,
       "hash": "266a66f3c40d09563d5b6c962ec8afa5a233c6e855e551c745fd890d23afe504"
     },
     {
       "id": "func/scan_report_with_coverage",
       "name": "scan_report_with_coverage",
-      "line": 278,
-      "end_line": 309,
+      "line": 282,
+      "end_line": 313,
       "hash": "abbfcdf392bd6616b157f900ae3be8cd28db869d65552ad60ae9502e76cc5078"
     }
   ]

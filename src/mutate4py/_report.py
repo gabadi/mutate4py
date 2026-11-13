@@ -145,8 +145,12 @@ def _overhead_report_lines(overhead_duration: float, baseline_duration: float) -
 
 
 def measurement_lines(measurement: Measurement) -> list[str]:
-    """The Measurement line, plus the coverage.py core note when the core is the slow pytrace one."""
-    lines = [f"Measurement: {measurement.wall:.2f}s, {measurement.tests} tests, core {measurement.core}"]
+    """The Measurement line, plus the coverage.py core note when the core is the slow pytrace one.
+
+    Opens with a blank line so the Survivors block above it ends there: the
+    Measurement's wall time varies run to run and is not part of that block.
+    """
+    lines = ["", f"Measurement: {measurement.wall:.2f}s, {measurement.tests} tests, core {measurement.core}"]
     if measurement.note is not None:
         lines.append(measurement.note)
     return lines
