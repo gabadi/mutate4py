@@ -1,29 +1,29 @@
 {
   "version": 1,
-  "tested_at": "2026-10-11T06:13:28Z",
-  "module_hash": "2971bb83c39778acecefae37d4e16e46d6b4b7d3d14ec7d0210c748a994e9c96",
-  "source_sha256": "83e5602571fea1155ccf39e541eb21ef289513c826d003b8d22537018092f315",
+  "tested_at": "2026-11-13T05:32:58Z",
+  "module_hash": "204ccc7a973227f531028f5c2d1ee09b286b1f7fec0877854286fbbcc8570e57",
+  "source_sha256": "fc7813feec2764fa793786fa126bde689107f6f43ddf31ca95fa0a07bdd8239b",
   "functions": [
     {
       "id": "func/_provision_worker",
       "name": "_provision_worker",
-      "line": 105,
-      "end_line": 115,
+      "line": 108,
+      "end_line": 118,
       "hash": "16d6e06e6a2e85e93ced6926f72bf332fa32d131f84d0ff61f93bcee315cbafe"
     },
     {
       "id": "func/_provision_worker_executors",
       "name": "_provision_worker_executors",
-      "line": 118,
-      "end_line": 147,
+      "line": 121,
+      "end_line": 150,
       "hash": "49667f5e7f6de91363a4fd2aa35caf8cc5473f3839174a940e49b2d98d1614c0"
     },
     {
       "id": "func/_run_one_site",
       "name": "_run_one_site",
-      "line": 150,
+      "line": 153,
       "end_line": 193,
-      "hash": "c913ed043625e54c7cf9d18a617d0f250959280f85b341b7fbb366c2cd2940ad"
+      "hash": "1ccd9fa85358a5a011a0e7b529017681a614eb4caefe827ca2385a94c3f8b567"
     },
     {
       "id": "func/_required_worker_distributions",
@@ -85,15 +85,15 @@
       "id": "func/_dispatch_worker_groups",
       "name": "_dispatch_worker_groups",
       "line": 280,
-      "end_line": 320,
-      "hash": "04b21b8dfdec1809cb8e3e0153116152053636bc44649e6f049a4e9a3c61d307"
+      "end_line": 321,
+      "hash": "f4f230c74471d7d2de5f934983d11a0f8d7f78941fc07eed77bb99943b8fee14"
     },
     {
       "id": "func/run_parallel",
       "name": "run_parallel",
-      "line": 323,
-      "end_line": 386,
-      "hash": "2a505c5039d9d36765b6b359594e114b2a60868d7863a3613c57e29084abb7af"
+      "line": 324,
+      "end_line": 397,
+      "hash": "581c53bfaa63e06c025e630cebd6b9a27a6cfa4159a8409751cf49a8f46b5be4"
     }
   ]
 }

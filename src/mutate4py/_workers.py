@@ -7,9 +7,10 @@ eligible, subprocess otherwise — chosen by that Worker's own subprocess
 Mutant is dispatched over `_worker_protocol`'s request/response pipe; the
 cost this design exists to avoid is a fresh `pytest` process per Mutant.
 
-Per-site test-context narrowing (`_test_dispatch._build_mutant_args`)
-composes with parallel Workers exactly as it does with the serial loop —
-neither path may special-case the other.
+Per-site test-context narrowing (`_test_dispatch.plan_mutant`) is planned by
+the orchestrator, once per Site, before dispatch; each Worker runs the plan it
+is handed. Narrowing composes with parallel Workers exactly as it does with the
+serial loop — neither path may special-case the other.
 """
 
 import dataclasses
@@ -25,7 +26,7 @@ from typing import Callable
 
 from mutate4py._discovery import Site, apply_mutant
 from mutate4py._executor import Executor
-from mutate4py._test_dispatch import _build_mutant_args, _check_execution_status
+from mutate4py._test_dispatch import MutantPlan, TimeoutPolicy, _check_execution_status, plan_mutant
 from mutate4py._worker_protocol import WorkerProcessError, WorkerProcessExecutor
 from mutate4py._worker_provision import (
     _copy_tree,
@@ -38,7 +39,8 @@ __all__ = ["ParallelRunError", "ParallelRunRequest", "WorkerFailureError", "run_
 
 @dataclasses.dataclass
 class SiteAssignment:
-    """One (site, worker) pairing plus its position in the overall progress count."""
+    """One (site, worker) pairing, the MutantPlan built for that Site, and its
+    position in the overall progress count."""
 
     worker_idx: int
     site: Site
@@ -46,17 +48,16 @@ class SiteAssignment:
     total: int
     worker_root: str
     worker_file_path: str
+    plan: MutantPlan
 
 
 @dataclasses.dataclass
 class WorkerRunSettings:
-    """Shared across every mutant run within one parallel dispatch."""
+    """Shared across every mutant run within one parallel dispatch. Holds no
+    selection or timeout input: each SiteAssignment already carries its plan."""
 
     clean_source: str
-    pytest_args: list[str]
-    mutant_timeout: float
     on_result: Callable
-    test_ctx_db: object = None
     abs_source_path: str = ""
 
 
@@ -67,7 +68,7 @@ class ParallelRunRequest:
     source_path: str
     cwd: str
     pytest_args: list[str]
-    mutant_timeout: float
+    timeout_policy: TimeoutPolicy
     max_workers: int
     on_result: Callable
     test_ctx_db: object = None
@@ -90,6 +91,8 @@ class _WorkerDispatchPlan:
     executors: list[Executor]
     source_rel: str
     total: int
+    # plans[site_idx - 1] is the MutantPlan for that Site; site_idx counts from 1.
+    plans: list[MutantPlan]
     settings: WorkerRunSettings
     n_workers: int
 
@@ -148,12 +151,9 @@ def _provision_worker_executors(
 
 
 def _run_one_site(assignment: SiteAssignment, executor: Executor, settings: WorkerRunSettings) -> dict:
-    """Build this site's dispatch args, mutate the worker copy, dispatch to
-    executor.run(), restore, call on_result, return the result dict."""
-    args, selection = _build_mutant_args(
-        settings.pytest_args, settings.test_ctx_db, settings.abs_source_path, assignment.site
-    )
-
+    """Mutate the worker copy, dispatch this site's MutantPlan to executor.run(),
+    restore, call on_result, return the result dict."""
+    plan = assignment.plan
     with open(assignment.worker_file_path) as f:
         original_source = f.read()
 
@@ -167,7 +167,7 @@ def _run_one_site(assignment: SiteAssignment, executor: Executor, settings: Work
         raise WorkerFailureError(f"worker-{assignment.worker_idx} could not write file copy: {e}") from e
 
     try:
-        status = executor.run(args, settings.mutant_timeout)
+        status = executor.run(plan.args, plan.timeout)
         # Raises before the caller can tally: a Mutant pytest never
         # exercised must never reach the tally as `killed` (issue #55).
         # The finally clause below still restores the worker's file copy.
@@ -187,7 +187,7 @@ def _run_one_site(assignment: SiteAssignment, executor: Executor, settings: Work
         "site_idx": assignment.site_idx,
         "total": assignment.total,
         "status": status,
-        "selection": selection,
+        "selection": plan.selection,
     }
     settings.on_result(result)
     return result
@@ -299,6 +299,7 @@ def _dispatch_worker_groups(plan: _WorkerDispatchPlan) -> list[dict]:
                         total=plan.total,
                         worker_root=worker_root,
                         worker_file_path=worker_file_path,
+                        plan=plan.plans[site_idx - 1],
                     ),
                     executor,
                     plan.settings,
@@ -345,14 +346,23 @@ def run_parallel(request: ParallelRunRequest) -> tuple[dict, list[Site], dict[st
 
     settings = WorkerRunSettings(
         clean_source=request.clean_source,
-        pytest_args=request.pytest_args,
-        mutant_timeout=request.mutant_timeout,
         on_result=request.on_result,
-        test_ctx_db=request.test_ctx_db,
         abs_source_path=request.abs_source_path,
     )
 
     try:
+        # Planned before any Worker is provisioned, so a selection disagreement
+        # aborts the run before a single Mutant is dispatched.
+        plans = [
+            plan_mutant(
+                site,
+                pytest_args=request.pytest_args,
+                test_ctx_db=request.test_ctx_db,
+                abs_source_path=request.abs_source_path,
+                timeout_policy=request.timeout_policy,
+            )
+            for site in selected_sites
+        ]
         worker_roots = _provision_workers(run_root, n_workers, real_cwd)
         by_worker = _assign_sites_to_workers(selected_sites, n_workers)
         executors = _provision_worker_executors(
@@ -369,6 +379,7 @@ def run_parallel(request: ParallelRunRequest) -> tuple[dict, list[Site], dict[st
                 executors=executors,
                 source_rel=source_rel,
                 total=len(selected_sites),
+                plans=plans,
                 settings=settings,
                 n_workers=n_workers,
             )
