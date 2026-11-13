@@ -271,9 +271,16 @@ test-component:
 # the named-context set are identical with and without this gate (ADR 0023).
 # It still appends so that enabling subprocess coverage later lands the data
 # in the same file instead of needing this plumbing rebuilt.
+# Runs under pytest-xdist (`-n auto`): each test spawns its own interpreter and
+# shares no state with the others, so they run in parallel (about 60 s serial,
+# 31-42 s with `-n auto`, measured on #114). Under xdist pytest-cov combines the
+# workers' data into .coverage on the controller. Checked on #114: after this
+# gate appends, every unit and component context from the serial run is still
+# there (only the self-scan test, deleted on #114, is gone) and lcov.info is
+# unchanged.
 [private]
 test-integration:
-    uv run pytest -m integration --cov --cov-append --cov-context=test \
+    uv run pytest -m integration -n auto --cov --cov-append --cov-context=test \
         --cov-report= --cov-fail-under=0
 
 # Requires lcov.info from `test-unit`.
