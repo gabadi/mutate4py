@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "tested_at": "2026-11-13T20:31:21Z",
+  "module_hash": "82adf0bc0e2c98da9114654244e0519055ceaedbe4d9fb5ee060ee07a4c45c89",
+  "source_sha256": "d4ce3b4ae7fae74d3cac84e51519034f06e2abc984edd33426c3a41e796f0041",
+  "functions": [
+    {
+      "id": "func/recorded_survivors_kept",
+      "name": "recorded_survivors_kept",
+      "line": 21,
+      "end_line": 28,
+      "hash": "2aaee6ccf7944560bc8b13a2e5c81afbebaec4c78c2377007928d1b02ac2c645"
+    },
+    {
+      "id": "func/skipped_run_report",
+      "name": "skipped_run_report",
+      "line": 31,
+      "end_line": 50,
+      "hash": "c340a221deb6fed5dd722baa47dae6afeea0497118e8b65d27ee873de4eb8dcb"
+    }
+  ]
+}

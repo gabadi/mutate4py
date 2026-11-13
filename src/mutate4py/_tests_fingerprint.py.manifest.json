@@ -1,154 +1,168 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T07:35:34Z",
-  "module_hash": "ef887db0b68117cbeb24440eb71911e91c9eea770b338b72552e9ad5e6ebc4db",
-  "source_sha256": "375195c6caf7a82ac31b4d0a79368de48f20340f6040dc1ece7a7964887e3015",
+  "tested_at": "2026-11-13T20:28:54Z",
+  "module_hash": "8a0863773621eb14efc8f2c52f6b2055796e49ca5c755ef720163a4dc35f48e4",
+  "source_sha256": "90b03a1ddcb301647b21710416f27db79d1e06e0c4517b117e91bf9c5d70e8b7",
   "functions": [
     {
       "id": "func/_target_skippable",
       "name": "_target_skippable",
-      "line": 47,
-      "end_line": 53,
+      "line": 51,
+      "end_line": 57,
       "hash": "bd89a050469e39cca55c500626bb75d3172e5da6128cfa30b080315e45185f17"
     },
     {
       "id": "func/can_skip_measurement",
       "name": "can_skip_measurement",
-      "line": 56,
-      "end_line": 69,
+      "line": 60,
+      "end_line": 73,
       "hash": "795b57034f792bceb7467413f25a8e909ac69d711d89748c988f6785037cb97c"
+    },
+    {
+      "id": "func/_hashable",
+      "name": "_hashable",
+      "line": 76,
+      "end_line": 84,
+      "hash": "199431ce06ba2096069607bc20e9c6b3517e8acea8dc55e076d1266a72e5af6d"
     },
     {
       "id": "func/_file_sha",
       "name": "_file_sha",
-      "line": 72,
-      "end_line": 74,
-      "hash": "d5b58b9fc05d5054697388a1b5d22c098b3ab6a76077c56d8ab9ce6920c01978"
+      "line": 87,
+      "end_line": 89,
+      "hash": "251b2e780c2fbff9223df48db0cf41033b99ebf32fcbd216798c1cb45bd154df"
     },
     {
       "id": "func/_py_inputs",
       "name": "_py_inputs",
-      "line": 77,
-      "end_line": 86,
+      "line": 92,
+      "end_line": 101,
       "hash": "0c6178beaeb73e6642b9cade3ea5ccae2cbb548001c152689355446fc25a1f15"
     },
     {
       "id": "func/_file_input",
       "name": "_file_input",
-      "line": 89,
-      "end_line": 94,
+      "line": 104,
+      "end_line": 109,
       "hash": "3fd12ee50f4ed0cd6d0eca7ebdc6024072bcbf085f179047fe90430db2abe2cb"
     },
     {
       "id": "func/_root_inputs",
       "name": "_root_inputs",
-      "line": 97,
-      "end_line": 101,
+      "line": 112,
+      "end_line": 116,
       "hash": "a6d37069970050349c2e6d759328523eaa5ccad6aed7bba870aa881c78160db0"
     },
     {
       "id": "func/_ancestors",
       "name": "_ancestors",
-      "line": 104,
-      "end_line": 113,
+      "line": 119,
+      "end_line": 128,
       "hash": "71f36d807415ca9b7117686a0015319cf25b19f7ca5db6fadf1936dbc3b54157"
     },
     {
       "id": "func/_conftest_inputs",
       "name": "_conftest_inputs",
-      "line": 116,
-      "end_line": 119,
+      "line": 131,
+      "end_line": 134,
       "hash": "56d24698204a9729d3cd8267aa22f5fef02406d98dbe79cbcfb91cbd56d678ba"
     },
     {
       "id": "func/_attached_value",
       "name": "_attached_value",
-      "line": 127,
-      "end_line": 131,
+      "line": 142,
+      "end_line": 146,
       "hash": "cea18e29917c613976f7303058d7cb732b14053ead4860aee84d7cd941269518"
     },
     {
       "id": "func/_option_values",
       "name": "_option_values",
-      "line": 134,
-      "end_line": 143,
+      "line": 149,
+      "end_line": 158,
       "hash": "957a3e93c574963a466091c38ca75323639753e7f8cefa843cc90b0218260f86"
     },
     {
       "id": "func/_positional_roots",
       "name": "_positional_roots",
-      "line": 146,
-      "end_line": 148,
+      "line": 161,
+      "end_line": 163,
       "hash": "faec8bced2a2406c42de64ee6b98d8e86a1f7f48f1eeed53b528f6892afe0c46"
     },
     {
       "id": "func/_configured_testpaths",
       "name": "_configured_testpaths",
-      "line": 151,
-      "end_line": 166,
+      "line": 166,
+      "end_line": 181,
       "hash": "5712f52a2f4d65826f67bbc4b1096647e5d01594c7f5b487fcbb194d1776d31d"
     },
     {
       "id": "func/_collection_roots",
       "name": "_collection_roots",
-      "line": 169,
-      "end_line": 177,
+      "line": 184,
+      "end_line": 192,
       "hash": "e4ce1fc15317de156e9634ea7b81c8bdce0a83c76e582d36abf55db86982644a"
     },
     {
       "id": "func/_pyproject_pytest_table",
       "name": "_pyproject_pytest_table",
-      "line": 183,
-      "end_line": 196,
+      "line": 198,
+      "end_line": 211,
       "hash": "160db7a73b1e714e8299714c1b1a164adef3515a80d76baf617cce916d3b5d36"
     },
     {
       "id": "func/_config_inputs",
       "name": "_config_inputs",
-      "line": 199,
-      "end_line": 207,
+      "line": 214,
+      "end_line": 222,
       "hash": "04e4fabfaf49c93ccd6e582b2aee7f3d2243e9693f944920eaa60f71f9fdcad5"
     },
     {
       "id": "func/_explicit_config_inputs",
       "name": "_explicit_config_inputs",
-      "line": 210,
-      "end_line": 216,
+      "line": 225,
+      "end_line": 231,
       "hash": "0ffb5de27d2e90c58e2e2d72cf57d5cb10c237963ccbccbb3d7de0e5b45c1661"
     },
     {
       "id": "func/_config_dirs",
       "name": "_config_dirs",
-      "line": 219,
-      "end_line": 223,
+      "line": 234,
+      "end_line": 238,
       "hash": "3b521e57aac09d53aec342e0bf023763c7a30e0525c1df8b2a9ac39b2562d8cb"
     },
     {
       "id": "func/_config_and_lock_inputs",
       "name": "_config_and_lock_inputs",
-      "line": 226,
-      "end_line": 230,
+      "line": 241,
+      "end_line": 245,
       "hash": "3f094753e6cfa60dc58d435fd5614dc03f30781170a320faddcc1a57f276d875"
     },
     {
       "id": "func/_mutate4py_version",
       "name": "_mutate4py_version",
-      "line": 233,
-      "end_line": 237,
+      "line": 248,
+      "end_line": 252,
       "hash": "0168d19e257f113e9fdce63f932aa617509a36fa8dc24b2f6534bb7dc3ddc69e"
+    },
+    {
+      "id": "func/fingerprint_inputs",
+      "name": "fingerprint_inputs",
+      "line": 255,
+      "end_line": 270,
+      "hash": "04c9e51190f4581fa8477c288460d07ea3901095f86ddbf50c0fc07c00e25abd"
     },
     {
       "id": "func/_digest",
       "name": "_digest",
-      "line": 240,
-      "end_line": 251,
-      "hash": "ee525c4cbf9b42a31363c07175bbaf2eeacf3d6b24846ec7a4b1cc481d66f4e5"
+      "line": 273,
+      "end_line": 274,
+      "hash": "5563ce180ffeb9f233104413337d374bf5970da6342bbf01c8c2570040d63f5c"
     },
     {
       "id": "func/tests_fingerprint",
       "name": "tests_fingerprint",
-      "line": 254,
-      "end_line": 263,
+      "line": 277,
+      "end_line": 286,
       "hash": "5929ee3dc3f75e42cf6d8fcb9e31cae3b90d8f2af1a5ba107a4dcd10fa7d2cf2"
     }
   ]

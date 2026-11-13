@@ -6,10 +6,13 @@ the pytest configuration, the lockfile, the --pytest-args string, the Python
 version and the mutate4py version. Equal fingerprints therefore prove the
 digests would come out the same.
 
+A Python file is hashed with its Manifest footer stripped, so the footer a scored
+run writes into a source file never changes the fingerprint that run wrote.
+
 `can_skip_measurement` decides from per-target facts the caller reduced from
-the stored Manifests. This module reads no Manifest itself. Its only import is
-`primitives` (`_py_tree`), which `domain` reaches for free, so it stays in
-`domain` with `depends_on = []`.
+the stored Manifests. This module reads no Manifest itself: its one Manifest
+import is `strip_manifest`, which removes the footer text and reads no stored
+value. Its other import is `primitives` (`_py_tree`).
 """
 
 import configparser
@@ -26,6 +29,7 @@ import tomllib
 import uuid
 from collections.abc import Sequence
 
+from mutate4py._manifest import strip_manifest
 from mutate4py._py_tree import walkable_dirs
 
 
@@ -69,9 +73,20 @@ def can_skip_measurement(
     return all(_target_skippable(facts, fresh_fingerprint) for facts in targets)
 
 
+def _hashable(path: str, content: bytes) -> bytes:
+    """What a file's digest reads: a Python file's body with its footer stripped, any other file whole.
+
+    Decoding keeps every byte (surrogateescape), so a non-UTF-8 file still hashes, and an
+    undecodable one is never a false match.
+    """
+    if not path.endswith(".py"):
+        return content
+    return strip_manifest(content.decode("utf-8", errors="surrogateescape")).encode("utf-8", errors="surrogateescape")
+
+
 def _file_sha(path: str) -> str:
     with open(path, "rb") as handle:
-        return hashlib.sha256(handle.read()).hexdigest()
+        return hashlib.sha256(_hashable(path, handle.read())).hexdigest()
 
 
 def _py_inputs(root: str, base: str) -> list[tuple[str, str]]:
@@ -237,7 +252,11 @@ def _mutate4py_version() -> str:
         return "unknown"
 
 
-def _digest(cwd: str, pytest_args: str) -> str:
+def fingerprint_inputs(cwd: str, pytest_args: str) -> dict[str, str]:
+    """Every input the fingerprint hashes, keyed by its base-relative name, each with its content's sha.
+
+    The keys are the list the fingerprint covers; `_digest` hashes exactly these entries.
+    """
     tokens = shlex.split(pytest_args)
     roots = _collection_roots(cwd, tokens)
     entries: dict[str, str] = {}
@@ -248,7 +267,11 @@ def _digest(cwd: str, pytest_args: str) -> str:
     entries["<pytest-args>"] = pytest_args
     entries["<python-version>"] = sys.version
     entries["<mutate4py-version>"] = _mutate4py_version()
-    return hashlib.sha256(json.dumps(sorted(entries.items())).encode()).hexdigest()
+    return entries
+
+
+def _digest(cwd: str, pytest_args: str) -> str:
+    return hashlib.sha256(json.dumps(sorted(fingerprint_inputs(cwd, pytest_args).items())).encode()).hexdigest()
 
 
 def tests_fingerprint(cwd: str, pytest_args: str) -> str:

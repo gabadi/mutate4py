@@ -7,6 +7,7 @@ import dataclasses
 import datetime
 import logging
 import os
+import shlex
 
 from mutate4py._digest_changes import functions_with_changed_digest
 from mutate4py._discovery import Site, discover_sites
@@ -25,6 +26,7 @@ from mutate4py._manifest_storage import (
     _write_manifest_output,
 )
 from mutate4py._scoring import ScoredRun
+from mutate4py._tests_fingerprint import tests_fingerprint
 
 _logger = logging.getLogger(__name__)
 
@@ -74,6 +76,7 @@ def _finalize_source(  # noqa: PLR0913 - keeps the positional contract tests/tes
     existing_manifest: dict | None = None,
     scored_run: ScoredRun | None = None,
     fresh_digests: dict[str, str] | None = None,
+    fingerprint: str | None = None,
 ) -> dict:
     # Unlike update_manifest, the write can't be skipped outright: a run with
     # selected sites leaves the last-tested mutant on disk (the per-site loop
@@ -84,7 +87,12 @@ def _finalize_source(  # noqa: PLR0913 - keeps the positional contract tests/tes
     scores = None
     if scored_run is not None:
         scores = scored_run.function_scores([fn["id"] for fn in candidate_manifest["functions"]])
-    manifest_to_embed = reconcile_manifest(existing_manifest, candidate_manifest, scores, fresh_digests=fresh_digests)
+    # A run that wrote at least one score block records its fingerprint; any other run keeps the stored one, so a
+    # run that scored nothing (a no-op default run) leaves the Manifest bytes as they were.
+    recorded = fingerprint if scores else None
+    manifest_to_embed = reconcile_manifest(
+        existing_manifest, candidate_manifest, scores, fresh_digests=fresh_digests, fingerprint=recorded
+    )
     _write_manifest_output(clean_source, manifest_to_embed, loc)
     if os.path.isfile(bak_path):
         os.remove(bak_path)
@@ -148,16 +156,19 @@ def apply_digest_changes(loaded: LoadedSource, fresh_digests: dict[str, str]) ->
 
 @dataclasses.dataclass
 class RunSetup:
-    """Paths and loaded source state established before coverage/selection."""
+    """Paths, loaded source state and the run's tests fingerprint, established before coverage/selection."""
 
     bak_path: str
     loc: ManifestLocation
     loaded: LoadedSource
+    fingerprint: str
 
 
-def _prepare_run_setup(*, path: str, source: str, manifest_file: bool) -> RunSetup:
+def _prepare_run_setup(*, path: str, source: str, manifest_file: bool, cwd: str, pytest_args: list[str]) -> RunSetup:
     source_dir = os.path.dirname(os.path.abspath(path))
     bak_path = os.path.join(source_dir, os.path.basename(path) + ".bak")
     loc = ManifestLocation(path=path, manifest_file=manifest_file)
     loaded = _load_clean_source(bak_path, source, loc)
-    return RunSetup(bak_path=bak_path, loc=loc, loaded=loaded)
+    # After the backup restore, and before any Mutant is written: the fingerprint reads the source as it is restored.
+    fingerprint = tests_fingerprint(cwd, shlex.join(pytest_args))
+    return RunSetup(bak_path=bak_path, loc=loc, loaded=loaded, fingerprint=fingerprint)

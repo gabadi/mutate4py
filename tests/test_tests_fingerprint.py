@@ -6,7 +6,9 @@ import sys
 
 import pytest
 
-from mutate4py._tests_fingerprint import TargetFacts, can_skip_measurement
+from mutate4py._digest_inputs import digest_inputs_from
+from mutate4py._manifest import embed_manifest
+from mutate4py._tests_fingerprint import TargetFacts, can_skip_measurement, fingerprint_inputs
 from mutate4py._tests_fingerprint import tests_fingerprint as fingerprint_of
 
 FRESH = "fresh-fingerprint"
@@ -327,3 +329,24 @@ def test_a_config_file_above_the_run_directory_changes_it(tmp_path):
     before = fingerprint_of(str(run), "")
     (tmp_path / "pytest.ini").write_text("[pytest]\naddopts = -q\n")
     assert fingerprint_of(str(run), "") != before
+
+
+@pytest.mark.unit
+def test_editing_only_a_manifest_footer_does_not_change_it(tmp_path):
+    root = _project(tmp_path)
+    source = tmp_path / "src" / "app.py"
+    source.write_text(embed_manifest("VALUE = 1\n", {"functions": [], "tests_fingerprint": "first"}))
+    before = fingerprint_of(root, "")
+    source.write_text(embed_manifest("VALUE = 1\n", {"functions": [], "tests_fingerprint": "second"}))
+    assert fingerprint_of(root, "") == before
+
+
+@pytest.mark.unit
+def test_every_file_a_digest_reads_is_a_fingerprint_input(digest_project):
+    inputs = digest_inputs_from(digest_project.record, reach={})
+    named = {*inputs.all_test_files, *inputs.support_files}
+    named |= {conftest for conftests in inputs.conftests_for.values() for conftest in conftests}
+
+    listed = fingerprint_inputs(str(digest_project.root), "tests")
+
+    assert sorted(named - set(listed)) == []

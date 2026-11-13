@@ -32,6 +32,8 @@ from mutate4py._runner import (
     run_scan,
     update_manifest,
 )
+from mutate4py._skip_facts import skipped_manifests
+from mutate4py._skipped_run import skipped_run_report
 from mutate4py._target_resolution import (
     NoFilesToProcessError,
     _collect_py_files,
@@ -137,6 +139,26 @@ def _needs_measurement(files: list[str], args: argparse.Namespace) -> bool:
     return bool(files) and not (args.scan or args.update_manifest or args.check_manifest)
 
 
+def _exit_if_skipped(args: argparse.Namespace, files: list[str]) -> None:
+    """Exit with the skipped-run report when every target's stored Manifest lets this run skip
+    its Measurement (design #89 §5b); return otherwise, so the run goes on as usual."""
+    if not _needs_measurement(files, args):
+        return
+    cwd = os.getcwd()
+    manifests = skipped_manifests(
+        files,
+        args.pytest_args,
+        cwd,
+        manifest_file=args.manifest_file,
+        mutate_all=args.mutate_all,
+    )
+    if manifests is None:
+        return
+    lines, code = skipped_run_report(list(zip(files, manifests)), cwd=cwd, allow_survivors=args.allow_survivors)
+    _logger.info("\n".join(lines))
+    sys.exit(code)
+
+
 def _prepare_directory_measurement(args: argparse.Namespace, files: list[str], cwd: str) -> Measurement:
     """Take the one Measurement a directory run shares across all its files.
 
@@ -208,6 +230,7 @@ def _run_files_and_exit(args: argparse.Namespace, files: list[str]) -> None:
     parse-failure summary line."""
     started = time.monotonic()
     cwd = os.getcwd()
+    _exit_if_skipped(args, files)
     measurement = _prepare_directory_measurement(args, files, cwd) if _needs_measurement(files, args) else None
     timing = MutantTiming()
     exit_code, parse_failures = _run_each_file(args, files, cwd, BatchShare(measurement, timing))
@@ -276,6 +299,7 @@ def _dispatch(args: argparse.Namespace) -> None:
         return
     source = _load_source(args.file)  # a bad path must report itself, not "excluded"
     _raise_if_target_excluded(args)
+    _exit_if_skipped(args, [args.file])
     try:
         sys.exit(_run_on_file(args, args.file, source, os.getcwd()))
     except SyntaxError as exc:

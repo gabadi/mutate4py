@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T19:33:56Z",
-  "module_hash": "1b1319a36926455c6e55557693efe64f20e6a5f11f542c50576c1835ac59ea38",
-  "source_sha256": "1a23704e4e16dfc717c6cfb04b3106dcb005cc1e3f8679ac14fe317ec94fa6ee",
+  "tested_at": "2026-11-13T20:39:58Z",
+  "module_hash": "b5bbf65e728815a31bb74c21b6db97eb368a4417802d74150483759f89bc179a",
+  "source_sha256": "58e2297de1c00c7f0e646b5a2ecdb4d0a2c557a65a0cb4ca5ce1005b823a0407",
   "functions": [
     {
       "id": "func/strip_manifest",
@@ -92,91 +92,91 @@
       "id": "func/reconcile_manifest",
       "name": "reconcile_manifest",
       "line": 171,
-      "end_line": 192,
-      "hash": "6ca529eaeec347ebc61252f58e115d24d64539f3555c446cced92f17bd976e52"
+      "end_line": 199,
+      "hash": "a775aae2e610f8c11b23d9f9bc1b3273cc0851f73b77b64fed0fd35cf8159317"
     },
     {
       "id": "func/_carry_entry",
       "name": "_carry_entry",
-      "line": 195,
-      "end_line": 201,
+      "line": 202,
+      "end_line": 208,
       "hash": "6a23e3bb84c735b449d86b46d9cab2fd19c686eef3aacad1b8809868193d641e"
     },
     {
       "id": "func/_unchanged",
       "name": "_unchanged",
-      "line": 204,
-      "end_line": 211,
-      "hash": "8959b1fd3f057e29c557873088d6a51f314b674791b194eb08d1d31ac57b7805"
+      "line": 211,
+      "end_line": 222,
+      "hash": "650ecddc9468b14fdfe5b283cba64bcfa212b8d818f343e7dd28c484174de76b"
     },
     {
       "id": "func/functions_with_survivors",
       "name": "functions_with_survivors",
-      "line": 214,
-      "end_line": 223,
+      "line": 225,
+      "end_line": 234,
       "hash": "2724c11a331adb9b725368f2ff428c7744c2a7bf329a3b15b1169d07d95397ba"
     },
     {
       "id": "func/functions_with_unmarked_acceptances",
       "name": "functions_with_unmarked_acceptances",
-      "line": 226,
-      "end_line": 242,
+      "line": 237,
+      "end_line": 253,
       "hash": "3de1a53bd7a2c1e39107489949b5e47eeb8a26427bc6a3a74d775c0a0415bb09"
     },
     {
       "id": "func/_acceptance_unmarked",
       "name": "_acceptance_unmarked",
-      "line": 245,
-      "end_line": 257,
+      "line": 256,
+      "end_line": 268,
       "hash": "3bd62171d50ed8d66836cd688fd4d01c457a8d04167fa2e12a6ea1f1c0ca8c53"
     },
     {
       "id": "func/_markers_in_span",
       "name": "_markers_in_span",
-      "line": 260,
-      "end_line": 262,
+      "line": 271,
+      "end_line": 273,
       "hash": "fd4c4af8e05d383546fcf085c84edcac0d1b0c8d2a94158702066f8f9d6e3257"
     },
     {
       "id": "func/has_accepted_survivors",
       "name": "has_accepted_survivors",
-      "line": 265,
-      "end_line": 267,
+      "line": 276,
+      "end_line": 278,
       "hash": "9ab85b996769543a83999af6b72f5a2b52afd65f76288858a523f499a9b05ab0"
     },
     {
       "id": "func/recorded_survivors",
       "name": "recorded_survivors",
-      "line": 270,
-      "end_line": 272,
+      "line": 281,
+      "end_line": 283,
       "hash": "06ebd788dd3ab126d50b237d9bc7c53211215815c2113c91735913584f970552"
     },
     {
       "id": "func/is_unscored",
       "name": "is_unscored",
-      "line": 275,
-      "end_line": 277,
+      "line": 286,
+      "end_line": 288,
       "hash": "b1522d8a6ac438c3d624e4b3f566b8144cefcaffb61a1bb4d24212e9c6c52bd5"
     },
     {
       "id": "func/build_manifest",
       "name": "build_manifest",
-      "line": 280,
-      "end_line": 299,
+      "line": 291,
+      "end_line": 310,
       "hash": "95ab3c837ccac33062a208ce466ebfdd3aff815ca8357b69baa58c6fe952abcd"
     },
     {
       "id": "func/_extract_functions",
       "name": "_extract_functions",
-      "line": 302,
-      "end_line": 329,
+      "line": 313,
+      "end_line": 340,
       "hash": "3de7d42663139b5f954dc01f0fd172f4d3429d72803a46ddc9ef6939e265d9eb"
     },
     {
       "id": "func/diff_manifests",
       "name": "diff_manifests",
-      "line": 332,
-      "end_line": 349,
+      "line": 343,
+      "end_line": 360,
       "hash": "7dace38d003dfc04471fbace27a7ab228e09f8aeb32129ae570598ba2b40eeb5"
     }
   ]
