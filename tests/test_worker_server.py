@@ -8,6 +8,7 @@ import io
 import json
 
 from mutate4py import _worker_server
+from mutate4py._executor import ExecutorDescription
 from mutate4py._worker_server import _serve, _worker_plugin_args, parse_worker_argv, worker_environ_updates
 import pytest
 
@@ -86,6 +87,22 @@ def test_serve_leaves_args_untouched_when_there_are_no_plugin_args():
     executor = _RecordingExecutor()
     _drive(executor, [], {"args": ["-q", "tests"], "timeout": 5.0})
     assert executor.calls == [["-q", "tests"]]
+
+
+class _DescribingExecutor(_RecordingExecutor):
+    def describe(self) -> ExecutorDescription:
+        return ExecutorDescription(mode="subprocess", reason="--no-fork")
+
+
+@pytest.mark.unit
+def test_serve_answers_a_describe_request_with_its_executors_description_and_runs_nothing():
+    executor = _DescribingExecutor()
+    outstream = io.StringIO()
+    _serve(executor, io.StringIO(json.dumps({"describe": True}) + "\n"), outstream, plugin_args=[])
+    assert json.loads(outstream.getvalue()) == {
+        "description": {"mode": "subprocess", "reason": "--no-fork", "fresh_import": 0}
+    }
+    assert executor.calls == []
 
 
 # ── plugin args ───────────────────────────────────────────────────────────

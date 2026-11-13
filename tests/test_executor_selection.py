@@ -11,6 +11,7 @@ import sys
 
 import pytest
 
+from mutate4py._executor import ExecutorDescription
 from mutate4py._executor_selection import _prepare_executor, select_executor
 
 
@@ -25,6 +26,9 @@ class _FakeExecutor:
 
     def run(self, args, timeout):  # pragma: no cover - never dispatched here
         raise AssertionError("select_executor must not dispatch")
+
+    def describe(self) -> ExecutorDescription:  # pragma: no cover - never described here
+        raise AssertionError("select_executor must not describe a caller-supplied executor")
 
 
 @pytest.mark.unit
@@ -70,6 +74,19 @@ def test_select_executor_defers_to_each_worker_for_a_parallel_run(tmp_path):
 
 
 @pytest.mark.unit
+def test_select_executor_passes_the_no_fork_reason_through_to_the_subprocess_executor(tmp_path):
+    chosen = select_executor(
+        caller_supplied=None,
+        use_parallel=False,
+        requested=False,
+        cwd=str(tmp_path),
+        guarded_path=str(tmp_path / "x.py"),
+        no_fork_reason="no Mutants selected",
+    )
+    assert chosen.describe().render() == "subprocess (no Mutants selected)"
+
+
+@pytest.mark.unit
 def test_select_executor_prepares_one_for_a_serial_run(tmp_path):
     from mutate4py._subprocess_executor import SubprocessExecutor
 
@@ -92,6 +109,36 @@ def test_prepare_executor_returns_subprocess_executor_when_not_requested(tmp_pat
 
     executor = _prepare_executor(requested=False, cwd=str(tmp_path), guarded_path=str(tmp_path / "x.py"))
     assert isinstance(executor, SubprocessExecutor)
+
+
+@pytest.mark.unit
+def test_prepare_executor_not_requested_reports_the_no_fork_reason(tmp_path):
+    executor = _prepare_executor(requested=False, cwd=str(tmp_path), guarded_path=str(tmp_path / "x.py"))
+    assert executor.describe().render() == "subprocess (--no-fork)"
+
+
+@pytest.mark.unit
+def test_prepare_executor_fallback_on_a_non_posix_platform_reports_the_platform(tmp_path, monkeypatch):
+    import mutate4py._forking_executor as forking_mod
+
+    monkeypatch.setattr(forking_mod, "is_available", lambda: False)
+    executor = _prepare_executor(requested=True, cwd=str(tmp_path), guarded_path=str(tmp_path / "x.py"))
+    assert executor.describe().render() == "subprocess (the forking executor needs a POSIX platform)"
+
+
+@pytest.mark.component
+def test_prepare_executor_fallback_on_a_leaked_target_reports_the_unavailability(tmp_path, monkeypatch):
+    import types
+
+    (tmp_path / "conftest.py").write_text("")
+    target = tmp_path / "leaked.py"
+    target.write_text("x = 1\n")
+    fake_module = types.ModuleType("leaked")
+    fake_module.__file__ = str(target)
+    monkeypatch.setitem(sys.modules, "leaked", fake_module)
+
+    executor = _prepare_executor(requested=True, cwd=str(tmp_path), guarded_path=str(target))
+    assert executor.describe().render().startswith("subprocess (forking executor unavailable: ")
 
 
 @pytest.mark.unit

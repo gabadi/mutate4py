@@ -10,6 +10,7 @@ import os
 
 from mutate4py._coverage import acquire_coverage
 from mutate4py._discovery import Site, discover_sites, partition_sites
+from mutate4py._executor import ExecutorDescription, MutantTiming
 from mutate4py._exit_codes import EXIT_FAILURE, EXIT_USAGE
 from mutate4py._manifest_storage import ManifestLocation
 from mutate4py._measurement import CoverageCoreRefused, Measurement, MeasurementFailed
@@ -243,6 +244,11 @@ def _accepted_block_lines(accepted: list[tuple[Site, str]]) -> list[str]:
         fid = f" {s.function_id}" if s.function_id else ""
         lines.append(f"  line {s.line} {s.desc}{fid} (equivalent: {reason})")
     return lines
+
+
+def executor_block_lines(description: ExecutorDescription, timing: MutantTiming) -> list[str]:
+    """The Time and Executor lines that close a run's Mutation Report, blank-led to sit apart from Survivors."""
+    return ["", timing.render(), f"Executor: {description.render()}"]
 
 
 def _workers_header_lines(max_workers: int, *, use_parallel: bool, n_selected: int) -> list[str]:

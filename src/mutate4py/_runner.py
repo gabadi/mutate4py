@@ -43,6 +43,7 @@ from mutate4py._report import (
     _mutation_report_lines,
     _run_header_lines,
     _workers_header_lines,
+    executor_block_lines,
     measurement_failure,
     measurement_lines,
     overhead_info,
@@ -179,12 +180,16 @@ def _prepare_baseline_and_executor(
         overhead=measurement.per_mutant_overhead,
         budget_of=lambda node_ids: measurement.budget_of(ALL if node_ids is None else node_ids),
     )
+    # A run with nothing selected never forks, and the Executor line says why: the user's --no-fork
+    # first, else the empty selection.
+    no_fork_reason = "--no-fork" if not request.forking_requested else "no Mutants selected"
     executor = select_executor(
         caller_supplied=request.executor,
         use_parallel=use_parallel,
         requested=request.forking_requested and bool(selected_sites),
         cwd=request.cwd,
         guarded_path=os.path.abspath(request.path),
+        no_fork_reason=no_fork_reason,
     )
 
     return _BaselinePrep(measurement.wall, measurement.per_mutant_overhead, timeout_policy, executor)
@@ -398,6 +403,7 @@ def _report_run(request: RunMutationsRequest, outcome, result, scored_run: Score
             selection=selection,
             overhead=overhead,
         )
+        + executor_block_lines(result.executor_description, result.timing)
     )
     if measured_here and outcome.measurement is not None:
         _print_lines(measurement_lines(outcome.measurement))

@@ -10,6 +10,7 @@ import types
 import pytest
 
 from mutate4py._discovery import Site, discover_sites
+from mutate4py._executor import ExecutorDescription
 from mutate4py._test_dispatch import MutantPlan, NoTestsCollectedError
 from mutate4py._worker_protocol import WorkerProcessError, check_worker_python
 from mutate4py._worker_provision import _copy_tree, _link_import_root
@@ -62,12 +63,18 @@ class _PrimeOnlyExecutor:
     def close(self):
         self.calls.append("close")
 
+    def describe(self) -> ExecutorDescription:  # pragma: no cover - not exercised by the lifecycle tests
+        return ExecutorDescription(mode="subprocess", reason="--no-fork")
+
 
 class _NoCloseExecutor:
     """An `Executor` with no close(), like the injected test executor."""
 
     def prime(self):  # pragma: no cover - not exercised by the close tests
         pass
+
+    def describe(self) -> ExecutorDescription:  # pragma: no cover - not exercised by the close tests
+        return ExecutorDescription(mode="subprocess", reason="--no-fork")
 
 
 @pytest.mark.unit
@@ -700,6 +707,9 @@ class _TimedFakeExecutor:
     def run(self, args: list[str], timeout: float) -> str:
         self.dispatched.append((list(args), timeout))
         return self._status
+
+    def describe(self) -> ExecutorDescription:
+        return ExecutorDescription(mode="subprocess", reason="--no-fork")
 
 
 @pytest.mark.unit

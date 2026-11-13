@@ -25,7 +25,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable
 
 from mutate4py._discovery import Site, apply_mutant
-from mutate4py._executor import Executor
+from mutate4py._executor import Executor, ExecutorDescription, MutantTiming, combine_descriptions
 from mutate4py._test_dispatch import MutantPlan, PlanInputs, TimeoutPolicy, _check_execution_status, plan_sites
 from mutate4py._worker_protocol import WorkerProcessError, WorkerProcessExecutor
 from mutate4py._worker_provision import (
@@ -34,7 +34,7 @@ from mutate4py._worker_provision import (
     _provision_venv,
 )
 
-__all__ = ["ParallelRunError", "ParallelRunRequest", "WorkerFailureError", "run_parallel"]
+__all__ = ["ParallelRunError", "ParallelRunRequest", "ParallelRunResult", "WorkerFailureError", "run_parallel"]
 
 
 @dataclasses.dataclass
@@ -106,6 +106,19 @@ class WorkerFailureError(ParallelRunError):
     pass
 
 
+@dataclasses.dataclass
+class ParallelRunResult:
+    """What one parallel dispatch hands back: the tallies, the Survivors in site
+    order, the selection tally (None without a selection source), the Mutants'
+    timing, and the Executor description the Workers gave of themselves."""
+
+    counts: dict[str, int]
+    survivors: list[Site]
+    selection_counts: dict[str, int] | None
+    timing: MutantTiming
+    executor_description: ExecutorDescription
+
+
 def _provision_worker(worker_root: str, required: frozenset[str]) -> None:
     """Provision one Worker copy; restate any uv or interpreter failure as a WorkerFailureError."""
     try:
@@ -168,7 +181,9 @@ def _run_one_site(assignment: SiteAssignment, executor: Executor, settings: Work
         raise WorkerFailureError(f"worker-{assignment.worker_idx} could not write file copy: {e}") from e
 
     try:
+        started = time.monotonic()
         status = executor.run(plan.args, plan.timeout)
+        seconds = time.monotonic() - started
         # Raises before the caller can tally: a Mutant pytest never
         # exercised must never reach the tally as `killed` (issue #55).
         # The finally clause below still restores the worker's file copy.
@@ -189,6 +204,7 @@ def _run_one_site(assignment: SiteAssignment, executor: Executor, settings: Work
         "total": assignment.total,
         "status": status,
         "selection": plan.selection,
+        "seconds": seconds,
     }
     settings.on_result(result)
     return result
@@ -242,6 +258,14 @@ def _summarize_results(results: list[dict]) -> tuple[dict[str, int], list[Site]]
     return counts, survivors
 
 
+def _summarize_timing(results: list[dict]) -> MutantTiming:
+    """Add each Mutant's own elapsed run time to the bucket its status names."""
+    timing = MutantTiming()
+    for r in results:
+        timing.record(r["status"], r["seconds"])
+    return timing
+
+
 def _summarize_selection(results: list[dict]) -> dict[str, int]:
     """Tally narrowed/static/degraded selection counts, mirroring the serial loop's tally."""
     counts = {"narrowed": 0, "static": 0, "degraded": 0}
@@ -261,6 +285,15 @@ def _prime_worker_executor(executor: Executor, worker_idx: int) -> None:
         raise WorkerFailureError(f"worker-{worker_idx} could not start: {e}") from e
 
 
+def _describe_worker_executor(executor: Executor, worker_idx: int) -> ExecutorDescription:
+    """Ask this Worker's primed executor how it runs its Mutants, restating a
+    protocol failure as the Worker failure the run loop reports."""
+    try:
+        return executor.describe()
+    except WorkerProcessError as e:
+        raise WorkerFailureError(f"worker-{worker_idx} could not describe its executor: {e}") from e
+
+
 def _close_worker_executor(executor: Executor) -> None:
     """Close the executor if it has anything to close: `Executor` does not
     require close(), and the injected test executor has none."""
@@ -278,19 +311,23 @@ def _drop_one_result_if_injected(worker_results: list[dict], *, short_fail: bool
     return worker_results
 
 
-def _dispatch_worker_groups(plan: _WorkerDispatchPlan) -> list[dict]:
-    """Prime each Worker's executor once, run its whole assignment
+def _dispatch_worker_groups(plan: _WorkerDispatchPlan) -> tuple[list[dict], list[ExecutorDescription]]:
+    """Prime each Worker's executor once, describe it, run its whole assignment
     sequentially (same file path), then close it — the executor is alive
     from priming to the end of that Worker's share of the run. Workers
-    dispatch across plan.n_workers threads."""
+    dispatch across plan.n_workers threads. Returns the results and, ordered
+    by Worker index, the description each Worker that ran Mutants gave."""
     short_fail = os.environ.get("_MUTATE4PY_TEST_WORKER_SHORT_RESULT") == "1"
 
-    def _run_worker_group(worker_idx: int, assignments: list[tuple[int, Site, int]]) -> list[dict]:
+    def _run_worker_group(
+        worker_idx: int, assignments: list[tuple[int, Site, int]]
+    ) -> tuple[list[dict], ExecutorDescription]:
         executor = plan.executors[worker_idx - 1]
         worker_root = plan.worker_roots[worker_idx - 1]
         worker_file_path = os.path.join(worker_root, plan.source_rel)
         _prime_worker_executor(executor, worker_idx)
         try:
+            description = _describe_worker_executor(executor, worker_idx)
             worker_results = [
                 _run_one_site(
                     SiteAssignment(
@@ -309,28 +346,32 @@ def _dispatch_worker_groups(plan: _WorkerDispatchPlan) -> list[dict]:
             ]
         finally:
             _close_worker_executor(executor)
-        return _drop_one_result_if_injected(worker_results, short_fail=short_fail)
+        return _drop_one_result_if_injected(worker_results, short_fail=short_fail), description
 
     results: list[dict] = []
+    descriptions: dict[int, ExecutorDescription] = {}
     with ThreadPoolExecutor(max_workers=plan.n_workers) as executor_pool:
         futures = {
             executor_pool.submit(_run_worker_group, worker_idx, assignments): worker_idx
             for worker_idx, assignments in plan.by_worker.items()
         }
         for future in as_completed(futures):
-            results.extend(future.result())
-    return results
+            worker_results, description = future.result()
+            results.extend(worker_results)
+            descriptions[futures[future]] = description
+    return results, [descriptions[worker_idx] for worker_idx in sorted(descriptions)]
 
 
-def run_parallel(request: ParallelRunRequest) -> tuple[dict, list[Site], dict[str, int] | None]:
+def run_parallel(request: ParallelRunRequest) -> ParallelRunResult:
     """Run sites in parallel across max_workers isolated Workers, each owning
     exactly one primed Executor for the whole run.
 
     on_result(result_dict) is called from worker threads as each site finishes —
     callers use this to print progress lines in arrival order.
 
-    Returns (counts, survivors, selection_counts) sorted by stable site index;
-    selection_counts is None unless a selection source is in play.
+    Returns a ParallelRunResult: counts and survivors sorted by stable site index,
+    selection_counts (None unless a selection source is in play), the Mutants'
+    timing, and the combined description of the Workers that ran Mutants.
     Raises WorkerFailureError on write/restore/dispatch failure.
     Raises ParallelRunError if collected results != selected site count.
     A TestSelectionError (case 3) or NoTestsCollectedError (case 4) propagates uncaught.
@@ -373,7 +414,7 @@ def run_parallel(request: ParallelRunRequest) -> tuple[dict, list[Site], dict[st
             injected_executor=request.executor,
             source_root=real_cwd,
         )
-        results = _dispatch_worker_groups(
+        results, descriptions = _dispatch_worker_groups(
             _WorkerDispatchPlan(
                 by_worker=by_worker,
                 worker_roots=worker_roots,
@@ -392,7 +433,13 @@ def run_parallel(request: ParallelRunRequest) -> tuple[dict, list[Site], dict[st
         results.sort(key=lambda r: r["site_idx"])
         counts, survivors = _summarize_results(results)
         selection_counts = _summarize_selection(results) if request.selection_source is not None else None
-        return counts, survivors, selection_counts
+        return ParallelRunResult(
+            counts=counts,
+            survivors=survivors,
+            selection_counts=selection_counts,
+            timing=_summarize_timing(results),
+            executor_description=combine_descriptions(descriptions),
+        )
 
     finally:
         shutil.rmtree(run_root, ignore_errors=True)

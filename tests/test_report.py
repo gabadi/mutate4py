@@ -1,6 +1,7 @@
 """Unit tests for the report module (_report.py)."""
 
 from mutate4py._discovery import Site
+from mutate4py._executor import ExecutorDescription, MutantTiming
 from mutate4py._report import (
     OverheadInfo,
     _accepted_block_lines,
@@ -14,6 +15,7 @@ from mutate4py._report import (
     _serial_progress_line,
     _uncovered_block_lines,
     _workers_header_lines,
+    executor_block_lines,
     overhead_info,
 )
 import pytest
@@ -450,3 +452,46 @@ def test_accepted_block_lines_format():
 @pytest.mark.unit
 def test_accepted_block_lines_empty():
     assert _accepted_block_lines([]) == []
+
+
+# ── executor_block_lines ──────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_executor_block_lines_names_the_serial_subprocess_executor_and_its_reason():
+    lines = executor_block_lines(ExecutorDescription(mode="subprocess", reason="--no-fork"), MutantTiming())
+    assert lines == [
+        "",
+        "Time: mutants 0.00s (0), timeouts 0.00s (0), confirmation 0.00s (0 run, 0 killed)",
+        "Executor: subprocess (--no-fork)",
+    ]
+
+
+@pytest.mark.unit
+def test_executor_block_lines_names_the_forking_executor_and_its_fresh_imports():
+    lines = executor_block_lines(ExecutorDescription(mode="forking", fresh_import=3), MutantTiming())
+    assert lines[-1] == "Executor: forking (fresh import 3)"
+
+
+@pytest.mark.unit
+def test_executor_block_lines_time_line_splits_mutants_timeouts_and_confirmation():
+    timing = MutantTiming()
+    timing.record("killed", 1.0)
+    timing.record("survived", 0.5)
+    timing.record("timeout", 0.25)
+    timing.record_confirmation("killed", 0.75)
+    timing.record_confirmation("survived", 0.25)
+    lines = executor_block_lines(ExecutorDescription(mode="subprocess", reason="--no-fork"), timing)
+    assert lines == [
+        "",
+        "Time: mutants 1.50s (2), timeouts 0.25s (1), confirmation 1.00s (2 run, 1 killed)",
+        "Executor: subprocess (--no-fork)",
+    ]
+
+
+@pytest.mark.unit
+def test_executor_block_lines_counts_a_confirmation_timeout_as_a_kill():
+    timing = MutantTiming()
+    timing.record_confirmation("timeout", 2.0)
+    lines = executor_block_lines(ExecutorDescription(mode="subprocess", reason="--no-fork"), timing)
+    assert lines[1] == "Time: mutants 0.00s (0), timeouts 0.00s (0), confirmation 2.00s (1 run, 1 killed)"

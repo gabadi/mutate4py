@@ -340,6 +340,26 @@ def test_run_before_prime_raises():
         executor.run(["-q"], timeout=1.0)
 
 
+@pytest.mark.unit
+def test_describe_before_any_run_reports_no_fresh_import():
+    executor = ForkingExecutor(cwd="/tmp", guarded_path="/tmp/x.py")
+    assert executor.describe().render() == "forking (fresh import 0)"
+
+
+@pytest.mark.component
+def test_describe_counts_each_mutant_run_as_a_fresh_import(tmp_path):
+    cwd, target = _write_fixture_project(
+        tmp_path,
+        target_body="def add(a, b):\n    return a + b\n",
+        test_body=_ADD_TEST_BODY,
+    )
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor.prime()
+    executor.run(_ARGS, timeout=30.0)
+    executor.run(_ARGS, timeout=30.0)
+    assert executor.describe().render() == "forking (fresh import 2)"
+
+
 @pytest.mark.component
 def test_run_does_not_leak_child_stdout(tmp_path, capsys):
     cwd, target = _write_fixture_project(

@@ -20,6 +20,7 @@ from coverage import CoverageData
 from ._measurement_helpers import measurement_for, record_for
 from ._pytest_project_helpers import write_always_failing_pytest_project
 from mutate4py._dispatch import _run_files_and_exit
+from mutate4py._executor import ExecutorDescription
 from mutate4py._measurement import measurement_from
 from mutate4py._runner import RunMutationsRequest, run_mutations
 from mutate4py._test_dispatch import NO_TESTS_HINT
@@ -53,6 +54,9 @@ class _FakeExecutor:
     def run(self, args, timeout):
         self.calls.append(list(args))
         return "killed"
+
+    def describe(self) -> ExecutorDescription:
+        return ExecutorDescription(mode="subprocess", reason="--no-fork")
 
 
 def _write_source(tmp_path) -> str:
@@ -215,10 +219,15 @@ class _SurvivingExecutor(_FakeExecutor):
 def test_the_measurement_line_is_set_apart_from_the_survivors_block(tmp_path, caplog, monkeypatch):
     """A reader of the Survivors block stops at the first blank line, so the
     Measurement line, whose wall time varies run to run, must not follow it directly."""
+    import mutate4py._execution as execution_mod
+
     caplog.set_level(logging.INFO)
     src_path = _write_source(tmp_path)
     measurement = measurement_for(os.path.abspath(src_path), {"tests/test_calc.py::test_gt": [2]}, wall=0.5)
     monkeypatch.setattr("mutate4py._runner.measure_in_scratch", lambda **kwargs: measurement)
+    # The Survivor is confirmed with the full set in a fresh interpreter; this tmp project has no tests,
+    # so the confirmation executor is stubbed to let the Survivor stand.
+    monkeypatch.setattr(execution_mod, "SubprocessExecutor", lambda cwd, guarded_path: _SurvivingExecutor())
 
     rc, _ = _run_without_coverage_flags(tmp_path, src_path, None, _SurvivingExecutor())
 

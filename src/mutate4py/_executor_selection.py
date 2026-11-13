@@ -19,22 +19,29 @@ __all__ = ["_prepare_executor", "select_executor"]
 
 
 def select_executor(
-    *, caller_supplied: Executor | None, use_parallel: bool, requested: bool, cwd: str, guarded_path: str
+    *,
+    caller_supplied: Executor | None,
+    use_parallel: bool,
+    requested: bool,
+    cwd: str,
+    guarded_path: str,
+    no_fork_reason: str = "--no-fork",
 ) -> Executor | None:
     """Pick the executor for a run: the caller-supplied one when given (used
     as-is, never re-primed here — the caller owns priming, e.g. a fake
     executor in tests or one already primed by a longer-lived caller); None
     when a parallel run defers priming to each Worker's own process (issue
-    04b); a freshly prepared one otherwise.
+    04b); a freshly prepared one otherwise. no_fork_reason is the reason a
+    prepared subprocess executor reports for not forking.
     """
     if caller_supplied is not None:
         return caller_supplied
     if use_parallel:
         return None
-    return _prepare_executor(requested=requested, cwd=cwd, guarded_path=guarded_path)
+    return _prepare_executor(requested=requested, cwd=cwd, guarded_path=guarded_path, no_fork_reason=no_fork_reason)
 
 
-def _prepare_executor(*, requested: bool, cwd: str, guarded_path: str) -> Executor:
+def _prepare_executor(*, requested: bool, cwd: str, guarded_path: str, no_fork_reason: str = "--no-fork") -> Executor:
     """Return a primed Executor: the forking executor when requested and
     eligible, the subprocess executor otherwise.
 
@@ -46,10 +53,12 @@ def _prepare_executor(*, requested: bool, cwd: str, guarded_path: str) -> Execut
     degrades silently to the slower but always-correct subprocess executor
     wherever it isn't safe or applicable.
     """
+    reason = no_fork_reason
     if requested:
         from mutate4py._forking_executor import ForkingExecutor, ForkingExecutorUnavailable, is_available
 
         if not is_available():
+            reason = "the forking executor needs a POSIX platform"
             _logger.info("note: the forking executor needs a POSIX platform; using the subprocess executor instead.")
         else:
             executor = ForkingExecutor(cwd=cwd, guarded_path=guarded_path)
@@ -57,10 +66,11 @@ def _prepare_executor(*, requested: bool, cwd: str, guarded_path: str) -> Execut
                 executor.prime()
                 return executor
             except ForkingExecutorUnavailable as exc:
+                reason = f"forking executor unavailable: {exc}"
                 _logger.info(f"note: forking executor unavailable ({exc}); using the subprocess executor instead.")
 
     from mutate4py._subprocess_executor import SubprocessExecutor
 
-    executor = SubprocessExecutor(cwd=cwd, guarded_path=guarded_path)
+    executor = SubprocessExecutor(cwd=cwd, guarded_path=guarded_path, reason=reason)
     executor.prime()
     return executor
