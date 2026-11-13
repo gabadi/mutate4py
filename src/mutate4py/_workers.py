@@ -81,6 +81,7 @@ class ParallelRunRequest:
     abs_source_path: str = ""
     forking_requested: bool = True
     positionals: tuple[str, ...] = ()
+    ran_at_import: frozenset[int] = frozenset()  # the guarded file's, for swap mode
     # Test-injection seam: when set, every Worker shares this one
     # Executor instead of provisioning a real WorkerProcessExecutor — makes
     # narrowed/static dispatch, per-Worker Site assignment, and
@@ -363,6 +364,7 @@ def run_parallel(request: ParallelRunRequest) -> ParallelRunResult:
             launch=ServerLaunch(
                 forking_requested=request.forking_requested,
                 prime_args=tuple(disabled_plugin_args(request.pytest_args)),
+                ran_at_import=request.ran_at_import,
             ),
             injected_executor=request.executor,
             source_root=real_cwd,

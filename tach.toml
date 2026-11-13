@@ -220,6 +220,11 @@ depends_on = ["mutate4py._worker_protocol"]
 [[modules]]
 path = "mutate4py._forking_executor"
 layer = "execution_backends"
+depends_on = ["mutate4py._swap_child"]
+
+[[modules]]
+path = "mutate4py._swap_child"
+layer = "execution_backends"
 depends_on = []
 
 [[modules]]

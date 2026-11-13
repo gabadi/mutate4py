@@ -17,8 +17,14 @@ file, how each child gets the mutated code (`file_mode`):
   before prime (the executor and protocol code the child runs around pytest).
   Mutated code there could rewrite the child's own result into a false kill or
   a false Survivor, so every Mutant runs in a fresh interpreter.
-- **loaded**: prime imported the guarded file (a conftest or a plugin did), so
-  the child's copy is the clean one: every Mutant runs in a fresh interpreter.
+- **swap**: prime imported the guarded file (a conftest or a plugin did), so
+  the child's copy is the clean one. Each child plans a body swap
+  (`_code_swap.plan_swap`) from the clean source read at prime to the mutated
+  file on disk, applies it to the live functions prime's import built, then
+  runs pytest in-process. Any refusal (an import-time change, a body that ran
+  at import per the Measurement's Empty context, no live function, ...) runs
+  that Mutant in a fresh interpreter instead. The child reports which it did
+  through a pipe, read once it has ended, for `describe`.
 
 A fresh interpreter is the forked child exec()ing `python -m pytest`: the pid
 stays the same, so the parent's wait, timeout kill and exit-code
@@ -42,6 +48,7 @@ from mutate4py._bytecode_cache import invalidate_bytecode_cache
 from mutate4py._cmd import classify_exit_code
 from mutate4py._executor import ExecutorDescription
 from mutate4py._plugin_neutralisation import neutralising_args
+from mutate4py._swap_child import SwapSource, live_functions_of, read_report, swap_child_mode, swap_in
 
 __all__ = [
     "ForkUnsafePlugin",
@@ -109,13 +116,13 @@ def loaded_files(modules: Mapping[str, object]) -> set[str]:
 
 def file_mode(guarded_path: str, *, harness_files: set[str], loaded_after_prime: set[str]) -> str:
     """How each child gets the guarded file's mutated code: "harness" when it is
-    one of the process's own modules from before prime, "loaded" when prime
+    one of the process's own modules from before prime, "swap" when prime
     imported it, "fresh import" otherwise. Both sets hold real paths."""
     real = os.path.realpath(guarded_path)
     if real in harness_files:
         return "harness"
     if real in loaded_after_prime:
-        return "loaded"
+        return "swap"
     return "fresh import"
 
 
@@ -138,17 +145,30 @@ class ForkingExecutor:
     executor instead of calling `run()`.
     """
 
-    def __init__(self, cwd: str, guarded_path: str, prime_args: Sequence[str] = ()) -> None:
+    def __init__(
+        self,
+        cwd: str,
+        guarded_path: str,
+        prime_args: Sequence[str] = (),
+        ran_at_import: frozenset[int] = frozenset(),
+    ) -> None:
         self._cwd = cwd
         self._guarded_path = guarded_path
         self._prime_args = list(prime_args)
+        self._ran_at_import = ran_at_import
         self._mode: str | None = None
-        self._fresh_imports = 0
-        self._fresh_interpreters = 0
+        self._counts = {"fresh import": 0, "swap": 0, "fresh interpreter": 0}
+        # Swap mode only, set at prime: the clean side of every swap and the live
+        # functions prime's import built from it.
+        self._swap_source = SwapSource("", guarded_path, ran_at_import)
+        self._live: list = []
 
     def describe(self) -> ExecutorDescription:
         return ExecutorDescription(
-            mode="forking", fresh_import=self._fresh_imports, fresh_interpreter=self._fresh_interpreters
+            mode="forking",
+            fresh_import=self._counts["fresh import"],
+            swap=self._counts["swap"],
+            fresh_interpreter=self._counts["fresh interpreter"],
         )
 
     def prime(self) -> None:
@@ -183,6 +203,16 @@ class ForkingExecutor:
         self._mode = file_mode(
             self._guarded_path, harness_files=harness_files, loaded_after_prime=loaded_files(sys.modules)
         )
+        if self._mode == "swap":
+            self._prime_swap()
+
+    def _prime_swap(self) -> None:
+        """Keep what each swap child plans from: the clean file and its live functions."""
+        with open(self._guarded_path) as f:
+            clean_source = f.read()
+        self._live = live_functions_of(self._guarded_path)
+        filename = self._live[0].__code__.co_filename if self._live else self._guarded_path
+        self._swap_source = SwapSource(clean_source, filename, self._ran_at_import)
 
     def _fork_and_wait(self, child: Callable[[], None], timeout: float) -> str:
         """Fork, run `child` in the forked process, and classify how it ended.
@@ -201,15 +231,41 @@ class ForkingExecutor:
         """Fork a child that runs pytest once over args; return the classification."""
         if self._mode is None:
             raise ForkingExecutorUnavailable("prime() must succeed before run()")
+        if self._mode == "swap":
+            return self._run_swap(args, timeout)
         return self._fork_and_wait(self._counted_child(args), timeout)
 
     def _counted_child(self, args: list[str]) -> Callable[[], None]:
         """The child entry point this file's mode runs args with, counted for `describe`."""
         if self._mode == "fresh import":
-            self._fresh_imports += 1
+            self._counts["fresh import"] += 1
             return lambda: self._run_child(args)
-        self._fresh_interpreters += 1
+        self._counts["fresh interpreter"] += 1
         return lambda: self._exec_fresh_interpreter(args)
+
+    def _run_swap(self, args: list[str], timeout: float) -> str:
+        """Fork a swap child, then count the mode it reported once it has ended."""
+        read_fd, write_fd = os.pipe()
+        try:
+            status = self._fork_and_wait(lambda: self._swap_child(args, read_fd, write_fd), timeout)
+        finally:
+            os.close(write_fd)
+        self._counts[swap_child_mode(read_report(read_fd))] += 1
+        return status
+
+    def _swap_child(self, args: list[str], read_fd: int, write_fd: int) -> None:
+        """Swap the Mutant into the live functions and run pytest, or run it in a
+        fresh interpreter when the swap is refused. Never returns."""
+        try:
+            os.close(read_fd)
+            mode = swap_in(self._swap_source, self._guarded_path, self._live)
+            os.write(write_fd, mode.encode())
+            os.close(write_fd)
+        except BaseException:
+            os._exit(3)
+        if mode == "swap":
+            self._run_child(args)
+        self._exec_fresh_interpreter(args)
 
     def _exec_fresh_interpreter(self, args: list[str]) -> None:
         """Replace this child with this interpreter's `python -m pytest args`, as

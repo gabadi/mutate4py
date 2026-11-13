@@ -16,12 +16,30 @@ def test_the_exec_context_carries_the_measurements_positional_args():
     request = SimpleNamespace(path="calc.py", cwd="/proj", pytest_args=["-k", "tests", "tests"], forking_requested=True)
     outcome = SelectionOutcome(
         mutant_pytest_args=["-k", "tests", "tests"],
-        measurement=SimpleNamespace(positional_args=("tests",)),
+        measurement=SimpleNamespace(positional_args=("tests",), empty_lines=lambda path: frozenset()),
     )
 
     ctx = _mutant_exec_ctx(request, outcome)
 
     assert ctx.positionals == ("tests",)
+
+
+@pytest.mark.unit
+def test_the_exec_context_carries_the_guarded_files_lines_that_ran_at_import(tmp_path):
+    """Swap mode refuses a changed body the Measurement saw run under the Empty context."""
+    from types import SimpleNamespace
+
+    from mutate4py._runner import SelectionOutcome, _mutant_exec_ctx
+
+    target = str(tmp_path / "calc.py")
+    request = SimpleNamespace(path=target, cwd=str(tmp_path), pytest_args=[], forking_requested=True)
+    empty = {target: frozenset({3, 7})}
+    outcome = SelectionOutcome(
+        mutant_pytest_args=[],
+        measurement=SimpleNamespace(positional_args=(), empty_lines=lambda path: empty.get(path, frozenset())),
+    )
+
+    assert _mutant_exec_ctx(request, outcome).ran_at_import == frozenset({3, 7})
 
 
 @pytest.mark.unit
@@ -38,7 +56,9 @@ def test_the_timeout_policy_budgets_the_full_set_as_all_and_adds_the_measured_ov
         budgeted.append(node_ids)
         return 2.0
 
-    measurement = SimpleNamespace(wall=10.0, per_mutant_overhead=0.5, budget_of=budget_of)
+    measurement = SimpleNamespace(
+        wall=10.0, per_mutant_overhead=0.5, budget_of=budget_of, empty_lines=lambda path: frozenset()
+    )
     request = SimpleNamespace(
         timeout_factor=3.0,
         min_timeout=1.0,
@@ -118,7 +138,9 @@ def test_a_run_with_no_selected_mutants_names_that_as_the_subprocess_executor_re
 
     from mutate4py._runner import _prepare_baseline_and_executor
 
-    measurement = SimpleNamespace(wall=1.0, per_mutant_overhead=0.0, budget_of=lambda node_ids: 1.0)
+    measurement = SimpleNamespace(
+        wall=1.0, per_mutant_overhead=0.0, budget_of=lambda node_ids: 1.0, empty_lines=lambda path: frozenset()
+    )
     request = SimpleNamespace(
         timeout_factor=3.0,
         min_timeout=1.0,
@@ -142,7 +164,9 @@ def test_a_no_fork_run_names_no_fork_as_the_reason_even_when_nothing_is_selected
 
     from mutate4py._runner import _prepare_baseline_and_executor
 
-    measurement = SimpleNamespace(wall=1.0, per_mutant_overhead=0.0, budget_of=lambda node_ids: 1.0)
+    measurement = SimpleNamespace(
+        wall=1.0, per_mutant_overhead=0.0, budget_of=lambda node_ids: 1.0, empty_lines=lambda path: frozenset()
+    )
     request = SimpleNamespace(
         timeout_factor=3.0,
         min_timeout=1.0,
@@ -211,7 +235,9 @@ def test_a_caller_supplied_executor_is_used_unprimed_serial_or_parallel(tmp_path
     from mutate4py._runner import _prepare_baseline_and_executor
 
     supplied = _CallerOwnedExecutor()
-    measurement = SimpleNamespace(wall=1.0, per_mutant_overhead=0.0, budget_of=lambda node_ids: 1.0)
+    measurement = SimpleNamespace(
+        wall=1.0, per_mutant_overhead=0.0, budget_of=lambda node_ids: 1.0, empty_lines=lambda path: frozenset()
+    )
     request = SimpleNamespace(
         timeout_factor=3.0,
         min_timeout=1.0,

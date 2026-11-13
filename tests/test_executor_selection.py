@@ -188,7 +188,7 @@ class _RecordingServer:
 
 
 @pytest.mark.unit
-def test_select_executor_primes_a_fork_server_with_the_runs_plugin_blocks_for_a_serial_forking_run(
+def test_select_executor_primes_a_fork_server_with_the_runs_plugin_blocks_and_ran_at_import_lines(
     tmp_path, monkeypatch
 ):
     monkeypatch.setattr("mutate4py._worker_protocol.fork_server", lambda **kwargs: _RecordingServer(**kwargs))
@@ -200,6 +200,7 @@ def test_select_executor_primes_a_fork_server_with_the_runs_plugin_blocks_for_a_
         cwd=str(tmp_path),
         guarded_path=str(tmp_path / "x.py"),
         pytest_args=["-q", "-p", "no:tach", "tests"],
+        ran_at_import=frozenset({3}),
     )
 
     assert chosen.primed
@@ -207,6 +208,7 @@ def test_select_executor_primes_a_fork_server_with_the_runs_plugin_blocks_for_a_
         "cwd": str(tmp_path),
         "guarded_path": str(tmp_path / "x.py"),
         "prime_args": ["-p", "no:tach"],
+        "ran_at_import": frozenset({3}),
     }
 
 

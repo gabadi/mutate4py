@@ -1,7 +1,7 @@
 """An app-loaded module (issue 05): django.setup() imports every installed
 app's models during framework bootstrap, so this file is already in
-sys.modules by the time a Worker primes — it degrades to the subprocess
-executor rather than using the warm forking path."""
+sys.modules by the time a Worker primes: a method-body Mutant is swapped into
+the live function, a class-body one runs in a fresh interpreter."""
 
 from django.db import models
 

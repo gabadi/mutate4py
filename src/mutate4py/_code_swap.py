@@ -33,19 +33,28 @@ class Refusal:
 
 @dataclass(frozen=True)
 class SwapPlan:
-    """Mutated code objects to install over the clean ones they replace."""
+    """Mutated code objects to install over the clean ones they replace.
+
+    `pairs` are the outermost changed functions, each of which must be live.
+    `nested` are the changed functions inside them: a closure made before the
+    swap (a decorator's wrapper built at import) is swapped too when live;
+    one made later picks up the mutated code from its swapped parent.
+    """
 
     pairs: tuple[tuple[CodeType, CodeType], ...]
+    nested: tuple[tuple[CodeType, CodeType], ...] = ()
 
     def apply(self, live: Iterable[object]) -> int | Refusal:
         """Point every live function built from a clean code object at its mutant.
 
-        All-or-nothing: each pair must match at least one live function before
-        any `__code__` is assigned. Returns the number of functions swapped.
+        All-or-nothing: each of `pairs` must match at least one live function
+        before any `__code__` is assigned. Returns the number of functions swapped.
         """
-        targets = _targets(self.pairs, _live_functions(live))
+        functions = _live_functions(live)
+        targets = _targets(self.pairs, functions)
         if isinstance(targets, Refusal):
             return targets
+        targets.extend(_optional_targets(self.nested, functions))
         for fn, mutated in targets:
             fn.__code__ = mutated
         return len(targets)
@@ -59,10 +68,14 @@ def plan_swap(clean: str, mutated: str, filename: str, ran_at_import: frozenset[
         return Refusal("shape")
     changed = _changed_keys(before, after)
     tops = _swappable_tops(before, changed)
-    refusal = _refusal(before, after, changed, tops, ran_at_import)
+    nested = _changed_nested(before, changed, tops)
+    refusal = _refusal(before, after, changed, [*tops, *nested], ran_at_import)
     if refusal is not None:
         return refusal
-    return SwapPlan(tuple((before[top][0], after[top][0]) for top in tops))
+    return SwapPlan(
+        tuple((before[top][0], after[top][0]) for top in tops),
+        tuple((before[key][0], after[key][0]) for key in nested),
+    )
 
 
 def _changed_keys(before: _Index, after: _Index) -> list[_NodeKey]:
@@ -74,17 +87,30 @@ def _swappable_tops(before: _Index, changed: list[_NodeKey]) -> list[_NodeKey]:
     return list(dict.fromkeys(_outermost_function(key, before) for key in changed if _function_like(before[key][0])))
 
 
+def _changed_nested(before: _Index, changed: list[_NodeKey], tops: list[_NodeKey]) -> list[_NodeKey]:
+    """Every function-like node below a swapped top whose code differs: each changed
+    function-like node and its function-like ancestors, tops left out."""
+    nested: dict[_NodeKey, None] = {}
+    for key in changed:
+        node: _NodeKey | None = key
+        while node is not None and node not in tops:
+            if _function_like(before[node][0]):
+                nested[node] = None
+            node = before[node][1]
+    return list(nested)
+
+
 def _refusal(
     before: _Index,
     after: _Index,
     changed: list[_NodeKey],
-    tops: list[_NodeKey],
+    swapped: list[_NodeKey],
     ran_at_import: frozenset[int],
 ) -> Refusal | None:
     """The first rule the change breaks, or None when the change can be swapped."""
     # A class body can change only because a method's closure changed, so the
     # freevar check runs first and names the root cause.
-    if _freevars_changed(before, after, tops):
+    if _freevars_changed(before, after, swapped):
         return Refusal("freevars")
     if _import_time_changed(before, changed):
         return Refusal("import-time")
@@ -93,8 +119,8 @@ def _refusal(
     return None
 
 
-def _freevars_changed(before: _Index, after: _Index, tops: list[_NodeKey]) -> bool:
-    return any(before[top][0].co_freevars != after[top][0].co_freevars for top in tops)
+def _freevars_changed(before: _Index, after: _Index, swapped: list[_NodeKey]) -> bool:
+    return any(before[key][0].co_freevars != after[key][0].co_freevars for key in swapped)
 
 
 def _import_time_changed(before: _Index, changed: list[_NodeKey]) -> bool:
@@ -172,6 +198,13 @@ def _targets(
             return Refusal("no live function")
         targets.extend((fn, mutated) for fn in matches)
     return targets
+
+
+def _optional_targets(
+    pairs: tuple[tuple[CodeType, CodeType], ...],
+    functions: list[FunctionType],
+) -> list[tuple[FunctionType, CodeType]]:
+    return [(fn, mutated) for clean, mutated in pairs for fn in functions if _is_live_match(fn, clean)]
 
 
 def _index(code: CodeType) -> _Index:

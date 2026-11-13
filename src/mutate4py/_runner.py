@@ -151,6 +151,7 @@ def _prepare_baseline_and_executor(
             cwd=request.cwd,
             guarded_path=os.path.abspath(request.path),
             pytest_args=request.pytest_args,
+            ran_at_import=measurement.empty_lines(os.path.abspath(request.path)),
         )
 
     return _BaselinePrep(measurement.wall, measurement.per_mutant_overhead, timeout_policy, executor)
@@ -267,6 +268,7 @@ def _mutant_exec_ctx(
         selection_source=outcome.measurement,
         forking_requested=request.forking_requested,
         positionals=outcome.measurement.positional_args,
+        ran_at_import=outcome.measurement.empty_lines(os.path.abspath(request.path)),
         # The full set, with the plugin kill switches the orchestrator's serial path also runs under.
         confirm_args=outcome.mutant_pytest_args,
         markers=markers or {},

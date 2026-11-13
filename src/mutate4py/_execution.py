@@ -46,6 +46,8 @@ class MutantExecCtx:
     selection_source: object = None  # the Measurement; None selects nothing
     forking_requested: bool = True
     positionals: tuple[str, ...] = ()
+    # The guarded file's lines the Measurement saw run at import, which swap mode refuses to swap.
+    ran_at_import: frozenset[int] = frozenset()
     # The full test set's argv (plugin kill switches included); equivalent markers, whose lines are
     # never confirmed; and the timing, filled in as the Mutants and confirmations execute.
     confirm_args: list[str] = dataclasses.field(default_factory=list)
@@ -130,6 +132,7 @@ def _run_parallel_workers(
                 forking_requested=ctx.forking_requested,
                 executor=ctx.executor,
                 positionals=ctx.positionals,
+                ran_at_import=ctx.ran_at_import,
             )
         )
         return result, None
