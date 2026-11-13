@@ -1,8 +1,8 @@
 """Executor selection: the forking executor when requested and
 eligible for this process, the subprocess executor otherwise.
 
-Eligibility is a property of *this interpreter's* import state (module-leak
-detection), not of the run as a whole, so the choice is made once per
+Eligibility is a property of *this interpreter* (its platform, its pytest,
+the plugins its prime session registers), so the choice is made once per
 process attempting it: a Worker server's own process (`_worker_server.py`),
 whether it is one Worker of a parallel run or the fork server a serial run
 starts over the project tree. The orchestrator itself never primes a forking
@@ -72,12 +72,9 @@ def _prepare_executor(
     eligible, the subprocess executor otherwise.
 
     Never raises: any unavailability or priming failure (wrong platform,
-    pytest not importable in this process, or the target leaking into
-    sys.modules during priming) is reported and treated as "fall back",
-    never as a hard error — the forking executor is a best-effort
-    accelerator, on by default, not a correctness-affecting choice, so it
-    degrades silently to the slower but always-correct subprocess executor
-    wherever it isn't safe or applicable.
+    pytest not importable in this process, or a fork-unsafe plugin in the
+    prime session) is reported, through the subprocess executor's reason, and
+    treated as "fall back", never as a hard error.
     """
     reason = no_fork_reason
     if requested:
@@ -92,8 +89,8 @@ def _prepare_executor(
                 executor.prime()
                 return executor
             except ForkingExecutorUnavailable as exc:
-                reason = f"forking executor unavailable: {exc}"
-                _logger.info(f"note: forking executor unavailable ({exc}); using the subprocess executor instead.")
+                reason = exc.reason
+                _logger.info(f"note: {reason}; using the subprocess executor instead.")
 
     from mutate4py._subprocess_executor import SubprocessExecutor
 

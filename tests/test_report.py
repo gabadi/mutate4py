@@ -427,9 +427,11 @@ def test_executor_block_lines_names_the_serial_subprocess_executor_and_its_reaso
 
 
 @pytest.mark.unit
-def test_executor_block_lines_names_the_forking_executor_and_its_fresh_imports():
-    lines = executor_block_lines(ExecutorDescription(mode="forking", fresh_import=3), MutantTiming())
-    assert lines[-1] == "Executor: forking (fresh import 3)"
+def test_executor_block_lines_names_the_forking_executor_and_its_mode_counts():
+    lines = executor_block_lines(
+        ExecutorDescription(mode="forking", fresh_import=3, fresh_interpreter=1), MutantTiming()
+    )
+    assert lines[-1] == "Executor: forking (fresh import 3, swap 0, fresh interpreter 1)"
 
 
 @pytest.mark.unit

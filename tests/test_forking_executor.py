@@ -1,5 +1,6 @@
 """Unit/integration tests for _forking_executor (issue #25 forking executor)."""
 
+import importlib.util
 import itertools
 import os
 import signal
@@ -14,15 +15,20 @@ import mutate4py._forking_executor
 from mutate4py._forking_executor import (
     ForkingExecutor,
     ForkingExecutorUnavailable,
-    ModuleLeakError,
-    assert_source_clean,
+    ForkUnsafePlugin,
+    file_mode,
+    fresh_interpreter_argv,
+    fresh_interpreter_env,
     is_available,
-    isolated_coverage_session_safe,
+    loaded_files,
+    refuse_fork_unsafe_plugins,
 )
 from mutate4py._forking_executor import _wait_for_child
 from mutate4py._plugin_neutralisation import neutralising_args
 
-from ._fork_unsafe_plugin_helpers import skip_unless_fork_unsafe_plugin_loaded
+# This repo's own environment has tach, a fork-unsafe plugin: an in-process
+# prime that does not block it refuses to fork.
+_NO_TACH = ["-p", "no:tach"]
 
 
 # --- is_available ------------------------------------------------------------
@@ -39,44 +45,93 @@ def test_is_available_false_without_os_fork(monkeypatch):
     assert is_available() is False
 
 
-# --- assert_source_clean / _leaked_modules ----------------------------------
+# --- file_mode ---------------------------------------------------------------
 
 
 @pytest.mark.unit
-def test_assert_source_clean_passes_when_target_not_imported(tmp_path):
-    target = tmp_path / "not_imported.py"
-    target.write_text("x = 1\n")
-    assert_source_clean(str(target))
+def test_a_file_the_process_loaded_before_prime_is_a_harness_file(tmp_path):
+    target = str(tmp_path / "harness.py")
+    assert file_mode(target, harness_files={target}, loaded_after_prime={target}) == "harness"
 
 
 @pytest.mark.unit
-def test_assert_source_clean_raises_when_target_already_imported(tmp_path, monkeypatch):
-    target = tmp_path / "leaked_target.py"
-    target.write_text("x = 1\n")
-    fake_module = types.ModuleType("leaked_target")
-    fake_module.__file__ = str(target)
-    monkeypatch.setitem(sys.modules, "leaked_target", fake_module)
-    with pytest.raises(ModuleLeakError, match="leaked_target"):
-        assert_source_clean(str(target))
+def test_a_file_prime_imported_is_loaded(tmp_path):
+    target = str(tmp_path / "models.py")
+    assert file_mode(target, harness_files=set(), loaded_after_prime={target}) == "loaded"
 
 
 @pytest.mark.unit
-def test_assert_source_clean_ignores_modules_without_file(monkeypatch, tmp_path):
-    target = tmp_path / "no_file_module.py"
-    target.write_text("x = 1\n")
-    fake_module = types.ModuleType("builtin_like")
-    monkeypatch.setitem(sys.modules, "builtin_like", fake_module)
-    assert_source_clean(str(target))
+def test_a_file_nothing_imported_is_a_fresh_import(tmp_path):
+    target = str(tmp_path / "calc.py")
+    other = str(tmp_path / "other.py")
+    assert file_mode(target, harness_files={other}, loaded_after_prime={other}) == "fresh import"
 
 
 @pytest.mark.unit
-def test_assert_source_clean_ignores_unrelated_modules(tmp_path):
-    unrelated = tmp_path / "unrelated.py"
-    unrelated.write_text("x = 1\n")
-    target = tmp_path / "target.py"
-    target.write_text("x = 1\n")
-    # `os` itself is always in sys.modules; unrelated to target, must not trip.
-    assert_source_clean(str(target))
+def test_file_mode_compares_real_paths(tmp_path):
+    real = tmp_path / "calc.py"
+    real.write_text("")
+    link = tmp_path / "link.py"
+    link.symlink_to(real)
+    assert file_mode(str(link), harness_files=set(), loaded_after_prime={os.path.realpath(real)}) == "loaded"
+
+
+# --- loaded_files ------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_loaded_files_are_the_real_paths_of_the_modules_with_a_file(tmp_path):
+    real = tmp_path / "calc.py"
+    real.write_text("")
+    link = tmp_path / "link.py"
+    link.symlink_to(real)
+    modules = {
+        "calc": types.SimpleNamespace(__file__=str(link)),
+        "builtin_like": types.SimpleNamespace(),
+        "namespace_like": types.SimpleNamespace(__file__=None),
+    }
+    assert loaded_files(modules) == {os.path.realpath(real)}
+
+
+# --- refuse_fork_unsafe_plugins -------------------------------------------------
+
+
+@pytest.mark.unit
+def test_tach_among_the_registered_plugins_is_refused_by_name():
+    with pytest.raises(ForkUnsafePlugin) as refused:
+        refuse_fork_unsafe_plugins(["_pytest.python", "tach.pytest_plugin", "pytest_cov.plugin"])
+    assert refused.value.reason == "fork-unsafe plugin: tach.pytest_plugin"
+
+
+@pytest.mark.unit
+def test_a_session_without_a_known_unsafe_plugin_is_not_refused():
+    refuse_fork_unsafe_plugins(["_pytest.python", "tach"])
+
+
+@pytest.mark.unit
+def test_a_fork_unsafe_plugin_error_names_the_plugin_as_the_whole_reason():
+    error = ForkUnsafePlugin(["tach.pytest_plugin", "other.plugin"])
+    assert isinstance(error, ForkingExecutorUnavailable)
+    assert error.reason == "fork-unsafe plugin: tach.pytest_plugin, other.plugin"
+
+
+@pytest.mark.unit
+def test_any_other_unavailability_is_reported_as_the_forking_executor_unavailable():
+    assert ForkingExecutorUnavailable("no pytest").reason == "forking executor unavailable: no pytest"
+
+
+# --- the fresh-interpreter exec -------------------------------------------------
+
+
+@pytest.mark.unit
+def test_a_fresh_interpreter_runs_this_interpreters_pytest_over_the_args():
+    assert fresh_interpreter_argv(["-q", "tests"]) == [sys.executable, "-m", "pytest", "-q", "tests"]
+
+
+@pytest.mark.unit
+def test_a_fresh_interpreter_writes_no_bytecode_and_keeps_the_rest_of_the_environment():
+    env = fresh_interpreter_env({"PATH": "/bin", "PYTHONDONTWRITEBYTECODE": ""})
+    assert env == {"PATH": "/bin", "PYTHONDONTWRITEBYTECODE": "1"}
 
 
 # --- ForkingExecutor.prime / run ---------------------------------------------
@@ -95,7 +150,7 @@ def _write_fixture_project(tmp_path, *, target_body: str, test_body: str, confte
     The target module's name is unique per call (not a fixed "under_test")
     so different tests in this file — all running in one shared outer
     pytest process — cannot collide with each other's sys.modules entries,
-    which would otherwise mask exactly the leak this module exists to catch.
+    which would otherwise turn a fresh import into a loaded file.
     """
     mod_name = f"under_test_{next(_module_name_counter)}"
     target = tmp_path / f"{mod_name}.py"
@@ -108,7 +163,7 @@ def _write_fixture_project(tmp_path, *, target_body: str, test_body: str, confte
 
 
 _ADD_TEST_BODY = "from {mod} import add\ndef test_add():\n    assert add(2, 2) == 4\n"
-_ARGS = ["-q", "tests"]
+_ARGS = [*_NO_TACH, "-q", "tests"]
 
 
 @pytest.mark.component
@@ -118,7 +173,7 @@ def test_prime_succeeds_when_target_not_pre_imported(tmp_path):
         target_body="def add(a, b):\n    return a + b\n",
         test_body=_ADD_TEST_BODY,
     )
-    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
     executor.prime()  # must not raise
 
 
@@ -135,9 +190,9 @@ def test_prime_and_run_import_from_cwd_without_root_conftest(tmp_path):
         f"from under_test_{n} import add\n\n\ndef test_add():\n    assert add(2, 2) == 4\n"
     )
     saved = list(sys.path)
-    executor = ForkingExecutor(cwd=str(tmp_path), guarded_path=str(target))
+    executor = ForkingExecutor(cwd=str(tmp_path), guarded_path=str(target), prime_args=_NO_TACH)
     executor.prime()
-    assert executor.run(["-q", "tests"], timeout=30.0) == "survived"
+    assert executor.run(_ARGS, timeout=30.0) == "survived"
     assert sys.path == saved
 
 
@@ -169,62 +224,17 @@ def test_prime_neutralises_plugins_on_its_own_collect_only_call(tmp_path, monkey
     captured_args: list[list[str]] = []
     real_run = mutate4py._forking_executor._run_pytest_output_suppressed
 
-    def spy(pytest_module, args, run_cwd):
+    def spy(pytest_module, args, run_cwd, plugins=()):
         captured_args.append(args)
-        return real_run(pytest_module, args, run_cwd)
+        return real_run(pytest_module, args, run_cwd, plugins=plugins)
 
     monkeypatch.setattr(mutate4py._forking_executor, "_run_pytest_output_suppressed", spy)
 
-    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
     executor.prime()
 
     assert captured_args, "prime() must invoke pytest.main() via _run_pytest_output_suppressed"
     assert set(neutralising_args()) <= set(captured_args[0])
-
-
-@pytest.mark.component
-def test_prime_raises_module_leak_when_conftest_imports_target(tmp_path):
-    cwd, target = _write_fixture_project(
-        tmp_path,
-        target_body="def add(a, b):\n    return a + b\n",
-        test_body=_ADD_TEST_BODY,
-        conftest_body="import {mod}\n",
-    )
-    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
-    with pytest.raises(ModuleLeakError):
-        executor.prime()
-
-
-@pytest.mark.component
-def test_prime_leak_does_not_poison_a_later_same_named_file(tmp_path):
-    """Regression: a leaked module from one file's prime() must not survive
-    to fool a *different* file's leak check later in the same process —
-    exactly the shape of a directory batch run with colliding basenames."""
-    dir_a = tmp_path / "a"
-    dir_a.mkdir()
-    cwd_a, target_a = _write_fixture_project(
-        dir_a,
-        target_body="def add(a, b):\n    return a + b\n",
-        test_body=_ADD_TEST_BODY,
-        conftest_body="import {mod}\n",
-    )
-    executor_a = ForkingExecutor(cwd=cwd_a, guarded_path=target_a)
-    with pytest.raises(ModuleLeakError):
-        executor_a.prime()
-
-    # A second, unrelated file that happens to reuse the same module name.
-    mod_name = os.path.splitext(os.path.basename(target_a))[0]
-    dir_b = tmp_path / "b"
-    dir_b.mkdir()
-    target_b = dir_b / f"{mod_name}.py"
-    target_b.write_text("def add(a, b):\n    return a + b\n")
-    (dir_b / "conftest.py").write_text("")
-    tests_b = dir_b / "tests"
-    tests_b.mkdir()
-    (tests_b / f"test_{mod_name}.py").write_text(_ADD_TEST_BODY.format(mod=mod_name))
-
-    executor_b = ForkingExecutor(cwd=str(dir_b), guarded_path=str(target_b))
-    executor_b.prime()  # must not raise: file a's leak must not have persisted
 
 
 @pytest.mark.component
@@ -234,7 +244,7 @@ def test_run_survives_when_tests_pass(tmp_path):
         target_body="def add(a, b):\n    return a + b\n",
         test_body=_ADD_TEST_BODY,
     )
-    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
     executor.prime()
     status = executor.run(_ARGS, timeout=30.0)
     assert status == "survived"
@@ -247,7 +257,7 @@ def test_run_killed_when_tests_fail(tmp_path):
         target_body="def add(a, b):\n    return a - b\n",  # mutated: - instead of +
         test_body=_ADD_TEST_BODY,
     )
-    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
     executor.prime()
     status = executor.run(_ARGS, timeout=30.0)
     assert status == "killed"
@@ -263,9 +273,9 @@ def test_run_reports_no_tests_collected_when_filter_deselects_everything(tmp_pat
         target_body="def add(a, b):\n    return a + b\n",
         test_body=_ADD_TEST_BODY,
     )
-    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
     executor.prime()
-    status = executor.run(["-q", "tests", "-k", "no_such_test_name"], timeout=30.0)
+    status = executor.run([*_ARGS, "-k", "no_such_test_name"], timeout=30.0)
     assert status == "no-tests-collected"
 
 
@@ -278,9 +288,9 @@ def test_run_reports_usage_error_for_a_bad_argument(tmp_path):
         target_body="def add(a, b):\n    return a + b\n",
         test_body=_ADD_TEST_BODY,
     )
-    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
     executor.prime()
-    status = executor.run(["-q", "tests", "--not-a-real-flag-xyz"], timeout=30.0)
+    status = executor.run([*_ARGS, "--not-a-real-flag-xyz"], timeout=30.0)
     assert status == "usage-error"
 
 
@@ -293,7 +303,7 @@ def test_run_picks_up_post_prime_mutation_from_disk(tmp_path):
         target_body="def add(a, b):\n    return a + b\n",
         test_body=_ADD_TEST_BODY,
     )
-    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
     executor.prime()
 
     # First mutant: correct code, unmutated -> tests pass -> survived.
@@ -325,7 +335,7 @@ def test_run_reports_timeout_and_kills_child(tmp_path):
             "import time\nfrom {mod} import add\ndef test_add():\n    time.sleep(5)\n    assert add(2, 2) == 4\n"
         ),
     )
-    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
     executor.prime()
     status = executor.run(_ARGS, timeout=0.5)
     assert status == "timeout"
@@ -341,7 +351,7 @@ def test_run_before_prime_raises():
 @pytest.mark.unit
 def test_describe_before_any_run_reports_no_fresh_import():
     executor = ForkingExecutor(cwd="/tmp", guarded_path="/tmp/x.py")
-    assert executor.describe().render() == "forking (fresh import 0)"
+    assert executor.describe().render() == "forking (fresh import 0, swap 0, fresh interpreter 0)"
 
 
 @pytest.mark.component
@@ -351,11 +361,11 @@ def test_describe_counts_each_mutant_run_as_a_fresh_import(tmp_path):
         target_body="def add(a, b):\n    return a + b\n",
         test_body=_ADD_TEST_BODY,
     )
-    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
     executor.prime()
     executor.run(_ARGS, timeout=30.0)
     executor.run(_ARGS, timeout=30.0)
-    assert executor.describe().render() == "forking (fresh import 2)"
+    assert executor.describe().render() == "forking (fresh import 2, swap 0, fresh interpreter 0)"
 
 
 @pytest.mark.component
@@ -367,7 +377,7 @@ def test_run_does_not_leak_child_stdout(tmp_path, capsys):
             "from {mod} import add\ndef test_add():\n    print('SHOULD_NOT_APPEAR')\n    assert add(2, 2) == 4\n"
         ),
     )
-    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
     executor.prime()
     executor.run(_ARGS, timeout=30.0)
     captured = capsys.readouterr()
@@ -375,23 +385,34 @@ def test_run_does_not_leak_child_stdout(tmp_path, capsys):
     assert "SHOULD_NOT_APPEAR" not in captured.err
 
 
-# --- isolated_coverage_session_safe -------------------------------------------
+@pytest.mark.component
+@pytest.mark.skipif(importlib.util.find_spec("tach") is None, reason="needs tach, a fork-unsafe plugin, installed")
+def test_prime_refuses_a_session_that_registers_a_fork_unsafe_plugin(tmp_path):
+    cwd, target = _write_fixture_project(
+        tmp_path,
+        target_body="def add(a, b):\n    return a + b\n",
+        test_body=_ADD_TEST_BODY,
+    )
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    with pytest.raises(ForkUnsafePlugin, match="tach.pytest_plugin"):
+        executor.prime()
 
 
-@pytest.mark.unit
-def test_isolated_coverage_session_safe_false_when_a_known_unsafe_plugin_is_loaded(monkeypatch):
-    """Regression for the acceptance-suite hang this precheck exists to
-    prevent: tach.pytest_plugin is genuinely loaded in this test process
-    (it's this repo's own pytest plugin), so this assertion also proves the
-    check fires for real, not just against a synthetic fake module."""
-    skip_unless_fork_unsafe_plugin_loaded()
-    assert isolated_coverage_session_safe() is False
-
-
-@pytest.mark.unit
-def test_isolated_coverage_session_safe_true_when_no_unsafe_plugin_is_loaded(monkeypatch):
-    monkeypatch.delitem(sys.modules, "tach.pytest_plugin", raising=False)
-    assert isolated_coverage_session_safe() is True
+@pytest.mark.component
+def test_a_target_the_conftest_imports_runs_in_a_fresh_interpreter_that_reads_the_mutation(tmp_path):
+    cwd, target = _write_fixture_project(
+        tmp_path,
+        target_body="def add(a, b):\n    return a + b\n",
+        test_body=_ADD_TEST_BODY,
+        conftest_body="import {mod}\n",
+    )
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
+    executor.prime()
+    assert executor.run(_ARGS, timeout=30.0) == "survived"
+    with open(target, "w") as f:
+        f.write("def add(a, b):\n    return a - b\n")
+    assert executor.run(_ARGS, timeout=30.0) == "killed"
+    assert executor.describe().render() == "forking (fresh import 0, swap 0, fresh interpreter 2)"
 
 
 # --- _wait_for_child ---------------------------------------------------------

@@ -100,7 +100,13 @@ def test_serve_answers_a_describe_request_with_its_executors_description_and_run
     outstream = io.StringIO()
     _serve(executor, io.StringIO(json.dumps({"describe": True}) + "\n"), outstream, plugin_args=[])
     assert json.loads(outstream.getvalue()) == {
-        "description": {"mode": "subprocess", "reason": "--no-fork", "fresh_import": 0}
+        "description": {
+            "mode": "subprocess",
+            "reason": "--no-fork",
+            "fresh_import": 0,
+            "swap": 0,
+            "fresh_interpreter": 0,
+        }
     }
     assert executor.calls == []
 
