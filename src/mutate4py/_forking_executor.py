@@ -23,8 +23,10 @@ file, how each child gets the mutated code (`file_mode`):
   file on disk, applies it to the live functions prime's import built, then
   runs pytest in-process. Any refusal (an import-time change, a body that ran
   at import per the Measurement's Empty context, no live function, ...) runs
-  that Mutant in a fresh interpreter instead. The child reports which it did
-  through a pipe, read once it has ended, for `describe`.
+  that Mutant in a fresh interpreter instead (ADR 0028).
+
+Every child reports how it ran through a pipe the parent reads once it has
+ended, for `describe` (`_fork_child`).
 
 A fresh interpreter is the forked child exec()ing `python -m pytest`: the pid
 stays the same, so the parent's wait, timeout kill and exit-code
@@ -48,7 +50,7 @@ from mutate4py._bytecode_cache import invalidate_bytecode_cache
 from mutate4py._cmd import classify_exit_code
 from mutate4py._executor import ExecutorDescription
 from mutate4py._plugin_neutralisation import neutralising_args
-from mutate4py._swap_child import SwapSource, live_functions_of, read_report, swap_child_mode, swap_in
+from mutate4py._fork_child import SwapSource, child_mode, read_report, report_mode, reported_mode, swap_side
 
 __all__ = [
     "ForkUnsafePlugin",
@@ -124,6 +126,10 @@ def file_mode(guarded_path: str, *, harness_files: set[str], loaded_after_prime:
     if real in loaded_after_prime:
         return "swap"
     return "fresh import"
+
+
+# The child entry point each mode runs pytest with: in-process, or exec'd fresh.
+_CHILD_ENTRY = {"fresh import": "_run_child", "swap": "_run_child", "fresh interpreter": "_exec_fresh_interpreter"}
 
 
 class _PluginRecorder:
@@ -203,16 +209,7 @@ class ForkingExecutor:
         self._mode = file_mode(
             self._guarded_path, harness_files=harness_files, loaded_after_prime=loaded_files(sys.modules)
         )
-        if self._mode == "swap":
-            self._prime_swap()
-
-    def _prime_swap(self) -> None:
-        """Keep what each swap child plans from: the clean file and its live functions."""
-        with open(self._guarded_path) as f:
-            clean_source = f.read()
-        self._live = live_functions_of(self._guarded_path)
-        filename = self._live[0].__code__.co_filename if self._live else self._guarded_path
-        self._swap_source = SwapSource(clean_source, filename, self._ran_at_import)
+        self._swap_source, self._live = swap_side(self._mode, self._guarded_path, self._ran_at_import)
 
     def _fork_and_wait(self, child: Callable[[], None], timeout: float) -> str:
         """Fork, run `child` in the forked process, and classify how it ended.
@@ -228,44 +225,27 @@ class ForkingExecutor:
         return _wait_for_child(pid, timeout)
 
     def run(self, args: list[str], timeout: float) -> str:
-        """Fork a child that runs pytest once over args; return the classification."""
+        """Fork a child that runs pytest once over args; return the classification.
+        The child reports how it ran (`child_mode`), counted for `describe` once it has ended."""
         if self._mode is None:
             raise ForkingExecutorUnavailable("prime() must succeed before run()")
-        if self._mode == "swap":
-            return self._run_swap(args, timeout)
-        return self._fork_and_wait(self._counted_child(args), timeout)
-
-    def _counted_child(self, args: list[str]) -> Callable[[], None]:
-        """The child entry point this file's mode runs args with, counted for `describe`."""
-        if self._mode == "fresh import":
-            self._counts["fresh import"] += 1
-            return lambda: self._run_child(args)
-        self._counts["fresh interpreter"] += 1
-        return lambda: self._exec_fresh_interpreter(args)
-
-    def _run_swap(self, args: list[str], timeout: float) -> str:
-        """Fork a swap child, then count the mode it reported once it has ended."""
         read_fd, write_fd = os.pipe()
         try:
-            status = self._fork_and_wait(lambda: self._swap_child(args, read_fd, write_fd), timeout)
+            status = self._fork_and_wait(lambda: self._child(args, read_fd, write_fd), timeout)
         finally:
             os.close(write_fd)
-        self._counts[swap_child_mode(read_report(read_fd))] += 1
+        self._counts[reported_mode(read_report(read_fd))] += 1
         return status
 
-    def _swap_child(self, args: list[str], read_fd: int, write_fd: int) -> None:
-        """Swap the Mutant into the live functions and run pytest, or run it in a
-        fresh interpreter when the swap is refused. Never returns."""
+    def _child(self, args: list[str], read_fd: int, write_fd: int) -> None:
+        """Decide and report how this Mutant runs, then run it. Never returns."""
         try:
             os.close(read_fd)
-            mode = swap_in(self._swap_source, self._guarded_path, self._live)
-            os.write(write_fd, mode.encode())
-            os.close(write_fd)
+            mode = child_mode(self._mode, self._swap_source, self._guarded_path, self._live)
+            report_mode(write_fd, mode)
         except BaseException:
             os._exit(3)
-        if mode == "swap":
-            self._run_child(args)
-        self._exec_fresh_interpreter(args)
+        getattr(self, _CHILD_ENTRY[mode])(args)
 
     def _exec_fresh_interpreter(self, args: list[str]) -> None:
         """Replace this child with this interpreter's `python -m pytest args`, as

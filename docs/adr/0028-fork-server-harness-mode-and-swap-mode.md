@@ -23,7 +23,7 @@ mutated code (`file_mode`):
 - **swap**: prime imported the file (a conftest or a plugin did). Each child
   plans a body swap (`_code_swap.plan_swap`) from the clean source read at prime
   to the file on disk and applies it to the live functions prime's import built
-  (`_swap_child.swap_in`), then runs pytest in-process. Live closures made at
+  (`_fork_child.swap_in`), then runs pytest in-process. Live closures made at
   import (a decorator's wrapper) are swapped too.
 
 The swap is refused, and that Mutant alone runs in a fresh interpreter, when the

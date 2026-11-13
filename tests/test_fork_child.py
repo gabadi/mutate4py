@@ -1,11 +1,20 @@
-"""Unit tests for _swap_child.py: what a swap-mode child does before pytest
+"""Unit tests for _fork_child.py: what a forked child decides before pytest
 starts, driven in-process over functions built from real sources."""
 
 import os
 
 import pytest
 
-from mutate4py._swap_child import SwapSource, live_functions_of, read_report, swap_child_mode, swap_in
+from mutate4py._fork_child import (
+    SwapSource,
+    child_mode,
+    live_functions_of,
+    read_report,
+    report_mode,
+    reported_mode,
+    swap_in,
+    swap_side,
+)
 
 _CLEAN = "def add(a, b):\n    return a + b\n"
 
@@ -87,12 +96,59 @@ def test_a_report_is_read_back_without_waiting_for_a_writer_left_open():
 
 
 @pytest.mark.unit
-def test_a_swap_child_that_reported_a_swap_ran_by_swap():
-    assert swap_child_mode(b"swap") == "swap"
+@pytest.mark.parametrize("mode", ["fresh import", "swap", "fresh interpreter"])
+def test_a_reported_mode_reads_back_as_itself(mode):
+    read_fd, write_fd = os.pipe()
+    report_mode(write_fd, mode)
+    assert reported_mode(read_report(read_fd)) == mode
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("report", [b"fresh interpreter", b"", b"sw"])
-def test_a_swap_child_that_reported_anything_else_ran_in_a_fresh_interpreter(report):
-    # Empty: the child died before it reported, so no swap is claimed.
-    assert swap_child_mode(report) == "fresh interpreter"
+@pytest.mark.parametrize("report", [b"", b"sw", b"\xff"])
+def test_any_other_report_counts_as_a_fresh_interpreter(report):
+    # Empty: the child died before it reported, so no in-process run is claimed.
+    assert reported_mode(report) == "fresh interpreter"
+
+
+@pytest.mark.unit
+def test_a_fresh_import_file_runs_by_fresh_import_and_a_harness_file_in_a_fresh_interpreter(tmp_path):
+    path = _guarded(tmp_path, _CLEAN)
+    source = SwapSource("", path, frozenset())
+    assert child_mode("fresh import", source, path, []) == "fresh import"
+    assert child_mode("harness", source, path, []) == "fresh interpreter"
+
+
+@pytest.mark.unit
+def test_a_swap_file_runs_by_swap_when_the_swap_applies(tmp_path):
+    path = _guarded(tmp_path, "def add(a, b):\n    return a - b\n")
+    namespace = _load(_CLEAN, path)
+
+    assert child_mode("swap", SwapSource(_CLEAN, path, frozenset()), path, [namespace["add"]]) == "swap"
+    assert namespace["add"](5, 3) == 2
+
+
+@pytest.mark.unit
+def test_the_swap_side_of_a_swap_file_is_its_clean_source_and_live_functions(tmp_path):
+    path = _guarded(tmp_path, _CLEAN)
+    link = tmp_path / "link.py"
+    link.symlink_to(path)
+    namespace = _load(_CLEAN, str(link))
+
+    source, live = swap_side("swap", path, frozenset({4}))
+
+    assert source == SwapSource(_CLEAN, str(link), frozenset({4}))
+    assert namespace["add"] in live
+
+
+@pytest.mark.unit
+def test_the_swap_side_of_a_swap_file_with_no_live_function_compiles_under_its_own_path(tmp_path):
+    path = _guarded(tmp_path, _CLEAN)
+    assert swap_side("swap", path, frozenset()) == (SwapSource(_CLEAN, path, frozenset()), [])
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("mode", ["fresh import", "harness"])
+def test_a_file_not_in_swap_mode_has_no_swap_side(tmp_path, mode):
+    path = _guarded(tmp_path, _CLEAN)
+    _load(_CLEAN, path)
+    assert swap_side(mode, path, frozenset({1})) == (SwapSource("", path, frozenset({1})), [])
