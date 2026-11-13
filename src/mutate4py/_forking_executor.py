@@ -1,4 +1,6 @@
-"""Forking executor for the serial mutation loop.
+"""Forking executor, primed inside a Worker server: the fork server a serial
+run starts over the project tree, or one Worker of a parallel run. The
+orchestrator never primes one itself (`_executor_selection.select_executor`).
 
 A parent process primes pytest/plugins/framework setup once (running a
 collect-only pass against an empty directory, so root conftest.py and
@@ -25,6 +27,7 @@ import signal
 import sys
 import tempfile
 import time
+from collections.abc import Sequence
 from typing import Callable
 
 from mutate4py._bytecode_cache import invalidate_bytecode_cache
@@ -119,9 +122,10 @@ class ForkingExecutor:
     subprocess executor instead of calling `run()`.
     """
 
-    def __init__(self, cwd: str, guarded_path: str) -> None:
+    def __init__(self, cwd: str, guarded_path: str, prime_args: Sequence[str] = ()) -> None:
         self._cwd = cwd
         self._guarded_path = guarded_path
+        self._prime_args = list(prime_args)
         self._primed = False
         self._fresh_imports = 0
 
@@ -148,8 +152,11 @@ class ForkingExecutor:
         # instance inside the same interpreter that is running this
         # process's own coverage measurement — corrupting sys.monitoring's
         # already-armed line/branch tracking for the rest of the run.
+        # prime_args (the run's own `-p no:<name>` blocks) keep a plugin the
+        # run disables out of the process every child forks from.
         with tempfile.TemporaryDirectory(dir=scratch_root, prefix="prime-") as empty_dir:
-            _run_pytest_output_suppressed(pytest, ["--collect-only", "-q", empty_dir, *neutralising_args()], self._cwd)
+            collect_only = ["--collect-only", "-q", empty_dir, *neutralising_args(), *self._prime_args]
+            _run_pytest_output_suppressed(pytest, collect_only, self._cwd)
 
         assert_source_clean(self._guarded_path)
         self._primed = True

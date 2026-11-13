@@ -3,15 +3,18 @@ eligible for this process, the subprocess executor otherwise.
 
 Eligibility is a property of *this interpreter's* import state (module-leak
 detection), not of the run as a whole, so the choice is made once per
-process attempting it — the serial run loop's own process for a run with a
-single Worker, or a Worker subprocess's own process for a parallel run
-(`_worker_server.py`). See tach.toml for why this module may not sit in a
-layer above `execution_backends`.
+process attempting it: a Worker server's own process (`_worker_server.py`),
+whether it is one Worker of a parallel run or the fork server a serial run
+starts over the project tree. The orchestrator itself never primes a forking
+executor. See tach.toml for why this module may not sit in a layer above
+`execution_backends`.
 """
 
 import logging
+from collections.abc import Sequence
 
 from mutate4py._executor import Executor
+from mutate4py._plugin_neutralisation import disabled_plugin_args
 
 _logger = logging.getLogger(__name__)
 
@@ -20,30 +23,51 @@ __all__ = ["_prepare_executor", "select_executor"]
 
 def select_executor(
     *,
-    caller_supplied: Executor | None,
     use_parallel: bool,
     no_fork_reason: str | None,
     cwd: str,
     guarded_path: str,
+    pytest_args: Sequence[str] = (),
 ) -> Executor | None:
-    """Pick the executor for a run: the caller-supplied one when given (used
-    as-is, never re-primed here — the caller owns priming, e.g. a fake
-    executor in tests or one already primed by a longer-lived caller); None
-    when a parallel run defers priming to each Worker's own process (issue
-    04b); a freshly prepared one otherwise. no_fork_reason is None when the
-    forking executor is wanted; otherwise it is the reason a prepared
-    subprocess executor reports for not forking.
+    """Pick the executor for a run the caller supplied none for: None when a
+    parallel run defers priming to each Worker's own process (issue 04b); a
+    primed fork server when the forking executor is wanted and this platform
+    can fork; a primed subprocess executor otherwise. no_fork_reason is None
+    when the forking executor is wanted; otherwise it is the reason the
+    subprocess executor reports for not forking. The fork server primes with
+    the run's own `-p no:<name>` blocks from pytest_args.
     """
-    if caller_supplied is not None:
-        return caller_supplied
     if use_parallel:
         return None
+    if no_fork_reason is None and _can_fork():
+        return _primed_fork_server(cwd, guarded_path, pytest_args)
     return _prepare_executor(
         requested=no_fork_reason is None, cwd=cwd, guarded_path=guarded_path, no_fork_reason=no_fork_reason or ""
     )
 
 
-def _prepare_executor(*, requested: bool, cwd: str, guarded_path: str, no_fork_reason: str = "--no-fork") -> Executor:
+def _can_fork() -> bool:
+    from mutate4py._forking_executor import is_available
+
+    return is_available()
+
+
+def _primed_fork_server(cwd: str, guarded_path: str, pytest_args: Sequence[str]) -> Executor:
+    from mutate4py._worker_protocol import fork_server
+
+    server = fork_server(cwd=cwd, guarded_path=guarded_path, prime_args=disabled_plugin_args(list(pytest_args)))
+    server.prime()
+    return server
+
+
+def _prepare_executor(
+    *,
+    requested: bool,
+    cwd: str,
+    guarded_path: str,
+    no_fork_reason: str = "--no-fork",
+    prime_args: Sequence[str] = (),
+) -> Executor:
     """Return a primed Executor: the forking executor when requested and
     eligible, the subprocess executor otherwise.
 
@@ -63,7 +87,7 @@ def _prepare_executor(*, requested: bool, cwd: str, guarded_path: str, no_fork_r
             reason = "the forking executor needs a POSIX platform"
             _logger.info("note: the forking executor needs a POSIX platform; using the subprocess executor instead.")
         else:
-            executor = ForkingExecutor(cwd=cwd, guarded_path=guarded_path)
+            executor = ForkingExecutor(cwd=cwd, guarded_path=guarded_path, prime_args=prime_args)
             try:
                 executor.prime()
                 return executor

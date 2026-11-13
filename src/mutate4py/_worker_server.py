@@ -43,6 +43,7 @@ class WorkerServerArgs:
     guarded_path: str
     forking_requested: bool
     worker_id: str | None
+    prime_args: tuple[str, ...] = ()
 
 
 def parse_worker_argv(argv: list[str]) -> WorkerServerArgs:
@@ -50,12 +51,14 @@ def parse_worker_argv(argv: list[str]) -> WorkerServerArgs:
 
     The worker_id slot is optional and may be present but empty (that is how
     the encoder spells "this Worker has no id"); both spellings decode to None.
+    Everything after it is the prime args.
     """
     return WorkerServerArgs(
         cwd=argv[0],
         guarded_path=argv[1],
         forking_requested=argv[2] == "1",
         worker_id=argv[3] if len(argv) > 3 and argv[3] else None,
+        prime_args=tuple(argv[4:]),
     )
 
 
@@ -102,7 +105,9 @@ def main(argv: list[str]) -> None:
     logging.getLogger("mutate4py").setLevel(logging.WARNING)
     args = parse_worker_argv(argv)
     os.environ.update(worker_environ_updates(args.worker_id))
-    executor = _prepare_executor(requested=args.forking_requested, cwd=args.cwd, guarded_path=args.guarded_path)
+    executor = _prepare_executor(
+        requested=args.forking_requested, cwd=args.cwd, guarded_path=args.guarded_path, prime_args=args.prime_args
+    )
     sys.stdout.write(json.dumps({"ready": True}) + "\n")
     sys.stdout.flush()
     _serve(executor, sys.stdin, sys.stdout, plugin_args=_worker_plugin_args(args.worker_id))

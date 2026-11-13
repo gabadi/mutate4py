@@ -1,43 +1,43 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T13:18:58Z",
-  "module_hash": "51c92acb3c10717560ce70e16e69dcaa5cb0ad0a32c0a18621980055b9919ae4",
-  "source_sha256": "ae0a81baebf65f7717baa513995309eaf1943d0125b4aa9c22ebc37734833385",
+  "tested_at": "2026-11-13T16:25:35Z",
+  "module_hash": "5ab2230d4f77e6c5c74fc7158b129fe6c12a806324be722d80d1d1e88c3f8378",
+  "source_sha256": "88606fda54c499b63719752c99a5f1e41cbe015f5e7d45911f32a33682447b1a",
   "functions": [
     {
       "id": "func/parse_worker_argv",
       "name": "parse_worker_argv",
-      "line": 48,
-      "end_line": 59,
-      "hash": "fe64a064d874828795129f1ba61194dca349776716494c526b56e8687b9c4730"
+      "line": 49,
+      "end_line": 62,
+      "hash": "c90729acd08b9a9c7acd174536e8955e59833792a3632ce7c3466c2b0505364a"
     },
     {
       "id": "func/worker_environ_updates",
       "name": "worker_environ_updates",
-      "line": 62,
-      "end_line": 68,
+      "line": 65,
+      "end_line": 71,
       "hash": "50f7085bd370cf2ca19d5beaec689cd65677624786938cdf78d83b0499bf4ec7"
     },
     {
       "id": "func/_worker_plugin_args",
       "name": "_worker_plugin_args",
-      "line": 71,
-      "end_line": 76,
+      "line": 74,
+      "end_line": 79,
       "hash": "6d1637f153fd54c297d12846fa7d733b5b5ba97ced61e4d9969585189111c41b"
     },
     {
       "id": "func/_serve",
       "name": "_serve",
-      "line": 79,
-      "end_line": 93,
+      "line": 82,
+      "end_line": 96,
       "hash": "6fa13c89c2411d668ff51e04ddfe56a01999dec468bebe024c9ca77f4afa5c20"
     },
     {
       "id": "func/main",
       "name": "main",
-      "line": 96,
-      "end_line": 108,
-      "hash": "779be3df1fd9479c934f0cb2f1b2e0aab43d4a9cde53ea1a221c119dbaeba8d6"
+      "line": 99,
+      "end_line": 113,
+      "hash": "e47b288cbb04e7e91f290416960b6c6a425be84e29f05cc2d7fad6c97d9565a6"
     }
   ]
 }
