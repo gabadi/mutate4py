@@ -33,7 +33,7 @@ from mutate4py._execution import (
 )
 from mutate4py._manifest import recorded_survivors
 from mutate4py._manifest_modes import check_manifest, update_manifest
-from mutate4py._measurement import CoverageCoreRefused, Measurement, MeasurementFailed, measure_in_scratch
+from mutate4py._measurement import ALL, CoverageCoreRefused, Measurement, MeasurementFailed, measure_in_scratch
 from mutate4py._plugin_neutralisation import neutralising_args
 from mutate4py._report import (
     _accepted_block_lines,
@@ -86,7 +86,7 @@ class RunMutationsRequest:
     warning_threshold: int
     cwd: str
     max_workers: int = 0
-    min_timeout: float = 1.0
+    min_timeout: float = 5.0
     test_contexts_path: str | None = None
     manifest_file: bool = False
     forking_requested: bool = True
@@ -175,7 +175,8 @@ def _prepare_baseline_and_executor(
     timeout_policy = TimeoutPolicy(
         factor=request.timeout_factor,
         min_timeout=request.min_timeout,
-        baseline_duration=measurement.wall,
+        overhead=measurement.per_mutant_overhead,
+        budget_of=lambda node_ids: measurement.budget_of(ALL if node_ids is None else node_ids),
     )
     executor = select_executor(
         caller_supplied=request.executor,

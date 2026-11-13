@@ -976,3 +976,36 @@ def test_the_exec_context_carries_the_measurements_positional_args():
     ctx = _mutant_exec_ctx(request, outcome, test_ctx_db=None)
 
     assert ctx.positionals == ("tests",)
+
+
+@pytest.mark.unit
+def test_the_timeout_policy_budgets_the_full_set_as_all_and_adds_the_measured_overhead(tmp_path):
+    """The full test set is budgeted as the Measurement's ALL; the Per-Mutant overhead is added to the timeout."""
+    from types import SimpleNamespace
+
+    from mutate4py._measurement import ALL
+    from mutate4py._runner import _prepare_baseline_and_executor
+
+    budgeted = []
+
+    def budget_of(node_ids):
+        budgeted.append(node_ids)
+        return 2.0
+
+    measurement = SimpleNamespace(wall=10.0, per_mutant_overhead=0.5, budget_of=budget_of)
+    request = SimpleNamespace(
+        timeout_factor=3.0,
+        min_timeout=1.0,
+        forking_requested=False,
+        executor=None,
+        cwd=str(tmp_path),
+        path=str(tmp_path / "calc.py"),
+    )
+    setup = SimpleNamespace(bak_path=str(tmp_path / "calc.py.bak"), loaded=SimpleNamespace(clean_source="x = 1\n"))
+
+    policy = _prepare_baseline_and_executor(request, setup, measurement, [], use_parallel=False).timeout_policy
+
+    # max(1.0, 3.0 x 2.0) + 0.5 for both the full set and one Mutant's own tests.
+    assert policy.timeout_for(None) == 6.5
+    assert policy.timeout_for(frozenset({"tests/test_calc.py::test_gt"})) == 6.5
+    assert budgeted == [ALL, frozenset({"tests/test_calc.py::test_gt"})]

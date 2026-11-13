@@ -17,7 +17,7 @@ from mutate4py._workers import ParallelRunError, ParallelRunRequest, run_paralle
 
 from ._worker_fakes_helpers import FakeExecutor, noop_on_result
 
-_FIVE_SECOND_POLICY = TimeoutPolicy(factor=1.0, min_timeout=5.0, baseline_duration=0.0)
+_FIVE_SECOND_POLICY = TimeoutPolicy(factor=1.0, min_timeout=5.0, overhead=0.0, budget_of=lambda node_ids: 0.0)
 
 
 # ── run_parallel: ParallelRunError on result count mismatch ──────────────────

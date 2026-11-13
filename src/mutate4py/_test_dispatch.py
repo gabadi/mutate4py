@@ -9,6 +9,7 @@ either caller. See tach.toml before moving it.
 
 import dataclasses
 import logging
+from collections.abc import Callable
 
 from mutate4py._discovery import Site
 
@@ -132,15 +133,21 @@ def _without_positionals(pytest_args: list[str], positionals: tuple[str, ...]) -
 
 @dataclasses.dataclass(frozen=True)
 class TimeoutPolicy:
-    """How a Mutant's timeout is derived: factor x the Baseline duration, floored at min_timeout."""
+    """How a Mutant's timeout is derived: max(min_timeout, factor x budget) + overhead.
+
+    budget_of maps the node ids a Mutant runs to their budget (the summed measured
+    durations of those tests plus the largest fixture setup in their files);
+    budget_of(None) is the full test set's budget, which a static Mutant runs.
+    overhead is the Per-Mutant overhead, the wall time spent outside the tests.
+    """
 
     factor: float
     min_timeout: float
-    baseline_duration: float
+    overhead: float
+    budget_of: Callable[[frozenset[str] | None], float]
 
-    @property
-    def timeout(self) -> float:
-        return max(self.min_timeout, self.factor * self.baseline_duration)
+    def timeout_for(self, node_ids: frozenset[str] | None) -> float:
+        return max(self.min_timeout, self.factor * self.budget_of(node_ids)) + self.overhead
 
 
 @dataclasses.dataclass(frozen=True)
@@ -174,16 +181,19 @@ def plan_mutant(
     from "static" so the run summary can't claim static 0 while sites were
     actually degraded (issue #69).
     """
-    timeout = timeout_policy.timeout
     if test_ctx_db is None:
-        return MutantPlan(list(pytest_args), timeout, None)
+        return MutantPlan(list(pytest_args), timeout_policy.timeout_for(None), None)
     outcome, node_ids = test_ctx_db.tests_for_line(abs_source_path, site.line)
     if outcome == "narrowed":
-        return MutantPlan([*_without_positionals(pytest_args, positionals), *node_ids], timeout, "narrowed")
+        return MutantPlan(
+            [*_without_positionals(pytest_args, positionals), *node_ids],
+            timeout_policy.timeout_for(frozenset(node_ids)),
+            "narrowed",
+        )
     if outcome == "static":
-        return MutantPlan(list(pytest_args), timeout, "static")
+        return MutantPlan(list(pytest_args), timeout_policy.timeout_for(None), "static")
     if outcome == "under-listed":
-        return MutantPlan(list(pytest_args), timeout, "degraded")
+        return MutantPlan(list(pytest_args), timeout_policy.timeout_for(None), "degraded")
     # Every other outcome raises, so an unrecognized one can never fall through to
     # a full-suite run that the report would then miscount as narrowed.
     hint = _DISAGREEMENT_HINTS.get(outcome, f"unrecognized selection outcome {outcome!r}")

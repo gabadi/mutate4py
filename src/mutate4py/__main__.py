@@ -111,14 +111,16 @@ def _build_parser() -> argparse.ArgumentParser:
         type=_positive_int,
         default=10,
         dest="timeout_factor",
-        help="Mutant timeout = max(--min-timeout, factor × baseline duration) (default: 10)",
+        help="Mutant timeout = max(--min-timeout, factor × the budget of the Mutant's own tests) "
+        "+ the per-Mutant overhead (default: 10)",
     )
     parser.add_argument(
         "--min-timeout",
         type=float,
-        default=1.0,
+        default=5.0,
         dest="min_timeout",
-        help="Floor for mutant timeout in seconds (default: 1.0)",
+        help="Floor for the Mutant's own tests' timeout in seconds, before the per-Mutant overhead "
+        "is added (default: 5.0)",
     )
     parser.add_argument(
         "--lines",

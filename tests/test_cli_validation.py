@@ -32,7 +32,7 @@ def _make_args(**kwargs):
         mutate_all=False,
         max_workers=None,
         timeout_factor=10,
-        min_timeout=1.0,
+        min_timeout=5.0,
         pytest_args=None,
         test_contexts=None,
         cov_cmd=None,

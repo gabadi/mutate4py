@@ -28,7 +28,7 @@ class _FakeExecutor:
 
 def _policy(timeout: float) -> TimeoutPolicy:
     """A TimeoutPolicy whose floor is `timeout`, so the Mutant timeout comes out exactly `timeout`."""
-    return TimeoutPolicy(factor=1.0, min_timeout=timeout, baseline_duration=0.0)
+    return TimeoutPolicy(factor=1.0, min_timeout=timeout, overhead=0.0, budget_of=lambda node_ids: 0.0)
 
 
 class _FakeTestContextDB:
@@ -217,4 +217,4 @@ def test_run_parallel_workers_passes_timeout(tmp_path, monkeypatch):
             max_workers=2,
         ),
     )
-    assert captured["timeout_policy"].timeout == 42.0
+    assert captured["timeout_policy"].timeout_for(None) == 42.0
