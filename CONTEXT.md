@@ -48,6 +48,13 @@ _Avoid_: cache, state file, lockfile
 A Function unit's structural fingerprint. Reformatting and comment edits leave it
 alone; behaviour-affecting edits change it.
 
+**Tests digest**:
+A Function unit's SHA-256 over the test inputs that can reach its covered Sites: the
+test files the Measurement shows reaching them, their conftests, the run's support
+files, the pytest table of `pyproject.toml`, the pytest ini file and `uv.lock`. Stored
+beside the Function unit's score. A stored digest that no longer matches the fresh one
+re-scores that unit (ADR 0029).
+
 **Differential rerun**:
 Re-testing only the Sites whose Function unit changed since the last Manifest. The
 default once a Manifest exists.
@@ -65,23 +72,58 @@ _Avoid_: clean
 ### Coverage
 
 **Coverage gate**:
-The line-coverage filter that splits discovered Sites into covered and uncovered.
-Branch data is deliberately ignored.
+The line-coverage filter that splits discovered Sites into covered and uncovered. It
+reads the Measurement's data; a line is covered when any context reached it, Empty
+context included. Branch data is deliberately ignored.
 _Avoid_: coverage filter, eligibility check
 
 **covered / uncovered**:
 The two disjoint, exhaustive partitions of the discovered Sites.
 
+**Measurement**:
+The one pytest session a scored run takes before any Mutant runs: the run's unit tests
+in the Project environment, under coverage.py's `ctrace` core, each test in its own
+context. Its data gives the Baseline, the Coverage gate and the Test map (ADR 0027).
+_Avoid_: coverage run, pre-run
+
 **Baseline**:
-One run of the test suite against unmutated source. It must pass, and its duration
-sets the Mutant timeout.
+The Measurement's pass requirement: the unmutated suite must pass in the Measurement,
+or no Mutant runs. The Measurement's wall time gives the Per-Mutant overhead (wall
+time minus summed test durations), which is part of every Mutant's timeout.
+
+**Test map**:
+The named tests that reached each covered line in the Measurement. Dispatch runs a
+Site's narrowed tests from it.
+_Avoid_: coverage contexts, test list
 
 ### Execution
 
 **Executor**:
 The interface both Mutant-execution backends implement — prime once, then run a test
-argument list under a timeout and classify. The forking executor is the fast path;
-the subprocess executor is the always-correct fallback.
+argument list under a timeout and classify. The forking executor runs Mutants from a
+Fork server, each by fresh import, Swap mode or a fresh interpreter. The subprocess
+executor is the whole-run fallback where forking is impossible or unsafe, and it runs
+every Survivor confirmation.
+
+**Fork server**:
+The `_worker_server` process a serial forking run starts over the project tree itself,
+under the Project environment. It primes the forking executor once and forks one child
+per Mutant, so the orchestrator's state never reaches a Mutant.
+
+**Harness module**:
+A file loaded before the Fork server primes: part of the server's own code, the executor
+and protocol code a child runs around pytest. Each Mutant in it runs in a fresh interpreter,
+because a swap would change the code that reports the child's result.
+
+**Swap mode**:
+The forking executor's way of running a file the prime imported (a conftest or a
+plugin): the forked child swaps the mutated function bodies into the live functions and
+runs pytest in-process. A Mutant the swap refuses runs in a fresh interpreter instead.
+
+**Survivor confirmation**:
+The re-run of every Survivor through the subprocess executor with the full test set,
+before a Survivor is reported. A narrowed selection or a swap can let a Mutant survive
+that the full test set kills, so a Survivor is not trusted until this run agrees.
 
 **Worker**:
 An isolated tree copy of the working directory with its own provisioned environment,
@@ -108,15 +150,10 @@ _Avoid_: result, status, outcome (reserve *outcome* for Selection outcome)
 ### Test selection
 
 **Selection outcome**:
-What the run's Measurement says about a Site's line — **narrowed** (named tests cover
-it, so only those run), **static** (import-time code no single test owns, or a line
-no test reached, so the full test set runs), or a disagreement.
+What the Measurement says about a Site's line — **narrowed** (named tests reach it, so
+only those run) or **static** (import-time code no single test owns, or a line no test
+reached, so the full test set runs).
 
 **Empty context**:
 Coverage.py's whole-run context, as opposed to a named per-test one. A line matched
-only by it ran at import time. A signal, not noise.
-
-**Selection disagreement**:
-The Measurement and the Coverage gate contradicting each other. Always an input
-defect — a stale source or a path mismatch — never uncovered code, so it aborts the
-run rather than falling back.
+only by it ran at import time.

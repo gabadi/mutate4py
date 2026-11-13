@@ -203,6 +203,29 @@ threshold fight.
 `--fragment`, an include-only path filter, are the whole surface), so this
 could not have been staged through configuration; the code had to move.
 
+## Addendum (issue #89): code mutation is unit-only
+
+The session-3 and session-6 reasoning above keeps `component` tests eligible for
+per-Mutant narrowing, and defines `integration` by `--cov-context=test` being
+unable to see it. Both rested on the pytest-cov dynamic context. Issue #89 removed
+it: the Measurement (ADR 0027) is one single-session ctrace run, and the
+`context-deselection` gate and the test-context db are gone. Nothing now needs
+`component` to be narrowable, so the eligibility is dropped.
+
+**Code mutation is unit-only** (owner ruling, #89). A scored run's test set is
+`-m 'not integration and not component'` (`MUTATE_PYTEST_ARGS` in the `justfile`).
+`component` is therefore outside code mutation altogether: a Mutant that only a
+component test kills is a Survivor until a unit test kills it. The #108 change
+added those unit tests. ADR 0027 measured the alternative: component tests in the
+Measurement took about 337 s instead of 17 s, and in-process pipeline tests joined
+the code-mutation gate.
+
+`integration` keeps its definition: its work runs in a spawned interpreter that the
+Measurement cannot see. That property is the interpreter boundary, not a context
+name, so it still holds with no dynamic context at all. The three gates and their
+coverage roles are unchanged: `test-unit` alone is measured and gated, and
+`test-component` and `test-integration` only append.
+
 ## Rejected alternatives
 
 - **Repurpose `integration`/`unit` as the only two categories** (redefine

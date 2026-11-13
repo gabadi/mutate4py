@@ -152,3 +152,20 @@ lines each test reaches, so a test that matters only through state it reads cann
 named by it; widening it means running the full set for every Mutant, which is the
 cost narrowing exists to avoid. Confirming only the few Survivors keeps narrowing for
 the Mutants that die early.
+
+## Addendum (issue #89)
+
+`--test-contexts` is removed in 0.3.0, along with the db it read. Selection reads only
+the same-run Measurement's Test map (ADR 0027), so the outcomes narrow to two:
+`narrowed` (named tests reach the line, so only those run) and `static` (only the
+whole-run context reaches it, so the full test set runs). The `under-listed` outcome
+and the disagreement hard-error go with the db: they policed inputs built apart from
+the run, and one Measurement has no second source to disagree with. The db-only aborts
+(`line-absent`, `file-absent`) go too. The `no-tests-collected` / `usage-error` abort
+(exit 2) stays, because it guards a pytest run that exercised nothing.
+
+Survivor confirmation (amendment #97) is what keeps narrowing and swap mode honest. A
+Survivor of a non-accepted Site is re-run with the full test set through the subprocess
+executor (ADR 0028), and counts only if it survives that run too. A narrowed list cannot
+name a test that matters only through state it reads, so this re-run is the step that
+catches it.
