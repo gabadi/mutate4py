@@ -61,7 +61,7 @@ from mutate4py._source_loading import (
     _finalize_source,
     _prepare_run_setup,
 )
-from mutate4py._test_dispatch import _log_dispatch_abort
+from mutate4py._test_dispatch import TimeoutPolicy, _log_dispatch_abort
 
 _logger = logging.getLogger(__name__)
 
@@ -131,7 +131,7 @@ class SelectionOutcome:
     uncovered_count: int = 0
     use_parallel: bool = False
     max_workers: int = 0
-    mutant_timeout: float = 0.0
+    timeout_policy: TimeoutPolicy | None = None
     executor: object = None
     mutant_pytest_args: list[str] = dataclasses.field(default_factory=list)
     baseline_duration: float = 0.0
@@ -145,7 +145,7 @@ class _BaselinePrep:
 
     baseline_duration: float
     overhead_duration: float | None
-    mutant_timeout: float
+    timeout_policy: TimeoutPolicy
     executor: object
 
 
@@ -170,7 +170,11 @@ def _prepare_baseline_and_executor(
     with open(setup.bak_path, "w") as f:
         f.write(setup.loaded.clean_source)
 
-    mutant_timeout = max(request.min_timeout, request.timeout_factor * baseline_duration)
+    timeout_policy = TimeoutPolicy(
+        factor=request.timeout_factor,
+        min_timeout=request.min_timeout,
+        baseline_duration=baseline_duration,
+    )
     executor = select_executor(
         caller_supplied=request.executor,
         use_parallel=use_parallel,
@@ -179,7 +183,7 @@ def _prepare_baseline_and_executor(
         guarded_path=os.path.abspath(request.path),
     )
 
-    return _BaselinePrep(baseline_duration, overhead_duration, mutant_timeout, executor), None
+    return _BaselinePrep(baseline_duration, overhead_duration, timeout_policy, executor), None
 
 
 def _select_and_prepare(
@@ -258,7 +262,7 @@ def _select_and_prepare(
         uncovered_count=uncovered_count,
         use_parallel=use_parallel,
         max_workers=max_workers,
-        mutant_timeout=prep.mutant_timeout,
+        timeout_policy=prep.timeout_policy,
         executor=prep.executor,
         mutant_pytest_args=mutant_pytest_args,
         baseline_duration=prep.baseline_duration,
@@ -314,7 +318,7 @@ def _mutant_exec_ctx(request: RunMutationsRequest, outcome: SelectionOutcome, te
         cwd=request.cwd,
         pytest_args=request.pytest_args if outcome.use_parallel else outcome.mutant_pytest_args,
         executor=outcome.executor,
-        mutant_timeout=outcome.mutant_timeout,
+        timeout_policy=outcome.timeout_policy,
         max_workers=outcome.max_workers,
         use_parallel=outcome.use_parallel,
         abs_source_path=os.path.abspath(request.path),

@@ -14,8 +14,9 @@ from mutate4py._report import _on_parallel_result, _serial_progress_line
 from mutate4py._test_dispatch import (
     NoTestsCollectedError,
     TestSelectionError,
-    _build_mutant_args,
+    TimeoutPolicy,
     _check_execution_status,
+    plan_mutant,
 )
 
 __all__ = ["MutantExecCtx", "NoTestsCollectedError", "TestSelectionError"]
@@ -31,7 +32,7 @@ class MutantExecCtx:
     cwd: str
     pytest_args: list[str]
     executor: Executor | None
-    mutant_timeout: float
+    timeout_policy: TimeoutPolicy
     max_workers: int = 0
     use_parallel: bool = False
     abs_source_path: str = ""
@@ -58,14 +59,20 @@ def _run_mutation_loop(
     selection_counts: dict[str, int] = {"narrowed": 0, "static": 0, "degraded": 0}
     survivors: list[Site] = []
     for i, site in enumerate(selected_sites, 1):
-        # Built before the splice so a disagreement aborts with the source untouched.
-        args, selection = _build_mutant_args(ctx.pytest_args, ctx.test_ctx_db, ctx.abs_source_path, site)
-        if selection is not None:
-            selection_counts[selection] += 1
+        # Planned before the splice so a disagreement aborts with the source untouched.
+        plan = plan_mutant(
+            site,
+            pytest_args=ctx.pytest_args,
+            test_ctx_db=ctx.test_ctx_db,
+            abs_source_path=ctx.abs_source_path,
+            timeout_policy=ctx.timeout_policy,
+        )
+        if plan.selection is not None:
+            selection_counts[plan.selection] += 1
         mutated = apply_mutant(clean_source, site)
         with open(ctx.path, "w") as f:
             f.write(mutated)
-        status = ctx.executor.run(args, ctx.mutant_timeout)
+        status = ctx.executor.run(plan.args, plan.timeout)
         # Raises before tallying: a Mutant pytest never exercised must never
         # reach the tally as `killed` (issue #55). The splice already
         # happened, but the caller's finally block restores the source.
@@ -99,7 +106,7 @@ def _run_parallel_workers(
                 source_path=ctx.path,
                 cwd=ctx.cwd,
                 pytest_args=ctx.pytest_args,
-                mutant_timeout=ctx.mutant_timeout,
+                timeout_policy=ctx.timeout_policy,
                 max_workers=ctx.max_workers,
                 on_result=_on_parallel_result,
                 test_ctx_db=ctx.test_ctx_db,
