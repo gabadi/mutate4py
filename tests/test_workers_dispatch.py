@@ -1,5 +1,5 @@
 """Unit tests for run_parallel's dispatch: the plan's selection tally reaches each
-Worker, a test-context db disagreement aborts before any Worker is provisioned,
+Worker, an unrecognized selection outcome aborts before any Worker is provisioned,
 executors are primed per Worker, and the dogfood run scores the same under
 workers as serially. Internals are covered in test_workers.py."""
 
@@ -10,7 +10,6 @@ import subprocess
 import pytest
 
 from mutate4py._discovery import discover_sites
-from mutate4py._test_dispatch import TestSelectionError as SelectionError
 from mutate4py._test_dispatch import TimeoutPolicy
 from mutate4py._worker_provision import _SKIP_ENTRIES
 from mutate4py._workers import ParallelRunError, ParallelRunRequest, run_parallel
@@ -97,7 +96,7 @@ def test_run_parallel_composes_narrowed_dispatch_with_workers(tmp_path, monkeypa
     )
     assert result.counts == {"killed": 2, "timeout": 0, "survived": 0}
     assert result.survivors == []
-    assert result.selection_counts == {"narrowed": 2, "static": 0, "degraded": 0}
+    assert result.selection_counts == {"narrowed": 2, "static": 0}
     assert executor.calls == [["-q", "tests/test_calc.py::test_f"]] * 2
 
 
@@ -129,48 +128,13 @@ def test_run_parallel_composes_static_dispatch_with_workers(tmp_path, monkeypatc
             executor=executor,
         )
     )
-    assert result.selection_counts == {"narrowed": 0, "static": 2, "degraded": 0}
+    assert result.selection_counts == {"narrowed": 0, "static": 2}
     assert executor.calls == [["-q"]] * 2
 
 
 @pytest.mark.unit
-def test_run_parallel_composes_degraded_dispatch_with_workers(tmp_path, monkeypatch):
-    """An under-listed line (issue #69) must reach every Worker's tally as
-    "degraded", not "narrowed" -- the parallel engine plans each Site with the
-    same plan_mutant the serial loop uses."""
-    import mutate4py._workers as workers_mod
-
-    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
-    monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
-
-    src = "def f(a, b):\n    return a > b\ndef g(a, b):\n    return a < b\n"
-    sites = discover_sites(src)
-    src_file = tmp_path / "calc.py"
-    src_file.write_text(src)
-    executor = FakeExecutor("killed")
-
-    result = run_parallel(
-        ParallelRunRequest(
-            selected_sites=sites,
-            clean_source=src,
-            source_path=str(src_file),
-            cwd=str(tmp_path),
-            pytest_args=["-q"],
-            timeout_policy=_FIVE_SECOND_POLICY,
-            max_workers=2,
-            on_result=noop_on_result,
-            selection_source=_FakeSelectionSource("under-listed", ("tests/test_calc.py::test_f",)),
-            abs_source_path=str(src_file),
-            executor=executor,
-        )
-    )
-    assert result.selection_counts == {"narrowed": 0, "static": 0, "degraded": 2}
-    assert executor.calls == [["-q"]] * 2
-
-
-@pytest.mark.unit
-def test_run_parallel_disagreement_aborts_before_any_worker_is_provisioned(tmp_path, monkeypatch):
-    """Sites are planned before dispatch, so a test-context db disagreement
+def test_run_parallel_unrecognized_outcome_aborts_before_any_worker_is_provisioned(tmp_path, monkeypatch):
+    """Sites are planned before dispatch, so an unrecognized selection outcome
     aborts the parallel run before any Worker is provisioned or dispatched."""
     import mutate4py._workers as workers_mod
 
@@ -186,7 +150,7 @@ def test_run_parallel_disagreement_aborts_before_any_worker_is_provisioned(tmp_p
     src_file.write_text(src)
     executor = FakeExecutor("killed")
 
-    with pytest.raises(SelectionError):
+    with pytest.raises(ValueError, match="unrecognized selection outcome"):
         run_parallel(
             ParallelRunRequest(
                 selected_sites=discover_sites(src),
@@ -197,7 +161,7 @@ def test_run_parallel_disagreement_aborts_before_any_worker_is_provisioned(tmp_p
                 timeout_policy=_FIVE_SECOND_POLICY,
                 max_workers=2,
                 on_result=noop_on_result,
-                selection_source=_FakeSelectionSource("line-absent"),
+                selection_source=_FakeSelectionSource("bogus"),
                 abs_source_path=str(src_file),
                 executor=executor,
             )

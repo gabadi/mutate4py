@@ -9,11 +9,13 @@ import os
 
 REMOVED_FLAG_MESSAGE = "removed in 0.3.0: the run measures coverage itself"
 
-# Each coverage flag removed in 0.3.0, keyed by its feature row, as the tokens that supply it.
+# Each coverage or test-context flag removed in 0.3.0, keyed by its feature row, as the tokens that supply it.
 REMOVED_FLAG_TOKENS = {
     "--cov-cmd CMD": ["--cov-cmd", "true"],
     "--lcov cov.info": ["--lcov", "cov.info"],
     "--reuse-coverage": ["--reuse-coverage"],
+    "--test-contexts DB": ["--test-contexts", "tests.coverage"],
+    "--build-test-contexts OUT": ["--build-test-contexts", "out.coverage"],
 }
 
 # A conftest.py that imports the module while pytest loads it. Its lines run before

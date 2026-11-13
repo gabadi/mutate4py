@@ -1,6 +1,6 @@
 # Test-context cache: fingerprint the whole project tree, not the files a test looks like it uses
 
-**Status:** accepted
+**Status:** superseded (2026-11-13) by ADR 0027
 
 The Test-context cache (issue #52) skips the ADR 0021 rebuild when it can prove
 nothing that would change the db has changed. Proving that means fingerprinting

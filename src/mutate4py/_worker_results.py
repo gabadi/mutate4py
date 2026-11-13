@@ -46,8 +46,8 @@ def _summarize_timing(results: list[dict]) -> MutantTiming:
 
 
 def _summarize_selection(results: list[dict]) -> dict[str, int]:
-    """Tally narrowed/static/degraded selection counts, mirroring the serial loop's tally."""
-    counts = {"narrowed": 0, "static": 0, "degraded": 0}
+    """Tally narrowed/static selection counts, mirroring the serial loop's tally."""
+    counts = {"narrowed": 0, "static": 0}
     for r in results:
         selection = r.get("selection")
         if selection is not None:

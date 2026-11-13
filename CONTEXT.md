@@ -108,46 +108,15 @@ _Avoid_: result, status, outcome (reserve *outcome* for Selection outcome)
 ### Test selection
 
 **Selection outcome**:
-What the test-context db says about a Site's line — **narrowed** (named tests cover
-it, so only those run), **static** (import-time code no single test owns, so the
-full test set runs), **under-listed** (see below; also runs the full test set), or
-a disagreement.
+What the run's Measurement says about a Site's line — **narrowed** (named tests cover
+it, so only those run), **static** (import-time code no single test owns, or a line
+no test reached, so the full test set runs), or a disagreement.
 
 **Empty context**:
 Coverage.py's whole-run context, as opposed to a named per-test one. A line matched
 only by it ran at import time. A signal, not noise.
 
-**Under-listed**:
-A Selection outcome (issue #69): the test-context db names covering tests for a
-Site's line, but at least one was recorded by a *dynamic* (`pytest
---cov-context=test`, i.e. `switch_context()`) context rather than a static
-(isolated-session) one. ADR 0021 proved a dynamic-context collector session
-silently drops every covering test but the first to reach a shared line or arc, so
-such a list can never be trusted complete — it is never returned as `narrowed`.
-mutate4py runs the full test set instead, same dispatch as `static` but tallied
-apart from it (`degraded` in the run summary) so the report can't claim `static 0`
-while Sites were actually rejected. Detected by the `|setup`/`|run`/`|teardown`
-suffix pytest-cov appends to a dynamic context's name — an isolated-session build
-(`--build-test-contexts`) never produces that suffix.
-_Avoid_: stale context, incomplete narrowing
-
 **Selection disagreement**:
-The test-context db and the Coverage gate contradicting each other. Always an input
-defect — a stale db or a path mismatch — never uncovered code, so it aborts the run
-rather than falling back. Distinct from **under-listed**: a disagreement means the db
-can't account for the line at all (no safe fallback exists); under-listed means it
-names some tests but can't prove the list complete (falling back to the full test set
-is safe).
-
-**Test-context cache**:
-The sidecar fingerprint of the inputs a test-context db was built from, letting a
-later `--build-test-contexts` run skip the rebuild when none of them changed. Named
-*cache* — not *manifest* — deliberately: the Manifest is a durable record of what was
-mutation-tested and belongs in the repo, whereas this is disposable, gitignored, and
-rebuilt from scratch whenever it can't prove itself fresh.
-_Avoid_: test-context manifest, context manifest
-
-**Freshness / staleness**:
-Whether the Test-context cache can prove nothing that would change the db has
-changed. Deliberately one-way: fresh means proven unchanged, stale means anything
-else, including "couldn't tell".
+The Measurement and the Coverage gate contradicting each other. Always an input
+defect — a stale source or a path mismatch — never uncovered code, so it aborts the
+run rather than falling back.

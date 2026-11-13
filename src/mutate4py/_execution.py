@@ -17,14 +17,13 @@ from mutate4py._subprocess_executor import SubprocessExecutor
 from mutate4py._test_dispatch import (
     NoTestsCollectedError,
     PlanInputs,
-    TestSelectionError,
     TimeoutPolicy,
     _check_execution_status,
     confirm_plan,
     plan_mutant,
 )
 
-__all__ = ["MutantExecCtx", "NoTestsCollectedError", "TestSelectionError"]
+__all__ = ["MutantExecCtx", "NoTestsCollectedError"]
 
 if TYPE_CHECKING:
     from mutate4py._workers import ParallelRunResult
@@ -44,7 +43,7 @@ class MutantExecCtx:
     max_workers: int = 0
     use_parallel: bool = False
     abs_source_path: str = ""
-    selection_source: object = None  # the Measurement, or the --test-contexts db; None selects nothing
+    selection_source: object = None  # the Measurement; None selects nothing
     forking_requested: bool = True
     positionals: tuple[str, ...] = ()
     # The full test set's argv (plugin kill switches included); equivalent markers, whose lines are
@@ -60,9 +59,8 @@ def _run_mutation_loop(
     ctx: MutantExecCtx,
 ) -> tuple[dict, list[Site], dict[str, int] | None]:
     """Run each selected site through ctx.executor; the third return is the
-    narrowed/static/degraded tally, or None when no selection source is in play.
-    Raises TestSelectionError on a selection disagreement, or
-    NoTestsCollectedError if a mutant's test run exercised no test at all.
+    narrowed/static tally, or None when no selection source is in play.
+    Raises NoTestsCollectedError if a mutant's test run exercised no test at all.
 
     ctx.executor is always primed by the time this loop starts (whichever
     implementation _prepare_executor chose), so this loop never branches on
@@ -70,7 +68,7 @@ def _run_mutation_loop(
     """
     total_selected = len(selected_sites)
     counts: dict[str, int] = {"killed": 0, "timeout": 0, "survived": 0}
-    selection_counts: dict[str, int] = {"narrowed": 0, "static": 0, "degraded": 0}
+    selection_counts: dict[str, int] = {"narrowed": 0, "static": 0}
     survivors: list[Site] = []
     plan_inputs = PlanInputs(
         pytest_args=ctx.pytest_args,
@@ -109,7 +107,7 @@ def _run_parallel_workers(
 ) -> "tuple[ParallelRunResult | None, str | None]":
     """Dispatch the parallel engine; return (result, error_msg), one of them None.
 
-    A TestSelectionError or NoTestsCollectedError raised inside a Worker's
+    A NoTestsCollectedError raised inside a Worker's
     dispatch propagates uncaught, same as the serial loop — only
     WorkerFailureError/ParallelRunError (real dispatch-mechanics failures)
     are translated into an error message here.
@@ -207,8 +205,8 @@ def _execute_mutations(
 
     Confirmation runs in the orchestrator for both paths, in a fresh interpreter
     through the subprocess executor, so serial and parallel runs give the same
-    verdict. The caller owns the final report and error output. A TestSelectionError
-    or NoTestsCollectedError from the serial loop propagates to the caller,
+    verdict. The caller owns the final report and error output. A
+    NoTestsCollectedError from the serial loop propagates to the caller,
     which must still finalize the source exactly as a completed run would
     leave it.
     """

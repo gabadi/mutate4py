@@ -12,7 +12,6 @@ import os
 import pytest
 
 from ._dispatch_helpers import make_args
-from ._fork_unsafe_plugin_helpers import skip_unless_fork_unsafe_plugin_loaded
 
 
 def _make_pkg_tree(tmp_path) -> str:
@@ -51,8 +50,8 @@ def test_run_scan_no_coverage(tmp_path, capsys):
 # Gap found via coverage.py arc data: nothing in the suite exercises the
 # non-scan/non-manifest branch of _run_on_file (the code that maps a parsed
 # argparse.Namespace onto run_mutations' kwargs for the directory-mode
-# per-file dispatch path). A mutant swapping since_last_run/mutate_all, or
-# dropping test_contexts_path=args.test_contexts, would go undetected.
+# per-file dispatch path). A mutant swapping since_last_run/mutate_all would
+# go undetected.
 # run_mutations' own behavior is already covered directly in test_runner.py;
 # this section is only about proving the wiring is correct.
 
@@ -80,7 +79,6 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
         mutate_all=False,
         warning_threshold=42,
         max_workers=3,
-        test_contexts=".coverage",
     )
     result = _run_on_file(args, "f.py", "x = 1\n", "/cwd")
     assert result == 0
@@ -99,7 +97,6 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
         "cwd": "/cwd",
         "measurement": None,
         "timing_sink": None,
-        "test_contexts_path": ".coverage",
         "manifest_file": False,
         "forking_requested": True,
         "executor": None,
@@ -672,76 +669,3 @@ def test_collect_union_files_verbose_reports_excluded_per_root(tmp_path, capsys)
     files = _collect_union_files(args, [str(a_dir), str(b_dir)])
     assert files == [str(a_dir / "a.py")]
     assert f"Excluded: {b_dir / 'b.py'}" in capsys.readouterr().out
-
-
-# --- _build_isolated_session_runner (issue #51) -------------------------------
-
-
-@pytest.mark.unit
-def test_build_isolated_session_runner_returns_none_when_a_fork_unsafe_plugin_is_loaded(tmp_path):
-    """Regression: this repo's own acceptance suite hung for 36+ minutes
-    (real, observed) because --build-test-contexts unconditionally engaged
-    the forking path against tests/fixtures/overlapping_coverage, which
-    deadlocks under pytest-tach's fork-time lock (see
-    isolated_coverage_session_safe). tach.pytest_plugin is genuinely loaded
-    in this test process -- this repo's own active pytest plugin -- so this
-    exercises the real hazard, not a synthetic stand-in."""
-    from mutate4py._dispatch import _build_isolated_session_runner
-
-    skip_unless_fork_unsafe_plugin_loaded()
-    (tmp_path / "test_x.py").write_text("def test_ok():\n    assert True\n")
-    runner = _build_isolated_session_runner(no_fork=False, cwd=str(tmp_path))
-    assert runner is None
-
-
-@pytest.mark.component
-def test_build_isolated_session_runner_forks_and_runs_when_eligible(tmp_path, monkeypatch):
-    """With the fork-unsafe-plugin precheck stubbed out (this dev venv always
-    has tach loaded once ForkingExecutor.prime()'s own collect-only
-    pytest.main() call runs, so the real check can't be forced True here --
-    see isolated_coverage_session_safe's docstring), prove the returned
-    closure is wired correctly end to end: forks, runs the named test under
-    an isolated coverage session, and returns "survived".
-
-    Two independent call sites need stubbing: _dispatch.py's own eligibility
-    check (decides whether to build a working closure at all) and
-    ForkingExecutor.run_isolated_coverage_session's self-check (issue #51
-    Standards fix -- the method no longer trusts a caller to have checked
-    first, so it re-checks on every call)."""
-    import mutate4py._dispatch as dispatch_mod
-    import mutate4py._forking_executor as forking_executor_mod
-
-    monkeypatch.setattr(dispatch_mod, "isolated_coverage_session_safe", lambda: True)
-    monkeypatch.setattr(forking_executor_mod, "isolated_coverage_session_safe", lambda: True)
-    (tmp_path / "test_x.py").write_text("def test_ok():\n    assert True\n")
-
-    runner = dispatch_mod._build_isolated_session_runner(no_fork=False, cwd=str(tmp_path))
-    assert runner is not None
-
-    status = runner("test_x.py::test_ok", str(tmp_path / ".coverage.0"), ["-q"])
-    assert status == "survived"
-
-
-@pytest.mark.unit
-def test_dispatch_build_test_contexts_refuses_a_foreign_interpreter_before_building(tmp_path, monkeypatch):
-    """--build-test-contexts runs pytest collection in the project's venv, so a
-    foreign interpreter must be refused before any context build starts."""
-    import sys
-
-    from mutate4py import _dispatch
-    from mutate4py.__main__ import _build_parser
-    from mutate4py._cli_validation import ValidationError
-
-    (tmp_path / "pyproject.toml").write_text("[project]\nname = 'demo'\n")
-    (tmp_path / ".venv" / "bin").mkdir(parents=True)
-    (tmp_path / ".venv" / "bin" / "python").write_text("")
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(sys, "prefix", "/opt/other")
-    built = []
-    monkeypatch.setattr(_dispatch, "build_test_contexts", lambda **kwargs: built.append(kwargs) or 0)
-
-    args = _build_parser().parse_args(["--build-test-contexts", "db.sqlite"])
-    with pytest.raises(ValidationError) as exc:
-        _dispatch._dispatch(args)
-    assert exc.value.exit_code == 2
-    assert built == [], "no context build may start under a foreign interpreter"

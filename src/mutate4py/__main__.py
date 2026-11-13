@@ -6,8 +6,7 @@ import sys
 
 from mutate4py._cli_validation import (
     ValidationError,
-    _check_removed_coverage_flags,
-    _check_test_contexts_file,
+    _check_removed_flags,
     _validate_mutual_exclusions,
 )
 from mutate4py._dispatch import _dispatch
@@ -84,8 +83,8 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Skip files whose path matches PATTERN "
         "('*' matches one path segment, '**' matches zero or more; repeatable)",
     )
-    # Removed in 0.3.0: parsed so that _check_removed_coverage_flags can refuse
-    # them with a message naming the flag, and hidden from --help.
+    # Removed in 0.3.0: parsed so that _check_removed_flags can refuse them
+    # with a message naming the flag, and hidden from --help.
     parser.add_argument("--cov-cmd", dest="cov_cmd", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--lcov", dest="lcov", default=None, help=argparse.SUPPRESS)
     parser.add_argument(
@@ -94,6 +93,8 @@ def _build_parser() -> argparse.ArgumentParser:
         dest="reuse_coverage",
         help=argparse.SUPPRESS,
     )
+    parser.add_argument("--test-contexts", dest="test_contexts", default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--build-test-contexts", dest="build_test_contexts", default=None, help=argparse.SUPPRESS)
     parser.add_argument(
         "--pytest-args",
         dest="pytest_args",
@@ -158,24 +159,6 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Report additional detail, e.g. which files --exclude skipped",
     )
     parser.add_argument(
-        "--test-contexts",
-        dest="test_contexts",
-        default=None,
-        help="Path to a .coverage SQLite db (build one with --build-test-contexts); enables per-mutant "
-        "test selection. A db built by a single shared `pytest --cov-context=test` session cannot be "
-        "trusted to narrow (issue #69) and degrades to the full test set instead",
-    )
-    parser.add_argument(
-        "--build-test-contexts",
-        dest="build_test_contexts",
-        default=None,
-        metavar="OUTPUT_PATH",
-        help="Build a test-context db and write it to OUTPUT_PATH: one "
-        "isolated coverage.py session per test pytest would collect (scoped "
-        "by --pytest-args), then combined (see --test-contexts); no "
-        "mutation run occurs, and no positional PATH target is accepted",
-    )
-    parser.add_argument(
         "--no-fork",
         action="store_true",
         dest="no_fork",
@@ -201,9 +184,8 @@ def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
     try:
-        _check_removed_coverage_flags(args)
+        _check_removed_flags(args)
         _validate_mutual_exclusions(args)
-        _check_test_contexts_file(args)
         _dispatch(args)
     except (ValidationError, TargetResolutionError) as exc:
         _logger.error(f"error: {exc}")

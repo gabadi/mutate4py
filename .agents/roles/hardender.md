@@ -22,7 +22,7 @@ just mutate <path>        # e.g. just mutate src/mutate4py/_runner.py --mutate-a
 
 Exit 3 means unaccepted survivors: kill them, or mark a recognized equivalent with `# mutate4py: equivalent <category>` on the Site's line (ADR 0026).
 
-`just mutate` narrows against `contexts.db`, an isolated-session test-context db (docs/adr/0021) it builds/refreshes itself every run via its `test-context-db` dependency — no separate step needed. A cache (mutate4py's own, keyed on the project tree) makes a rerun on an unchanged tree ~4 seconds; a first build, or one after a source/test edit, costs ~16 minutes on this project's full non-integration suite. That first cost is not a hang — let it run.
+`just mutate` needs no setup step: each run measures coverage itself once, before its Mutants run, and narrows each Mutant to the tests that cover its line. There is no test-context db to build or refresh.
 
 `just check` (no args) runs the full CI-equivalent gate list the same way — one ✓/✗ line per gate, full output in `check.log`, tailed only on failure.
 

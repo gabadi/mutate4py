@@ -1,6 +1,6 @@
 # Test-context db: isolated per-test coverage.py sessions, then `coverage combine`
 
-**Status:** accepted
+**Status:** superseded (2026-11-13) by ADR 0027
 
 `--test-contexts` (ADR 0018) reads a pre-built coverage.py context db. Nothing in
 mutate4py builds that db today; a user runs their own `pytest --cov-context=test`

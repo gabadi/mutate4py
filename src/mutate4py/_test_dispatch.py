@@ -18,7 +18,6 @@ __all__ = [
     "MutantPlan",
     "NoTestsCollectedError",
     "PlanInputs",
-    "TestSelectionError",
     "TimeoutPolicy",
     "_check_execution_status",
     "_log_dispatch_abort",
@@ -30,36 +29,16 @@ __all__ = [
 _logger = logging.getLogger(__name__)
 
 
-class TestSelectionError(Exception):
-    """A selected site the test-context db cannot account for (case 3)."""
-
-
 class NoTestsCollectedError(Exception):
     """A selected site whose test run exercised no test at all (case 4)."""
 
 
-# The selected sites are measured as covered by construction, so a miss is always an
-# input defect, never uncovered code — hence a hard error rather than a fallback.
-#
-# Not `pytest --cov-context=test`: that single shared session under-lists
-# covering tests for any line more than one test reaches (ADR 0021) and is
-# never the fix for a stale/absent line either — --build-test-contexts'
-# isolated per-test sessions are the sound way to (re)build the db.
-_DISAGREEMENT_HINTS = {
-    "line-absent": "line is covered by the Measurement but absent from the test-context db "
-    "(stale db: regenerate it with --build-test-contexts)",
-    "file-absent": "file is not in the test-context db at all "
-    "(path-format mismatch, or its coverage was recorded in a subprocess)",
-}
-
-# Same shape as _DISAGREEMENT_HINTS, one step later: the db accounted for the
-# line and named tests, but pytest ran none of them for this Mutant, so the
-# exit code itself — not the db — is the input defect being reported.
+# pytest exits 4 (usage error) or 5 (no tests collected) when it runs no test
+# for a Mutant: the argv it was given, not the code under test, is the defect.
 _ABORT_HINTS = {
-    "no-tests-collected": "pytest collected no tests to run (exit 5): a stale "
-    "test-context db, a --pytest-args filter, or a node-ID path mismatch deselected everything",
-    "usage-error": "pytest exited with a usage error before collecting any test (exit 4): "
-    "check --pytest-args, or a stale test-context db naming a since-renamed/deleted test",
+    "no-tests-collected": "pytest collected no tests to run (exit 5): a --pytest-args filter "
+    "or a node-ID path mismatch deselected everything",
+    "usage-error": "pytest exited with a usage error before collecting any test (exit 4): check --pytest-args",
 }
 NO_TESTS_HINT = _ABORT_HINTS["no-tests-collected"]
 """The hint a run whose pytest collected nothing carries, shared by every path that reports it."""
@@ -72,12 +51,9 @@ def _check_execution_status(status: str, abs_source_path: str, site: Site) -> No
         raise NoTestsCollectedError(f"{abs_source_path}:{site.line}: {hint}")
 
 
-def _log_dispatch_abort(exc: TestSelectionError | NoTestsCollectedError) -> int:
-    """Log a case-3 (db disagreement) or case-4 (no test ran) abort; both exit 2."""
-    if isinstance(exc, TestSelectionError):
-        _logger.error(f"error: test-context db disagrees with coverage: {exc}")
-    else:
-        _logger.error(f"error: pytest ran no test for a Mutant: {exc}")
+def _log_dispatch_abort(exc: NoTestsCollectedError) -> int:
+    """Log a case-4 abort (pytest ran no test for a Mutant); it exits 2."""
+    _logger.error(f"error: pytest ran no test for a Mutant: {exc}")
     return 2
 
 
@@ -179,17 +155,13 @@ class PlanInputs:
 def plan_mutant(site: Site, inputs: PlanInputs) -> MutantPlan:
     """Return the MutantPlan for site; selection is None without a selection source.
 
-    The selection source answers `tests_for_line(path, line)`: the Measurement
-    by default, the test-context db under --test-contexts. "narrowed" runs only
-    the tests covering site.line, with the run's positional path args
-    (`positionals`) removed from pytest_args so the path does not run beside the
-    node ids; "static" runs the full pytest_args because the line executes at
-    import time and no test owns it. "uncovered" (a line no context reached: only
-    a Coverage gate from a flag can select one) also runs the full pytest_args,
-    tallied as "static". "degraded" is the db's: it names covering tests from a
-    dynamic (pytest-cov switch_context) session that ADR 0021 proved can silently
-    drop covering tests, so the named list can't be trusted to run alone; it runs
-    the full pytest_args and is tallied apart from "static" (issue #69).
+    The selection source is the Measurement, which answers
+    `tests_for_line(path, line)`. "narrowed" runs only the tests covering
+    site.line, with the run's positional path args (`positionals`) removed from
+    pytest_args so the path does not run beside the node ids; "static" runs the
+    full pytest_args because the line executes at import time and no test owns
+    it. "uncovered" (a line no test reached) also runs the full pytest_args,
+    tallied as "static".
     """
     if inputs.selection_source is None:
         return MutantPlan(list(inputs.pytest_args), inputs.timeout_policy.timeout_for(None), None)
@@ -202,12 +174,9 @@ def plan_mutant(site: Site, inputs: PlanInputs) -> MutantPlan:
         )
     if outcome in ("static", "uncovered"):
         return MutantPlan(list(inputs.pytest_args), inputs.timeout_policy.timeout_for(None), "static")
-    if outcome == "under-listed":
-        return MutantPlan(list(inputs.pytest_args), inputs.timeout_policy.timeout_for(None), "degraded")
     # Every other outcome raises, so an unrecognized one can never fall through to
     # a full-suite run that the report would then miscount as narrowed.
-    hint = _DISAGREEMENT_HINTS.get(outcome, f"unrecognized selection outcome {outcome!r}")
-    raise TestSelectionError(f"{inputs.abs_source_path}:{site.line}: {hint}")
+    raise ValueError(f"{inputs.abs_source_path}:{site.line}: unrecognized selection outcome {outcome!r}")
 
 
 def confirm_plan(pytest_args: list[str], timeout_policy: TimeoutPolicy) -> MutantPlan:

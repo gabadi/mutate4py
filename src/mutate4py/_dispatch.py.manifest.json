@@ -1,141 +1,134 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T15:09:07Z",
-  "module_hash": "383cc884fae05b35a18909d3e7c6768751890bf35be55990264eae6dbacfc72a",
-  "source_sha256": "c58a89f0de72fccc3da2da99b6928838fa0960c5de0567093ca0b5133f03c11f",
+  "tested_at": "2026-11-13T15:52:07Z",
+  "module_hash": "dce90d667fc4688e77bc41fa320a90dc9fa9a84eadc564ef94471adcaa064e2f",
+  "source_sha256": "85bcec02c7e4cee5ee69433c26b440914d939bbfca821452f8db3aefb209a1b0",
   "functions": [
     {
       "id": "func/_load_source",
       "name": "_load_source",
-      "line": 51,
-      "end_line": 58,
+      "line": 47,
+      "end_line": 54,
       "hash": "cf0d544f502e942b3f91b37a4274c45017816c03cdde85ee449ed6e89973ba81"
     },
     {
       "id": "func/_syntax_error_reason",
       "name": "_syntax_error_reason",
-      "line": 61,
-      "end_line": 65,
+      "line": 57,
+      "end_line": 61,
       "hash": "66d175abf37bd7a66161af674cd50079266b5080be57639f87c805079b4397c4"
     },
     {
       "id": "func/_report_parse_error",
       "name": "_report_parse_error",
-      "line": 68,
-      "end_line": 69,
+      "line": 64,
+      "end_line": 65,
       "hash": "a5a6da726ae7e888199f731b533883674d6e844a45d6fa84fa48f9a92213de1b"
     },
     {
       "id": "func/_parse_line_token",
       "name": "_parse_line_token",
-      "line": 72,
-      "end_line": 82,
+      "line": 68,
+      "end_line": 78,
       "hash": "89a2a52975ec97ccfed570bd182aab068faf2dc0fea8026afb229c62d57a8277"
     },
     {
       "id": "func/_parse_lines",
       "name": "_parse_lines",
-      "line": 85,
-      "end_line": 90,
+      "line": 81,
+      "end_line": 86,
       "hash": "4febad296c3c5be36594a0188127548ab4edcba48a3bd946848e9c583b398ac4"
     },
     {
       "id": "func/_parse_pytest_args",
       "name": "_parse_pytest_args",
-      "line": 93,
-      "end_line": 101,
+      "line": 89,
+      "end_line": 97,
       "hash": "7286e381b4800db9ffda47b9f30738661e8ca1ca48285d487b82fc5cb172eaf6"
     },
     {
       "id": "func/_run_scan",
       "name": "_run_scan",
-      "line": 104,
-      "end_line": 111,
+      "line": 100,
+      "end_line": 107,
       "hash": "4f1671560d91066bf198e6ad6b3f613d33bc37aa145cb37514bc7d0af8b41ca0"
     },
     {
       "id": "func/_run_on_file",
       "name": "_run_on_file",
-      "line": 123,
-      "end_line": 161,
-      "hash": "8df429961be337a73115d04a677969ac4ede587b14030c5943fe6b98ef89e262"
-    },
-    {
-      "id": "func/_build_isolated_session_runner",
-      "name": "_build_isolated_session_runner",
-      "line": 164,
-      "end_line": 193,
-      "hash": "675f982b661edf6e60ef9d4562df2733cc1f18943644ec6d91c441e3b094baf4"
+      "line": 119,
+      "end_line": 156,
+      "hash": "f6350a498d7a33f725acfc7707a353cb7f2f396b6e9938f3cbeda8b0b3247bfb"
     },
     {
       "id": "func/_needs_measurement",
       "name": "_needs_measurement",
-      "line": 196,
-      "end_line": 198,
+      "line": 159,
+      "end_line": 161,
       "hash": "13d66b58dedee3d33ac0b61668462cdf66c529be9c3e3339f86e57edd49aa797"
     },
     {
       "id": "func/_prepare_directory_measurement",
       "name": "_prepare_directory_measurement",
-      "line": 201,
-      "end_line": 215,
+      "line": 164,
+      "end_line": 178,
       "hash": "c32a7310a43810a2b13968bbfd4959450783e99cc117f8df58cb9e2e3b3ba037"
     },
     {
       "id": "func/_report_excluded",
       "name": "_report_excluded",
-      "line": 218,
-      "end_line": 221,
+      "line": 181,
+      "end_line": 184,
       "hash": "d5c6ff3b6122978ecfb06f14f2f9fd218eee1047da229a55030e86d9b7dca7f0"
     },
     {
       "id": "func/_collect_union_files",
       "name": "_collect_union_files",
-      "line": 224,
-      "end_line": 239,
+      "line": 187,
+      "end_line": 202,
       "hash": "315779718cc5d9e1c83a0d325927eaa36efad5a0b900465ffe4f286d96c1e5ac"
     },
     {
       "id": "func/_run_each_file",
       "name": "_run_each_file",
-      "line": 242,
-      "end_line": 261,
+      "line": 205,
+      "end_line": 224,
       "hash": "120d489969bd9cec9166356bd894299b64fd42ffb75e90b0bcb4fa8477dd75d0"
     },
     {
       "id": "func/_run_files_and_exit",
       "name": "_run_files_and_exit",
-      "line": 264,
-      "end_line": 279,
+      "line": 227,
+      "end_line": 242,
       "hash": "672e9becf6c641cc7f1532d91c0973fbb8b840e9ba3f800a56b2079bb4ed07df"
     },
     {
       "id": "func/_dispatch_batch",
       "name": "_dispatch_batch",
-      "line": 282,
-      "end_line": 285,
+      "line": 245,
+      "end_line": 248,
       "hash": "fec2a5ef10c8272cf194852d98cf616bd5d013d3042cbb017556380ef06aa964"
     },
     {
       "id": "func/_raise_if_target_excluded",
       "name": "_raise_if_target_excluded",
-      "line": 288,
-      "end_line": 295,
+      "line": 251,
+      "end_line": 258,
       "hash": "5ff01ac3f96d34b9d14fde637975e7f49bffe4b4efd09ea8e839c772942417a9"
     },
     {
       "id": "func/_resolve_roots",
       "name": "_resolve_roots",
-      "line": 298,
-      "end_line": 307,
+      "line": 261,
+      "end_line": 270,
       "hash": "e759fcff7677326c2838faba1ed3dbb6e743a944354b2a50da3c1ade8e8cd8af"
     },
     {
       "id": "func/_dispatch",
       "name": "_dispatch",
-      "line": 310,
-      "end_line": 359,
-      "hash": "2d3702427b951575309b4f50e87ee75125e183a2cc7525959d876b7b2603fc5a"
+      "line": 273,
+      "end_line": 307,
+      "hash": "530ce00145e84fee5756f8a374f8bd3534a0f4c18aaf6fed71eab040a90bef63"
     }
   ]
 }

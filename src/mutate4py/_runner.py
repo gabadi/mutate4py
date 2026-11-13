@@ -7,7 +7,6 @@ import os
 __all__ = [
     "NoTestsCollectedError",
     "RunMutationsRequest",
-    "TestSelectionError",
     "check_manifest",
     "run_mutations",
     "run_scan",
@@ -22,7 +21,6 @@ from mutate4py._execution import (
     ExecutionOutcome,
     MutantExecCtx,
     NoTestsCollectedError,
-    TestSelectionError,
     _execute_mutations,
 )
 from mutate4py._manifest import recorded_survivors
@@ -56,7 +54,6 @@ from mutate4py._source_loading import (
     _prepare_run_setup,
 )
 from mutate4py._test_dispatch import TimeoutPolicy, _log_dispatch_abort
-from mutate4py._test_selection import open_test_context_db
 
 _logger = logging.getLogger(__name__)
 
@@ -155,9 +152,7 @@ def _prepare_baseline_and_executor(
     return _BaselinePrep(measurement.wall, measurement.per_mutant_overhead, timeout_policy, executor)
 
 
-def _select_and_prepare(
-    request: RunMutationsRequest, setup: RunSetup, test_ctx_db, max_workers: int
-) -> SelectionOutcome:
+def _select_and_prepare(request: RunMutationsRequest, setup: RunSetup, max_workers: int) -> SelectionOutcome:
     """Gate the run's Mutants on the Measurement's covered lines (Empty context included),
     select sites, print the header, and prepare the executor.
 
@@ -257,7 +252,7 @@ def _scored_run_for(
 
 
 def _mutant_exec_ctx(
-    request: RunMutationsRequest, outcome: SelectionOutcome, test_ctx_db, markers: dict[int, str] | None = None
+    request: RunMutationsRequest, outcome: SelectionOutcome, markers: dict[int, str] | None = None
 ) -> MutantExecCtx:
     # Parallel Workers compute the plugin kill switches inside their own
     # interpreter (the one that runs pytest); the orchestrator's list is
@@ -271,8 +266,8 @@ def _mutant_exec_ctx(
         max_workers=outcome.max_workers,
         use_parallel=outcome.use_parallel,
         abs_source_path=os.path.abspath(request.path),
-        # Without --test-contexts the Measurement selects: it names the tests that reached each line (issue #96).
-        selection_source=test_ctx_db if test_ctx_db is not None else outcome.measurement,
+        # The Measurement selects: it names the tests that reached each line (issue #96).
+        selection_source=outcome.measurement,
         forking_requested=request.forking_requested,
         positionals=outcome.measurement.positional_args,
         # The full set, with the plugin kill switches the orchestrator's serial path also runs under.
@@ -284,32 +279,28 @@ def _mutant_exec_ctx(
 def run_mutations(request: RunMutationsRequest) -> int:
     """Execute the mutation run loop.
 
-    Returns 0, 1 (baseline/worker failure), 2 (selection disagreement or
+    Returns 0, 1 (baseline/worker failure), 2 (no test ran for a Mutant or
     usage error), or 3 (the run finished with at least one unaccepted survivor and
     allow_survivors is false).
     """
-    test_ctx_db = open_test_context_db(request.test_contexts_path)
     try:
-        return _run_loop(request, test_ctx_db)
+        return _run_loop(request)
     except EquivalentMarkerError as exc:
         _logger.error(f"error: {request.path}: {exc}")
         return EXIT_USAGE
-    except (TestSelectionError, NoTestsCollectedError) as exc:
+    except NoTestsCollectedError as exc:
         return _log_dispatch_abort(exc)
-    finally:
-        if test_ctx_db is not None:
-            test_ctx_db.close()
 
 
-def _run_loop(request: RunMutationsRequest, test_ctx_db) -> int:
+def _run_loop(request: RunMutationsRequest) -> int:
     """Select, execute and finalize the run, then report it. Errors propagate to run_mutations."""
     setup = _prepare_run_setup(path=request.path, source=request.source, manifest_file=request.manifest_file)
     markers = equivalent_markers(setup.loaded.clean_source)
-    outcome = _select_and_prepare(request, setup, test_ctx_db, request.max_workers)
+    outcome = _select_and_prepare(request, setup, request.max_workers)
     if outcome.error_code is not None:
         return outcome.error_code
 
-    ctx = _mutant_exec_ctx(request, outcome, test_ctx_db, markers)
+    ctx = _mutant_exec_ctx(request, outcome, markers)
     scored_run: ScoredRun | None = None
     try:
         result = _execute_mutations(
@@ -342,7 +333,7 @@ def _report_run(request: RunMutationsRequest, outcome, result, scored_run: Score
     overhead = overhead_info(outcome.overhead_duration, outcome.baseline_duration) if measured_here else None
     selection = None
     if result.selection_counts is not None:
-        selection = SelectionTally(result.selection_counts, tally_degraded=request.test_contexts_path is not None)
+        selection = SelectionTally(result.selection_counts)
     _print_lines(
         _mutation_report_lines(
             result.counts,

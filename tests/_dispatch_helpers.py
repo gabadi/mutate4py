@@ -16,7 +16,6 @@ def make_args(**kwargs):
         timeout_factor=10,
         min_timeout=1.0,
         pytest_args=[],
-        test_contexts=None,
         cov_cmd=None,
         lcov=None,
         reuse_coverage=False,

@@ -53,9 +53,8 @@ _POLL_INTERVAL = 0.01
 # `run()` (Mutant execution) never hits this in mutate4py's own dogfooding
 # only by coincidence -- the target file being mutated is usually already
 # self-imported, which routes it to the subprocess executor via
-# assert_source_clean before any fork happens. `run_isolated_coverage_session`
-# has no such file to leak-check (nothing is ever mutated), so it needs this
-# explicit precheck instead.
+# assert_source_clean before any fork happens. A fork that runs no mutated
+# file has no such leak to check, so it needs this explicit precheck instead.
 _FORK_UNSAFE_PLUGIN_MODULES = ("tach.pytest_plugin",)
 
 
@@ -64,8 +63,7 @@ def isolated_coverage_session_safe() -> bool:
     docstring above `_FORK_UNSAFE_PLUGIN_MODULES`) is already loaded in this
     process. Checked once per process, like all forking-executor eligibility
     (`_executor_selection.py`) -- a loaded plugin can't become safe mid-run,
-    so callers should decide this before the first
-    `run_isolated_coverage_session` call, not per node_id.
+    so callers should decide this once, before the first fork, not per node_id.
     """
     return not any(name in sys.modules for name in _FORK_UNSAFE_PLUGIN_MODULES)
 
@@ -176,35 +174,6 @@ class ForkingExecutor:
         self._fresh_imports += 1
         return self._fork_and_wait(lambda: self._run_child(args), timeout)
 
-    def run_isolated_coverage_session(
-        self, node_id: str, *, data_file: str, pytest_args: list[str], timeout: float
-    ) -> str:
-        """Fork a child that runs exactly node_id under a coverage.py session
-        statically named `context=node_id`, saving to `data_file` — the warm
-        equivalent of `coverage run --context=<node_id> --data-file=<data_file>
-        -m pytest <node_id>` (see _test_context_build.py / ADR 0021), minus
-        the per-process interpreter/plugin-bootstrap cost `run()` already
-        avoids for Mutant execution. Returns the same classification
-        vocabulary as `run()` (survived/killed/timeout/no-tests-collected/
-        usage-error); the caller decides what "not survived" means for it.
-
-        Nothing is ever mutated on disk between calls here (unlike `run()`,
-        which exists to re-read a just-mutated file post-fork), so there is
-        no bytecode-cache-invalidation step: whatever the child reads for
-        node_id's own file is, by construction, the only content it will
-        ever have during this build.
-        """
-        if not self._primed:
-            raise ForkingExecutorUnavailable("prime() must succeed before run_isolated_coverage_session()")
-        if not isolated_coverage_session_safe():
-            raise ForkingExecutorUnavailable(
-                "a fork-unsafe pytest plugin is loaded (see _FORK_UNSAFE_PLUGIN_MODULES); "
-                "the caller must fall back to the subprocess executor"
-            )
-        return self._fork_and_wait(
-            lambda: self._run_coverage_child(node_id, data_file=data_file, pytest_args=pytest_args), timeout
-        )
-
     def _run_child(self, args: list[str]) -> None:
         import pytest
 
@@ -218,30 +187,6 @@ class ForkingExecutor:
         sys.dont_write_bytecode = True
         try:
             exit_code = _run_pytest_output_suppressed(pytest, args, self._cwd)
-        except BaseException:
-            os._exit(3)
-        os._exit(exit_code if isinstance(exit_code, int) else int(exit_code))
-
-    def _run_coverage_child(self, node_id: str, *, data_file: str, pytest_args: list[str]) -> None:
-        import coverage
-        import pytest
-
-        sys.dont_write_bytecode = True
-        try:
-            # cwd must be set before Coverage() is constructed: coverage.py
-            # auto-discovers its config (pyproject.toml/.coveragerc) from the
-            # current working directory at construction time, and this
-            # process's cwd is still wherever the parent last left it until
-            # _run_pytest_output_suppressed's own chdir — which runs too
-            # late, after config discovery would already have happened.
-            os.chdir(self._cwd)
-            cov = coverage.Coverage(data_file=data_file, context=node_id)
-            cov.start()
-            try:
-                exit_code = _run_pytest_output_suppressed(pytest, [node_id, *pytest_args], self._cwd)
-            finally:
-                cov.stop()
-                cov.save()
         except BaseException:
             os._exit(3)
         os._exit(exit_code if isinstance(exit_code, int) else int(exit_code))

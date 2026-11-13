@@ -8,7 +8,7 @@ command (see justfile's `mutate` recipe) so its ~5-6s-per-invocation cost
 doesn't reintroduce the ~28-minute full `src/` sweep issue #18 fixed.
 `component` tests (ADR 0023) may also spawn an interpreter as an incidental
 implementation detail (e.g. a fake runner injected into otherwise in-process
-orchestration code, see tests/test_test_context_build.py) while the test's
+orchestration code) while the test's
 *own* meaningful work stays in-process and cov-context-visible; they are
 excluded from the fast `test-unit` loop but stay eligible for narrowing, so
 either marker satisfies this guard's real concern — keeping spawn cost out of

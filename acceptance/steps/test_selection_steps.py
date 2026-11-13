@@ -1,8 +1,7 @@
-"""Step handlers for features/test-selection.feature (per-mutant test selection)."""
+"""Step handlers for features/test-selection.feature (per-mutant test selection and directory run mode)."""
 
 import os
 import re
-import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -38,49 +37,10 @@ def _write_test(path: str, body: str) -> None:
         f.write(body)
 
 
-def _write_context_db(db_path: str, files: dict[str, dict[str, set[int]]]) -> None:
-    """Create a minimal .coverage SQLite context db (line_bits mode, has_arcs=0).
-
-    files: {source_path: {context_str: set_of_covered_lines}}
-    """
-    conn = sqlite3.connect(db_path)
-    cur = conn.cursor()
-    cur.executescript("""
-        CREATE TABLE meta (key TEXT, value TEXT);
-        CREATE TABLE file (id INTEGER PRIMARY KEY, path TEXT);
-        CREATE TABLE context (id INTEGER PRIMARY KEY, context TEXT);
-        CREATE TABLE line_bits (file_id INTEGER, context_id INTEGER, numbits BLOB);
-    """)
-    cur.execute("INSERT INTO meta(key, value) VALUES ('has_arcs', '0')")
-    for path, ctx_map in files.items():
-        cur.execute("INSERT INTO file(path) VALUES (?)", (path,))
-        file_id = cur.lastrowid
-        for ctx_str, line_set in ctx_map.items():
-            cur.execute("INSERT INTO context(context) VALUES (?)", (ctx_str,))
-            context_id = cur.lastrowid
-            cur.execute(
-                "INSERT INTO line_bits(file_id, context_id, numbits) VALUES (?, ?, ?)",
-                (file_id, context_id, _numbits(line_set)),
-            )
-    conn.commit()
-    conn.close()
-
-
-def _numbits(lines: set[int]) -> bytes:
-    if not lines:
-        return b""
-    n_bytes = (max(lines) + 7) // 8
-    data = bytearray(n_bytes)
-    for line in lines:
-        data[(line - 1) // 8] |= 1 << ((line - 1) % 8)
-    return bytes(data)
-
-
 class Context:
     def __init__(self):
         self.tmpdir: str | None = None
         self.src_path: str | None = None
-        self.db_path: str | None = None
         self.log_path: str | None = None
         self.cli_result: subprocess.CompletedProcess | None = None
         self.dir_path: str | None = None
@@ -93,7 +53,6 @@ ctx = Context()
 def _reset_ctx():
     ctx.tmpdir = None
     ctx.src_path = None
-    ctx.db_path = None
     ctx.log_path = None
     ctx.cli_result = None
     ctx.dir_path = None
@@ -109,6 +68,14 @@ def _ensure_tmpdir() -> str:
 def _default_source() -> str:
     """A source file with exactly one Compare site on line 2."""
     return "def calc(a, b):\n    return a > b\n"
+
+
+def _calls_body(calls: tuple[str, ...]) -> str:
+    """A test module whose test_dummy calls each named function on (2, 1), so the
+    run's Measurement covers their sites under test_dummy's own context."""
+    body = "from sample import " + ", ".join(calls) + "\n\n\ndef test_dummy():\n"
+    body += "".join(f"    {name}(2, 1)\n" for name in calls)
+    return body
 
 
 def _write_uv_project_files(d: str) -> None:
@@ -134,29 +101,24 @@ def _write_uv_project_files(d: str) -> None:
         )
 
 
-def _write_arg_logging_fixture(cwd: str, log_path: str, calls: tuple[str, ...] = ("calc",)) -> None:
-    """A real pytest project that always passes when invoked with no extra
-    args, and logs the exact args pytest received (mirrors the old shell
-    stand-in's `echo "ARGS:[$*]"`) via a pytest_configure hook — this fires
-    even when a given node ID doesn't exist, since --pytest-args can no
-    longer swap out the runner itself the way --test-command once did.
+def _write_arg_logging_fixture(cwd: str, log_path: str, test_body: str) -> None:
+    """A real pytest project whose conftest logs the exact args each pytest run
+    received, one line per invocation (mirrors the old shell stand-in's
+    `echo "ARGS:[$*]"`), next to the given test_dummy.py body.
 
-    Reads `config.invocation_params.args`, not `sys.argv`: the forking
-    executor runs each mutant via an in-process `pytest.main(args)` call in a
-    forked child, which never touches the parent (mutate4py CLI) process's
-    `sys.argv` — only `invocation_params.args` reflects the actual per-call
-    args pytest was invoked with, correctly under both the forking and
-    subprocess executors."""
+    The hook fires even when a given node ID doesn't exist. It reads
+    `config.invocation_params.args`, not `sys.argv`: the forking executor runs
+    each mutant via an in-process `pytest.main(args)` call in a forked child,
+    which never touches the parent (mutate4py CLI) process's `sys.argv` — only
+    `invocation_params.args` reflects the actual per-call args pytest was
+    invoked with, correctly under both the forking and subprocess executors."""
     conftest_body = (
         "def pytest_configure(config):\n"
         f"    with open({log_path!r}, 'a') as f:\n"
         "        f.write('ARGS:[' + ' '.join(config.invocation_params.args) + ']\\n')\n"
     )
     _write_test(os.path.join(cwd, "conftest.py"), conftest_body)
-    # The test calls the sample's functions, so the run's Measurement covers their sites.
-    body = "from sample import " + ", ".join(calls) + "\n\n\ndef test_dummy():\n"
-    body += "".join(f"    {name}(2, 1)\n" for name in calls)
-    _write_test(os.path.join(cwd, "test_dummy.py"), body)
+    _write_test(os.path.join(cwd, "test_dummy.py"), test_body)
 
 
 def _confirmation_runs() -> int:
@@ -165,38 +127,40 @@ def _confirmation_runs() -> int:
     return int(found.group(1)) if found else 0
 
 
-def _logged_args() -> str:
-    """The last logged invocation's argv — the mutant run, not the baseline
-    pass nor the Survivor confirmation runs that follow the mutants — with issue 06's neutralising_args() flags (e.g. `--no-cov`)
-    filtered out: this feature's own presence is covered by
-    test_plugin_neutralisation.py, and test-selection's assertions are
-    about which test file/nodeids get appended, an orthogonal concern that
-    would otherwise fail whenever pytest-cov happens to be installed in the
-    environment running these acceptance steps."""
+def _logged_runs() -> list[str]:
+    """Every logged invocation's argv in run order, with issue 06's neutralising_args() flags
+    (e.g. `--no-cov`) filtered out: this feature's own presence is covered by
+    test_plugin_neutralisation.py, and test-selection's assertions are about which
+    test file/nodeids get appended, an orthogonal concern that would otherwise fail
+    whenever pytest-cov happens to be installed in the environment running these
+    acceptance steps."""
     if not os.path.isfile(ctx.log_path):
-        return ""
+        return []
     with open(ctx.log_path) as f:
         lines = [line for line in f.read().splitlines() if line]
-    lines = lines[: len(lines) - _confirmation_runs()]
-    if not lines:
-        return ""
-    prefix, _, rest = lines[-1].partition("[")
-    tokens = [t for t in rest.rstrip("]").split(" ") if t and t not in neutralising_args()]
-    return f"{prefix}[{' '.join(tokens)}]"
+    runs = []
+    for line in lines:
+        prefix, _, rest = line.partition("[")
+        tokens = [t for t in rest.rstrip("]").split(" ") if t and t not in neutralising_args()]
+        runs.append(f"{prefix}[{' '.join(tokens)}]")
+    return runs
+
+
+def _split_runs() -> tuple[list[str], list[str]]:
+    """The logged runs before the Survivor confirmation runs, and the confirmation
+    runs themselves (the report's Time line says how many of the last ones there are)."""
+    runs = _logged_runs()
+    cut = len(runs) - _confirmation_runs()
+    return runs[:cut], runs[cut:]
+
+
+def _mutant_run() -> str:
+    """The argv of the last Mutant run: the last logged run before any confirmation run."""
+    before, _ = _split_runs()
+    return before[-1] if before else ""
 
 
 # ── Given steps ──────────────────────────────────────────────────────────────
-
-
-@step(r'a Python source file "([^"]*)" containing "([^"]*)"')
-def given_named_source(m, params):
-    _reset_ctx()
-    d = _ensure_tmpdir()
-    filename = params.get("filename") or m.group(1)
-    content = params.get("content") or m.group(2)
-    ctx.src_path = os.path.join(d, filename)
-    with open(ctx.src_path, "w") as f:
-        f.write(content + "\n")
 
 
 @step(r'a directory "([^"]*)" containing two Python files "([^"]*)" and "([^"]*)"')
@@ -232,66 +196,6 @@ def given_dir_files(m, params):
     _write_test(os.path.join(tests_dir, "test_qa.py"), "def test_qa():\n    pass\n")
 
 
-def _write_real_test_for_node_id(d: str, node_id: str) -> None:
-    """Write a real, always-passing test at node_id so the narrowed dispatch
-    it drives actually collects and runs (issue #55): pytest failing to find
-    the node ID now aborts the run (exit 4/5) instead of being silently
-    scored `killed`, so a fictional node ID can no longer stand in for a real
-    one here."""
-    rel_path, _, test_name = node_id.partition("::")
-    full_path = os.path.join(d, rel_path)
-    os.makedirs(os.path.dirname(full_path), exist_ok=True)
-    _write_test(full_path, f"def {test_name}():\n    pass\n")
-
-
-@step(r"a \.coverage db naming \"([^\"]*)\" as covering the mutated line")
-def given_db_naming_test(m, params):
-    _reset_ctx()
-    d = _ensure_tmpdir()
-    node_id = params.get("nodeId") or m.group(1)
-    ctx.src_path = os.path.join(d, "sample.py")
-    with open(ctx.src_path, "w") as f:
-        f.write(_default_source())
-    ctx.db_path = os.path.join(d, ".coverage")
-    _write_context_db(ctx.db_path, {ctx.src_path: {node_id: {2}}})
-    ctx.log_path = os.path.join(d, "invocations.log")
-    _write_arg_logging_fixture(d, ctx.log_path)
-    _write_real_test_for_node_id(d, node_id)
-
-
-@step(r"a \.coverage db showing the mutated line only under the empty context")
-def given_db_static_line(m, params):
-    _reset_ctx()
-    d = _ensure_tmpdir()
-    ctx.src_path = os.path.join(d, "sample.py")
-    with open(ctx.src_path, "w") as f:
-        f.write(_default_source())
-    ctx.db_path = os.path.join(d, ".coverage")
-    _write_context_db(ctx.db_path, {ctx.src_path: {"": {2}}})
-    ctx.log_path = os.path.join(d, "invocations.log")
-    _write_arg_logging_fixture(d, ctx.log_path)
-
-
-@step(r'a \.coverage db in which the mutated line "([^"]*)"')
-def given_db_disagreement(m, params):
-    _reset_ctx()
-    d = _ensure_tmpdir()
-    state = params.get("state") or m.group(1)
-    ctx.src_path = os.path.join(d, "sample.py")
-    with open(ctx.src_path, "w") as f:
-        f.write(_default_source())
-    ctx.db_path = os.path.join(d, ".coverage")
-    if state == "is absent though measured as covered":
-        # File is in the db, but no context recorded line 2 (only line 99).
-        _write_context_db(ctx.db_path, {ctx.src_path: {"tests/test_x.py::test_a": {99}}})
-    else:
-        # File is entirely absent from the db.
-        other = os.path.join(d, "other.py")
-        _write_context_db(ctx.db_path, {other: {"tests/test_x.py::test_a": {1}}})
-    ctx.log_path = os.path.join(d, "invocations.log")
-    _write_arg_logging_fixture(d, ctx.log_path)
-
-
 @step(r"a Python source file with covered mutation sites")
 def given_source_with_covered_sites(m, params):
     _reset_ctx()
@@ -300,7 +204,7 @@ def given_source_with_covered_sites(m, params):
     with open(ctx.src_path, "w") as f:
         f.write(_default_source())
     ctx.log_path = os.path.join(d, "invocations.log")
-    _write_arg_logging_fixture(d, ctx.log_path)
+    _write_arg_logging_fixture(d, ctx.log_path, _calls_body(("calc",)))
 
 
 @step(r"a Python source file with mutation sites covered by known tests")
@@ -319,27 +223,46 @@ def given_source_two_sites(m, params):
                 return a > b
         """))
     ctx.log_path = os.path.join(d, "invocations.log")
-    _write_arg_logging_fixture(d, ctx.log_path, ("f1", "f2"))
+    _write_arg_logging_fixture(d, ctx.log_path, _calls_body(("f1", "f2")))
 
 
-@step(r"a \.coverage db with per-test context data")
-def given_db_per_test_context(m, params):
+@step(r"a Python source file whose only sites run at import time")
+def given_import_time_source(m, params):
+    _reset_ctx()
     d = _ensure_tmpdir()
-    ctx.db_path = os.path.join(d, ".coverage")
-    # Both sites execute only at import time here, so both come out "static"
-    # per the outcome the composition scenario asserts on.
-    _write_context_db(ctx.db_path, {ctx.src_path: {"": {2, 6}}})
+    ctx.src_path = os.path.join(d, "sample.py")
+    with open(ctx.src_path, "w") as f:
+        # Two sites on one module-level line: the comparison and the constant 1.
+        f.write("CHECK = 2 > 1\n")
+    ctx.log_path = os.path.join(d, "invocations.log")
+    # Importing sample at collection time runs the module-level comparison outside
+    # any test, so the Measurement records its line under the empty context only.
+    _write_arg_logging_fixture(
+        d, ctx.log_path, "import sample\n\n\ndef test_dummy():\n    pass\n"
+    )
+
+
+@step(r"a Python source file that no test reaches")
+def given_unreached_source(m, params):
+    _reset_ctx()
+    d = _ensure_tmpdir()
+    ctx.src_path = os.path.join(d, "sample.py")
+    with open(ctx.src_path, "w") as f:
+        f.write(_default_source())
+    ctx.log_path = os.path.join(d, "invocations.log")
+    _write_arg_logging_fixture(d, ctx.log_path, "def test_dummy():\n    pass\n")
+
+
+@step(r"a Python source file with no tests")
+def given_source_no_tests(m, params):
+    _reset_ctx()
+    d = _ensure_tmpdir()
+    ctx.src_path = os.path.join(d, "sample.py")
+    with open(ctx.src_path, "w") as f:
+        f.write(_default_source())
 
 
 # ── When steps ───────────────────────────────────────────────────────────────
-
-
-@step(r'mutate4py is run with "--test-contexts /nonexistent/.coverage"')
-def when_run_missing_contexts_file(m, params):
-    d = _ensure_tmpdir()
-    ctx.cli_result = _run_mutate4py(
-        d, ctx.src_path, "--test-contexts", "/nonexistent/.coverage"
-    )
 
 
 @step(r"mutate4py is run on the directory in scan mode")
@@ -351,45 +274,19 @@ def when_run_dir_scan(m, params):
 @step(r"mutate4py is run on the directory in run mode and one file fails to parse")
 def when_run_dir_run(m, params):
     d = os.path.dirname(ctx.dir_path)
-    ctx.cli_result = _run_mutate4py(
-        d, ctx.dir_path, "--pytest-args", "tests"
-    )
+    ctx.cli_result = _run_mutate4py(d, ctx.dir_path, "--pytest-args", "tests")
 
 
-@step(r'mutate4py is run with "--test-contexts \.coverage"')
-def when_run_with_contexts(m, params):
+@step(r"mutate4py is run without extra flags")
+def when_run_plain(m, params):
     d = _ensure_tmpdir()
-    ctx.cli_result = _run_mutate4py(
-        d,
-        ctx.src_path,
-        "--pytest-args",
-        "",
-        "--test-contexts",
-        ctx.db_path,
-    )
+    ctx.cli_result = _run_mutate4py(d, ctx.src_path)
 
 
-@step(r'mutate4py is run without "--test-contexts"')
-def when_run_without_contexts(m, params):
+@step(r'mutate4py is run with "--max-workers 4"')
+def when_run_with_workers(m, params):
     d = _ensure_tmpdir()
-    ctx.cli_result = _run_mutate4py(
-        d, ctx.src_path, "--pytest-args", ""
-    )
-
-
-@step(r'mutate4py is run with "--test-contexts \.coverage --max-workers 4"')
-def when_run_with_contexts_and_workers(m, params):
-    d = _ensure_tmpdir()
-    ctx.cli_result = _run_mutate4py(
-        d,
-        ctx.src_path,
-        "--pytest-args",
-        "",
-        "--test-contexts",
-        ctx.db_path,
-        "--max-workers",
-        "4",
-    )
+    ctx.cli_result = _run_mutate4py(d, ctx.src_path, "--max-workers", "4")
 
 
 # ── Then steps ───────────────────────────────────────────────────────────────
@@ -411,11 +308,14 @@ def then_exit_nonzero(m, params):
     )
 
 
-@step(r'stderr contains "([^"]*)"')
-def then_stderr_contains(m, params):
-    expected = params.get("hint") or m.group(1)
-    assert expected in ctx.cli_result.stderr, (
-        f"Expected '{expected}' in stderr:\n{ctx.cli_result.stderr}"
+@step(r'the output contains "([^"]*)"')
+def then_output_contains(m, params):
+    # The no-tests error is logged on the single-file path's stdout, so search both streams.
+    expected = params.get("text") or m.group(1)
+    output = ctx.cli_result.stdout + ctx.cli_result.stderr
+    assert expected in output, (
+        f"Expected '{expected}' in output:\n"
+        f"stdout:\n{ctx.cli_result.stdout}\nstderr:\n{ctx.cli_result.stderr}"
     )
 
 
@@ -431,23 +331,6 @@ def then_two_scan_lines(m, params):
         )
 
 
-@step(r'that mutant\'s test command is "([^"]*)"')
-def then_test_command_is(m, params):
-    expected = params.get("cmd") or m.group(1)
-    _, _, expected_args = expected.partition(" ")
-    assert _logged_args() == f"ARGS:[{expected_args}]", (
-        f"Expected appended args '{expected_args}', got: {_logged_args()!r}\n"
-        f"stdout:\n{ctx.cli_result.stdout}"
-    )
-
-
-@step(r'that mutant\'s test command is the full "--pytest-args" verbatim')
-def then_test_command_is_verbatim(m, params):
-    assert _logged_args() == "ARGS:[]", (
-        f"Expected no appended args, got: {_logged_args()!r}\nstdout:\n{ctx.cli_result.stdout}"
-    )
-
-
 @step(r'the report line "([^"]*)" is printed')
 def then_report_line(m, params):
     expected = params.get("line") or m.group(1)
@@ -456,25 +339,50 @@ def then_report_line(m, params):
     )
 
 
-@step(r'no "Mutation Report" is printed')
-def then_no_report(m, params):
-    assert "Mutation Report" not in ctx.cli_result.stdout, (
-        f"Unexpected 'Mutation Report' in stdout:\n{ctx.cli_result.stdout}"
+@step(r'the "Test selection:" line follows "Uncovered:" and precedes "Survivors:"')
+def then_selection_line_order(m, params):
+    lines = ctx.cli_result.stdout.splitlines()
+
+    def index_of(prefix: str) -> int:
+        for i, line in enumerate(lines):
+            if line.startswith(prefix):
+                return i
+        raise AssertionError(f"No '{prefix}' line in:\n{ctx.cli_result.stdout}")
+
+    uncovered = index_of("Uncovered:")
+    selection = index_of("Test selection:")
+    survivors = index_of("Survivors:")
+    assert uncovered < selection < survivors, (
+        f"Expected Uncovered < Test selection < Survivors in:\n{ctx.cli_result.stdout}"
     )
 
 
-@step(r"after the run the source has no mutant spliced in")
-def then_source_restored(m, params):
-    with open(ctx.src_path) as f:
-        content = f.read()
-    assert ">=" not in content, f"Mutant still in source:\n{content}"
+@step(r'that mutant\'s test command is "([^"]*)"')
+def then_test_command_is(m, params):
+    expected = params.get("cmd") or m.group(1)
+    _, _, expected_args = expected.partition(" ")
+    assert _mutant_run() == f"ARGS:[{expected_args}]", (
+        f"Expected appended args '{expected_args}', got: {_mutant_run()!r}\n"
+        f"stdout:\n{ctx.cli_result.stdout}"
+    )
 
 
-@step(r'the "Test selection:" line is printed without a degraded tally')
-def then_selection_line_without_degraded(m, params):
-    lines = [ln for ln in ctx.cli_result.stdout.splitlines() if ln.startswith("Test selection:")]
-    assert len(lines) == 1, f"Expected one 'Test selection:' line in:\n{ctx.cli_result.stdout}"
-    assert "degraded" not in lines[0], f"Unexpected degraded tally in: {lines[0]!r}"
+@step(r'that mutant\'s test command is the full "--pytest-args" verbatim')
+def then_test_command_is_verbatim(m, params):
+    assert _mutant_run() == "ARGS:[]", (
+        f"Expected no appended args, got: {_mutant_run()!r}\nstdout:\n{ctx.cli_result.stdout}"
+    )
+
+
+@step(r'the survivor\'s confirmation run is the full "--pytest-args" verbatim')
+def then_confirmation_is_verbatim(m, params):
+    _, confirmations = _split_runs()
+    count = _confirmation_runs()
+    assert count >= 1, f"Expected a Survivor confirmation run in:\n{ctx.cli_result.stdout}"
+    assert confirmations == ["ARGS:[]"] * count, (
+        f"Expected verbatim confirmation args, got: {confirmations!r}\n"
+        f"stdout:\n{ctx.cli_result.stdout}"
+    )
 
 
 @step(r"worker-N tokens are present in the progress lines")

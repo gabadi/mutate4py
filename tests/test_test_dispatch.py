@@ -11,7 +11,6 @@ import pytest
 
 from mutate4py._discovery import discover_sites
 from mutate4py._test_dispatch import MutantPlan, PlanInputs, TimeoutPolicy, confirm_plan, plan_mutant
-from mutate4py._test_dispatch import TestSelectionError as SelectionError
 
 SRC = "/src/calc.py"
 GT = "tests/test_calc.py::test_gt"
@@ -113,34 +112,13 @@ def test_plan_uncovered_line_runs_full_args_tallied_as_static():
 
 
 @pytest.mark.unit
-def test_plan_under_listed_runs_full_args_tallied_as_degraded():
-    """An under-listed line (issue #69) runs the full args, like "static", but
-    is tallied apart so the report can name it."""
-    source = _FakeSelectionSource("under-listed", [GT])
-    assert _plan(source) == MutantPlan(args=["-q"], timeout=15.0, selection="degraded")
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    "outcome, hint",
-    [
-        ("line-absent", "absent from the test-context db"),
-        ("file-absent", "not in the test-context db"),
-    ],
-)
-def test_plan_disagreement_raises(outcome, hint):
-    with pytest.raises(SelectionError) as excinfo:
+@pytest.mark.parametrize("outcome", ["something-new", "under-listed", "line-absent", "file-absent"])
+def test_plan_unrecognized_outcome_raises(outcome):
+    """No outcome may fall through to a full-suite run counted as narrowed. The retired
+    db outcomes (under-listed, line-absent, file-absent) are unrecognized now, so they refuse too."""
+    with pytest.raises(ValueError, match="unrecognized selection outcome") as excinfo:
         _plan(_FakeSelectionSource(outcome), pytest_args=())
-    message = str(excinfo.value)
-    assert f"{SRC}:2" in message
-    assert hint in message
-
-
-@pytest.mark.unit
-def test_plan_unrecognized_outcome_raises():
-    """No outcome may fall through to a full-suite run counted as narrowed."""
-    with pytest.raises(SelectionError, match="unrecognized selection outcome"):
-        _plan(_FakeSelectionSource("something-new"), pytest_args=())
+    assert f"{SRC}:2" in str(excinfo.value)
 
 
 @pytest.mark.unit

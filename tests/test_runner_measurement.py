@@ -19,7 +19,7 @@ def test_the_exec_context_carries_the_measurements_positional_args():
         measurement=SimpleNamespace(positional_args=("tests",)),
     )
 
-    ctx = _mutant_exec_ctx(request, outcome, test_ctx_db=None)
+    ctx = _mutant_exec_ctx(request, outcome)
 
     assert ctx.positionals == ("tests",)
 
@@ -66,7 +66,7 @@ def test_a_run_with_no_selection_tally_prints_the_report_without_a_selection_lin
     from mutate4py._executor import ExecutorDescription, MutantTiming
     from mutate4py._runner import _report_run
 
-    request = SimpleNamespace(measurement=None, timing_sink=None, test_contexts_path=None, allow_survivors=False)
+    request = SimpleNamespace(measurement=None, timing_sink=None, allow_survivors=False)
     outcome = SimpleNamespace(overhead_duration=None, baseline_duration=0.0, uncovered_count=0, measurement=None)
     result = SimpleNamespace(
         counts={"killed": 1, "timeout": 0, "survived": 0},
@@ -94,7 +94,7 @@ def test_a_run_that_measured_its_own_baseline_prints_its_measurement_line(caplog
     from mutate4py._runner import _report_run
 
     measurement = SimpleNamespace(wall=1.5, tests=3, core="sysmon", note=None)
-    request = SimpleNamespace(measurement=None, timing_sink=None, test_contexts_path=None, allow_survivors=False)
+    request = SimpleNamespace(measurement=None, timing_sink=None, allow_survivors=False)
     outcome = SimpleNamespace(overhead_duration=0.25, baseline_duration=2.0, uncovered_count=0, measurement=measurement)
     result = SimpleNamespace(
         counts={"killed": 1, "timeout": 0, "survived": 0},
@@ -166,7 +166,7 @@ def test_a_run_report_prints_its_time_and_executor_lines_between_the_mutation_re
     from mutate4py._runner import _report_run
 
     measurement = SimpleNamespace(wall=1.5, tests=3, core="sysmon", note=None)
-    request = SimpleNamespace(measurement=None, timing_sink=None, test_contexts_path=None, allow_survivors=False)
+    request = SimpleNamespace(measurement=None, timing_sink=None, allow_survivors=False)
     outcome = SimpleNamespace(overhead_duration=0.25, baseline_duration=2.0, uncovered_count=0, measurement=measurement)
     result = SimpleNamespace(
         counts={"killed": 2, "timeout": 0, "survived": 0},
