@@ -1,0 +1,58 @@
+"""Build the plain DigestInputs a function digest reads, from one session's record.
+
+The record holds absolute paths and the reach comes from the Measurement's
+contexts. Everything here is re-expressed relative to rootdir, the form
+`_tests_digest` hashes. Acceptance helpers and other files outside every test
+root never reach this module: the plugin's `_support_modules` filters them.
+"""
+
+import os
+from collections.abc import Iterable, Mapping
+from pathlib import Path
+
+from mutate4py._measure_record import MeasureRecord
+from mutate4py._tests_digest import DigestInputs
+
+__all__ = ["digest_inputs_from"]
+
+_LOCKFILE = "uv.lock"
+
+
+def digest_inputs_from(record: MeasureRecord, reach: Mapping[str, Mapping[int, frozenset[str]]]) -> DigestInputs:
+    rootdir = os.path.realpath(record.rootdir)
+    conftests_for = _conftests_for(record, rootdir)
+    return DigestInputs(
+        rootdir=Path(rootdir),
+        reach=reach,
+        all_test_files=frozenset(conftests_for),
+        conftests_for=conftests_for,
+        support_files=frozenset(_support_files(record, rootdir)),
+    )
+
+
+def _conftests_for(record: MeasureRecord, rootdir: str) -> dict[str, tuple[str, ...]]:
+    absolute_conftests = [os.path.realpath(path) for path in record.conftests]
+    return {
+        _relative(test_file, rootdir): tuple(
+            _relative(conftest, rootdir) for conftest in _chain(os.path.realpath(test_file), absolute_conftests)
+        )
+        for test_file in record.test_files
+    }
+
+
+def _support_files(record: MeasureRecord, rootdir: str) -> set[str]:
+    support = {_relative(path, rootdir) for path in record.support_modules}
+    if record.inipath is not None:
+        support.add(_relative(record.inipath, rootdir))
+    if os.path.isfile(os.path.join(rootdir, _LOCKFILE)):
+        support.add(_LOCKFILE)
+    return support
+
+
+def _relative(path: str, rootdir: str) -> str:
+    return os.path.relpath(os.path.realpath(path), rootdir)
+
+
+def _chain(test_file: str, conftests: Iterable[str]) -> list[str]:
+    """The conftests in the test file's directory or any ancestor, sorted."""
+    return sorted(conftest for conftest in conftests if test_file.startswith(os.path.dirname(conftest) + os.sep))

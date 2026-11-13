@@ -10,6 +10,43 @@ import pytest
 # ── _finalize_source manifest content ────────────────────────────────────────
 
 
+class _CleanScoredRunStub:
+    """Stands in for ScoredRun: every named function scored clean in this run."""
+
+    def function_scores(self, function_ids):
+        return {
+            fid: {"score": {"killed": 1, "survived": 0, "uncovered": 0}, "survivors": [], "accepted": []}
+            for fid in function_ids
+        }
+
+
+@pytest.mark.unit
+def test_finalize_source_records_the_fresh_digest_of_a_function_scored_in_this_run(tmp_path):
+    """A rescored function takes the fresh tests digest handed to _finalize_source (#105)."""
+    import json
+
+    src = "def f(a, b):\n    return a > b\n"
+    src_path = str(tmp_path / "f.py")
+    bak_path = src_path + ".bak"
+    with open(src_path, "w") as f:
+        f.write(src)
+
+    _finalize_source(
+        src,
+        "2026-01-01T00:00:00Z",
+        bak_path,
+        ManifestLocation(path=src_path),
+        scored_run=_CleanScoredRunStub(),
+        fresh_digests={"func/f": "digest-of-f"},
+    )
+
+    with open(src_path) as f:
+        content = f.read()
+    manifest_line = [ln for ln in content.splitlines() if ln.startswith("# {")][0]
+    (fn,) = json.loads(manifest_line[2:])["functions"]
+    assert fn["tests_digest"] == "digest-of-f"
+
+
 @pytest.mark.unit
 def test_finalize_source_embeds_manifest_with_tested_at(tmp_path):
     """_finalize_source writes the file with a manifest containing the tested_at timestamp."""

@@ -66,6 +66,15 @@ def _write_source(tmp_path) -> str:
     return src_path
 
 
+def _measured_test(tmp_path, src_path: str):
+    """A Measurement in which one test reached line 2. The test file is on disk, as a collected file
+    is: the run's digest of the function reads it (#105)."""
+    test_file = tmp_path / "tests" / "test_calc.py"
+    test_file.parent.mkdir(exist_ok=True)
+    test_file.write_text("def test_gt():\n    assert True\n")
+    return measurement_for(os.path.abspath(src_path), {"tests/test_calc.py::test_gt": [2]}, wall=0.5)
+
+
 def _run_without_coverage_flags(
     tmp_path, src_path, measurement, executor, pytest_args=(), **request_fields
 ) -> tuple[int, str]:
@@ -190,7 +199,7 @@ def test_a_single_file_run_that_measures_itself_prints_the_measurement_and_overh
 ):
     caplog.set_level(logging.INFO)
     src_path = _write_source(tmp_path)
-    measurement = measurement_for(os.path.abspath(src_path), {"tests/test_calc.py::test_gt": [2]}, wall=0.5)
+    measurement = _measured_test(tmp_path, src_path)
     monkeypatch.setattr("mutate4py._runner.measure_in_scratch", lambda **kwargs: measurement)
     executor = _FakeExecutor()
 
@@ -215,7 +224,7 @@ def test_the_measurement_line_is_set_apart_from_the_survivors_block(tmp_path, ca
 
     caplog.set_level(logging.INFO)
     src_path = _write_source(tmp_path)
-    measurement = measurement_for(os.path.abspath(src_path), {"tests/test_calc.py::test_gt": [2]}, wall=0.5)
+    measurement = _measured_test(tmp_path, src_path)
     monkeypatch.setattr("mutate4py._runner.measure_in_scratch", lambda **kwargs: measurement)
     # The Survivor is confirmed with the full set in a fresh interpreter; this tmp project has no tests,
     # so the confirmation executor is stubbed to let the Survivor stand.

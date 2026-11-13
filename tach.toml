@@ -122,6 +122,19 @@ path = "mutate4py._tests_digest"
 layer = "domain"
 depends_on = []
 
+# Builds the plain DigestInputs from the record (#105). Pure: record in, values out.
+[[modules]]
+path = "mutate4py._digest_inputs"
+layer = "domain"
+depends_on = ["mutate4py._tests_digest"]
+
+# The fresh digest of each function in a measured file (#105): reads the Measurement's
+# reach, so it sits beside it in `baseline`.
+[[modules]]
+path = "mutate4py._fresh_digests"
+layer = "baseline"
+depends_on = ["mutate4py._measurement"]
+
 [[modules]]
 path = "mutate4py._workspace"
 layer = "domain"

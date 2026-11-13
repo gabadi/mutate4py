@@ -328,3 +328,146 @@ def test_unmarked_acceptances_none_is_empty():
     current = build_manifest(_MARKED_SRC, tested_at=TESTED_LATER)
 
     assert functions_with_unmarked_acceptances(None, current, {}) == set()
+
+
+# ── tests_digest: carried with the score, replaced on rescore, adopted ──────
+
+
+def _with_digest(manifest, digests):
+    """Test setup: stamp tests_digest onto the named function entries."""
+    for fn in manifest["functions"]:
+        if fn["id"] in digests:
+            fn["tests_digest"] = digests[fn["id"]]
+    return manifest
+
+
+@pytest.mark.unit
+def test_rescored_function_takes_the_fresh_digest():
+    from mutate4py._manifest import reconcile_manifest
+
+    existing = _with_digest(_scored(SRC, tested_at=TESTED_AT), {"func/f": "old"})
+    candidate = build_manifest(SRC, tested_at=TESTED_LATER)
+
+    result = reconcile_manifest(existing, candidate, _SCORES, fresh_digests={"func/f": "new"})
+
+    assert result is not existing
+    assert _fn(result, "func/f")["tests_digest"] == "new"
+
+
+@pytest.mark.unit
+def test_digest_only_change_on_a_rescored_function_returns_a_new_manifest():
+    """Acceptance (e): the unchanged check compares digests, so a rescore that moves only the digest writes."""
+    from mutate4py._manifest import reconcile_manifest
+
+    existing = _with_digest(_scored(SRC, tested_at=TESTED_AT), {"func/f": "same", "func/g": "old"})
+    candidate = build_manifest(SRC, tested_at=TESTED_LATER)
+
+    result = reconcile_manifest(existing, candidate, _SCORES, fresh_digests={"func/f": "same", "func/g": "moved"})
+
+    assert result is not existing
+    assert _fn(result, "func/g")["tests_digest"] == "moved"
+    assert _fn(result, "func/g")["score"] == _fn(existing, "func/g")["score"]
+
+
+@pytest.mark.unit
+def test_stored_digest_is_carried_while_the_hash_is_unchanged():
+    from mutate4py._manifest import reconcile_manifest
+
+    existing = _with_digest(_scored(SRC, tested_at=TESTED_AT), {"func/f": "old"})
+    candidate = build_manifest(SRC_G_CHANGED, tested_at=TESTED_LATER)
+
+    result = reconcile_manifest(existing, candidate)
+
+    assert _fn(result, "func/f")["tests_digest"] == "old"
+
+
+@pytest.mark.unit
+def test_stored_digest_is_dropped_when_the_hash_changes():
+    from mutate4py._manifest import reconcile_manifest
+
+    existing = _with_digest(_scored(SRC, tested_at=TESTED_AT), {"func/g": "old"})
+    candidate = build_manifest(SRC_G_CHANGED, tested_at=TESTED_LATER)
+
+    result = reconcile_manifest(existing, candidate)
+
+    assert "tests_digest" not in _fn(result, "func/g")
+
+
+@pytest.mark.unit
+def test_stored_digest_that_differs_is_kept_when_the_function_is_not_rescored():
+    from mutate4py._manifest import reconcile_manifest
+
+    existing = _with_digest(_scored(SRC, tested_at=TESTED_AT), {"func/g": "old"})
+    candidate = build_manifest(SRC, tested_at=TESTED_LATER)
+
+    result = reconcile_manifest(existing, candidate, fresh_digests={"func/g": "new"})
+
+    assert result is existing
+    assert _fn(result, "func/g")["tests_digest"] == "old"
+
+
+@pytest.mark.unit
+def test_clean_entry_without_digest_adopts_the_fresh_digest_without_a_rescore():
+    from mutate4py._manifest import reconcile_manifest
+
+    existing = _scored(SRC, tested_at=TESTED_AT)
+    candidate = build_manifest(SRC, tested_at=TESTED_LATER)
+
+    result = reconcile_manifest(existing, candidate, fresh_digests={"func/g": "fresh"})
+
+    assert result is not existing
+    assert _fn(result, "func/g")["tests_digest"] == "fresh"
+    assert _fn(result, "func/g")["score"] == _G_SCORE
+
+
+@pytest.mark.unit
+def test_entry_with_survivors_does_not_adopt_a_digest():
+    from mutate4py._manifest import reconcile_manifest
+
+    existing = _scored(SRC, tested_at=TESTED_AT)
+    candidate = build_manifest(SRC, tested_at=TESTED_LATER)
+
+    result = reconcile_manifest(existing, candidate, fresh_digests={"func/f": "fresh"})
+
+    assert "tests_digest" not in _fn(result, "func/f")
+
+
+@pytest.mark.unit
+def test_unscored_entry_does_not_adopt_a_digest():
+    from mutate4py._manifest import reconcile_manifest
+
+    existing = build_manifest(SRC, tested_at=TESTED_AT)
+    candidate = build_manifest(SRC, tested_at=TESTED_LATER)
+
+    result = reconcile_manifest(existing, candidate, fresh_digests={"func/g": "fresh"})
+
+    assert result is existing
+    assert "tests_digest" not in _fn(result, "func/g")
+
+
+@pytest.mark.unit
+def test_entry_from_0_2_x_keeps_its_score_and_has_no_tests_digest_key():
+    from mutate4py._manifest import reconcile_manifest
+
+    existing = _scored(SRC, tested_at=TESTED_AT)
+    candidate = build_manifest(SRC, tested_at=TESTED_LATER)
+
+    result = reconcile_manifest(existing, candidate)
+
+    assert result["version"] == 1
+    assert _fn(result, "func/f")["score"] == _F_SCORE
+    assert "tests_digest" not in _fn(result, "func/f")
+
+
+@pytest.mark.unit
+def test_tests_digest_round_trips_through_the_embedded_footer():
+    from mutate4py._manifest import embed_manifest, extract_manifest
+
+    manifest = _with_digest(_scored(SRC, tested_at=TESTED_AT), {"func/f": "abc"})
+
+    stored, ok = extract_manifest(embed_manifest(SRC, manifest))
+
+    assert ok
+    assert stored["version"] == 1
+    assert _fn(stored, "func/f")["tests_digest"] == "abc"
+    assert "tests_digest" not in _fn(stored, "func/g")

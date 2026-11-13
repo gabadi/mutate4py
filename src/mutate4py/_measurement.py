@@ -19,8 +19,10 @@ from types import MappingProxyType
 
 from coverage import CoverageData
 
+from mutate4py._digest_inputs import digest_inputs_from
 from mutate4py._measure_record import FixtureSetup, MeasureRecord, file_of_test, load_record
 from mutate4py._plugin_neutralisation import neutralising_args
+from mutate4py._tests_digest import DigestInputs
 
 __all__ = [
     "ALL",
@@ -211,6 +213,18 @@ class Measurement:
 
     def empty_lines(self, path: str) -> frozenset[int]:
         return frozenset(line for line, contexts in self._line_contexts(path).items() if _EMPTY_CONTEXT in contexts)
+
+    def digest_inputs(self) -> DigestInputs:
+        """The tests digest's inputs: each measured line's reaching test files, and the session's files.
+        The Empty context is not a test, so an import-time line reaches no test file."""
+        reach = {
+            path: {
+                line: frozenset(file_of_test(name) for name in names - {_EMPTY_CONTEXT})
+                for line, names in lines.items()
+            }
+            for path, lines in self._contexts.items()
+        }
+        return digest_inputs_from(self._record, reach)
 
 
 def _largest_setup_by_file(record: MeasureRecord) -> dict[str, float]:
