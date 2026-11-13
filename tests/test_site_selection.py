@@ -2,7 +2,7 @@
 
 from mutate4py._discovery import Site
 from mutate4py._site_selection import (
-    _is_effective_since_last_run,
+    _is_differential,
     _select_sites,
     _should_run_parallel,
 )
@@ -30,7 +30,7 @@ def _make_site(index, line, fid="func/f") -> Site:
 def test_select_sites_all_covered_non_differential():
     sites = [_make_site(0, 1, "func/f"), _make_site(1, 2, "func/g")]
     covered = {1, 2}
-    _, selected = _select_sites(sites, covered, set(), effective_since_last_run=False, lines_filter=None)
+    _, selected = _select_sites(sites, covered, set(), differential=False)
     assert len(selected) == 2
 
 
@@ -39,27 +39,27 @@ def test_select_sites_differential_filters_unchanged():
     sites = [_make_site(0, 1, "func/f"), _make_site(1, 2, "func/g")]
     covered = {1, 2}
     changed = {"func/f"}
-    _, selected = _select_sites(sites, covered, changed, effective_since_last_run=True, lines_filter=None)
+    _, selected = _select_sites(sites, covered, changed, differential=True)
     assert len(selected) == 1
     assert selected[0].function_id == "func/f"
-
-
-@pytest.mark.unit
-def test_select_sites_lines_filter():
-    sites = [_make_site(0, 1, "func/f"), _make_site(1, 2, "func/g")]
-    covered = {1, 2}
-    _, selected = _select_sites(sites, covered, set(), effective_since_last_run=False, lines_filter={1})
-    assert len(selected) == 1
-    assert selected[0].line == 1
 
 
 @pytest.mark.unit
 def test_select_sites_uncovered_excluded():
     sites = [_make_site(0, 1, "func/f"), _make_site(1, 2, "func/g")]
     covered = {1}  # line 2 uncovered
-    _, selected = _select_sites(sites, covered, set(), effective_since_last_run=False, lines_filter=None)
+    _, selected = _select_sites(sites, covered, set(), differential=False)
     assert len(selected) == 1
     assert selected[0].line == 1
+
+
+@pytest.mark.unit
+def test_select_sites_differential_keeps_covered_sites_of_changed_function_only():
+    """Covered is every covered Site, but Selected narrows to the changed function's covered Sites."""
+    sites = [_make_site(0, 1, "func/f"), _make_site(1, 2, "func/f"), _make_site(2, 3, "func/g")]
+    covered_sites, selected = _select_sites(sites, {1, 3}, {"func/f"}, differential=True)
+    assert [s.line for s in covered_sites] == [1, 3]
+    assert [s.line for s in selected] == [1]
 
 
 # ── _should_run_parallel boundary conditions ──────────────────────────────────
@@ -95,49 +95,28 @@ def test_should_run_parallel_three_workers():
     assert _should_run_parallel(max_workers=3, n_selected=2) is True
 
 
-# ── _is_effective_since_last_run logic ───────────────────────────────────────
+# ── _is_differential: a Manifest exists and --mutate-all is not given ────────
 
 
 @pytest.mark.unit
-def test_is_effective_since_last_run_explicit():
-    """since_last_run=True -> effective regardless of other flags."""
-    assert (
-        _is_effective_since_last_run(since_last_run=True, manifest_exists=False, mutate_all=True, lines_filter={1, 2})
-        is True
-    )
+def test_is_differential_manifest_and_not_mutate_all():
+    """A Manifest exists and --mutate-all is off -> a differential rerun."""
+    assert _is_differential(manifest_exists=True, mutate_all=False) is True
 
 
 @pytest.mark.unit
-def test_is_effective_since_last_run_implicit_all_conditions():
-    """manifest exists, mutate_all=False, no lines_filter -> effective."""
-    assert (
-        _is_effective_since_last_run(since_last_run=False, manifest_exists=True, mutate_all=False, lines_filter=None)
-        is True
-    )
+def test_is_differential_no_manifest():
+    """No Manifest -> a full-file run, even without --mutate-all."""
+    assert _is_differential(manifest_exists=False, mutate_all=False) is False
 
 
 @pytest.mark.unit
-def test_is_effective_since_last_run_no_manifest():
-    """No manifest -> not effective via implicit path."""
-    assert (
-        _is_effective_since_last_run(since_last_run=False, manifest_exists=False, mutate_all=False, lines_filter=None)
-        is False
-    )
+def test_is_differential_mutate_all_disables():
+    """--mutate-all -> a full-file run, even with a Manifest."""
+    assert _is_differential(manifest_exists=True, mutate_all=True) is False
 
 
 @pytest.mark.unit
-def test_is_effective_since_last_run_mutate_all_disables():
-    """mutate_all=True -> not effective via implicit path."""
-    assert (
-        _is_effective_since_last_run(since_last_run=False, manifest_exists=True, mutate_all=True, lines_filter=None)
-        is False
-    )
-
-
-@pytest.mark.unit
-def test_is_effective_since_last_run_lines_filter_disables():
-    """lines_filter present -> not effective via implicit path."""
-    assert (
-        _is_effective_since_last_run(since_last_run=False, manifest_exists=True, mutate_all=False, lines_filter={5})
-        is False
-    )
+def test_is_differential_no_manifest_and_mutate_all():
+    """Neither condition -> a full-file run."""
+    assert _is_differential(manifest_exists=False, mutate_all=True) is False

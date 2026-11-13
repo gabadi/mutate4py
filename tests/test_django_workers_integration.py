@@ -82,15 +82,16 @@ _PYTEST_ARGS = "--pytest-args=-p no:tach -q"
 @pytest.mark.integration
 def test_app_loaded_module_runs_each_mutant_in_a_fresh_interpreter_and_is_killed(tmp_path):
     project = _copy_fixture(tmp_path)
-    # --lines pins the one line the old lcov covered: the real measurement also
-    # reaches line 11 (votes default), whose surviving mutant would break the count.
-    result = _run_cli(project, ["polls/models.py", "--lines", "14", _PYTEST_ARGS])
+    # The whole file is mutated (no selection flag). Line 11 (votes default) survives: no test pins it,
+    # so the run exits 3 unless --allow-survivors accepts it. The assertions below are about the
+    # fresh-interpreter mode and the line-14 kill, not about the survivor.
+    result = _run_cli(project, ["polls/models.py", "--allow-survivors", _PYTEST_ARGS])
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "Executor: forking (fresh import 0, swap 0, fresh interpreter 1)" in result.stdout, (
-        "polls/models.py is imported by django.setup() during priming, so its Mutant runs in a fresh interpreter"
+    assert "Executor: forking (fresh import 0, swap 0, fresh interpreter 2)" in result.stdout, (
+        "polls/models.py is imported by django.setup() during priming, so its Mutants run in a fresh interpreter"
     )
     assert "Killed: 1" in result.stdout
-    assert "Survived: 0" in result.stdout
+    assert "Survived: 1" in result.stdout
 
 
 # ── a Mutant in a module outside app loading keeps the warm path
@@ -100,12 +101,12 @@ def test_app_loaded_module_runs_each_mutant_in_a_fresh_interpreter_and_is_killed
 @pytest.mark.integration
 def test_non_app_loaded_module_keeps_warm_path(tmp_path):
     project = _copy_fixture(tmp_path)
-    result = _run_cli(project, ["calc.py", "--lines", "6", _PYTEST_ARGS])
+    result = _run_cli(project, ["calc.py", _PYTEST_ARGS])
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "Executor: forking (fresh import 1, swap 0, fresh interpreter 0)" in result.stdout, (
+    assert "Executor: forking (fresh import 2, swap 0, fresh interpreter 0)" in result.stdout, (
         "calc.py is never imported by django.setup(), so each child imports it fresh"
     )
-    assert "Killed: 1" in result.stdout
+    assert "Killed: 2" in result.stdout
     assert "Survived: 0" in result.stdout
 
 

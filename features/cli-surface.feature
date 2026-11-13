@@ -20,8 +20,6 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #                            batch, 0 = uv workspace autodiscovery (ADR 0017).
   #     --scan               — no-run mode: count sites (F1 surface).
   #     --update-manifest    — no-run mode: rewrite the footer manifest (F2 surface).
-  #     --lines L1,L2,...     — selection: comma-separated POSITIVE ints.
-  #     --since-last-run      — selection: only changed functions.
   #     --mutate-all          — selection: all covered sites despite manifest.
   #     --mutation-warning N  — positive int, default 50.
   #     --timeout-factor N    — positive int, default 10.
@@ -34,6 +32,8 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #     --build-test-contexts OUT — REMOVED in 0.3.0: each exits 2
   #                             with "<flag> removed in 0.3.0: the run measures coverage
   #                             itself" (refusal scenarios live in coverage.feature).
+  #     --lines L | --since-last-run — REMOVED in 0.3.0: each exits 2 the same way, naming
+  #                             the flag and its replacement (refusal scenarios: cli-surface-5).
   #     --exclude PATTERN     — repeatable; skip files whose walked path matches the
   #                             shared glob dialect (union across patterns) — the
   #                             same dialect <targets> and uv members/exclude use
@@ -54,14 +54,14 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   # CONSTRAINTS:
   #   - Positive-int flags (--mutation-warning, --timeout-factor, --max-workers) require
   #     an integer >= 1; non-integer or <= 0 is a usage error (parsePositiveInt).
-  #   - --lines requires a comma-separated list of POSITIVE integers (parseLines).
   #   - Mutual exclusion (fail-loud, never silent-precedence; ADR 0008):
   #       * --scan and --update-manifest: exclusive of each other AND of every execution
-  #         option (--lines, --since-last-run, --mutate-all, non-default --timeout-factor,
-  #         a non-empty --pytest-args, --max-workers).
-  #       * --since-last-run / --mutate-all / --lines: PAIRWISE exclusive.
+  #         option (--mutate-all, non-default --timeout-factor, a non-empty --pytest-args,
+  #         --max-workers).
+  #   - The removed selection flags (--lines, --since-last-run) are refused, never ignored
+  #     (cli-surface-5). That refusal is checked before the exclusion check.
   #   - --max-workers joins ONLY the scan/update-manifest exclusion; it MAY combine with
-  #     the selection flags (it does not conflict with --lines/--since-last-run/--mutate-all).
+  #     --mutate-all (it does not conflict with it).
   #   - A literal target path that does not exist, or a glob pattern matching
   #     nothing, is a usage error. Zero positionals is NOT itself a usage error —
   #     it triggers uv workspace autodiscovery; that only errors (exit 2) if no
@@ -139,9 +139,6 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
       | --max-workers 0        |
       | --max-workers -1       |
       | --max-workers many     |
-      | --lines 0              |
-      | --lines 7,-2           |
-      | --lines 7,x            |
 
   # cli-surface-3: a value flag given no value is a usage error
   Scenario Outline: a value flag with a missing value is rejected
@@ -155,7 +152,6 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
       | --timeout-factor   |
       | --pytest-args      |
       | --max-workers      |
-      | --lines            |
 
   # cli-surface-4: --scan and --update-manifest reject every execution option
   Scenario Outline: a no-run mode rejects being combined with an execution option
@@ -166,15 +162,11 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
     Examples:
       | mode              | other             |
       | --scan            | --update-manifest |
-      | --scan            | --lines 7         |
-      | --scan            | --since-last-run  |
       | --scan            | --mutate-all      |
       | --scan            | --timeout-factor 5 |
       | --scan            | --pytest-args "-k foo" |
       | --scan            | --max-workers 4   |
       | --update-manifest | --scan            |
-      | --update-manifest | --lines 7         |
-      | --update-manifest | --since-last-run  |
       | --update-manifest | --mutate-all      |
       | --update-manifest | --max-workers 4   |
       | --scan            | --allow-survivors |
@@ -195,7 +187,7 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
       | --mutation-warning 0           |
       | --max-workers -1               |
       | --timeout-factor 1.5           |
-      | --lines 7,x                    |
+      | --lines 7                      |
       | --scan --max-workers 4         |
       | --scan --mutate-all            |
       | --update-manifest --lines 7    |
@@ -205,28 +197,28 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
       | (no source file argument)      |
       | --max-workers (with no value)  |
 
-  # cli-surface-5: the three selection flags are pairwise exclusive
-  Scenario Outline: combining two selection flags is a usage error
-    When I run mutate4py with "<one>" and "<two>"
+  # cli-surface-5: the selection flags removed in 0.3.0 are refused, not ignored: each is a
+  # usage error that runs no analysis. The refusal wording is pinned by
+  # tests/test_removed_selection_flags.py.
+  Scenario Outline: a selection flag removed in 0.3.0 is a usage error
+    When I run mutate4py with the flag "<flag>"
     Then the invocation is a usage error
     And the command exits with a non-zero status
+    And no analysis or test run occurs
 
     Examples:
-      | one              | two          |
-      | --since-last-run | --mutate-all |
-      | --since-last-run | --lines 7    |
-      | --mutate-all     | --lines 7    |
+      | flag             |
+      | --lines 7        |
+      | --since-last-run |
 
-  # cli-surface-6: --max-workers may combine with selection flags (it is not exclusive of them)
+  # cli-surface-6: --max-workers may combine with --mutate-all (it is not exclusive of it)
   Scenario Outline: --max-workers is accepted alongside a selection flag
     When I run mutate4py with "--max-workers 4" and "<selection>"
     Then the invocation is accepted
 
     Examples:
-      | selection        |
-      | --lines 7        |
-      | --since-last-run |
-      | --mutate-all     |
+      | selection    |
+      | --mutate-all |
 
   # cli-surface-7: an unknown flag or a missing source file is a usage error.
   # --test-command is deliberately unrecognized here: it was retired in favor

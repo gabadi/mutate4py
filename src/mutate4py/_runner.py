@@ -43,7 +43,7 @@ from mutate4py._report import (
 from mutate4py._run_request import RunMutationsRequest
 from mutate4py._scoring import ScoredRun
 from mutate4py._site_selection import (
-    _is_effective_since_last_run,
+    _is_differential,
     _select_sites,
     _should_run_parallel,
     _uncovered_lines_if_needed,
@@ -177,18 +177,12 @@ def _select_and_prepare(request: RunMutationsRequest, setup: RunSetup, max_worke
     covered_lines = set(measurement.covered_lines(abs_source))
 
     covered_count, uncovered_count = partition_sites(setup.loaded.all_sites, covered_lines)
-    effective_since_last_run = _is_effective_since_last_run(
-        since_last_run=request.since_last_run,
-        manifest_exists=setup.loaded.manifest_exists,
-        mutate_all=request.mutate_all,
-        lines_filter=request.lines_filter,
-    )
+    differential = _is_differential(manifest_exists=setup.loaded.manifest_exists, mutate_all=request.mutate_all)
     _, selected_sites = _select_sites(
         setup.loaded.all_sites,
         covered_lines,
         setup.loaded.changed_fn_ids,
-        effective_since_last_run=effective_since_last_run,
-        lines_filter=request.lines_filter,
+        differential=differential,
     )
 
     run_stats = RunStats(
@@ -205,8 +199,7 @@ def _select_and_prepare(request: RunMutationsRequest, setup: RunSetup, max_worke
         _uncovered_lines_if_needed(
             setup.loaded.all_sites,
             covered_lines,
-            effective_since_last_run=effective_since_last_run,
-            lines_filter=request.lines_filter,
+            differential=differential,
         )
     )
 
@@ -226,7 +219,7 @@ def _select_and_prepare(request: RunMutationsRequest, setup: RunSetup, max_worke
         mutant_pytest_args=[*request.pytest_args, *neutralising_args()],
         baseline_duration=prep.baseline_duration,
         overhead_duration=prep.overhead_duration,
-        full_selection=not effective_since_last_run and request.lines_filter is None,
+        full_selection=not differential,
         measurement=measurement,
     )
 

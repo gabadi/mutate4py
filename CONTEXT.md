@@ -98,7 +98,7 @@ A symlink-only directory that supplies the `mutate4py` package to a Worker venv 
 The target project's `.venv`, or a `uv run --with` overlay on it; scored runs must run under it.
 
 **Selected sites**:
-The covered Sites actually mutated, after line filtering and differential selection.
+The covered Sites actually mutated, after differential selection.
 
 **Classification**:
 The per-Site verdict: **killed**, **survived**, or **timeout**. Timeout is visible
