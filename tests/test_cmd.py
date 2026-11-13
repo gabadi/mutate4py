@@ -74,10 +74,13 @@ def test_run_argv_uses_cwd(tmp_path):
 
 
 @pytest.mark.unit
-def test_run_argv_capture_output_does_not_leak(capsys):
-    """stdout/stderr from the command should not appear in the test output."""
-    run_argv(["echo", "SHOULD_NOT_APPEAR"], "/tmp", timeout=5.0)
-    captured = capsys.readouterr()
+def test_run_argv_capture_output_does_not_leak(capfd):
+    """stdout/stderr from the command are captured by run_argv, not written to this process's fds.
+
+    capfd, not capsys: the child writes straight to fd 1 and fd 2, which capsys (sys.stdout only) never sees.
+    """
+    run_argv(["sh", "-c", "echo SHOULD_NOT_APPEAR; echo SHOULD_NOT_APPEAR >&2"], "/tmp", timeout=5.0)
+    captured = capfd.readouterr()
     assert "SHOULD_NOT_APPEAR" not in captured.out
     assert "SHOULD_NOT_APPEAR" not in captured.err
 

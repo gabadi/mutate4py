@@ -23,7 +23,7 @@ from mutate4py._forking_executor import (
     loaded_files,
     refuse_fork_unsafe_plugins,
 )
-from mutate4py._forking_executor import _wait_for_child
+from mutate4py._forking_executor import _run_pytest_output_suppressed, _wait_for_child
 from mutate4py._plugin_neutralisation import neutralising_args
 
 # This repo's own environment has tach, a fork-unsafe plugin: an in-process
@@ -431,6 +431,87 @@ def test_a_swap_the_import_time_check_refuses_runs_in_a_fresh_interpreter(tmp_pa
     assert executor.describe().render() == "forking (fresh import 0, swap 0, fresh interpreter 1)"
 
 
+# --- _run_pytest_output_suppressed -------------------------------------------
+
+
+def _fake_pytest(main):
+    """A stand-in pytest module: _run_pytest_output_suppressed touches only .main."""
+    return types.SimpleNamespace(main=main)
+
+
+@pytest.mark.unit
+def test_run_pytest_output_suppressed_returns_the_exit_code_main_gives(tmp_path):
+    assert _run_pytest_output_suppressed(_fake_pytest(lambda args, plugins: 5), ["-q"], str(tmp_path)) == 5
+
+
+@pytest.mark.unit
+def test_run_pytest_output_suppressed_passes_args_and_plugins_to_main(tmp_path):
+    seen = {}
+
+    def main(args, plugins):
+        seen["args"] = args
+        seen["plugins"] = plugins
+        return 0
+
+    plugin = object()
+    _run_pytest_output_suppressed(_fake_pytest(main), ["-q", "-x"], str(tmp_path), plugins=[plugin])
+    assert seen == {"args": ["-q", "-x"], "plugins": [plugin]}
+
+
+@pytest.mark.unit
+def test_run_pytest_output_suppressed_runs_main_in_cwd_with_cwd_first_on_sys_path(tmp_path, monkeypatch):
+    seen = {}
+
+    def main(args, plugins):
+        seen["cwd"] = os.getcwd()
+        seen["sys_path_head"] = sys.path[0]
+        return 0
+
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    _run_pytest_output_suppressed(_fake_pytest(main), ["-q"], str(tmp_path))
+    assert os.path.realpath(seen["cwd"]) == os.path.realpath(tmp_path)
+    assert seen["sys_path_head"] == os.path.abspath(tmp_path)
+
+
+@pytest.mark.unit
+def test_run_pytest_output_suppressed_keeps_main_output_off_the_real_fds(tmp_path, capfd):
+    def main(args, plugins):
+        os.write(1, b"STDOUT_LEAK\n")
+        os.write(2, b"STDERR_LEAK\n")
+        return 0
+
+    _run_pytest_output_suppressed(_fake_pytest(main), ["-q"], str(tmp_path))
+    captured = capfd.readouterr()
+    assert "LEAK" not in captured.out
+    assert "LEAK" not in captured.err
+
+
+@pytest.mark.unit
+def test_run_pytest_output_suppressed_restores_the_real_fds_after_main(tmp_path, capfd):
+    _run_pytest_output_suppressed(_fake_pytest(lambda args, plugins: 0), ["-q"], str(tmp_path))
+    os.write(1, b"AFTER_STDOUT\n")
+    os.write(2, b"AFTER_STDERR\n")
+    captured = capfd.readouterr()
+    assert "AFTER_STDOUT" in captured.out
+    assert "AFTER_STDERR" in captured.err
+
+
+@pytest.mark.unit
+def test_run_pytest_output_suppressed_restores_cwd_sys_path_and_fds_when_main_raises(tmp_path, monkeypatch, capfd):
+    def main(args, plugins):
+        raise RuntimeError("pytest blew up")
+
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    cwd_before = os.getcwd()
+    path_before = list(sys.path)
+    with pytest.raises(RuntimeError, match="pytest blew up"):
+        _run_pytest_output_suppressed(_fake_pytest(main), ["-q"], str(tmp_path))
+    assert os.getcwd() == cwd_before
+    assert sys.path == path_before
+    os.write(1, b"AFTER_STDOUT\n")
+    assert "AFTER_STDOUT" in capfd.readouterr().out
+
+
 # --- _wait_for_child ---------------------------------------------------------
 
 
@@ -453,3 +534,63 @@ def test_wait_for_child_reports_killed_when_child_dies_by_signal():
     os.kill(pid, signal.SIGTERM)
     status = _wait_for_child(pid, timeout=5.0)
     assert status == "killed"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("exit_code", "status"),
+    [(0, "survived"), (1, "killed"), (4, "usage-error"), (5, "no-tests-collected")],
+)
+def test_wait_for_child_classifies_the_exit_code_the_child_leaves(exit_code, status):
+    pid = os.fork()
+    if pid == 0:
+        os._exit(exit_code)  # pragma: no cover - runs only in the forked child
+    assert _wait_for_child(pid, timeout=5.0) == status
+
+
+@pytest.mark.unit
+def test_wait_for_child_waits_for_a_slow_child_inside_the_timeout_without_killing_it(monkeypatch):
+    kills = []
+    monkeypatch.setattr(os, "kill", lambda pid, sig: kills.append((pid, sig)))
+    pid = os.fork()
+    if pid == 0:
+        time.sleep(0.2)
+        os._exit(0)  # pragma: no cover - runs only in the forked child
+    assert _wait_for_child(pid, timeout=5.0) == "survived"
+    assert kills == []
+
+
+@pytest.mark.unit
+def test_wait_for_child_times_out_at_exactly_the_deadline_without_another_poll(monkeypatch):
+    """The deadline is inclusive: a clock reading equal to it is a timeout at once, not one more poll
+    later. The clock is faked so the first check lands exactly on the deadline; later reads are past it."""
+    clock = iter([0.0, 1.0] + [2.0] * 100)  # deadline = 0.0 + 1.0; first check at 1.0; then past it
+    sleeps = []
+    fake_time = types.SimpleNamespace(monotonic=lambda: next(clock), sleep=sleeps.append)
+    monkeypatch.setattr(mutate4py._forking_executor, "time", fake_time)
+    pid = os.fork()
+    if pid == 0:
+        time.sleep(30)
+        os._exit(0)  # pragma: no cover - only reached if the SIGKILL below fails
+    assert _wait_for_child(pid, timeout=1.0) == "timeout"
+    assert sleeps == []
+
+
+@pytest.mark.unit
+def test_wait_for_child_timeout_sigkills_the_child_and_reaps_it(monkeypatch):
+    kills = []
+    real_kill = os.kill
+
+    def spy_kill(pid, sig):
+        kills.append((pid, sig))
+        real_kill(pid, sig)
+
+    monkeypatch.setattr(os, "kill", spy_kill)
+    pid = os.fork()
+    if pid == 0:
+        time.sleep(30)
+        os._exit(0)  # pragma: no cover - only reached if the SIGKILL below fails
+    assert _wait_for_child(pid, timeout=0.05) == "timeout"
+    assert kills == [(pid, signal.SIGKILL)]
+    with pytest.raises(ChildProcessError):
+        os.waitpid(pid, os.WNOHANG)  # already reaped: no child left to wait on
