@@ -1,21 +1,25 @@
-"""Per-Mutant test-selection dispatch: builds the pytest argument list for
-one Site given its Selection outcome.
+"""Per-Mutant dispatch planning: builds the MutantPlan (pytest argument list,
+timeout, selection tally) for one Site given its Selection outcome.
 
-Shared by both execution paths — the serial loop (`_execution.py`) and
-parallel Workers (`_workers.py`) — which is why it sits in the domain layer
-rather than in either caller. See tach.toml before moving it.
+The plan is computed by the orchestrator before dispatch and shared by both
+execution paths — the serial loop (`_execution.py`) and parallel Workers
+(`_workers.py`) — which is why it sits in the domain layer rather than in
+either caller. See tach.toml before moving it.
 """
 
+import dataclasses
 import logging
 
 from mutate4py._discovery import Site
 
 __all__ = [
+    "MutantPlan",
     "NoTestsCollectedError",
     "TestSelectionError",
-    "_build_mutant_args",
+    "TimeoutPolicy",
     "_check_execution_status",
     "_log_dispatch_abort",
+    "plan_mutant",
 ]
 
 _logger = logging.getLogger(__name__)
@@ -70,10 +74,37 @@ def _log_dispatch_abort(exc: TestSelectionError | NoTestsCollectedError) -> int:
     return 2
 
 
-def _build_mutant_args(
-    pytest_args: list[str], test_ctx_db, abs_source_path: str, site: Site
-) -> tuple[list[str], str | None]:
-    """Return (args, selection) for site; selection is None without a context db.
+@dataclasses.dataclass(frozen=True)
+class TimeoutPolicy:
+    """How a Mutant's timeout is derived: factor x the Baseline duration, floored at min_timeout."""
+
+    factor: float
+    min_timeout: float
+    baseline_duration: float
+
+    @property
+    def timeout(self) -> float:
+        return max(self.min_timeout, self.factor * self.baseline_duration)
+
+
+@dataclasses.dataclass(frozen=True)
+class MutantPlan:
+    """What one Mutant dispatches: the pytest argv, its timeout, and its selection tally."""
+
+    args: list[str]
+    timeout: float
+    selection: str | None
+
+
+def plan_mutant(
+    site: Site,
+    *,
+    pytest_args: list[str],
+    test_ctx_db,
+    abs_source_path: str,
+    timeout_policy: TimeoutPolicy,
+) -> MutantPlan:
+    """Return the MutantPlan for site; selection is None without a context db.
 
     "narrowed" runs only the tests covering site.line; "static" runs the full
     pytest_args because the line executes at import time and no test owns it;
@@ -84,15 +115,16 @@ def _build_mutant_args(
     from "static" so the run summary can't claim static 0 while sites were
     actually degraded (issue #69).
     """
+    timeout = timeout_policy.timeout
     if test_ctx_db is None:
-        return pytest_args, None
+        return MutantPlan(list(pytest_args), timeout, None)
     outcome, node_ids = test_ctx_db.tests_for_line(abs_source_path, site.line)
     if outcome == "narrowed":
-        return [*pytest_args, *node_ids], "narrowed"
+        return MutantPlan([*pytest_args, *node_ids], timeout, "narrowed")
     if outcome == "static":
-        return pytest_args, "static"
+        return MutantPlan(list(pytest_args), timeout, "static")
     if outcome == "under-listed":
-        return pytest_args, "degraded"
+        return MutantPlan(list(pytest_args), timeout, "degraded")
     # Every other outcome raises, so an unrecognized one can never fall through to
     # a full-suite run that the report would then miscount as narrowed.
     hint = _DISAGREEMENT_HINTS.get(outcome, f"unrecognized selection outcome {outcome!r}")

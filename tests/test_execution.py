@@ -7,10 +7,10 @@ from mutate4py._execution import (
     MutantExecCtx,
     NoTestsCollectedError,
     TestSelectionError,
-    _build_mutant_args,
     _run_mutation_loop,
     _run_parallel_workers,
 )
+from mutate4py._test_dispatch import TimeoutPolicy
 
 
 class _FakeExecutor:
@@ -26,7 +26,9 @@ class _FakeExecutor:
         return self._status
 
 
-# ── _build_mutant_args ───────────────────────────────────────────────────────
+def _policy(timeout: float) -> TimeoutPolicy:
+    """A TimeoutPolicy whose floor is `timeout`, so the Mutant timeout comes out exactly `timeout`."""
+    return TimeoutPolicy(factor=1.0, min_timeout=timeout, baseline_duration=0.0)
 
 
 class _FakeTestContextDB:
@@ -35,63 +37,6 @@ class _FakeTestContextDB:
 
     def tests_for_line(self, source_path, line):
         return self._result
-
-
-def _one_site(src="def f(a, b):\n    return a > b\n"):
-    return discover_sites(src)[0]
-
-
-@pytest.mark.unit
-def test_build_mutant_args_no_ctx_db_returns_full_args():
-    assert _build_mutant_args(["-q"], None, "/src/calc.py", _one_site()) == (["-q"], None)
-
-
-@pytest.mark.unit
-def test_build_mutant_args_narrows_to_covering_tests():
-    ctx_db = _FakeTestContextDB("narrowed", ["tests/test_calc.py::test_gt"])
-    assert _build_mutant_args(["-q"], ctx_db, "/src/calc.py", _one_site()) == (
-        ["-q", "tests/test_calc.py::test_gt"],
-        "narrowed",
-    )
-
-
-@pytest.mark.unit
-def test_build_mutant_args_static_line_runs_full_args():
-    ctx_db = _FakeTestContextDB("static")
-    assert _build_mutant_args(["-q"], ctx_db, "/src/calc.py", _one_site()) == (["-q"], "static")
-
-
-@pytest.mark.unit
-def test_build_mutant_args_under_listed_runs_full_args_tallied_as_degraded():
-    """An under-listed line (issue #69) degrades to a full-suite run, same
-    dispatch as "static", but tallied separately so the report can name it."""
-    ctx_db = _FakeTestContextDB("under-listed", ["tests/test_calc.py::test_gt"])
-    assert _build_mutant_args(["-q"], ctx_db, "/src/calc.py", _one_site()) == (["-q"], "degraded")
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    "outcome, hint",
-    [
-        ("line-absent", "absent from the test-context db"),
-        ("file-absent", "not in the test-context db"),
-    ],
-)
-def test_build_mutant_args_disagreement_raises(outcome, hint):
-    ctx_db = _FakeTestContextDB(outcome)
-    with pytest.raises(TestSelectionError) as excinfo:
-        _build_mutant_args([], ctx_db, "/src/calc.py", _one_site())
-    message = str(excinfo.value)
-    assert "/src/calc.py:2" in message
-    assert hint in message
-
-
-@pytest.mark.unit
-def test_build_mutant_args_unrecognized_outcome_raises():
-    """No outcome may fall through to a full-suite run counted as narrowed."""
-    ctx_db = _FakeTestContextDB("something-new")
-    with pytest.raises(TestSelectionError, match="unrecognized selection outcome"):
-        _build_mutant_args([], ctx_db, "/src/calc.py", _one_site())
 
 
 # ── _run_mutation_loop ────────────────────────────────────────────────────────
@@ -110,7 +55,7 @@ def test_run_mutation_loop_empty_sites_returns_zero_counts(tmp_path):
             cwd=str(tmp_path),
             pytest_args=[],
             executor=_FakeExecutor(),
-            mutant_timeout=5.0,
+            timeout_policy=_policy(5.0),
         ),
     )
     assert counts == {"killed": 0, "timeout": 0, "survived": 0}
@@ -130,7 +75,7 @@ def _loop_over_two_sites(tmp_path, ctx_db):
             cwd=str(tmp_path),
             pytest_args=[],
             executor=_FakeExecutor(status="killed"),
-            mutant_timeout=5.0,
+            timeout_policy=_policy(5.0),
             test_ctx_db=ctx_db,
             abs_source_path=str(src_file),
         ),
@@ -160,7 +105,7 @@ def test_run_mutation_loop_tallies_degraded_selections(tmp_path):
 
 
 @pytest.mark.unit
-def test_run_mutation_loop_calls_executor_with_built_args_and_timeout(tmp_path):
+def test_run_mutation_loop_calls_executor_with_planned_args_and_timeout(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_file = tmp_path / "calc.py"
     src_file.write_text(src)
@@ -174,7 +119,7 @@ def test_run_mutation_loop_calls_executor_with_built_args_and_timeout(tmp_path):
             cwd=str(tmp_path),
             pytest_args=["-q"],
             executor=executor,
-            mutant_timeout=7.5,
+            timeout_policy=_policy(7.5),
         ),
     )
     assert counts == {"killed": 0, "timeout": 0, "survived": 1}
@@ -196,7 +141,7 @@ def test_run_mutation_loop_disagreement_aborts_before_applying_the_mutant(tmp_pa
                 cwd=str(tmp_path),
                 pytest_args=[],
                 executor=_FakeExecutor(),
-                mutant_timeout=5.0,
+                timeout_policy=_policy(5.0),
                 test_ctx_db=_FakeTestContextDB("line-absent"),
                 abs_source_path=str(src_file),
             ),
@@ -227,7 +172,7 @@ def test_run_mutation_loop_no_tests_collected_raises(tmp_path, status, hint):
                 cwd=str(tmp_path),
                 pytest_args=[],
                 executor=_FakeExecutor(status=status),
-                mutant_timeout=5.0,
+                timeout_policy=_policy(5.0),
                 abs_source_path=str(src_file),
             ),
         )
@@ -236,18 +181,18 @@ def test_run_mutation_loop_no_tests_collected_raises(tmp_path, status, hint):
     assert hint in message
 
 
-# ── _run_parallel_workers passes mutant_timeout ───────────────────────────────
+# ── _run_parallel_workers passes timeout_policy ───────────────────────────────
 
 
 @pytest.mark.unit
 def test_run_parallel_workers_passes_timeout(tmp_path, monkeypatch):
-    """mutant_timeout is forwarded to run_parallel (not silently replaced with None)."""
+    """timeout_policy is forwarded to run_parallel (not silently replaced with None)."""
     import mutate4py._workers as workers_mod
 
     captured = {}
 
     def fake_run_parallel(request):
-        captured["mutant_timeout"] = request.mutant_timeout
+        captured["timeout_policy"] = request.timeout_policy
         return ({"killed": 0, "survived": 0, "timeout": 0}, [], None)
 
     monkeypatch.setattr(workers_mod, "run_parallel", fake_run_parallel)
@@ -268,8 +213,8 @@ def test_run_parallel_workers_passes_timeout(tmp_path, monkeypatch):
             cwd=str(tmp_path),
             pytest_args=[],
             executor=_FakeExecutor(),
-            mutant_timeout=42.0,
+            timeout_policy=_policy(42.0),
             max_workers=2,
         ),
     )
-    assert captured["mutant_timeout"] == 42.0
+    assert captured["timeout_policy"].timeout == 42.0
