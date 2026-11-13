@@ -9,9 +9,12 @@ import json
 import os
 import subprocess
 
+from mutate4py._executor import ExecutorDescription
+
 __all__ = [
     "WorkerProcessError",
     "WorkerProcessExecutor",
+    "encode_describe",
     "encode_request",
     "check_worker_pytest",
     "check_worker_python",
@@ -96,6 +99,11 @@ def encode_request(args: list[str], timeout: float) -> str:
     return json.dumps({"args": args, "timeout": timeout}) + "\n"
 
 
+def encode_describe() -> str:
+    """The request asking a Worker to describe its executor, as the line `_serve` reads."""
+    return json.dumps({"describe": True}) + "\n"
+
+
 def _decode_ready(line: str, *, worker_root: str) -> None:
     """Consume the Worker's one-line ready handshake."""
     if not line:
@@ -108,6 +116,13 @@ def _decode_status(line: str, *, worker_root: str) -> str:
     if not line:
         raise WorkerProcessError(f"worker process at {worker_root!r} closed its output unexpectedly")
     return json.loads(line)["status"]
+
+
+def _decode_description(line: str, *, worker_root: str) -> ExecutorDescription:
+    """The executor description one describe response carries, rebuilt on this side."""
+    if not line:
+        raise WorkerProcessError(f"worker process at {worker_root!r} closed its output unexpectedly")
+    return ExecutorDescription(**json.loads(line)["description"])
 
 
 def _shutdown_process(proc: subprocess.Popen[str]) -> None:
@@ -192,6 +207,13 @@ class WorkerProcessExecutor:
         self._proc.stdin.write(encode_request(args, timeout))
         self._proc.stdin.flush()
         return _decode_status(self._proc.stdout.readline(), worker_root=self._worker_root)
+
+    def describe(self) -> ExecutorDescription:
+        if self._proc is None:
+            raise WorkerProcessError("prime() must succeed before describe()")
+        self._proc.stdin.write(encode_describe())
+        self._proc.stdin.flush()
+        return _decode_description(self._proc.stdout.readline(), worker_root=self._worker_root)
 
     def close(self) -> None:
         if self._proc is None:

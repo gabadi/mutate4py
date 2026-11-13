@@ -1,22 +1,99 @@
 {
   "version": 1,
-  "tested_at": "2026-08-10T04:58:12Z",
-  "module_hash": "86ad77d982098683efc97fcc349206c6e356fbe05b2a7372b5cd50cc30fb2b11",
-  "source_sha256": "22b8b1abe49977dd159723f48db3007401561928e61a89cbc21b75da1505f599",
+  "tested_at": "2026-11-13T13:18:58Z",
+  "module_hash": "bf6d16d485a6a3101f39d1ed6e8ff1cd52cf89be58ba75b8d3d16fc11334fca2",
+  "source_sha256": "d91f3afb721c32e9e293c7b2084b8d5a63bcaabcfe4e133bb2a98630633fcd49",
   "functions": [
+    {
+      "id": "func/ExecutorDescription.render",
+      "name": "render",
+      "line": 25,
+      "end_line": 28,
+      "hash": "b25adef8ac031dadb24a3a62ba43f790afcb40893e50f5ad1a2aa998ee4da033"
+    },
+    {
+      "id": "func/_split_by_mode",
+      "name": "_split_by_mode",
+      "line": 31,
+      "end_line": 35,
+      "hash": "1810e530d78fba03c5fa91552183700f9e8e23580bd69b6e24ed8e65822bc457"
+    },
+    {
+      "id": "func/_reasons",
+      "name": "_reasons",
+      "line": 38,
+      "end_line": 39,
+      "hash": "680139812fad96b2418c0377214f7f69b5016b1ca35df79b00e65999913699a1"
+    },
+    {
+      "id": "func/_fresh_import",
+      "name": "_fresh_import",
+      "line": 42,
+      "end_line": 43,
+      "hash": "56c4ea7cf979b6006e3dd428122c421f8378c5d02dcfa6d91feefa0890943251"
+    },
+    {
+      "id": "func/_mixed_description",
+      "name": "_mixed_description",
+      "line": 46,
+      "end_line": 54,
+      "hash": "88ff95a67c00ae079029ff848138af314082ca80b3015002c40786b0ad3b119f"
+    },
+    {
+      "id": "func/combine_descriptions",
+      "name": "combine_descriptions",
+      "line": 57,
+      "end_line": 71,
+      "hash": "1621f50069f40a8bacb648c4a637d86de7718117986cf782095de203e24ff98b"
+    },
+    {
+      "id": "func/MutantTiming.record",
+      "name": "record",
+      "line": 91,
+      "end_line": 97,
+      "hash": "4fde55e9cfb0552fd096f2a9ef30f026f734138c65fd9799f50b855c2802cc9c"
+    },
+    {
+      "id": "func/MutantTiming.record_confirmation",
+      "name": "record_confirmation",
+      "line": 99,
+      "end_line": 103,
+      "hash": "6dbd9c9a264d7e518198800c90163f058b735e16e9ca97ea612d138d6b464c2e"
+    },
+    {
+      "id": "func/MutantTiming.merge",
+      "name": "merge",
+      "line": 105,
+      "end_line": 113,
+      "hash": "401a2a391bc020271a4c0d82b9a149224ac721f526771aa103237cdb2c703522"
+    },
+    {
+      "id": "func/MutantTiming.render",
+      "name": "render",
+      "line": 115,
+      "end_line": 121,
+      "hash": "3cf0c1b89c3cf82fd3723f04271d224a6987ea7201517c2333366bf00b1eba2a"
+    },
     {
       "id": "func/Executor.prime",
       "name": "prime",
-      "line": 17,
-      "end_line": 17,
+      "line": 125,
+      "end_line": 125,
       "hash": "6dd59eba402b866c99be277b0eb83b8c0f9142f8957107355d1e3f2639c1cbd9"
     },
     {
       "id": "func/Executor.run",
       "name": "run",
-      "line": 19,
-      "end_line": 19,
+      "line": 127,
+      "end_line": 127,
       "hash": "136668bb775e0999ce0ec40db6df7a15b676027df6f36d3bd541011e56424ab7"
+    },
+    {
+      "id": "func/Executor.describe",
+      "name": "describe",
+      "line": 129,
+      "end_line": 129,
+      "hash": "d457c7d926b9bb072447c1a71ad4a2cb0025cae7378525136d478c9b5269e732"
     }
   ]
 }

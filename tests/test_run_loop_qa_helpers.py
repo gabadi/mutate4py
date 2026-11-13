@@ -105,17 +105,44 @@ def test_one_timeout_rest_killed_body_interpolates_path():
 # ── n_survivors_body ──────────────────────────────────────────────────────
 
 
+def _verdicts(tmp_path, n: int, source: str) -> bool:
+    """True when the fake test passes against `source` (the Mutant survives)."""
+    calc = tmp_path / "calc.py"
+    calc.write_text(source)
+    namespace: dict = {}
+    exec(n_survivors_body(str(calc), n), namespace)
+    try:
+        namespace["test_qa"]()
+    except AssertionError:
+        return False
+    return True
+
+
 @pytest.mark.unit
 def test_n_survivors_body_compiles():
-    body = n_survivors_body("/tmp/counter.log", 3)
+    body = n_survivors_body("/tmp/calc.py", 1)
     compile(body, "<test>", "exec")
 
 
 @pytest.mark.unit
-def test_n_survivors_body_interpolates_params():
-    body = n_survivors_body("/tmp/counter.log", 3)
-    assert "'/tmp/counter.log'" in body
-    assert "count <= 3" in body
+def test_n_survivors_body_passes_on_the_unmutated_source(tmp_path):
+    assert _verdicts(tmp_path, 0, "return a > b\nreturn c > d\n")
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("n", "first_survives", "second_survives"),
+    [(0, False, False), (1, True, False), (2, True, True)],
+)
+def test_n_survivors_body_lets_the_first_n_sites_mutants_pass(tmp_path, n, first_survives, second_survives):
+    assert _verdicts(tmp_path, n, "return a >= b\nreturn c > d\n") is first_survives
+    assert _verdicts(tmp_path, n, "return a > b\nreturn c >= d\n") is second_survives
+
+
+@pytest.mark.unit
+def test_n_survivors_body_gives_the_same_verdict_every_time_it_is_run(tmp_path):
+    source = "return a >= b\nreturn c > d\n"
+    assert [_verdicts(tmp_path, 1, source) for _ in range(3)] == [True, True, True]
 
 
 # ── all_killed_body ───────────────────────────────────────────────────────

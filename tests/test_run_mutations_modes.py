@@ -15,6 +15,7 @@ import pytest
 from ._pytest_project_helpers import write_always_passing_pytest_project
 from ._measurement_helpers import measurement_for
 from mutate4py._discovery import discover_sites
+from mutate4py._executor import ExecutorDescription
 from mutate4py._runner import RunMutationsRequest, run_mutations
 
 
@@ -452,6 +453,9 @@ class _FakeExecutor:
     def run(self, args, timeout):
         self.calls.append(list(args))
         return self._status
+
+    def describe(self):
+        return ExecutorDescription(mode="subprocess", reason="--no-fork")
 
 
 @pytest.mark.unit

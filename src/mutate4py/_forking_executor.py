@@ -29,6 +29,7 @@ from typing import Callable
 
 from mutate4py._bytecode_cache import invalidate_bytecode_cache
 from mutate4py._cmd import classify_exit_code
+from mutate4py._executor import ExecutorDescription
 from mutate4py._plugin_neutralisation import neutralising_args
 
 __all__ = [
@@ -124,6 +125,10 @@ class ForkingExecutor:
         self._cwd = cwd
         self._guarded_path = guarded_path
         self._primed = False
+        self._fresh_imports = 0
+
+    def describe(self) -> ExecutorDescription:
+        return ExecutorDescription(mode="forking", fresh_import=self._fresh_imports)
 
     def prime(self) -> None:
         try:
@@ -168,6 +173,7 @@ class ForkingExecutor:
         """Fork a child that runs pytest.main(args) once; return the classification."""
         if not self._primed:
             raise ForkingExecutorUnavailable("prime() must succeed before run()")
+        self._fresh_imports += 1
         return self._fork_and_wait(lambda: self._run_child(args), timeout)
 
     def run_isolated_coverage_session(

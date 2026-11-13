@@ -128,6 +128,7 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
         "max_workers": 3,
         "cwd": "/cwd",
         "measurement": None,
+        "timing_sink": None,
         "test_contexts_path": ".coverage",
         "manifest_file": False,
         "forking_requested": True,
@@ -610,7 +611,7 @@ def _run_batch(monkeypatch, codes):
     by_file = dict(zip(files, codes))
     seen = []
 
-    def fake_run_on_file(args, py_file, source, cwd, measurement=None):
+    def fake_run_on_file(args, py_file, source, cwd, batch=None):
         seen.append(py_file)
         return by_file[py_file]
 
@@ -670,7 +671,7 @@ def test_run_files_and_exit_continues_past_syntax_error(monkeypatch, capsys):
     files = ["good1.py", "bad.py", "good2.py"]
     seen = []
 
-    def fake_run_on_file(args, py_file, source, cwd, measurement=None):
+    def fake_run_on_file(args, py_file, source, cwd, batch=None):
         seen.append(py_file)
         if py_file == "bad.py":
             raise SyntaxError("invalid syntax", ("bad.py", 3, 5, "def f(:\n", 3, 6))
@@ -690,7 +691,7 @@ def test_run_files_and_exit_continues_past_syntax_error(monkeypatch, capsys):
 def test_run_files_and_exit_syntax_error_message_on_stderr(monkeypatch, capsys):
     import mutate4py._dispatch as m
 
-    def fake_run_on_file(args, py_file, source, cwd, measurement=None):
+    def fake_run_on_file(args, py_file, source, cwd, batch=None):
         raise SyntaxError("invalid syntax", ("bad.py", 3, 5, "def f(:\n", 3, 6))
 
     monkeypatch.setattr(m, "_load_source", lambda path: "x = 1\n")
@@ -708,7 +709,7 @@ def test_run_files_and_exit_syntax_error_message_on_stderr(monkeypatch, capsys):
 def test_run_files_and_exit_reports_parse_failure_count(monkeypatch, capsys):
     import mutate4py._dispatch as m
 
-    def fake_run_on_file(args, py_file, source, cwd, measurement=None):
+    def fake_run_on_file(args, py_file, source, cwd, batch=None):
         if py_file in ("bad1.py", "bad2.py"):
             raise SyntaxError("invalid syntax", (py_file, 1, 1, "?\n", 1, 2))
         return 0
@@ -746,7 +747,7 @@ def test_run_files_and_exit_syntax_error_worst_code_wins_either_order(
     loop reaches first."""
     import mutate4py._dispatch as m
 
-    def fake_run_on_file(args, py_file, source, cwd, measurement=None):
+    def fake_run_on_file(args, py_file, source, cwd, batch=None):
         if py_file == "bad.py":
             raise SyntaxError("invalid syntax", ("bad.py", 1, 1, "?\n", 1, 2))
         return 1

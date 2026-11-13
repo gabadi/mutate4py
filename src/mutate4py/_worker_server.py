@@ -77,15 +77,19 @@ def _worker_plugin_args(worker_id: str | None) -> list[str]:
 
 
 def _serve(executor: Executor, instream: TextIO, outstream: TextIO, *, plugin_args: Sequence[str]) -> None:
-    """Answer one run() request per non-empty line until instream closes."""
+    """Answer one request per non-empty line until instream closes: a describe
+    request with the executor's description, anything else with a run() status."""
     for line in instream:
         line = line.strip()
         if not line:
             continue
         request = json.loads(line)
-        args = [*request["args"], *plugin_args]
-        status = executor.run(args, request["timeout"])
-        outstream.write(json.dumps({"status": status}) + "\n")
+        if "describe" in request:
+            outstream.write(json.dumps({"description": dataclasses.asdict(executor.describe())}) + "\n")
+        else:
+            args = [*request["args"], *plugin_args]
+            status = executor.run(args, request["timeout"])
+            outstream.write(json.dumps({"status": status}) + "\n")
         outstream.flush()
 
 

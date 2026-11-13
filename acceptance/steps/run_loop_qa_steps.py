@@ -151,11 +151,7 @@ def given_one_timeout_rest_killed(m, params):
 def given_n_survivors(m, params):
     survived_count = params.get("survivedCount") or m.group(1)
     n = int(survived_count)
-    d = _tmpdir()
-    counter_path = os.path.join(d, "mutant_counter.txt")
-    with open(counter_path, "w") as f:
-        f.write("0")
-    write_test(ctx.test_script, n_survivors_body(counter_path, n))
+    write_test(ctx.test_script, n_survivors_body(ctx.calc_path, n))
 
 
 @step(r"the fake pytest test exits nonzero on the unmutated baseline run")

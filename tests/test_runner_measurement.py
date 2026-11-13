@@ -63,11 +63,17 @@ def test_a_run_with_no_selection_tally_prints_the_report_without_a_selection_lin
     import logging
     from types import SimpleNamespace
 
+    from mutate4py._executor import ExecutorDescription, MutantTiming
     from mutate4py._runner import _report_run
 
-    request = SimpleNamespace(measurement=None, test_contexts_path=None, allow_survivors=False)
+    request = SimpleNamespace(measurement=None, timing_sink=None, test_contexts_path=None, allow_survivors=False)
     outcome = SimpleNamespace(overhead_duration=None, baseline_duration=0.0, uncovered_count=0, measurement=None)
-    result = SimpleNamespace(counts={"killed": 1, "timeout": 0, "survived": 0}, selection_counts=None)
+    result = SimpleNamespace(
+        counts={"killed": 1, "timeout": 0, "survived": 0},
+        selection_counts=None,
+        timing=MutantTiming(),
+        executor_description=ExecutorDescription(mode="subprocess", reason="--no-fork"),
+    )
     scored_run = SimpleNamespace(unaccepted=lambda: [], accepted=lambda: [])
 
     with caplog.at_level(logging.INFO, logger="mutate4py._runner"):
@@ -84,15 +90,98 @@ def test_a_run_that_measured_its_own_baseline_prints_its_measurement_line(caplog
     import logging
     from types import SimpleNamespace
 
+    from mutate4py._executor import ExecutorDescription, MutantTiming
     from mutate4py._runner import _report_run
 
     measurement = SimpleNamespace(wall=1.5, tests=3, core="sysmon", note=None)
-    request = SimpleNamespace(measurement=None, test_contexts_path=None, allow_survivors=False)
+    request = SimpleNamespace(measurement=None, timing_sink=None, test_contexts_path=None, allow_survivors=False)
     outcome = SimpleNamespace(overhead_duration=0.25, baseline_duration=2.0, uncovered_count=0, measurement=measurement)
-    result = SimpleNamespace(counts={"killed": 1, "timeout": 0, "survived": 0}, selection_counts=None)
+    result = SimpleNamespace(
+        counts={"killed": 1, "timeout": 0, "survived": 0},
+        selection_counts=None,
+        timing=MutantTiming(),
+        executor_description=ExecutorDescription(mode="subprocess", reason="--no-fork"),
+    )
     scored_run = SimpleNamespace(unaccepted=lambda: [], accepted=lambda: [])
 
     with caplog.at_level(logging.INFO, logger="mutate4py._runner"):
         _report_run(request, outcome, result, scored_run)
 
     assert "Measurement: 1.50s, 3 tests, core sysmon" in caplog.text
+
+
+@pytest.mark.unit
+def test_a_run_with_no_selected_mutants_names_that_as_the_subprocess_executor_reason(tmp_path):
+    """A run that asked for forking but selected nothing prepares the subprocess executor and says why."""
+    from types import SimpleNamespace
+
+    from mutate4py._runner import _prepare_baseline_and_executor
+
+    measurement = SimpleNamespace(wall=1.0, per_mutant_overhead=0.0, budget_of=lambda node_ids: 1.0)
+    request = SimpleNamespace(
+        timeout_factor=3.0,
+        min_timeout=1.0,
+        forking_requested=True,
+        executor=None,
+        cwd=str(tmp_path),
+        path=str(tmp_path / "calc.py"),
+    )
+    setup = SimpleNamespace(bak_path=str(tmp_path / "calc.py.bak"), loaded=SimpleNamespace(clean_source="x = 1\n"))
+
+    executor = _prepare_baseline_and_executor(request, setup, measurement, [], use_parallel=False).executor
+
+    assert executor.describe().render() == "subprocess (no Mutants selected)"
+
+
+@pytest.mark.unit
+def test_a_no_fork_run_names_no_fork_as_the_reason_even_when_nothing_is_selected(tmp_path):
+    """The user's --no-fork is the reason reported, ahead of the no-Mutants reason."""
+    from types import SimpleNamespace
+
+    from mutate4py._runner import _prepare_baseline_and_executor
+
+    measurement = SimpleNamespace(wall=1.0, per_mutant_overhead=0.0, budget_of=lambda node_ids: 1.0)
+    request = SimpleNamespace(
+        timeout_factor=3.0,
+        min_timeout=1.0,
+        forking_requested=False,
+        executor=None,
+        cwd=str(tmp_path),
+        path=str(tmp_path / "calc.py"),
+    )
+    setup = SimpleNamespace(bak_path=str(tmp_path / "calc.py.bak"), loaded=SimpleNamespace(clean_source="x = 1\n"))
+
+    executor = _prepare_baseline_and_executor(request, setup, measurement, [], use_parallel=False).executor
+
+    assert executor.describe().render() == "subprocess (--no-fork)"
+
+
+@pytest.mark.unit
+def test_a_run_report_prints_its_time_and_executor_lines_between_the_mutation_report_and_the_measurement(caplog):
+    """The Time and Executor lines close the Mutation Report, ahead of the Measurement lines."""
+    import logging
+    from types import SimpleNamespace
+
+    from mutate4py._executor import ExecutorDescription, MutantTiming
+    from mutate4py._runner import _report_run
+
+    measurement = SimpleNamespace(wall=1.5, tests=3, core="sysmon", note=None)
+    request = SimpleNamespace(measurement=None, timing_sink=None, test_contexts_path=None, allow_survivors=False)
+    outcome = SimpleNamespace(overhead_duration=0.25, baseline_duration=2.0, uncovered_count=0, measurement=measurement)
+    result = SimpleNamespace(
+        counts={"killed": 2, "timeout": 0, "survived": 0},
+        selection_counts=None,
+        timing=MutantTiming(mutants_seconds=1.5, mutants_count=2),
+        executor_description=ExecutorDescription(mode="subprocess", reason="--no-fork"),
+    )
+    scored_run = SimpleNamespace(unaccepted=lambda: [], accepted=lambda: [])
+
+    with caplog.at_level(logging.INFO, logger="mutate4py._runner"):
+        _report_run(request, outcome, result, scored_run)
+
+    text = caplog.text
+    report_at = text.index("Mutation Report")
+    time_at = text.index("Time: mutants 1.50s (2)")
+    executor_at = text.index("Executor: subprocess (--no-fork)")
+    measurement_at = text.index("Measurement: 1.50s")
+    assert report_at < time_at < executor_at < measurement_at

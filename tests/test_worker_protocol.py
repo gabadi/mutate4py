@@ -18,13 +18,16 @@ import types
 
 import pytest
 
+from mutate4py._executor import ExecutorDescription
 from mutate4py._worker_protocol import (
     WorkerProcessError,
     WorkerProcessExecutor,
+    _decode_description,
     _decode_ready,
     _decode_status,
     _shutdown_process,
     check_worker_pytest,
+    encode_describe,
     encode_request,
     worker_python,
     worker_server_argv,
@@ -71,6 +74,13 @@ def test_encode_request_is_one_newline_terminated_json_line():
     assert json.loads(line) == {"args": ["-q", "tests"], "timeout": 30.0}
 
 
+@pytest.mark.unit
+def test_encode_describe_is_one_newline_terminated_describe_request():
+    line = encode_describe()
+    assert line.endswith("\n")
+    assert json.loads(line) == {"describe": True}
+
+
 # ── response decoding ─────────────────────────────────────────────────────
 
 
@@ -94,6 +104,18 @@ def test_decode_status_returns_the_classification():
 def test_decode_status_raises_when_the_pipe_closed_mid_run():
     with pytest.raises(WorkerProcessError, match="closed its output unexpectedly"):
         _decode_status("", worker_root="/w")
+
+
+@pytest.mark.unit
+def test_decode_description_returns_the_executor_description_the_worker_reported():
+    line = json.dumps({"description": {"mode": "forking", "reason": "", "fresh_import": 2}}) + "\n"
+    assert _decode_description(line, worker_root="/w") == ExecutorDescription(mode="forking", fresh_import=2)
+
+
+@pytest.mark.unit
+def test_decode_description_raises_when_the_pipe_closed_before_answering():
+    with pytest.raises(WorkerProcessError, match="closed its output unexpectedly"):
+        _decode_description("", worker_root="/w")
 
 
 # ── shutdown ──────────────────────────────────────────────────────────────
@@ -149,6 +171,35 @@ def test_run_before_prime_is_rejected():
     )
     with pytest.raises(WorkerProcessError, match="prime\\(\\) must succeed before run\\(\\)"):
         executor.run(["-q"], timeout=1.0)
+
+
+@pytest.mark.unit
+def test_describe_before_prime_is_rejected():
+    executor = WorkerProcessExecutor(
+        worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, source_root="/src"
+    )
+    with pytest.raises(WorkerProcessError, match="prime\\(\\) must succeed before describe\\(\\)"):
+        executor.describe()
+
+
+@pytest.mark.unit
+def test_describe_asks_the_worker_and_returns_the_description_it_reports(monkeypatch):
+    stdin = io.StringIO()
+    stdout = io.StringIO(
+        json.dumps({"ready": True})
+        + "\n"
+        + json.dumps({"description": {"mode": "subprocess", "reason": "--no-fork", "fresh_import": 0}})
+        + "\n"
+    )
+    monkeypatch.setattr(subprocess, "Popen", lambda argv, **kwargs: types.SimpleNamespace(stdin=stdin, stdout=stdout))
+    monkeypatch.setattr("mutate4py._worker_protocol.check_worker_pytest", lambda root: None)
+    executor = WorkerProcessExecutor(
+        worker_root="/w", guarded_path="/w/calc.py", forking_requested=False, source_root="/src"
+    )
+    executor.prime()
+
+    assert executor.describe() == ExecutorDescription(mode="subprocess", reason="--no-fork")
+    assert stdin.getvalue() == encode_describe()
 
 
 def _fake_popen(monkeypatch, *, raises: Exception | None = None) -> list:
@@ -322,6 +373,26 @@ def test_worker_process_executor_subprocess_forced(tmp_path):
     try:
         assert executor.run(["-q", "tests/test_calc.py::test_add"], timeout=30.0) == "survived"
         assert executor.run(["-q", "tests/test_calc.py::test_sub_wrong"], timeout=30.0) == "killed"
+    finally:
+        executor.close()
+
+
+@pytest.mark.component
+def test_worker_process_executor_describes_the_subprocess_executor_its_worker_runs(tmp_path):
+    """A Worker told not to fork describes the subprocess executor it chose, and
+    the reason, over the same line protocol that carries its statuses."""
+    target = _write_add_sub_project(tmp_path)
+    _provision_test_worker(tmp_path)
+    executor = WorkerProcessExecutor(
+        worker_root=str(tmp_path),
+        guarded_path=str(target),
+        forking_requested=False,
+        source_root=str(tmp_path),
+    )
+    executor.prime()
+    try:
+        assert executor.describe() == ExecutorDescription(mode="subprocess", reason="--no-fork")
+        assert executor.run(["-q", "tests/test_calc.py::test_add"], timeout=30.0) == "survived"
     finally:
         executor.close()
 

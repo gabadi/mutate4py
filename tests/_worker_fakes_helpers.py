@@ -3,6 +3,8 @@ test_workers_dispatch.py): a lock-guarded fake Executor and a no-op result sink.
 
 import threading
 
+from mutate4py._executor import ExecutorDescription
+
 
 def noop_on_result(result: dict) -> None:
     pass
@@ -13,11 +15,13 @@ class FakeExecutor:
 
     Lock-guarded so multiple Worker threads can share one instance (as
     happens when a test injects a single fake executor at max_workers>=2)
-    without racing on prime_calls/calls.
+    without racing on prime_calls/calls. It describes itself as a subprocess
+    run with the reason "--no-fork" unless a test says otherwise.
     """
 
-    def __init__(self, status: str) -> None:
+    def __init__(self, status: str, description: ExecutorDescription | None = None) -> None:
         self._status = status
+        self._description = description or ExecutorDescription(mode="subprocess", reason="--no-fork")
         self._lock = threading.Lock()
         self.calls: list[list[str]] = []
         self.prime_calls = 0
@@ -30,3 +34,6 @@ class FakeExecutor:
         with self._lock:
             self.calls.append(args)
         return self._status
+
+    def describe(self) -> ExecutorDescription:
+        return self._description

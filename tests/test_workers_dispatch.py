@@ -80,7 +80,7 @@ def test_run_parallel_composes_narrowed_dispatch_with_workers(tmp_path, monkeypa
     src_file.write_text(src)
     executor = FakeExecutor("killed")
 
-    counts, survivors, selection_counts = run_parallel(
+    result = run_parallel(
         ParallelRunRequest(
             selected_sites=sites,
             clean_source=src,
@@ -95,9 +95,9 @@ def test_run_parallel_composes_narrowed_dispatch_with_workers(tmp_path, monkeypa
             executor=executor,
         )
     )
-    assert counts == {"killed": 2, "timeout": 0, "survived": 0}
-    assert survivors == []
-    assert selection_counts == {"narrowed": 2, "static": 0, "degraded": 0}
+    assert result.counts == {"killed": 2, "timeout": 0, "survived": 0}
+    assert result.survivors == []
+    assert result.selection_counts == {"narrowed": 2, "static": 0, "degraded": 0}
     assert executor.calls == [["-q", "tests/test_calc.py::test_f"]] * 2
 
 
@@ -114,7 +114,7 @@ def test_run_parallel_composes_static_dispatch_with_workers(tmp_path, monkeypatc
     src_file.write_text(src)
     executor = FakeExecutor("killed")
 
-    _, _, selection_counts = run_parallel(
+    result = run_parallel(
         ParallelRunRequest(
             selected_sites=sites,
             clean_source=src,
@@ -129,7 +129,7 @@ def test_run_parallel_composes_static_dispatch_with_workers(tmp_path, monkeypatc
             executor=executor,
         )
     )
-    assert selection_counts == {"narrowed": 0, "static": 2, "degraded": 0}
+    assert result.selection_counts == {"narrowed": 0, "static": 2, "degraded": 0}
     assert executor.calls == [["-q"]] * 2
 
 
@@ -149,7 +149,7 @@ def test_run_parallel_composes_degraded_dispatch_with_workers(tmp_path, monkeypa
     src_file.write_text(src)
     executor = FakeExecutor("killed")
 
-    _, _, selection_counts = run_parallel(
+    result = run_parallel(
         ParallelRunRequest(
             selected_sites=sites,
             clean_source=src,
@@ -164,7 +164,7 @@ def test_run_parallel_composes_degraded_dispatch_with_workers(tmp_path, monkeypa
             executor=executor,
         )
     )
-    assert selection_counts == {"narrowed": 0, "static": 0, "degraded": 2}
+    assert result.selection_counts == {"narrowed": 0, "static": 0, "degraded": 2}
     assert executor.calls == [["-q"]] * 2
 
 
@@ -227,7 +227,7 @@ def test_run_parallel_primes_worker_executor_once_for_multiple_sites(tmp_path, m
     src_file.write_text(src)
     executor = FakeExecutor("survived")
 
-    counts, _, _ = run_parallel(
+    result = run_parallel(
         ParallelRunRequest(
             selected_sites=sites,
             clean_source=src,
@@ -240,7 +240,7 @@ def test_run_parallel_primes_worker_executor_once_for_multiple_sites(tmp_path, m
             executor=executor,
         )
     )
-    assert counts == {"killed": 0, "timeout": 0, "survived": 3}
+    assert result.counts == {"killed": 0, "timeout": 0, "survived": 3}
     assert executor.prime_calls == 1
     assert len(executor.calls) == 3
 
@@ -268,7 +268,7 @@ def test_run_parallel_shared_injected_executor_primed_per_worker_thread(tmp_path
     src_file.write_text(src)
     executor = FakeExecutor("survived")
 
-    counts, _, _ = run_parallel(
+    result = run_parallel(
         ParallelRunRequest(
             selected_sites=sites,
             clean_source=src,
@@ -281,9 +281,66 @@ def test_run_parallel_shared_injected_executor_primed_per_worker_thread(tmp_path
             executor=executor,
         )
     )
-    assert counts == {"killed": 0, "timeout": 0, "survived": 4}
+    assert result.counts == {"killed": 0, "timeout": 0, "survived": 4}
     assert executor.prime_calls == 2
     assert len(executor.calls) == 4
+
+
+# ── run_parallel: the result says how its Workers ran and how long Mutants took ──
+
+
+@pytest.mark.unit
+def test_run_parallel_reports_the_executor_description_its_workers_gave(tmp_path, monkeypatch):
+    import mutate4py._workers as workers_mod
+
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
+    monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
+
+    src = "def f(a, b):\n    return a > b\ndef g(a, b):\n    return a < b\n"
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(src)
+
+    result = run_parallel(
+        ParallelRunRequest(
+            selected_sites=discover_sites(src),
+            clean_source=src,
+            source_path=str(src_file),
+            cwd=str(tmp_path),
+            pytest_args=[],
+            timeout_policy=_FIVE_SECOND_POLICY,
+            max_workers=2,
+            on_result=noop_on_result,
+            executor=FakeExecutor("survived"),
+        )
+    )
+    assert result.executor_description.render() == "subprocess (--no-fork)"
+
+
+@pytest.mark.unit
+def test_run_parallel_times_each_mutant_into_the_bucket_its_status_names(tmp_path, monkeypatch):
+    import mutate4py._workers as workers_mod
+
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
+    monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
+
+    src = "def f(a, b):\n    return a > b\ndef g(a, b):\n    return a < b\n"
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(src)
+
+    result = run_parallel(
+        ParallelRunRequest(
+            selected_sites=discover_sites(src),
+            clean_source=src,
+            source_path=str(src_file),
+            cwd=str(tmp_path),
+            pytest_args=[],
+            timeout_policy=_FIVE_SECOND_POLICY,
+            max_workers=1,
+            on_result=noop_on_result,
+            executor=FakeExecutor("timeout"),
+        )
+    )
+    assert (result.timing.timeouts_count, result.timing.mutants_count) == (2, 0)
 
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

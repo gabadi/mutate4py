@@ -1,126 +1,133 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T11:26:45Z",
-  "module_hash": "b7d29d28f2868621899b82e8078aa8319b41ae8e643cb6a5a707206d89ca9c4b",
-  "source_sha256": "74ed83e160e7b1dddcd858059daef0df5ad5de8cfe7d885f0f1f24e7592db353",
+  "tested_at": "2026-11-13T13:18:58Z",
+  "module_hash": "eb643190d540f704972ae9599c496d384b0147f1458a978656225e579673931b",
+  "source_sha256": "ffa38d90389966c216ae34fa7a0c0b57c90a4e77bf319205dfec7281721d2082",
   "functions": [
     {
       "id": "func/_run_header_lines",
       "name": "_run_header_lines",
-      "line": 57,
-      "end_line": 70,
+      "line": 58,
+      "end_line": 71,
       "hash": "e4616d1a61dae486ae5b01ab48203c7fada48431a16503755a27612e0639627a"
     },
     {
       "id": "func/_uncovered_block_lines",
       "name": "_uncovered_block_lines",
-      "line": 73,
-      "end_line": 85,
+      "line": 74,
+      "end_line": 86,
       "hash": "64a4530d06c53d830a8262004e4e6d7f3e98e114d9b61c48415c115251d55511"
     },
     {
       "id": "func/_serial_progress_line",
       "name": "_serial_progress_line",
-      "line": 88,
-      "end_line": 90,
+      "line": 89,
+      "end_line": 91,
       "hash": "2e7753e489bf25bf53ea50c21227ed4f38b4989ef6eab90150ddcf7d12bc518b"
     },
     {
       "id": "func/_parallel_progress_line",
       "name": "_parallel_progress_line",
-      "line": 93,
-      "end_line": 100,
+      "line": 94,
+      "end_line": 101,
       "hash": "605886fe59ebf5cfd4f034f5ce7006def3b4c2e032d0742d78afe52668c550b8"
     },
     {
       "id": "func/_on_parallel_result",
       "name": "_on_parallel_result",
-      "line": 103,
-      "end_line": 105,
+      "line": 104,
+      "end_line": 106,
       "hash": "2076e58d0db2b5dd0a4fe16bc1218f7fa77a92750ee63bbff3263fe169eb8aa1"
     },
     {
       "id": "func/overhead_info",
       "name": "overhead_info",
-      "line": 124,
-      "end_line": 131,
+      "line": 125,
+      "end_line": 132,
       "hash": "ebb7320a6121c92fb0fd753972aefd3468d4cd5f55f3d4f91938cd73f1888cf7"
     },
     {
       "id": "func/_overhead_report_lines",
       "name": "_overhead_report_lines",
-      "line": 134,
-      "end_line": 144,
+      "line": 135,
+      "end_line": 145,
       "hash": "4af028337280a721b91b0f1466a4138dcfda53fad2c511ea1e136681e445f7e6"
     },
     {
       "id": "func/measurement_lines",
       "name": "measurement_lines",
-      "line": 147,
-      "end_line": 156,
+      "line": 148,
+      "end_line": 157,
       "hash": "9c2377196dfa29a4d2934b68cbc5619ed78b9f37ee9938526b7edb914c7c30b2"
     },
     {
       "id": "func/batch_summary_lines",
       "name": "batch_summary_lines",
-      "line": 159,
-      "end_line": 164,
-      "hash": "29afb8db008e6097fc2ac63b6f3f9f287a7059622d886c39119f3b77c1a21bc2"
+      "line": 160,
+      "end_line": 168,
+      "hash": "7359a61fcff7128877784a876cd27facb359dc3ec021576f957403c5cf20b8cf"
     },
     {
       "id": "func/measurement_failure",
       "name": "measurement_failure",
-      "line": 167,
-      "end_line": 173,
+      "line": 171,
+      "end_line": 177,
       "hash": "fa31ca1abf3dd3e3919cfe6abdd4bab106488f40125387483c317a2c4f560040"
     },
     {
       "id": "func/_selection_report_lines",
       "name": "_selection_report_lines",
-      "line": 188,
-      "end_line": 205,
+      "line": 192,
+      "end_line": 209,
       "hash": "420bf1cdc0941f9cca5e37662a54d351e9a890cbe4ca071f123b3c38237fdc98"
     },
     {
       "id": "func/_mutation_report_lines",
       "name": "_mutation_report_lines",
-      "line": 208,
-      "end_line": 234,
+      "line": 212,
+      "end_line": 238,
       "hash": "217ddae3fd68cdd8e86fe80e8131df988c90df63a1205f7d35c5bbd5fea7008b"
     },
     {
       "id": "func/_accepted_block_lines",
       "name": "_accepted_block_lines",
-      "line": 237,
-      "end_line": 245,
+      "line": 241,
+      "end_line": 249,
       "hash": "d2db0ed78e38ee49bb5081e7c89a526d46086cc6754e487cc6e9efb15bdd175c"
+    },
+    {
+      "id": "func/executor_block_lines",
+      "name": "executor_block_lines",
+      "line": 252,
+      "end_line": 254,
+      "hash": "26338610471439de8b8ac3a48a137af2749c1508c7683feeb92ce1e96e2a5222"
     },
     {
       "id": "func/_workers_header_lines",
       "name": "_workers_header_lines",
-      "line": 248,
-      "end_line": 252,
+      "line": 257,
+      "end_line": 261,
       "hash": "45a887b31e2142ea6ee16ac8585dbe9ed7ee256035aa668275994ec504e3bfd8"
     },
     {
       "id": "func/_scan_manifest_state",
       "name": "_scan_manifest_state",
-      "line": 255,
-      "end_line": 273,
+      "line": 264,
+      "end_line": 282,
       "hash": "8866f3fc9d4c5fd02c6263bdcce7e9fbadceb020feb92a9497515effd0c3a7ab"
     },
     {
       "id": "func/scan_report",
       "name": "scan_report",
-      "line": 276,
-      "end_line": 292,
+      "line": 285,
+      "end_line": 301,
       "hash": "266a66f3c40d09563d5b6c962ec8afa5a233c6e855e551c745fd890d23afe504"
     },
     {
       "id": "func/scan_report_with_coverage",
       "name": "scan_report_with_coverage",
-      "line": 295,
-      "end_line": 326,
+      "line": 304,
+      "end_line": 335,
       "hash": "abbfcdf392bd6616b157f900ae3be8cd28db869d65552ad60ae9502e76cc5078"
     }
   ]

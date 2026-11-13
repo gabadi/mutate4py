@@ -22,6 +22,7 @@ __all__ = [
     "TimeoutPolicy",
     "_check_execution_status",
     "_log_dispatch_abort",
+    "confirm_plan",
     "plan_mutant",
     "plan_sites",
 ]
@@ -207,6 +208,17 @@ def plan_mutant(site: Site, inputs: PlanInputs) -> MutantPlan:
     # a full-suite run that the report would then miscount as narrowed.
     hint = _DISAGREEMENT_HINTS.get(outcome, f"unrecognized selection outcome {outcome!r}")
     raise TestSelectionError(f"{inputs.abs_source_path}:{site.line}: {hint}")
+
+
+def confirm_plan(pytest_args: list[str], timeout_policy: TimeoutPolicy) -> MutantPlan:
+    """Return the MutantPlan that confirms a Survivor: the full test set, unnarrowed.
+
+    A Survivor of a narrowed Mutant may survive only because its covering tests
+    did not reach the state a later test reads, so it is re-run with every test
+    the run selects: pytest_args verbatim (positional path kept), budgeted as the
+    full set. Confirmation is never narrowed, so its selection tally is None.
+    """
+    return MutantPlan(list(pytest_args), timeout_policy.timeout_for(None), None)
 
 
 def plan_sites(sites: list[Site], inputs: PlanInputs) -> list[MutantPlan]:

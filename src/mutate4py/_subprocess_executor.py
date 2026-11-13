@@ -13,17 +13,22 @@ import sys
 
 from mutate4py._bytecode_cache import invalidate_bytecode_cache
 from mutate4py._cmd import run_argv
+from mutate4py._executor import ExecutorDescription
 
 __all__ = ["SubprocessExecutor"]
 
 
 class SubprocessExecutor:
-    def __init__(self, cwd: str, guarded_path: str) -> None:
+    def __init__(self, cwd: str, guarded_path: str, reason: str = "") -> None:
         self._cwd = cwd
         self._guarded_path = guarded_path
+        self._reason = reason
 
     def prime(self) -> None:
         pass
+
+    def describe(self) -> ExecutorDescription:
+        return ExecutorDescription(mode="subprocess", reason=self._reason)
 
     def run(self, args: list[str], timeout: float) -> str:
         invalidate_bytecode_cache(self._guarded_path)

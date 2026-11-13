@@ -31,6 +31,12 @@ def test_prime_is_a_noop():
     SubprocessExecutor(cwd="/tmp", guarded_path="/tmp/under_test.py").prime()  # must not raise
 
 
+@pytest.mark.unit
+def test_describe_renders_the_subprocess_executor_with_its_reason(tmp_path):
+    executor = SubprocessExecutor(cwd=str(tmp_path), guarded_path=str(tmp_path / "x.py"), reason="--no-fork")
+    assert executor.describe().render() == "subprocess (--no-fork)"
+
+
 @pytest.mark.component
 def test_run_survives_when_tests_pass(tmp_path):
     cwd = _write_project(tmp_path, target_body="def add(a, b):\n    return a + b\n", test_body=_ADD_TEST_BODY)

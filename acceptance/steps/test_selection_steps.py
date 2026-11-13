@@ -1,6 +1,7 @@
 """Step handlers for features/test-selection.feature (per-mutant test selection)."""
 
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -165,9 +166,15 @@ def _write_arg_logging_fixture(cwd: str, log_path: str) -> None:
     _write_test(os.path.join(cwd, "test_dummy.py"), "def test_dummy():\n    pass\n")
 
 
+def _confirmation_runs() -> int:
+    """How many Survivor confirmation runs the report's Time line counts (0 when it has none)."""
+    found = re.search(r"confirmation \S+ \((\d+) run", ctx.cli_result.stdout)
+    return int(found.group(1)) if found else 0
+
+
 def _logged_args() -> str:
     """The last logged invocation's argv — the mutant run, not the baseline
-    pass — with issue 06's neutralising_args() flags (e.g. `--no-cov`)
+    pass nor the Survivor confirmation runs that follow the mutants — with issue 06's neutralising_args() flags (e.g. `--no-cov`)
     filtered out: this feature's own presence is covered by
     test_plugin_neutralisation.py, and test-selection's assertions are
     about which test file/nodeids get appended, an orthogonal concern that
@@ -177,6 +184,7 @@ def _logged_args() -> str:
         return ""
     with open(ctx.log_path) as f:
         lines = [line for line in f.read().splitlines() if line]
+    lines = lines[: len(lines) - _confirmation_runs()]
     if not lines:
         return ""
     prefix, _, rest = lines[-1].partition("[")
