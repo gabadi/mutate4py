@@ -216,6 +216,19 @@ def _accepted_block_lines(accepted: list[tuple[Site, str]]) -> list[str]:
     return lines
 
 
+def _recorded_block_lines(recorded: list[tuple[str, dict]]) -> list[str]:
+    """The survivors a skipped function kept from the Manifest, apart from this run's Survivors (#106).
+
+    Each entry is (function id, {"line", "desc"}). Empty when none.
+    """
+    if not recorded:
+        return []
+    lines = ["", "Recorded survivors (not re-run):"]
+    for fid, s in recorded:
+        lines.append(f"  line {s['line']} {s['desc']} {fid}")
+    return lines
+
+
 def executor_block_lines(description: ExecutorDescription, timing: MutantTiming) -> list[str]:
     """The Time and Executor lines that close a run's Mutation Report, blank-led to sit apart from Survivors."""
     return ["", timing.render(), f"Executor: {description.render()}"]

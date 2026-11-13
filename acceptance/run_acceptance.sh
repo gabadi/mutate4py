@@ -24,6 +24,7 @@ STEPS_MAP[run-loop]="run_loop_steps"
 STEPS_MAP[cli-surface]="cli_surface_steps"
 STEPS_MAP[parallel-workers]="parallel_workers_steps"
 STEPS_MAP[test-selection]="test_selection_steps"
+STEPS_MAP[tests-digest]="tests_digest_steps"
 
 # Feature files intentionally NOT wired to a steps module. Each entry must
 # carry a reason — this is the debt register for the "no silent skip" gate
