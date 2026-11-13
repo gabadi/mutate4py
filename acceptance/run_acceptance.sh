@@ -32,18 +32,6 @@ STEPS_MAP[test-selection]="test_selection_steps"
 declare -A OPT_OUT
 OPT_OUT[ci]="documents external CI/CD infrastructure (GitHub Actions job semantics, tag-triggered release/publish) that this local step-execution harness cannot run or simulate; see the feature's header for the F1 design-intent contract it records. KNOWN STALE: ci-3 claims the crap/mutation gates don't run — CI has since grown a CRAP step and a manifest-check step; the full mutate-all scan is still opt-in only. Kept as historical record, not a live spec."
 
-declare -A QA_STEPS_MAP
-QA_STEPS_MAP[site-discovery_qa]="site_discovery_qa_steps"
-QA_STEPS_MAP[manifest_qa]="manifest_qa_steps"
-QA_STEPS_MAP[coverage_qa]="coverage_qa_steps"
-QA_STEPS_MAP[run-loop_qa]="run_loop_qa_steps"
-QA_STEPS_MAP[cli-surface_qa]="cli_surface_qa_steps"
-QA_STEPS_MAP[parallel-workers_qa]="parallel_workers_qa_steps"
-
-# QA-suite opt-outs, same contract as OPT_OUT above. Empty today — every QA
-# feature file already has a steps module.
-declare -A QA_OPT_OUT
-
 # A stem in both a steps map and its opt-out list is itself a silent-skip
 # hole: the opt-out branch would win, so a feature with a real steps module
 # would quietly stop running the moment someone (mis)added an opt-out entry
@@ -61,8 +49,7 @@ check_no_overlap() {
     done
     return 0
 }
-check_no_overlap STEPS_MAP OPT_OUT "non-QA" || exit 1
-check_no_overlap QA_STEPS_MAP QA_OPT_OUT "QA" || exit 1
+check_no_overlap STEPS_MAP OPT_OUT "feature" || exit 1
 
 # Generation pass: parse + codegen every feature file in $2 that isn't
 # opted out, via the steps map in $1. Prints "OPTED-OUT: <stem> (<reason>)"
@@ -98,15 +85,10 @@ generate_pass() {
     return "$unwired"
 }
 
-# ── Non-QA suite ──────────────────────────────────────────────────────────────
+# ── Acceptance suite ──────────────────────────────────────────────────────────
 
-declare -a non_qa_features=()
-for feature_file in "$REPO_ROOT"/features/*.feature; do
-    stem="$(basename "$feature_file" .feature)"
-    [[ "$stem" == *_qa ]] && continue
-    non_qa_features+=("$feature_file")
-done
-generate_pass STEPS_MAP OPT_OUT "OPT_OUT" "${non_qa_features[@]}" || {
+declare -a features=("$REPO_ROOT"/features/*.feature)
+generate_pass STEPS_MAP OPT_OUT "OPT_OUT" "${features[@]}" || {
     echo "  ✗ one or more feature files are unwired — add a steps module or an OPT_OUT entry" >&2
     exit 1
 }
@@ -116,7 +98,7 @@ declare -a pids=()
 declare -a names=()
 declare -a tmpouts=()
 
-for feature_file in "${non_qa_features[@]}"; do
+for feature_file in "${features[@]}"; do
     stem="$(basename "$feature_file" .feature)"
     [[ -n "${OPT_OUT[$stem]:-}" ]] && continue
     generated="$GENERATED_DIR/${stem}_acceptance.py"
@@ -146,55 +128,6 @@ echo "=== Acceptance summary: $PASSED feature(s) passed, $FAILED failed ==="
 
 if [[ $FAILED -gt 0 ]]; then
     echo "Skipping Gherkin mutation — acceptance tests failed"
-    exit 1
-fi
-
-# ── QA end-to-end suite ───────────────────────────────────────────────────────
-
-echo ""
-echo "=== QA end-to-end suite ==="
-
-declare -a qa_features=("$REPO_ROOT"/features/*_qa.feature)
-generate_pass QA_STEPS_MAP QA_OPT_OUT "QA" "${qa_features[@]}" || {
-    echo "  ✗ one or more QA feature files are unwired — add a steps module or a QA_OPT_OUT entry" >&2
-    exit 1
-}
-
-# Execution pass (parallel)
-declare -a qa_pids=()
-declare -a qa_names=()
-declare -a qa_tmpouts=()
-
-for feature_file in "${qa_features[@]}"; do
-    [[ -f "$feature_file" ]] || continue
-    stem="$(basename "$feature_file" .feature)"
-    [[ -n "${QA_OPT_OUT[$stem]:-}" ]] && continue
-    generated="$GENERATED_DIR/${stem}_acceptance.py"
-    tmpout="$(mktemp)"
-    uv run python "$generated" >"$tmpout" 2>&1 &
-    qa_pids+=($!)
-    qa_names+=("$stem")
-    qa_tmpouts+=("$tmpout")
-done
-
-QA_FAILED=0
-QA_PASSED=0
-for i in "${!qa_pids[@]}"; do
-    if wait "${qa_pids[$i]}"; then
-        echo "PASS ${qa_names[$i]}"
-        QA_PASSED=$((QA_PASSED + 1))
-    else
-        echo "FAIL ${qa_names[$i]}"
-        cat "${qa_tmpouts[$i]}"
-        QA_FAILED=$((QA_FAILED + 1))
-    fi
-    rm -f "${qa_tmpouts[$i]}"
-done
-
-echo ""
-echo "=== QA suite: $QA_PASSED feature(s) passed, $QA_FAILED failed ==="
-
-if [[ $QA_FAILED -gt 0 ]]; then
     exit 1
 fi
 

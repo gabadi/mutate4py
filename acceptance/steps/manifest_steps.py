@@ -1,6 +1,7 @@
 """Step handlers for features/manifest.feature."""
 
 import os
+import shutil
 import sys
 import tempfile
 
@@ -23,6 +24,11 @@ from acceptance.steps.step_lib import (
 STEP_HANDLERS, step, run_step = make_registry()
 
 _TESTED_AT = "2026-01-01T00:00:00Z"
+
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+_FIXTURES_DIR = os.path.join(_REPO_ROOT, "acceptance", "fixtures")
+_BEGIN_MARKER = "# mutate4py-manifest-begin"
+_END_MARKER = "# mutate4py-manifest-end"
 
 # ── Source fixtures ────────────────────────────────────────────────────────────
 
@@ -75,6 +81,17 @@ class Context:
 
 
 ctx = Context()
+
+
+def setup_copy(fixture_name: str) -> str:
+    """Copy a committed fixture into a scratch dir and point the scenario at the copy.
+
+    --update-manifest rewrites its file in place, so a scenario never runs against the committed fixture."""
+    ctx.tmpdir = tempfile.mkdtemp(prefix="manifest_")
+    ctx.source_path = os.path.join(ctx.tmpdir, fixture_name)
+    shutil.copy2(os.path.join(_FIXTURES_DIR, fixture_name), ctx.source_path)
+    ctx.cli_result = None
+    return ctx.source_path
 
 
 def _write_tmp(content: str) -> str:
@@ -198,6 +215,31 @@ def given_file_then_changed(m, params):
     ctx.embedded = embed_manifest(new_src, manifest)
     ctx.source_path = _write_tmp(ctx.embedded)
     ctx.file_content_before = ctx.embedded
+
+
+@step(r'a writable copy of the committed fixture "([^"]+)" with a current embedded manifest')
+def given_copy_with_current_manifest(m, params):
+    fixture = params.get("fixture") or m.group(1)
+    path = setup_copy(fixture)
+    result = run_mutate4py(path, "--update-manifest")
+    assert result.returncode == 0, f"pre-run failed: {result.stderr}"
+    assert f"Updated manifest: {path}" in result.stdout, result.stdout
+
+
+@step(r"the copy is reformatted with whitespace only")
+def given_copy_reformatted(m, params):
+    with open(ctx.source_path) as f:
+        text = f.read()
+    with open(ctx.source_path, "w") as f:
+        f.write("\n" + text)
+
+
+@step(r'a writable copy of the committed fixture "([^"]+)" whose embedded manifest is out of date')
+def given_copy_with_stale_manifest(m, params):
+    fixture = params.get("fixture") or m.group(1)
+    path = setup_copy(fixture)
+    with open(path) as f:
+        assert _BEGIN_MARKER in f.read(), f"fixture {fixture!r} has no manifest to be stale"
 
 
 # ── When steps ─────────────────────────────────────────────────────────────────
@@ -376,6 +418,14 @@ def then_file_has_manifest(m, params):
         content = f.read()
     _, ok = extract_manifest(content)
     assert ok, f"no manifest found in file after --update-manifest:\n{content}"
+
+
+@step(r"the copy contains exactly one manifest begin line and one manifest end line")
+def then_copy_has_single_footer(m, params):
+    with open(ctx.source_path) as f:
+        text = f.read()
+    assert text.count(_BEGIN_MARKER) == 1, f"expected one {_BEGIN_MARKER!r} line:\n{text}"
+    assert text.count(_END_MARKER) == 1, f"expected one {_END_MARKER!r} line:\n{text}"
 
 
 @step(r"no test command is run")

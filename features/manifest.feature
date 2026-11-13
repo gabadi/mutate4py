@@ -217,3 +217,17 @@ Feature: Manifest embed, extract, diff, and the --update-manifest mode
     When the command "mutate4py <file> --check-manifest" is run
     Then the command exits with status "0"
     And the output line "Manifest current: <file> (unscored)" is printed
+
+  # manifest-15: a committed fixture reformatted outside its code is still current
+  Scenario: updating a committed fixture after a whitespace-only edit reports it unchanged
+    Given a writable copy of the committed fixture "plain.py" with a current embedded manifest
+    And the copy is reformatted with whitespace only
+    When the command "mutate4py <file> --update-manifest" is run
+    Then the output line "Manifest unchanged: <file>" is printed
+
+  # manifest-16: re-embedding over a stale footer replaces it, never accretes a second one
+  Scenario: updating a committed fixture with a stale manifest keeps a single footer
+    Given a writable copy of the committed fixture "stale.py" whose embedded manifest is out of date
+    When the command "mutate4py <file> --update-manifest" is run
+    Then the output line "Updated manifest: <file>" is printed
+    And the copy contains exactly one manifest begin line and one manifest end line

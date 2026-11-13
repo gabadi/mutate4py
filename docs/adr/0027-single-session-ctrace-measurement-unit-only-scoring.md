@@ -44,13 +44,12 @@ with its C extension installed there).
 files and acceptance helpers never enter the data. pytest-cov, when installed, is
 neutralised with its own disable option.
 
-**The no-flag path.** A run given none of `--cov-cmd`, `--lcov` or
-`--reuse-coverage` takes its Coverage gate from the Measurement, and never reads
-`coverage.lcov` (ADR 0007's default path is superseded here). A failing suite
-stops the run before any Mutant and names the failing node ids; a suite that
-collects nothing keeps the no-tests hint (ADR 0018). A run given a coverage flag
-keeps its behaviour: the flag supplies the covered lines, and the Baseline still
-comes from the Measurement.
+**No coverage flags.** Every scored run takes its Coverage gate from the Measurement,
+and never reads `coverage.lcov` (ADR 0007's default path is superseded here). The
+flags `--cov-cmd`, `--lcov` and `--reuse-coverage` are removed in 0.3.0: each exits 2
+with "removed in 0.3.0: the run measures coverage itself". A failing suite stops the
+run before any Mutant and names the failing node ids; a suite that collects nothing
+keeps the no-tests hint (ADR 0018).
 
 ## Rejected alternatives
 
