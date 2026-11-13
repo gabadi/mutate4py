@@ -218,3 +218,45 @@ def test_functions_sharing_a_qualified_name_are_told_apart():
     assert isinstance(plan, SwapPlan)
     assert plan.apply(namespace["fs"]) == 1
     assert [fn() for fn in namespace["fs"]] == [3, 2]
+
+
+_TRACED = (
+    "def traced(fn):\n    def wrapper():\n        return fn()\n    return wrapper\n\n"
+    "@traced\ndef one():\n    return 1\n"
+)
+
+
+@pytest.mark.unit
+def test_a_change_in_a_closure_made_at_import_swaps_the_live_closure_too():
+    # The decorator ran at import, so `one` is a live `wrapper`: swapping only
+    # `traced` would leave it on the clean body.
+    clean = _TRACED
+    mutated = clean.replace("        return fn()\n", "        return fn() + 1\n")
+    namespace = _load(clean)
+
+    plan = plan_swap(clean, mutated, FILE, frozenset())
+
+    assert isinstance(plan, SwapPlan)
+    assert plan.apply([namespace["traced"], namespace["one"]]) == 2
+    assert namespace["one"]() == 2
+    assert namespace["traced"](lambda: 5)() == 6
+
+
+@pytest.mark.unit
+def test_a_closure_that_stops_using_its_free_variable_is_refused_as_freevars():
+    clean = "def traced(fn):\n    def wrapper():\n        return fn()\n    return wrapper\n"
+    mutated = clean.replace("        return fn()\n", "        return None\n")
+
+    assert plan_swap(clean, mutated, FILE, frozenset()) == Refusal("freevars")
+
+
+@pytest.mark.unit
+def test_a_live_closure_without_its_live_outer_function_is_refused():
+    clean = _TRACED
+    mutated = clean.replace("        return fn()\n", "        return fn() + 1\n")
+    namespace = _load(clean)
+
+    plan = plan_swap(clean, mutated, FILE, frozenset())
+
+    assert plan.apply([namespace["one"]]) == Refusal("no live function")
+    assert namespace["one"]() == 1

@@ -12,7 +12,7 @@ import sys
 
 import pytest
 
-from mutate4py._executor_selection import _prepare_executor, select_executor
+from mutate4py._executor_selection import ForkingOptions, _prepare_executor, select_executor
 
 # This repo's own environment has tach, a fork-unsafe plugin: an in-process
 # prime that does not block it gets the subprocess executor.
@@ -23,22 +23,8 @@ _NO_TACH = ("-p", "no:tach")
 
 
 @pytest.mark.unit
-def test_select_executor_defers_to_each_worker_for_a_parallel_run(tmp_path):
-    """None, not a prepared executor: a parallel run primes one Executor per
-    Worker in that Worker's own process (issue 04b)."""
-    chosen = select_executor(
-        use_parallel=True,
-        no_fork_reason=None,
-        cwd=str(tmp_path),
-        guarded_path=str(tmp_path / "x.py"),
-    )
-    assert chosen is None
-
-
-@pytest.mark.unit
 def test_select_executor_passes_the_no_fork_reason_through_to_the_subprocess_executor(tmp_path):
     chosen = select_executor(
-        use_parallel=False,
         cwd=str(tmp_path),
         guarded_path=str(tmp_path / "x.py"),
         no_fork_reason="no Mutants selected",
@@ -51,7 +37,6 @@ def test_select_executor_prepares_one_for_a_serial_run(tmp_path):
     from mutate4py._subprocess_executor import SubprocessExecutor
 
     chosen = select_executor(
-        use_parallel=False,
         no_fork_reason="--no-fork",
         cwd=str(tmp_path),
         guarded_path=str(tmp_path / "x.py"),
@@ -122,7 +107,10 @@ def test_prepare_executor_returns_forking_executor_when_requested_and_available(
 
     (tmp_path / "conftest.py").write_text("")
     executor = _prepare_executor(
-        requested=True, cwd=str(tmp_path), guarded_path=str(tmp_path / "not_imported.py"), prime_args=_NO_TACH
+        requested=True,
+        cwd=str(tmp_path),
+        guarded_path=str(tmp_path / "not_imported.py"),
+        forking=ForkingOptions(prime_args=tuple(_NO_TACH)),
     )
     assert isinstance(executor, ForkingExecutor)
 
@@ -142,7 +130,9 @@ def test_prepare_executor_forks_for_a_target_already_imported(tmp_path, monkeypa
     fake_module.__file__ = str(target)
     monkeypatch.setitem(sys.modules, "imported", fake_module)
 
-    executor = _prepare_executor(requested=True, cwd=str(tmp_path), guarded_path=str(target), prime_args=_NO_TACH)
+    executor = _prepare_executor(
+        requested=True, cwd=str(tmp_path), guarded_path=str(target), forking=ForkingOptions(prime_args=tuple(_NO_TACH))
+    )
     assert isinstance(executor, ForkingExecutor)
 
 
@@ -157,7 +147,10 @@ def test_prepare_executor_does_not_import_subprocess_module_when_forking_succeed
     monkeypatch.delattr(mutate4py, "_subprocess_executor", raising=False)
     (tmp_path / "conftest.py").write_text("")
     _prepare_executor(
-        requested=True, cwd=str(tmp_path), guarded_path=str(tmp_path / "not_imported.py"), prime_args=_NO_TACH
+        requested=True,
+        cwd=str(tmp_path),
+        guarded_path=str(tmp_path / "not_imported.py"),
+        forking=ForkingOptions(prime_args=tuple(_NO_TACH)),
     )
     assert "mutate4py._subprocess_executor" not in sys.modules
 
@@ -188,18 +181,18 @@ class _RecordingServer:
 
 
 @pytest.mark.unit
-def test_select_executor_primes_a_fork_server_with_the_runs_plugin_blocks_for_a_serial_forking_run(
+def test_select_executor_primes_a_fork_server_with_the_runs_plugin_blocks_and_ran_at_import_lines(
     tmp_path, monkeypatch
 ):
     monkeypatch.setattr("mutate4py._worker_protocol.fork_server", lambda **kwargs: _RecordingServer(**kwargs))
     monkeypatch.setattr("mutate4py._forking_executor.is_available", lambda: True)
 
     chosen = select_executor(
-        use_parallel=False,
         no_fork_reason=None,
         cwd=str(tmp_path),
         guarded_path=str(tmp_path / "x.py"),
         pytest_args=["-q", "-p", "no:tach", "tests"],
+        ran_at_import=frozenset({3}),
     )
 
     assert chosen.primed
@@ -207,6 +200,7 @@ def test_select_executor_primes_a_fork_server_with_the_runs_plugin_blocks_for_a_
         "cwd": str(tmp_path),
         "guarded_path": str(tmp_path / "x.py"),
         "prime_args": ["-p", "no:tach"],
+        "ran_at_import": frozenset({3}),
     }
 
 
@@ -218,6 +212,6 @@ def test_select_executor_on_a_platform_without_fork_starts_no_fork_server(tmp_pa
     monkeypatch.setattr("mutate4py._worker_protocol.fork_server", refuse)
     monkeypatch.setattr("mutate4py._forking_executor.is_available", lambda: False)
 
-    chosen = select_executor(use_parallel=False, no_fork_reason=None, cwd=str(tmp_path), guarded_path="x.py")
+    chosen = select_executor(no_fork_reason=None, cwd=str(tmp_path), guarded_path="x.py")
 
     assert chosen.describe().render() == "subprocess (the forking executor needs a POSIX platform)"

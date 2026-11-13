@@ -10,6 +10,7 @@ executor. See tach.toml for why this module may not sit in a layer above
 `execution_backends`.
 """
 
+import dataclasses
 import logging
 from collections.abc import Sequence
 
@@ -18,29 +19,38 @@ from mutate4py._plugin_neutralisation import disabled_plugin_args
 
 _logger = logging.getLogger(__name__)
 
-__all__ = ["_prepare_executor", "select_executor"]
+__all__ = ["ForkingOptions", "_prepare_executor", "select_executor"]
+
+
+@dataclasses.dataclass(frozen=True)
+class ForkingOptions:
+    """What a forking executor primes with: the run's own `-p no:<name>` blocks, and
+    the guarded file's lines the Measurement saw run at import, whose changed
+    bodies swap mode refuses to swap."""
+
+    prime_args: tuple[str, ...] = ()
+    ran_at_import: frozenset[int] = frozenset()
 
 
 def select_executor(
     *,
-    use_parallel: bool,
     no_fork_reason: str | None,
     cwd: str,
     guarded_path: str,
     pytest_args: Sequence[str] = (),
-) -> Executor | None:
-    """Pick the executor for a run the caller supplied none for: None when a
-    parallel run defers priming to each Worker's own process (issue 04b); a
-    primed fork server when the forking executor is wanted and this platform
-    can fork; a primed subprocess executor otherwise. no_fork_reason is None
+    ran_at_import: frozenset[int] = frozenset(),
+) -> Executor:
+    """Pick the executor for a serial run the caller supplied none for (a parallel
+    run primes one in each Worker's own process instead): a primed fork server
+    when the forking executor is wanted and this platform can fork; a primed
+    subprocess executor otherwise. no_fork_reason is None
     when the forking executor is wanted; otherwise it is the reason the
     subprocess executor reports for not forking. The fork server primes with
-    the run's own `-p no:<name>` blocks from pytest_args.
+    the run's own `-p no:<name>` blocks from pytest_args; ran_at_import are the
+    guarded file's lines the Measurement saw run at import (swap mode refuses them).
     """
-    if use_parallel:
-        return None
     if no_fork_reason is None and _can_fork():
-        return _primed_fork_server(cwd, guarded_path, pytest_args)
+        return _primed_fork_server(cwd, guarded_path, pytest_args, ran_at_import)
     return _prepare_executor(
         requested=no_fork_reason is None, cwd=cwd, guarded_path=guarded_path, no_fork_reason=no_fork_reason or ""
     )
@@ -52,10 +62,17 @@ def _can_fork() -> bool:
     return is_available()
 
 
-def _primed_fork_server(cwd: str, guarded_path: str, pytest_args: Sequence[str]) -> Executor:
+def _primed_fork_server(
+    cwd: str, guarded_path: str, pytest_args: Sequence[str], ran_at_import: frozenset[int]
+) -> Executor:
     from mutate4py._worker_protocol import fork_server
 
-    server = fork_server(cwd=cwd, guarded_path=guarded_path, prime_args=disabled_plugin_args(list(pytest_args)))
+    server = fork_server(
+        cwd=cwd,
+        guarded_path=guarded_path,
+        prime_args=disabled_plugin_args(list(pytest_args)),
+        ran_at_import=ran_at_import,
+    )
     server.prime()
     return server
 
@@ -66,7 +83,7 @@ def _prepare_executor(
     cwd: str,
     guarded_path: str,
     no_fork_reason: str = "--no-fork",
-    prime_args: Sequence[str] = (),
+    forking: ForkingOptions = ForkingOptions(),
 ) -> Executor:
     """Return a primed Executor: the forking executor when requested and
     eligible, the subprocess executor otherwise.
@@ -84,7 +101,9 @@ def _prepare_executor(
             reason = "the forking executor needs a POSIX platform"
             _logger.info("note: the forking executor needs a POSIX platform; using the subprocess executor instead.")
         else:
-            executor = ForkingExecutor(cwd=cwd, guarded_path=guarded_path, prime_args=prime_args)
+            executor = ForkingExecutor(
+                cwd=cwd, guarded_path=guarded_path, prime_args=forking.prime_args, ran_at_import=forking.ran_at_import
+            )
             try:
                 executor.prime()
                 return executor

@@ -1,31 +1,24 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T06:55:41Z",
-  "module_hash": "fd183266b76f5f43f5d5630395d1ad9c54e4ae653a87e4f61849ee735be19976",
-  "source_sha256": "3634a2267f12da71157331f2b092578a03d91c923d206b1fa7af4b824e8bd5d7",
+  "tested_at": "2026-11-13T17:57:16Z",
+  "module_hash": "96792a58c89ccad01b6c0401c19506994b17dff7d74b851010b306f7fb29ca22",
+  "source_sha256": "822b160bcc303f2c53bfcc6ccb671136c67ca68d121f58e816fd19e246ee71b4",
   "functions": [
     {
       "id": "func/SwapPlan.apply",
       "name": "apply",
-      "line": 40,
-      "end_line": 51,
-      "hash": "423962c404fc704337dc6b876b5d4426aff823b4299097ba3452706a099f03fd",
-      "score": {
-        "killed": 0,
-        "survived": 0,
-        "uncovered": 0
-      },
-      "survivors": [],
-      "accepted": []
+      "line": 47,
+      "end_line": 60,
+      "hash": "0f589f3ab121b2de36535ade1b26be7e8e28993ee6c5af67caa5714310fb5791"
     },
     {
       "id": "func/plan_swap",
       "name": "plan_swap",
-      "line": 54,
-      "end_line": 65,
-      "hash": "4dc6e688cdd707ddef5f8425f519aadfd6765f1460227fa028aa40b2e2f9d7ee",
+      "line": 63,
+      "end_line": 78,
+      "hash": "b79401253320f642dda592eb795374a4ecf7102f80176b659c9a469126db9f12",
       "score": {
-        "killed": 4,
+        "killed": 6,
         "survived": 0,
         "uncovered": 0
       },
@@ -35,8 +28,8 @@
     {
       "id": "func/_changed_keys",
       "name": "_changed_keys",
-      "line": 68,
-      "end_line": 69,
+      "line": 81,
+      "end_line": 82,
       "hash": "c1e15b14f8e815d30ca45a2b88ab0654636a88e534e95ff5b50cc9b2d96a31ef",
       "score": {
         "killed": 3,
@@ -49,8 +42,8 @@
     {
       "id": "func/_swappable_tops",
       "name": "_swappable_tops",
-      "line": 72,
-      "end_line": 74,
+      "line": 85,
+      "end_line": 87,
       "hash": "81aaed5511c3416beb1ae5e2e59552b02d340a20bad96c7137037928ee79fd85",
       "score": {
         "killed": 1,
@@ -61,13 +54,13 @@
       "accepted": []
     },
     {
-      "id": "func/_refusal",
-      "name": "_refusal",
-      "line": 77,
-      "end_line": 93,
-      "hash": "99316cc2aee4775382d4bb5c9242833b184e0cbf0a0ee652405b15cf27b9ead9",
+      "id": "func/_changed_nested",
+      "name": "_changed_nested",
+      "line": 90,
+      "end_line": 100,
+      "hash": "1c8ce6a2364412345d7c6c8c5c76fe0f40c394487a7488cca88bbb25ccafe9d4",
       "score": {
-        "killed": 0,
+        "killed": 5,
         "survived": 0,
         "uncovered": 0
       },
@@ -75,11 +68,18 @@
       "accepted": []
     },
     {
+      "id": "func/_refusal",
+      "name": "_refusal",
+      "line": 103,
+      "end_line": 119,
+      "hash": "060cf18edd57fed783bb1ba0c75f8fde5f4f65fb26439197baec5093afdd3111"
+    },
+    {
       "id": "func/_freevars_changed",
       "name": "_freevars_changed",
-      "line": 96,
-      "end_line": 97,
-      "hash": "b64e1a2c7afae03f670e0add87f6184b62a9c24099b8e79db18b0e8a58245046",
+      "line": 122,
+      "end_line": 123,
+      "hash": "2b8af669f877264c5c8f06c7c9ae80b6e45ce20589474c5e0d7716b11fb0c3a4",
       "score": {
         "killed": 3,
         "survived": 0,
@@ -91,8 +91,8 @@
     {
       "id": "func/_import_time_changed",
       "name": "_import_time_changed",
-      "line": 100,
-      "end_line": 101,
+      "line": 126,
+      "end_line": 127,
       "hash": "03ec527f6d9252ad1329fd0d757d452566f668e2dec053513a6af12421ab6627",
       "score": {
         "killed": 1,
@@ -105,8 +105,8 @@
     {
       "id": "func/_body_ran_at_import",
       "name": "_body_ran_at_import",
-      "line": 104,
-      "end_line": 105,
+      "line": 130,
+      "end_line": 131,
       "hash": "2ad2c4da8e2d9de3033451d1d0348942b75bdf504c22df630f4bcbf7da047df3",
       "score": {
         "killed": 1,
@@ -119,8 +119,8 @@
     {
       "id": "func/_function_like",
       "name": "_function_like",
-      "line": 108,
-      "end_line": 109,
+      "line": 134,
+      "end_line": 135,
       "hash": "ab9de7d835bb5d2141ac5f8022ced9cae0d09461c087c1edf7241dad0bbc91ed",
       "score": {
         "killed": 0,
@@ -133,8 +133,8 @@
     {
       "id": "func/_runs_at_import",
       "name": "_runs_at_import",
-      "line": 112,
-      "end_line": 115,
+      "line": 138,
+      "end_line": 141,
       "hash": "8127cc65e8a8a024633f731b70c2871152904343f8e12e095a4e64b38abc7b91",
       "score": {
         "killed": 3,
@@ -147,8 +147,8 @@
     {
       "id": "func/_outermost_function",
       "name": "_outermost_function",
-      "line": 118,
-      "end_line": 128,
+      "line": 144,
+      "end_line": 154,
       "hash": "f4342d2e0f30007da9d05552492eddc0d6a4d7f4742027129081bcf397ad50a5",
       "score": {
         "killed": 4,
@@ -161,8 +161,8 @@
     {
       "id": "func/_body_lines",
       "name": "_body_lines",
-      "line": 134,
-      "end_line": 142,
+      "line": 160,
+      "end_line": 168,
       "hash": "1431ad47f91bf86bf8718ee2a33eca7195d5152622f538cf5fbf109cd8a4339a",
       "score": {
         "killed": 2,
@@ -175,8 +175,8 @@
     {
       "id": "func/_shape",
       "name": "_shape",
-      "line": 145,
-      "end_line": 147,
+      "line": 171,
+      "end_line": 173,
       "hash": "2710d3b1f158eb6b1fe6667acfef808357c4f86a1f973d5baa9a10a960b8c7c8",
       "score": {
         "killed": 0,
@@ -189,8 +189,8 @@
     {
       "id": "func/_compile",
       "name": "_compile",
-      "line": 150,
-      "end_line": 152,
+      "line": 176,
+      "end_line": 178,
       "hash": "edfee4bd8e1b6c5ff9de523e5a8b0019aa26f7d183fba9c446a0cfd56285b1e1",
       "score": {
         "killed": 1,
@@ -203,8 +203,8 @@
     {
       "id": "func/_is_live_match",
       "name": "_is_live_match",
-      "line": 155,
-      "end_line": 156,
+      "line": 181,
+      "end_line": 182,
       "hash": "aeb74aa01197702b732840605bafabf767518ad568922b0ff6abdd9aed75dab5",
       "score": {
         "killed": 3,
@@ -217,8 +217,8 @@
     {
       "id": "func/_live_functions",
       "name": "_live_functions",
-      "line": 159,
-      "end_line": 160,
+      "line": 185,
+      "end_line": 186,
       "hash": "34ce1003a1c1fd633082539288149ce974cdbb706ce447665bdbc9e10dea4c23",
       "score": {
         "killed": 0,
@@ -231,8 +231,8 @@
     {
       "id": "func/_targets",
       "name": "_targets",
-      "line": 163,
-      "end_line": 174,
+      "line": 189,
+      "end_line": 200,
       "hash": "206d636a85872cccc1c34b8e4877dfa07f63955eb8e4d60ec84ee275c575a888",
       "score": {
         "killed": 1,
@@ -243,10 +243,17 @@
       "accepted": []
     },
     {
+      "id": "func/_optional_targets",
+      "name": "_optional_targets",
+      "line": 203,
+      "end_line": 207,
+      "hash": "8f5ca83f58c774c1affb4a2cf8c88d89137c09b38652e97a1459840f1b3fed32"
+    },
+    {
       "id": "func/_index",
       "name": "_index",
-      "line": 177,
-      "end_line": 191,
+      "line": 210,
+      "end_line": 224,
       "hash": "dfcccb6cef3467fda695e8b3f74817e47fb4729cb5ed67b7de13235bf5005505",
       "score": {
         "killed": 1,
@@ -259,8 +266,8 @@
     {
       "id": "func/_shallow_key",
       "name": "_shallow_key",
-      "line": 194,
-      "end_line": 208,
+      "line": 227,
+      "end_line": 241,
       "hash": "cc9c52912cefc3a8a97015b4bfd3cb0384436d5a1cc5748347dfd723b73e3854",
       "score": {
         "killed": 0,
@@ -273,8 +280,8 @@
     {
       "id": "func/_typed_constants",
       "name": "_typed_constants",
-      "line": 211,
-      "end_line": 213,
+      "line": 244,
+      "end_line": 246,
       "hash": "f8a02a35c3a2d55434d5a8f52b789a86b04abe30f4c8a359b9e5b4b0be3ebef8",
       "score": {
         "killed": 0,
@@ -287,8 +294,8 @@
     {
       "id": "func/_typed_constant",
       "name": "_typed_constant",
-      "line": 216,
-      "end_line": 221,
+      "line": 249,
+      "end_line": 254,
       "hash": "6dc696a3da4a1b3d5b8d324da661f68689f3af9703099a235bbd2cb6680e7915",
       "score": {
         "killed": 0,

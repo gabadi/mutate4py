@@ -71,8 +71,8 @@ def test_two_workers_get_distinct_test_databases_with_reuse_db(tmp_path):
     )
 
 
-# ── a Mutant in an app-loaded module runs in a fresh interpreter and is
-#    killed correctly, with no whole-run fallback (checklist item 5) ──────────
+# ── an app-loaded module is swapped, its class-body Site runs in a fresh
+#    interpreter, and both classify correctly with no whole-run fallback ─────
 
 # This repo's environment has tach, a fork-unsafe plugin: a run that does not
 # block it gets the subprocess executor.
@@ -80,15 +80,16 @@ _PYTEST_ARGS = "--pytest-args=-p no:tach -q"
 
 
 @pytest.mark.integration
-def test_app_loaded_module_runs_each_mutant_in_a_fresh_interpreter_and_is_killed(tmp_path):
+def test_app_loaded_module_swaps_its_method_body_and_runs_its_class_body_site_in_a_fresh_interpreter(tmp_path):
     project = _copy_fixture(tmp_path)
     # The whole file is mutated (no selection flag). Line 11 (votes default) survives: no test pins it,
     # so the run exits 3 unless --allow-survivors accepts it. The assertions below are about the
-    # fresh-interpreter mode and the line-14 kill, not about the survivor.
+    # executor modes and the line-14 kill, not about the survivor.
     result = _run_cli(project, ["polls/models.py", "--allow-survivors", _PYTEST_ARGS])
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "Executor: forking (fresh import 0, swap 0, fresh interpreter 2)" in result.stdout, (
-        "polls/models.py is imported by django.setup() during priming, so its Mutants run in a fresh interpreter"
+    assert "Executor: forking (fresh import 0, swap 1, fresh interpreter 1)" in result.stdout, (
+        "polls/models.py is imported by django.setup() during priming: the is_popular body is swapped,"
+        " the class-body default runs in a fresh interpreter"
     )
     assert "Killed: 1" in result.stdout
     assert "Survived: 1" in result.stdout

@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T17:18:57Z",
-  "module_hash": "8a5952a7769fe3fc2075c873d0a269422b051b0bcd5456e0ff4b91dc30c4e6ab",
-  "source_sha256": "062e55ceb19ad5fe6f65a98b2081d210e4b85feba2f278161b667a9f9805cd4d",
+  "tested_at": "2026-11-13T18:30:28Z",
+  "module_hash": "0760019877cd0420604ceac2b2f8a2659222c08be616e9c2b8b9a7537429edd6",
+  "source_sha256": "7ce7e2dbf06fe27f1f43771171bbd8eb7e062eb30d6b945bf3956c5443429f5f",
   "functions": [
     {
       "id": "func/_print_lines",
@@ -29,63 +29,63 @@
       "id": "func/_prepare_baseline_and_executor",
       "name": "_prepare_baseline_and_executor",
       "line": 120,
-      "end_line": 157,
-      "hash": "03aefea727fff7a47986b93266115d686df0f0ae44fd5999c3ebf04f7b315107"
+      "end_line": 158,
+      "hash": "f4f606858f811e862be6a103c9b44f820537ba8b44600f9bdc7f811788b93cfa"
     },
     {
       "id": "func/_select_and_prepare",
       "name": "_select_and_prepare",
-      "line": 160,
-      "end_line": 225,
+      "line": 161,
+      "end_line": 226,
       "hash": "50766092f17b184638614686e2a9066d554ad5b53ca60f35624616d7d1847e8b"
     },
     {
       "id": "func/_recorded_survivor_keys",
       "name": "_recorded_survivor_keys",
-      "line": 228,
-      "end_line": 232,
+      "line": 229,
+      "end_line": 233,
       "hash": "2caf9f350eb375bc9a0154107e5892a37bc35603559ebd8b29828156b307bdc3"
     },
     {
       "id": "func/_scored_run_for",
       "name": "_scored_run_for",
-      "line": 235,
-      "end_line": 249,
+      "line": 236,
+      "end_line": 250,
       "hash": "c721eb5dbab34f508f0b6a269fd8ba77d976ad61fe4334eb195c68499d885a1e"
     },
     {
       "id": "func/_mutant_exec_ctx",
       "name": "_mutant_exec_ctx",
-      "line": 252,
-      "end_line": 274,
-      "hash": "87c87b646d2858cb781856252a75e4a7614ee1348aef70e6a53516eeba41705d"
+      "line": 253,
+      "end_line": 276,
+      "hash": "5c7b861f9d9b4228ae29509787cad0075b6cd4dfec7154df64d7260fe62b74e5"
     },
     {
       "id": "func/_close_executor",
       "name": "_close_executor",
-      "line": 277,
-      "end_line": 284,
+      "line": 279,
+      "end_line": 286,
       "hash": "34bb68caac8ddacea2a9276699f884efc53f54a2f7302ff1758cd23559788815"
     },
     {
       "id": "func/run_mutations",
       "name": "run_mutations",
-      "line": 287,
-      "end_line": 300,
+      "line": 289,
+      "end_line": 302,
       "hash": "a913b808b21ba46ab1de6a58d2f02a28468b1291c61052da41d5cca90be28754"
     },
     {
       "id": "func/_run_loop",
       "name": "_run_loop",
-      "line": 303,
-      "end_line": 339,
+      "line": 305,
+      "end_line": 341,
       "hash": "0cb06ce06e7f4f69668d6c2dd9d34306be0e73b8127f604ffdf7fb3a23eaac3c"
     },
     {
       "id": "func/_report_run",
       "name": "_report_run",
-      "line": 342,
-      "end_line": 366,
+      "line": 344,
+      "end_line": 368,
       "hash": "40786b071175ba4844a44dba01667aa34eb31f472018f771b527f9bc886d84c8"
     }
   ]

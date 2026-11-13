@@ -55,9 +55,9 @@ def test_a_file_the_process_loaded_before_prime_is_a_harness_file(tmp_path):
 
 
 @pytest.mark.unit
-def test_a_file_prime_imported_is_loaded(tmp_path):
+def test_a_file_prime_imported_is_swapped(tmp_path):
     target = str(tmp_path / "models.py")
-    assert file_mode(target, harness_files=set(), loaded_after_prime={target}) == "loaded"
+    assert file_mode(target, harness_files=set(), loaded_after_prime={target}) == "swap"
 
 
 @pytest.mark.unit
@@ -73,7 +73,7 @@ def test_file_mode_compares_real_paths(tmp_path):
     real.write_text("")
     link = tmp_path / "link.py"
     link.symlink_to(real)
-    assert file_mode(str(link), harness_files=set(), loaded_after_prime={os.path.realpath(real)}) == "loaded"
+    assert file_mode(str(link), harness_files=set(), loaded_after_prime={os.path.realpath(real)}) == "swap"
 
 
 # --- loaded_files ------------------------------------------------------------
@@ -399,7 +399,7 @@ def test_prime_refuses_a_session_that_registers_a_fork_unsafe_plugin(tmp_path):
 
 
 @pytest.mark.component
-def test_a_target_the_conftest_imports_runs_in_a_fresh_interpreter_that_reads_the_mutation(tmp_path):
+def test_a_target_the_conftest_imports_is_swapped_into_its_live_function(tmp_path):
     cwd, target = _write_fixture_project(
         tmp_path,
         target_body="def add(a, b):\n    return a + b\n",
@@ -412,7 +412,23 @@ def test_a_target_the_conftest_imports_runs_in_a_fresh_interpreter_that_reads_th
     with open(target, "w") as f:
         f.write("def add(a, b):\n    return a - b\n")
     assert executor.run(_ARGS, timeout=30.0) == "killed"
-    assert executor.describe().render() == "forking (fresh import 0, swap 0, fresh interpreter 2)"
+    assert executor.describe().render() == "forking (fresh import 0, swap 2, fresh interpreter 0)"
+
+
+@pytest.mark.component
+def test_a_swap_the_import_time_check_refuses_runs_in_a_fresh_interpreter(tmp_path):
+    cwd, target = _write_fixture_project(
+        tmp_path,
+        target_body="def add(a, b):\n    return a + b\n\n\nSEED = add(1, 1)\n",
+        test_body=_ADD_TEST_BODY,
+        conftest_body="import {mod}\n",
+    )
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH, ran_at_import=frozenset({2}))
+    executor.prime()
+    with open(target, "w") as f:
+        f.write("def add(a, b):\n    return a - b\n\n\nSEED = add(1, 1)\n")
+    assert executor.run(_ARGS, timeout=30.0) == "killed"
+    assert executor.describe().render() == "forking (fresh import 0, swap 0, fresh interpreter 1)"
 
 
 # --- _wait_for_child ---------------------------------------------------------

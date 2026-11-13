@@ -88,13 +88,16 @@ class ServerLaunch:
     `-p no:<name>` blocks the forking executor primes with; `python` is the
     interpreter it runs under, None meaning the Worker venv's own (which must
     import pytest, checked at prime). A fork server runs under the Project
-    environment's instead (`fork_server`).
+    environment's instead (`fork_server`). `ran_at_import` are the guarded
+    file's lines the Measurement saw run under the Empty context, which swap
+    mode refuses to swap.
     """
 
     forking_requested: bool = True
     worker_id: str | None = None
     prime_args: tuple[str, ...] = ()
     python: str | None = None
+    ran_at_import: frozenset[int] = frozenset()
 
 
 def _launch_python(worker_root: str, launch: ServerLaunch) -> str:
@@ -105,8 +108,9 @@ def worker_server_argv(*, worker_root: str, guarded_path: str, launch: ServerLau
     """Argv that starts one `_worker_server` for this Worker.
 
     Every element is a string because it crosses a process boundary as argv:
-    the forking request becomes "1"/"0" and an absent worker_id becomes "",
-    which `_worker_server.main` reads back as None. The prime args follow.
+    the forking request becomes "1"/"0", an absent worker_id becomes "",
+    which `_worker_server.main` reads back as None, and the ran-at-import lines
+    become one comma-joined slot. The prime args follow.
     """
     return [
         _launch_python(worker_root, launch),
@@ -116,6 +120,7 @@ def worker_server_argv(*, worker_root: str, guarded_path: str, launch: ServerLau
         guarded_path,
         "1" if launch.forking_requested else "0",
         launch.worker_id or "",
+        ",".join(str(line) for line in sorted(launch.ran_at_import)),
         *launch.prime_args,
     ]
 
@@ -241,7 +246,9 @@ class WorkerProcessExecutor:
         _shutdown_process(self._proc)
 
 
-def fork_server(*, cwd: str, guarded_path: str, prime_args: Sequence[str]) -> WorkerProcessExecutor:
+def fork_server(
+    *, cwd: str, guarded_path: str, prime_args: Sequence[str], ran_at_import: frozenset[int] = frozenset()
+) -> WorkerProcessExecutor:
     """The executor a serial forking run primes: one Worker server over the
     project tree itself (no clone), under the Project environment this
     process runs in. It primes the forking executor, so the orchestrator,
@@ -252,5 +259,5 @@ def fork_server(*, cwd: str, guarded_path: str, prime_args: Sequence[str]) -> Wo
         worker_root=cwd,
         guarded_path=guarded_path,
         source_root=cwd,
-        launch=ServerLaunch(prime_args=tuple(prime_args), python=sys.executable),
+        launch=ServerLaunch(prime_args=tuple(prime_args), python=sys.executable, ran_at_import=ran_at_import),
     )

@@ -27,7 +27,7 @@ from collections.abc import Sequence
 from typing import TextIO
 
 from mutate4py._executor import Executor
-from mutate4py._executor_selection import _prepare_executor
+from mutate4py._executor_selection import ForkingOptions, _prepare_executor
 from mutate4py._plugin_neutralisation import neutralising_args
 
 __all__ = ["WorkerServerArgs", "main", "parse_worker_argv", "worker_environ_updates"]
@@ -44,6 +44,7 @@ class WorkerServerArgs:
     forking_requested: bool
     worker_id: str | None
     prime_args: tuple[str, ...] = ()
+    ran_at_import: frozenset[int] = frozenset()
 
 
 def parse_worker_argv(argv: list[str]) -> WorkerServerArgs:
@@ -51,6 +52,7 @@ def parse_worker_argv(argv: list[str]) -> WorkerServerArgs:
 
     The worker_id slot is optional and may be present but empty (that is how
     the encoder spells "this Worker has no id"); both spellings decode to None.
+    The ran-at-import slot is likewise optional, empty meaning no lines.
     Everything after it is the prime args.
     """
     return WorkerServerArgs(
@@ -58,8 +60,13 @@ def parse_worker_argv(argv: list[str]) -> WorkerServerArgs:
         guarded_path=argv[1],
         forking_requested=argv[2] == "1",
         worker_id=argv[3] if len(argv) > 3 and argv[3] else None,
-        prime_args=tuple(argv[4:]),
+        prime_args=tuple(argv[5:]),
+        ran_at_import=_decode_lines(argv[4] if len(argv) > 4 else ""),
     )
+
+
+def _decode_lines(slot: str) -> frozenset[int]:
+    return frozenset(int(line) for line in slot.split(",") if line)
 
 
 def worker_environ_updates(worker_id: str | None) -> dict[str, str]:
@@ -106,7 +113,10 @@ def main(argv: list[str]) -> None:
     args = parse_worker_argv(argv)
     os.environ.update(worker_environ_updates(args.worker_id))
     executor = _prepare_executor(
-        requested=args.forking_requested, cwd=args.cwd, guarded_path=args.guarded_path, prime_args=args.prime_args
+        requested=args.forking_requested,
+        cwd=args.cwd,
+        guarded_path=args.guarded_path,
+        forking=ForkingOptions(prime_args=args.prime_args, ran_at_import=args.ran_at_import),
     )
     sys.stdout.write(json.dumps({"ready": True}) + "\n")
     sys.stdout.flush()

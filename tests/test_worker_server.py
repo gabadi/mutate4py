@@ -38,6 +38,18 @@ def test_parse_worker_argv_treats_a_missing_worker_id_slot_as_absent():
 
 
 @pytest.mark.unit
+def test_parse_worker_argv_reads_an_empty_or_missing_ran_at_import_slot_as_no_lines():
+    assert parse_worker_argv(["/w", "/w/calc.py", "1", "", ""]).ran_at_import == frozenset()
+    assert parse_worker_argv(["/w", "/w/calc.py", "1", ""]).ran_at_import == frozenset()
+
+
+@pytest.mark.unit
+def test_parse_worker_argv_reads_the_ran_at_import_lines_and_the_prime_args_after_them():
+    args = parse_worker_argv(["/w", "/w/calc.py", "1", "", "4,7", "-p", "no:tach"])
+    assert (args.ran_at_import, args.prime_args) == (frozenset({4, 7}), ("-p", "no:tach"))
+
+
+@pytest.mark.unit
 def test_worker_environ_updates_exports_the_worker_id():
     assert worker_environ_updates("gw2") == {"MUTATE4PY_WORKER_ID": "gw2"}
 

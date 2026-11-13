@@ -55,7 +55,7 @@ def test_worker_server_argv_runs_under_the_worker_venv_not_the_orchestrator():
     )
     assert argv[0] == os.path.join(os.path.abspath("/w"), ".venv", "bin", "python")
     assert argv[0] != sys.executable
-    assert argv[1:] == ["-m", "mutate4py._worker_server", "/w", "/w/calc.py", "1", "gw1"]
+    assert argv[1:] == ["-m", "mutate4py._worker_server", "/w", "/w/calc.py", "1", "gw1", ""]
 
 
 @pytest.mark.unit
@@ -83,6 +83,20 @@ def test_worker_server_argv_round_trips_the_prime_args_and_an_interpreter_overri
     )
     assert argv[:3] == ["/project/.venv/bin/python", "-m", "mutate4py._worker_server"]
     assert parse_worker_argv(argv[3:]).prime_args == ("-p", "no:tach")
+
+
+@pytest.mark.unit
+def test_worker_server_argv_round_trips_the_lines_that_ran_at_import():
+    from mutate4py._worker_server import parse_worker_argv
+
+    argv = worker_server_argv(
+        worker_root="/w",
+        guarded_path="/w/calc.py",
+        launch=ServerLaunch(ran_at_import=frozenset({12, 3}), prime_args=("-p", "no:tach")),
+    )
+    assert argv[7] == "3,12"
+    parsed = parse_worker_argv(argv[3:])
+    assert (parsed.ran_at_import, parsed.prime_args) == (frozenset({3, 12}), ("-p", "no:tach"))
 
 
 @pytest.mark.unit
@@ -611,7 +625,7 @@ def test_worker_server_runs_an_already_imported_target_in_a_fresh_interpreter(
         os.close(write_fd)
         try:
             # This repo's environment has tach, a fork-unsafe plugin: the prime blocks it.
-            worker_server_mod.main([str(tmp_path), str(target), "1", "", "-p", "no:tach"])
+            worker_server_mod.main([str(tmp_path), str(target), "1", "", "", "-p", "no:tach"])
             sys.stdout.flush()
         finally:
             os.dup2(saved_stdout_fd, 1)

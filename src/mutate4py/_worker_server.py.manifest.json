@@ -1,43 +1,50 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T16:25:35Z",
-  "module_hash": "5ab2230d4f77e6c5c74fc7158b129fe6c12a806324be722d80d1d1e88c3f8378",
-  "source_sha256": "88606fda54c499b63719752c99a5f1e41cbe015f5e7d45911f32a33682447b1a",
+  "tested_at": "2026-11-13T17:49:40Z",
+  "module_hash": "bf6c65258d5b635f374c65ae45a50b23a0b4d27ef44a64f33e0d732ba9e150c3",
+  "source_sha256": "e84f6bb47fc05388fb3c6c204c9bb7804f262e897a0f3af257e856da057263f1",
   "functions": [
     {
       "id": "func/parse_worker_argv",
       "name": "parse_worker_argv",
-      "line": 49,
-      "end_line": 62,
-      "hash": "c90729acd08b9a9c7acd174536e8955e59833792a3632ce7c3466c2b0505364a"
+      "line": 50,
+      "end_line": 65,
+      "hash": "d3e72d320bc9afb89bcb039753a707305e42a7158228eb317bccf97f94704542"
+    },
+    {
+      "id": "func/_decode_lines",
+      "name": "_decode_lines",
+      "line": 68,
+      "end_line": 69,
+      "hash": "b69ab8cfd05b8bed64439797168cee008020e809825af8261e4d03cb28161e34"
     },
     {
       "id": "func/worker_environ_updates",
       "name": "worker_environ_updates",
-      "line": 65,
-      "end_line": 71,
+      "line": 72,
+      "end_line": 78,
       "hash": "50f7085bd370cf2ca19d5beaec689cd65677624786938cdf78d83b0499bf4ec7"
     },
     {
       "id": "func/_worker_plugin_args",
       "name": "_worker_plugin_args",
-      "line": 74,
-      "end_line": 79,
+      "line": 81,
+      "end_line": 86,
       "hash": "6d1637f153fd54c297d12846fa7d733b5b5ba97ced61e4d9969585189111c41b"
     },
     {
       "id": "func/_serve",
       "name": "_serve",
-      "line": 82,
-      "end_line": 96,
+      "line": 89,
+      "end_line": 103,
       "hash": "6fa13c89c2411d668ff51e04ddfe56a01999dec468bebe024c9ca77f4afa5c20"
     },
     {
       "id": "func/main",
       "name": "main",
-      "line": 99,
-      "end_line": 113,
-      "hash": "e47b288cbb04e7e91f290416960b6c6a425be84e29f05cc2d7fad6c97d9565a6"
+      "line": 106,
+      "end_line": 123,
+      "hash": "2215f698b840f8c0684f9f5ef382398ff77f01184c116c9146e5547814f84827"
     }
   ]
 }
