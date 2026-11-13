@@ -152,3 +152,11 @@ def test_a_file_not_in_swap_mode_has_no_swap_side(tmp_path, mode):
     path = _guarded(tmp_path, _CLEAN)
     _load(_CLEAN, path)
     assert swap_side(mode, path, frozenset({1})) == (SwapSource("", path, frozenset({1})), [])
+
+
+@pytest.mark.unit
+def test_a_swap_source_is_immutable():
+    import dataclasses
+
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        SwapSource(_CLEAN, "calc.py", frozenset()).clean_source = ""

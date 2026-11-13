@@ -1,85 +1,85 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T16:25:35Z",
-  "module_hash": "478e3ec5f47f59c95ce0830ea907cea4192138b0c9e3ae70de22fb765fb18384",
-  "source_sha256": "74792edb73f55a6f007ade0e075875979aa96effbfade318101fe3c133582ad8",
+  "tested_at": "2026-11-13T17:49:41Z",
+  "module_hash": "752c359e84c8e476c69938e5727024ef1ef120684bd3ed666b02c0b77a68c417",
+  "source_sha256": "d7d9aab0d8e5eeb0843ecf66d87711c6d5a9e7e4df9d7164d5d3404c3b86a8b9",
   "functions": [
     {
       "id": "func/_provision_worker",
       "name": "_provision_worker",
-      "line": 128,
-      "end_line": 138,
+      "line": 129,
+      "end_line": 139,
       "hash": "16d6e06e6a2e85e93ced6926f72bf332fa32d131f84d0ff61f93bcee315cbafe"
     },
     {
       "id": "func/_provision_worker_executors",
       "name": "_provision_worker_executors",
-      "line": 141,
-      "end_line": 169,
+      "line": 142,
+      "end_line": 170,
       "hash": "a82c69e3098672dda9fc23cec2f7ba3205c30e3c7d9c4c28980da9a4aca451d6"
     },
     {
       "id": "func/_run_one_site",
       "name": "_run_one_site",
-      "line": 172,
-      "end_line": 215,
+      "line": 173,
+      "end_line": 216,
       "hash": "4c81a36d4faae5b5ad0fb67d50ca19aab3232f931172abc17eac95a0c159fcea"
     },
     {
       "id": "func/_provision_workers",
       "name": "_provision_workers",
-      "line": 218,
-      "end_line": 232,
+      "line": 219,
+      "end_line": 233,
       "hash": "af48ec4edae5a7aabcf46044104824773e57c49cd9252f63a99b816da6d7853c"
     },
     {
       "id": "func/_prime_worker_executor",
       "name": "_prime_worker_executor",
-      "line": 235,
-      "end_line": 241,
+      "line": 236,
+      "end_line": 242,
       "hash": "efb2a3c97a62c28bd8922d0a30bc762854224e3a3bac5f434f751fc1e1e41f4e"
     },
     {
       "id": "func/_describe_worker_executor",
       "name": "_describe_worker_executor",
-      "line": 244,
-      "end_line": 250,
+      "line": 245,
+      "end_line": 251,
       "hash": "6a4b92731b61aa97f4a173b87511eb637e5886d7175584ee5b9aeab096b3266c"
     },
     {
       "id": "func/_close_worker_executor",
       "name": "_close_worker_executor",
-      "line": 253,
-      "end_line": 258,
+      "line": 254,
+      "end_line": 259,
       "hash": "f7e103b8830a98cdd5ccb02b20aa7163a01d4886b672ea07bdc06aa929a525d2"
     },
     {
       "id": "func/_dispatch_worker_groups",
       "name": "_dispatch_worker_groups",
-      "line": 261,
-      "end_line": 309,
+      "line": 262,
+      "end_line": 310,
       "hash": "7eaa93dbb0212a6c0fb606d6de9d4b636b90a37efc22a19270d94478590bc1db"
     },
     {
       "id": "func/_plan_inputs",
       "name": "_plan_inputs",
-      "line": 312,
-      "end_line": 319,
+      "line": 313,
+      "end_line": 320,
       "hash": "9a2b64f0c585354bb6ea7b4f11971b0d374ce2862c424d42880972d210a18924"
     },
     {
       "id": "func/_run_settings",
       "name": "_run_settings",
-      "line": 322,
-      "end_line": 327,
+      "line": 323,
+      "end_line": 328,
       "hash": "329ff8cee1409059084a053cc98a94455c864b792b89e9d40e6189b2cbb6f154"
     },
     {
       "id": "func/run_parallel",
       "name": "run_parallel",
-      "line": 330,
-      "end_line": 398,
-      "hash": "3e3342ca4359993a94778f6ddcac8a606727a79859a9d96729533ef8b8728363"
+      "line": 331,
+      "end_line": 400,
+      "hash": "ea3acfd78aa32d6809b253c203cb868dbdd760fdca4c7b1c3e511aaed06f9ca4"
     }
   ]
 }

@@ -1,36 +1,36 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T16:48:44Z",
-  "module_hash": "d3010a5587a5e6df18e0f04134d4eaff9f9dfdca1b879c1414d9036981b622a3",
-  "source_sha256": "5ce9e04e79fe6822074640273e8c7be6e286b447d02f2312822f5b04b3a756ab",
+  "tested_at": "2026-11-13T17:49:40Z",
+  "module_hash": "132b6a5b994f08aa796de81966723057d978832c22a613516f6c50165576bdb6",
+  "source_sha256": "948fc0e94a8800e1af82f392e98b86085848c0c78ee6e30f1a97bc8eeef056f5",
   "functions": [
     {
       "id": "func/select_executor",
       "name": "select_executor",
-      "line": 24,
-      "end_line": 46,
-      "hash": "8c9f68289a4f4130c19fc7bc6743c55b6677e90f390bcbb2e394d6b511f2124e"
+      "line": 35,
+      "end_line": 56,
+      "hash": "2a8a0e479b9c5be5ebe411b1a07c3583d6b0f130aadd9d735763aa17d2517cbc"
     },
     {
       "id": "func/_can_fork",
       "name": "_can_fork",
-      "line": 49,
-      "end_line": 52,
+      "line": 59,
+      "end_line": 62,
       "hash": "886a31ea010be9a8065c9c8bc0a5646f2b7be0c914aa52ebe07f2003ebd2511c"
     },
     {
       "id": "func/_primed_fork_server",
       "name": "_primed_fork_server",
-      "line": 55,
-      "end_line": 60,
-      "hash": "d2259fdfd09b34e6b4ee5e8505dfbe7d37c79e31573c19f2222f60ad4248e5dc"
+      "line": 65,
+      "end_line": 77,
+      "hash": "c1c4dbee144ddb7455af83464c0f39320ab1832a44c2e2b7fe9ed81cc0e10ccf"
     },
     {
       "id": "func/_prepare_executor",
       "name": "_prepare_executor",
-      "line": 63,
-      "end_line": 99,
-      "hash": "552cb46e0d71770b47979fdf0463cac9a07f28f52c689be39ea3b1033e5e91c1"
+      "line": 80,
+      "end_line": 118,
+      "hash": "240f868e4bb6d0e6f89be54bc75a97b2ee9b96a0f39f2c1136d0156ed4b4ebbf"
     }
   ]
 }

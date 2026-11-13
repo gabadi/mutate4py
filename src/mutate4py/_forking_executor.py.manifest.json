@@ -1,161 +1,161 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T16:53:27Z",
-  "module_hash": "a3f97f47d015ebbfc6e085ca0730fcd2d0b0c98412aacdf21ca7f02ee5da17af",
-  "source_sha256": "17432f6699a0e0221b33f24a15435490fe77b41d98a88591f3c25f2149289c2f",
+  "tested_at": "2026-11-13T17:49:40Z",
+  "module_hash": "5abdaab8f3cc9e9b10d54b59dd8251bf949326dc4938e46f9e918a5dcf15a2d2",
+  "source_sha256": "ade276179d92c1e770cd58869e373c8fd90d7c1b926ceadcc995c8e0a92dcfd8",
   "functions": [
     {
       "id": "func/ForkingExecutorUnavailable.reason",
       "name": "reason",
-      "line": 74,
-      "end_line": 76,
+      "line": 83,
+      "end_line": 85,
       "hash": "c5a26c75ef509e53a399a3c529b81936c82f29918addaac5e1dffe49097dd1d8"
     },
     {
       "id": "func/ForkUnsafePlugin.__init__",
       "name": "__init__",
-      "line": 82,
-      "end_line": 83,
+      "line": 91,
+      "end_line": 92,
       "hash": "3239ab690039aa29b6082c7cde3fb1035afe1ac151b32e5e7fd9a856ba61bd14"
     },
     {
       "id": "func/ForkUnsafePlugin.reason",
       "name": "reason",
-      "line": 86,
-      "end_line": 87,
+      "line": 95,
+      "end_line": 96,
       "hash": "017f0a4d64b36d35ca383089a33c6c4f8c69236686d7d9dcb379afd531a7dc15"
     },
     {
       "id": "func/refuse_fork_unsafe_plugins",
       "name": "refuse_fork_unsafe_plugins",
-      "line": 90,
-      "end_line": 96,
+      "line": 99,
+      "end_line": 105,
       "hash": "d8d2d67f315968e2d3faabe8ef32039da3d9b101b89c74dbf0f01b84296e0f0d"
     },
     {
       "id": "func/is_available",
       "name": "is_available",
-      "line": 99,
-      "end_line": 101,
+      "line": 108,
+      "end_line": 110,
       "hash": "5de088524027f935fa5a9c9c536d318f189bcc175a56f57f0bb575ae0cf0a1d2"
     },
     {
       "id": "func/loaded_files",
       "name": "loaded_files",
-      "line": 104,
-      "end_line": 107,
+      "line": 113,
+      "end_line": 116,
       "hash": "9a58f50b6539e1c820976a32339a57d108d6b0c66f532c10d6ba406d27741ebb"
     },
     {
       "id": "func/file_mode",
       "name": "file_mode",
-      "line": 110,
-      "end_line": 119,
-      "hash": "99431f73ac61cae599d1dc66bafc651b038bc7d858a8331cd85f46d5967be17b"
+      "line": 119,
+      "end_line": 128,
+      "hash": "6db43aa20d0cb60ae6934d416e59313a1efd03337cf40fe1c547a801ec43e394"
     },
     {
       "id": "func/_PluginRecorder.__init__",
       "name": "__init__",
-      "line": 125,
-      "end_line": 126,
+      "line": 138,
+      "end_line": 139,
       "hash": "2be81f991169d68ed8e426b944fc3f92ed6cbcb1f825d28eb6702fa80067a36c"
     },
     {
       "id": "func/_PluginRecorder.pytest_configure",
       "name": "pytest_configure",
-      "line": 128,
-      "end_line": 129,
+      "line": 141,
+      "end_line": 142,
       "hash": "e4fb6120cbe012c66f38490ba06fdc7617fdd55d09af6a2681577bb9209e4f71"
     },
     {
       "id": "func/ForkingExecutor.__init__",
       "name": "__init__",
-      "line": 141,
-      "end_line": 147,
-      "hash": "90179c879f89f5f3d2ed7859dd44254edf576c6c2a5f386c0bbb37d6f5e7de74"
+      "line": 154,
+      "end_line": 170,
+      "hash": "72a47063eca2023084e7e5f53d95e510818bd46c0c33c8b2b8a2810c0dc8fba9"
     },
     {
       "id": "func/ForkingExecutor.describe",
       "name": "describe",
-      "line": 149,
-      "end_line": 152,
-      "hash": "8b647c3592e858dc8670b763c285ff7a1946b2da667902e81453c25460cf963b"
+      "line": 172,
+      "end_line": 178,
+      "hash": "cc0ef26e216f27ca3f9c4af476e98696995783373cdb855044686de0e749edd3"
     },
     {
       "id": "func/ForkingExecutor.prime",
       "name": "prime",
-      "line": 154,
-      "end_line": 185,
-      "hash": "37bed07cffda812a921612c83cfa3b835cf9d74e42cd8dc2c240a3fd706673e8"
+      "line": 180,
+      "end_line": 212,
+      "hash": "a2a29ef205131f4eccb5b5157c5927e05639a1da347dfcfb18e64aa5fdeb491d"
     },
     {
       "id": "func/ForkingExecutor._fork_and_wait",
       "name": "_fork_and_wait",
-      "line": 187,
-      "end_line": 198,
+      "line": 214,
+      "end_line": 225,
       "hash": "13af05a9545558497f3d374659ae1c8afdd15c27db5fb58bb69624b69325197b"
     },
     {
       "id": "func/ForkingExecutor.run",
       "name": "run",
-      "line": 200,
-      "end_line": 204,
-      "hash": "4b68fe0365486782d3fe67268274315279b60067b10bd5cc8b308d71e35d3da1"
+      "line": 227,
+      "end_line": 238,
+      "hash": "a0d56673de864baaa024c6ec9ae3bc277ca1f8432102c972849b9def2c0085d0"
     },
     {
-      "id": "func/ForkingExecutor._counted_child",
-      "name": "_counted_child",
-      "line": 206,
-      "end_line": 212,
-      "hash": "3610d29e50070fae15482d9eda265b00b659522d0eb85db3cd709b2f5341e95f"
+      "id": "func/ForkingExecutor._child",
+      "name": "_child",
+      "line": 240,
+      "end_line": 248,
+      "hash": "5972c26f5d1951cb6ad69f57c4fd08e5a52eb78502402268915f83acc5fb9475"
     },
     {
       "id": "func/ForkingExecutor._exec_fresh_interpreter",
       "name": "_exec_fresh_interpreter",
-      "line": 214,
-      "end_line": 223,
+      "line": 250,
+      "end_line": 259,
       "hash": "61ca04d13c3ce28ae084b17b1083cfedabe9d3b94d883eff2129b6fb5b595365"
     },
     {
       "id": "func/ForkingExecutor._run_child",
       "name": "_run_child",
-      "line": 225,
-      "end_line": 240,
+      "line": 261,
+      "end_line": 276,
       "hash": "15083ec81778cfdf5d38f85fe2c8cd0063e32da59fb0f0a076383204d6747ee7"
     },
     {
       "id": "func/fresh_interpreter_argv",
       "name": "fresh_interpreter_argv",
-      "line": 243,
-      "end_line": 246,
+      "line": 279,
+      "end_line": 282,
       "hash": "ba8e3b499e0f902c33e89a813e32a22dadc46061d73a7be8027c64d4cab04292"
     },
     {
       "id": "func/fresh_interpreter_env",
       "name": "fresh_interpreter_env",
-      "line": 249,
-      "end_line": 251,
+      "line": 285,
+      "end_line": 287,
       "hash": "a41be74f12c9abbc4c9f46a60421ec22929cef0af28329251e85d69f5ab1f226"
     },
     {
       "id": "func/_silence_std_fds",
       "name": "_silence_std_fds",
-      "line": 254,
-      "end_line": 258,
+      "line": 290,
+      "end_line": 294,
       "hash": "69b259cd429763a235c16cc6970f2a0ef3a19791cf9be290e94f303c0d2b331e"
     },
     {
       "id": "func/_run_pytest_output_suppressed",
       "name": "_run_pytest_output_suppressed",
-      "line": 261,
-      "end_line": 299,
+      "line": 297,
+      "end_line": 335,
       "hash": "0936e5ad43f26d9e9b3c7f70bd8542a278b95fc38a20bb8598410f3ec97dde07"
     },
     {
       "id": "func/_wait_for_child",
       "name": "_wait_for_child",
-      "line": 302,
-      "end_line": 315,
+      "line": 338,
+      "end_line": 351,
       "hash": "fe8dcd42a3b2263c5b0140a65e391c796187c1e414837cc43834f8a393abb423"
     }
   ]

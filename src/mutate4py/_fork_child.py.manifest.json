@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "tested_at": "2026-11-13T18:09:44Z",
+  "module_hash": "8dce0bb09388fdc89c045dc9c9ea1c85f2ff207deb04e327c57273d97a930ce2",
+  "source_sha256": "995fe71aa8d0ba5681c955143d0d42681fa3d9a865bc8ea031c63d46187c1ec0",
+  "functions": [
+    {
+      "id": "func/swap_side",
+      "name": "swap_side",
+      "line": 48,
+      "end_line": 57,
+      "hash": "1717d9e67cebf39a30404600063a8c2e342d26ecb6e402d3d17f45f6118cdf26",
+      "score": {
+        "killed": 2,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/child_mode",
+      "name": "child_mode",
+      "line": 60,
+      "end_line": 66,
+      "hash": "1d8bacfa9c2fd5b49a1b7d18f37bff9caa01fac1748452aeb2af037ba286a408",
+      "score": {
+        "killed": 2,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/swap_in",
+      "name": "swap_in",
+      "line": 69,
+      "end_line": 81,
+      "hash": "f5927be583557c7895a736698a99daeaa53d0b1a8fe337721b47fae4c93371c0",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/live_functions_of",
+      "name": "live_functions_of",
+      "line": 84,
+      "end_line": 91,
+      "hash": "9f09d7f3e519752e15a133e9de6e081b54887d764ef5c5a7fa3e01e617e8aa3c",
+      "score": {
+        "killed": 2,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/read_report",
+      "name": "read_report",
+      "line": 94,
+      "end_line": 103,
+      "hash": "e675aee69440ee053ef71d2670f3fac5ba766d1684895b1beebf02fae628d9b7",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/report_mode",
+      "name": "report_mode",
+      "line": 106,
+      "end_line": 109,
+      "hash": "be03a534a4361d0c7bb3d96557290f2ff877a0181c5e6fa775b314ad023da126",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/reported_mode",
+      "name": "reported_mode",
+      "line": 112,
+      "end_line": 117,
+      "hash": "8f4d54a2fd954d043050113ae9771f367602ee0b074cee9fcec3254539e3c0e8",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    }
+  ]
+}
