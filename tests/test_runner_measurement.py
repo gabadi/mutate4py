@@ -46,6 +46,7 @@ def test_the_timeout_policy_budgets_the_full_set_as_all_and_adds_the_measured_ov
         executor=None,
         cwd=str(tmp_path),
         path=str(tmp_path / "calc.py"),
+        pytest_args=[],
     )
     setup = SimpleNamespace(bak_path=str(tmp_path / "calc.py.bak"), loaded=SimpleNamespace(clean_source="x = 1\n"))
 
@@ -125,6 +126,7 @@ def test_a_run_with_no_selected_mutants_names_that_as_the_subprocess_executor_re
         executor=None,
         cwd=str(tmp_path),
         path=str(tmp_path / "calc.py"),
+        pytest_args=[],
     )
     setup = SimpleNamespace(bak_path=str(tmp_path / "calc.py.bak"), loaded=SimpleNamespace(clean_source="x = 1\n"))
 
@@ -148,6 +150,7 @@ def test_a_no_fork_run_names_no_fork_as_the_reason_even_when_nothing_is_selected
         executor=None,
         cwd=str(tmp_path),
         path=str(tmp_path / "calc.py"),
+        pytest_args=[],
     )
     setup = SimpleNamespace(bak_path=str(tmp_path / "calc.py.bak"), loaded=SimpleNamespace(clean_source="x = 1\n"))
 
@@ -185,3 +188,41 @@ def test_a_run_report_prints_its_time_and_executor_lines_between_the_mutation_re
     executor_at = text.index("Executor: subprocess (--no-fork)")
     measurement_at = text.index("Measurement: 1.50s")
     assert report_at < time_at < executor_at < measurement_at
+
+
+class _CallerOwnedExecutor:
+    """Stands in for an executor the caller already owns and primed: any use here fails the test."""
+
+    def prime(self):  # pragma: no cover - the run must never re-prime it
+        raise AssertionError("a caller-supplied executor must not be re-primed")
+
+    def run(self, args, timeout):  # pragma: no cover - never dispatched here
+        raise AssertionError("must not dispatch")
+
+    def describe(self):  # pragma: no cover - never described here
+        raise AssertionError("must not describe")
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("use_parallel", [False, True])
+def test_a_caller_supplied_executor_is_used_unprimed_serial_or_parallel(tmp_path, use_parallel):
+    from types import SimpleNamespace
+
+    from mutate4py._runner import _prepare_baseline_and_executor
+
+    supplied = _CallerOwnedExecutor()
+    measurement = SimpleNamespace(wall=1.0, per_mutant_overhead=0.0, budget_of=lambda node_ids: 1.0)
+    request = SimpleNamespace(
+        timeout_factor=3.0,
+        min_timeout=1.0,
+        forking_requested=True,
+        executor=supplied,
+        cwd=str(tmp_path),
+        path=str(tmp_path / "calc.py"),
+        pytest_args=[],
+    )
+    setup = SimpleNamespace(bak_path=str(tmp_path / "calc.py.bak"), loaded=SimpleNamespace(clean_source="x = 1\n"))
+
+    prep = _prepare_baseline_and_executor(request, setup, measurement, ["a site"], use_parallel=use_parallel)
+
+    assert prep.executor is supplied

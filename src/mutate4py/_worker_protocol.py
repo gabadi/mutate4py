@@ -5,19 +5,24 @@ line per Mutant rather than spawning a fresh process per Mutant. Worker
 process identity stays stable across dispatches.
 """
 
+import dataclasses
 import json
 import os
 import subprocess
+import sys
+from collections.abc import Sequence
 
 from mutate4py._executor import ExecutorDescription
 
 __all__ = [
     "WorkerProcessError",
+    "ServerLaunch",
     "WorkerProcessExecutor",
     "encode_describe",
     "encode_request",
     "check_worker_pytest",
     "check_worker_python",
+    "fork_server",
     "worker_python",
     "worker_server_argv",
 ]
@@ -74,23 +79,44 @@ def check_worker_pytest(worker_root: str) -> None:
         )
 
 
-def worker_server_argv(
-    *, worker_root: str, guarded_path: str, forking_requested: bool, worker_id: str | None
-) -> list[str]:
+@dataclasses.dataclass(frozen=True)
+class ServerLaunch:
+    """How one Worker server starts, beyond the tree it serves and the file it guards.
+
+    `forking_requested` asks it to prime the forking executor; `worker_id` is the
+    Worker's identity (None for a fork server); `prime_args` are the run's own
+    `-p no:<name>` blocks the forking executor primes with; `python` is the
+    interpreter it runs under, None meaning the Worker venv's own (which must
+    import pytest, checked at prime). A fork server runs under the Project
+    environment's instead (`fork_server`).
+    """
+
+    forking_requested: bool = True
+    worker_id: str | None = None
+    prime_args: tuple[str, ...] = ()
+    python: str | None = None
+
+
+def _launch_python(worker_root: str, launch: ServerLaunch) -> str:
+    return launch.python or worker_python(worker_root)
+
+
+def worker_server_argv(*, worker_root: str, guarded_path: str, launch: ServerLaunch) -> list[str]:
     """Argv that starts one `_worker_server` for this Worker.
 
     Every element is a string because it crosses a process boundary as argv:
     the forking request becomes "1"/"0" and an absent worker_id becomes "",
-    which `_worker_server.main` reads back as None.
+    which `_worker_server.main` reads back as None. The prime args follow.
     """
     return [
-        worker_python(worker_root),
+        _launch_python(worker_root, launch),
         "-m",
         "mutate4py._worker_server",
         worker_root,
         guarded_path,
-        "1" if forking_requested else "0",
-        worker_id or "",
+        "1" if launch.forking_requested else "0",
+        launch.worker_id or "",
+        *launch.prime_args,
     ]
 
 
@@ -159,19 +185,18 @@ class WorkerProcessExecutor:
         *,
         worker_root: str,
         guarded_path: str,
-        forking_requested: bool,
         source_root: str,
-        worker_id: str | None = None,
+        launch: ServerLaunch,
     ) -> None:
         self._worker_root = worker_root
         self._guarded_path = guarded_path
-        self._forking_requested = forking_requested
         self._source_root = source_root
-        self._worker_id = worker_id
+        self.launch = launch
         self._proc: subprocess.Popen | None = None
 
     def prime(self) -> None:
-        check_worker_pytest(self._worker_root)
+        if self.launch.python is None:
+            check_worker_pytest(self._worker_root)
         # The import root is not on PYTHONPATH: _workers links it as a `.pth` in the
         # Worker venv, read after site-packages, so the Worker's own mutate4py wins.
         env = dict(os.environ)
@@ -182,12 +207,7 @@ class WorkerProcessExecutor:
             env["PYTHONPATH"] = pythonpath
         try:
             self._proc = subprocess.Popen(
-                worker_server_argv(
-                    worker_root=self._worker_root,
-                    guarded_path=self._guarded_path,
-                    forking_requested=self._forking_requested,
-                    worker_id=self._worker_id,
-                ),
+                worker_server_argv(worker_root=self._worker_root, guarded_path=self._guarded_path, launch=self.launch),
                 cwd=self._worker_root,
                 env=env,
                 stdin=subprocess.PIPE,
@@ -197,7 +217,7 @@ class WorkerProcessExecutor:
             )
         except OSError as e:
             raise WorkerProcessError(
-                f"worker interpreter {worker_python(self._worker_root)!r} could not be started: {e}"
+                f"worker interpreter {_launch_python(self._worker_root, self.launch)!r} could not be started: {e}"
             ) from e
         _decode_ready(self._proc.stdout.readline(), worker_root=self._worker_root)
 
@@ -219,3 +239,18 @@ class WorkerProcessExecutor:
         if self._proc is None:
             return
         _shutdown_process(self._proc)
+
+
+def fork_server(*, cwd: str, guarded_path: str, prime_args: Sequence[str]) -> WorkerProcessExecutor:
+    """The executor a serial forking run primes: one Worker server over the
+    project tree itself (no clone), under the Project environment this
+    process runs in. It primes the forking executor, so the orchestrator,
+    which has imported most of mutate4py and run the Measurement, never
+    forks a Mutant. A server that cannot fork answers with the subprocess
+    executor and says why."""
+    return WorkerProcessExecutor(
+        worker_root=cwd,
+        guarded_path=guarded_path,
+        source_root=cwd,
+        launch=ServerLaunch(prime_args=tuple(prime_args), python=sys.executable),
+    )

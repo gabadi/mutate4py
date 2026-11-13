@@ -49,3 +49,18 @@ def test_default_reflects_this_projects_own_dev_dependencies():
     args = neutralising_args()
     assert "--no-cov" in args
     assert "--benchmark-disable" not in args
+
+
+@pytest.mark.unit
+def test_disabled_plugin_args_keeps_only_the_runs_plugin_blocks_in_both_spellings():
+    from mutate4py._plugin_neutralisation import disabled_plugin_args
+
+    run_args = ["-q", "-p", "no:tach", "-m", "not slow", "-pno:cacheprovider", "-p", "xdist", "tests"]
+    assert disabled_plugin_args(run_args) == ["-p", "no:tach", "-p", "no:cacheprovider"]
+
+
+@pytest.mark.unit
+def test_disabled_plugin_args_ignores_a_trailing_bare_p():
+    from mutate4py._plugin_neutralisation import disabled_plugin_args
+
+    assert disabled_plugin_args(["tests", "-p"]) == []

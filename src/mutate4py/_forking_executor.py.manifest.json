@@ -1,91 +1,91 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T15:52:07Z",
-  "module_hash": "409e16b640e0739893980de178cac584d452cd7d573c34445d497a666856c615",
-  "source_sha256": "a007f9daa837ccd8b530af982d29039c5c895f07e4559a196c32570791331855",
+  "tested_at": "2026-11-13T16:25:35Z",
+  "module_hash": "051aa03ad722189b80dacea73e0c40eda4fadc20c8fcc15795b825565ad96e41",
+  "source_sha256": "68c893f143886059227dc1a87e679e6f153ffa3ce7f35601bfdb5a0d72a1d437",
   "functions": [
     {
       "id": "func/isolated_coverage_session_safe",
       "name": "isolated_coverage_session_safe",
-      "line": 61,
-      "end_line": 68,
+      "line": 64,
+      "end_line": 71,
       "hash": "b5f35f9147ce3e80e43298a0d3fbbabb208702d58f27ae68998f7b2d09529083"
     },
     {
       "id": "func/is_available",
       "name": "is_available",
-      "line": 79,
-      "end_line": 81,
+      "line": 82,
+      "end_line": 84,
       "hash": "5de088524027f935fa5a9c9c536d318f189bcc175a56f57f0bb575ae0cf0a1d2"
     },
     {
       "id": "func/_leaked_modules",
       "name": "_leaked_modules",
-      "line": 84,
-      "end_line": 91,
+      "line": 87,
+      "end_line": 94,
       "hash": "adfe44856e110fd86da612fb594d943266512ada8559050952f1ad49241b87d5"
     },
     {
       "id": "func/assert_source_clean",
       "name": "assert_source_clean",
-      "line": 94,
-      "end_line": 109,
+      "line": 97,
+      "end_line": 112,
       "hash": "1b8138e155ba290ffc32e211b86df20c56a32627b39dc601fdcce0c4df24f90f"
     },
     {
       "id": "func/ForkingExecutor.__init__",
       "name": "__init__",
-      "line": 122,
-      "end_line": 126,
-      "hash": "ce0839919e7c234e17766d6de7baae4ee4d69867855e431af1686d07dc92b033"
+      "line": 125,
+      "end_line": 130,
+      "hash": "7cbfbb9d12b65dea565b1ba77aea06e6548f134078e562df0f2e0e568ce44dcc"
     },
     {
       "id": "func/ForkingExecutor.describe",
       "name": "describe",
-      "line": 128,
-      "end_line": 129,
+      "line": 132,
+      "end_line": 133,
       "hash": "dc07a8285fe91ae569fdbb2bd81d5ca2ab531b1045569e920a4ff4b6dc05af23"
     },
     {
       "id": "func/ForkingExecutor.prime",
       "name": "prime",
-      "line": 131,
-      "end_line": 155,
-      "hash": "33d88f0a67e5764a9fb9eba07346658c529d99fa73b4be6f9fecc9c653f9ddbf"
+      "line": 135,
+      "end_line": 162,
+      "hash": "540e4285652640e5c362853c6b7bb00aeb5dc0b329796a6ff3ffcc7180935eb9"
     },
     {
       "id": "func/ForkingExecutor._fork_and_wait",
       "name": "_fork_and_wait",
-      "line": 157,
-      "end_line": 168,
+      "line": 164,
+      "end_line": 175,
       "hash": "a682e5e740bb4dcfc5bc5f95bfde5b596b3bca7a8283911a2bef15bb443eeda8"
     },
     {
       "id": "func/ForkingExecutor.run",
       "name": "run",
-      "line": 170,
-      "end_line": 175,
+      "line": 177,
+      "end_line": 182,
       "hash": "b87a965cad1c5ca0da122c52c14e51f1f016e7e66f7c9a093fb7c95dea42f799"
     },
     {
       "id": "func/ForkingExecutor._run_child",
       "name": "_run_child",
-      "line": 177,
-      "end_line": 192,
+      "line": 184,
+      "end_line": 199,
       "hash": "15083ec81778cfdf5d38f85fe2c8cd0063e32da59fb0f0a076383204d6747ee7"
     },
     {
       "id": "func/_run_pytest_output_suppressed",
       "name": "_run_pytest_output_suppressed",
-      "line": 195,
-      "end_line": 233,
+      "line": 202,
+      "end_line": 240,
       "hash": "8fb7421e72d7f90a52f4cf746e5df3db0d9907310cd68d760fcd29e967959287"
     },
     {
       "id": "func/_wait_for_child",
       "name": "_wait_for_child",
-      "line": 236,
-      "end_line": 249,
+      "line": 243,
+      "end_line": 256,
       "hash": "fe8dcd42a3b2263c5b0140a65e391c796187c1e414837cc43834f8a393abb423"
     }
   ]

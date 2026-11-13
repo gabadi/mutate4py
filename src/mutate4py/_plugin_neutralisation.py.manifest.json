@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-08-11T02:30:13Z",
-  "module_hash": "398919964c6e5a07c8c4e4590997c82bb72fa24a73ac7b633235c510ea14139c",
-  "source_sha256": "50c179500a5637e163c1b20733e53d203d01fe9cd4dade69143ad8df025c9964",
+  "tested_at": "2026-11-13T16:25:35Z",
+  "module_hash": "640878803b39ba57c4346ba76daae2b6f39ac4ebcdc317e548552b08bd30fc7a",
+  "source_sha256": "62c3f41a6369bb8982593fccf56f8654c2959fefdf9495693c95ff3f504f54c8",
   "functions": [
     {
       "id": "func/neutralising_args",
@@ -10,6 +10,13 @@
       "line": 20,
       "end_line": 22,
       "hash": "bff4fe6e73605dd30b75ed0ae421c5e689900986735a74fe3e5d247df1153673"
+    },
+    {
+      "id": "func/disabled_plugin_args",
+      "name": "disabled_plugin_args",
+      "line": 25,
+      "end_line": 37,
+      "hash": "375f83a5f991e8d193ac8d504c41fca93c05f3e02ea3390e54dfa70bb813cb8a"
     }
   ]
 }

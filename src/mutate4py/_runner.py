@@ -141,13 +141,17 @@ def _prepare_baseline_and_executor(
         no_fork_reason = "--no-fork"
     elif not selected_sites:
         no_fork_reason = "no Mutants selected"
-    executor = select_executor(
-        caller_supplied=request.executor,
-        use_parallel=use_parallel,
-        no_fork_reason=no_fork_reason,
-        cwd=request.cwd,
-        guarded_path=os.path.abspath(request.path),
-    )
+    # A caller-supplied executor is used as-is, never re-primed: the caller owns it
+    # (a fake in tests, or one primed by a longer-lived caller).
+    executor = request.executor
+    if executor is None:
+        executor = select_executor(
+            use_parallel=use_parallel,
+            no_fork_reason=no_fork_reason,
+            cwd=request.cwd,
+            guarded_path=os.path.abspath(request.path),
+            pytest_args=request.pytest_args,
+        )
 
     return _BaselinePrep(measurement.wall, measurement.per_mutant_overhead, timeout_policy, executor)
 
@@ -269,6 +273,16 @@ def _mutant_exec_ctx(
     )
 
 
+def _close_executor(executor: object) -> None:
+    """Stop the executor this run selected if it holds a process (the fork server).
+
+    A caller-supplied executor is the caller's to close.
+    """
+    close = getattr(executor, "close", None)
+    if close is not None:
+        close()
+
+
 def run_mutations(request: RunMutationsRequest) -> int:
     """Execute the mutation run loop.
 
@@ -303,6 +317,8 @@ def _run_loop(request: RunMutationsRequest) -> int:
         )
         scored_run = _scored_run_for(result, setup, outcome, markers)
     finally:
+        if request.executor is None:
+            _close_executor(outcome.executor)
         _finalize_source(
             setup.loaded.clean_source,
             setup.loaded.tested_at,
