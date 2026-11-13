@@ -14,6 +14,7 @@ the stored Manifests. This module reads no Manifest itself. Its only import is
 
 import configparser
 import dataclasses
+import glob
 import hashlib
 import importlib.metadata
 import json
@@ -148,14 +149,21 @@ def _positional_roots(cwd: str, tokens: list[str]) -> list[str]:
 
 
 def _configured_testpaths(cwd: str) -> list[str]:
-    """`testpaths` from pytest.ini. A file that does not parse yields none, which widens the walk to `cwd`."""
+    """`testpaths` from pytest.ini, each glob expanded as pytest expands it.
+
+    A file that does not parse, and a glob that matches nothing, yield no root
+    for that entry. When no entry matches, the walk widens to `cwd`, as pytest does.
+    """
     parser = configparser.ConfigParser()
     try:
         parser.read(os.path.join(cwd, "pytest.ini"))
         testpaths = parser.get("pytest", "testpaths", fallback="")
     except configparser.Error:
         return []
-    return [os.path.join(cwd, path) for path in testpaths.split()]
+    found: list[str] = []
+    for pattern in testpaths.split():
+        found.extend(sorted(glob.glob(os.path.join(cwd, pattern), recursive=True)))
+    return found
 
 
 def _collection_roots(cwd: str, tokens: list[str]) -> list[str]:

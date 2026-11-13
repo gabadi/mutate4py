@@ -1,154 +1,154 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T05:43:38Z",
-  "module_hash": "c199ede7d8618deeb12917d5bec7c3df9720311783a7448671cdf140a287b587",
-  "source_sha256": "f6ea5076fa6c6aa2012d3f70834a6592138b337697cf76afc061710083e9550e",
+  "tested_at": "2026-11-13T07:35:34Z",
+  "module_hash": "ef887db0b68117cbeb24440eb71911e91c9eea770b338b72552e9ad5e6ebc4db",
+  "source_sha256": "375195c6caf7a82ac31b4d0a79368de48f20340f6040dc1ece7a7964887e3015",
   "functions": [
     {
       "id": "func/_target_skippable",
       "name": "_target_skippable",
-      "line": 46,
-      "end_line": 52,
+      "line": 47,
+      "end_line": 53,
       "hash": "bd89a050469e39cca55c500626bb75d3172e5da6128cfa30b080315e45185f17"
     },
     {
       "id": "func/can_skip_measurement",
       "name": "can_skip_measurement",
-      "line": 55,
-      "end_line": 68,
+      "line": 56,
+      "end_line": 69,
       "hash": "795b57034f792bceb7467413f25a8e909ac69d711d89748c988f6785037cb97c"
     },
     {
       "id": "func/_file_sha",
       "name": "_file_sha",
-      "line": 71,
-      "end_line": 73,
+      "line": 72,
+      "end_line": 74,
       "hash": "d5b58b9fc05d5054697388a1b5d22c098b3ab6a76077c56d8ab9ce6920c01978"
     },
     {
       "id": "func/_py_inputs",
       "name": "_py_inputs",
-      "line": 76,
-      "end_line": 85,
+      "line": 77,
+      "end_line": 86,
       "hash": "0c6178beaeb73e6642b9cade3ea5ccae2cbb548001c152689355446fc25a1f15"
     },
     {
       "id": "func/_file_input",
       "name": "_file_input",
-      "line": 88,
-      "end_line": 93,
+      "line": 89,
+      "end_line": 94,
       "hash": "3fd12ee50f4ed0cd6d0eca7ebdc6024072bcbf085f179047fe90430db2abe2cb"
     },
     {
       "id": "func/_root_inputs",
       "name": "_root_inputs",
-      "line": 96,
-      "end_line": 100,
+      "line": 97,
+      "end_line": 101,
       "hash": "a6d37069970050349c2e6d759328523eaa5ccad6aed7bba870aa881c78160db0"
     },
     {
       "id": "func/_ancestors",
       "name": "_ancestors",
-      "line": 103,
-      "end_line": 112,
+      "line": 104,
+      "end_line": 113,
       "hash": "71f36d807415ca9b7117686a0015319cf25b19f7ca5db6fadf1936dbc3b54157"
     },
     {
       "id": "func/_conftest_inputs",
       "name": "_conftest_inputs",
-      "line": 115,
-      "end_line": 118,
+      "line": 116,
+      "end_line": 119,
       "hash": "56d24698204a9729d3cd8267aa22f5fef02406d98dbe79cbcfb91cbd56d678ba"
     },
     {
       "id": "func/_attached_value",
       "name": "_attached_value",
-      "line": 126,
-      "end_line": 130,
+      "line": 127,
+      "end_line": 131,
       "hash": "cea18e29917c613976f7303058d7cb732b14053ead4860aee84d7cd941269518"
     },
     {
       "id": "func/_option_values",
       "name": "_option_values",
-      "line": 133,
-      "end_line": 142,
+      "line": 134,
+      "end_line": 143,
       "hash": "957a3e93c574963a466091c38ca75323639753e7f8cefa843cc90b0218260f86"
     },
     {
       "id": "func/_positional_roots",
       "name": "_positional_roots",
-      "line": 145,
-      "end_line": 147,
+      "line": 146,
+      "end_line": 148,
       "hash": "faec8bced2a2406c42de64ee6b98d8e86a1f7f48f1eeed53b528f6892afe0c46"
     },
     {
       "id": "func/_configured_testpaths",
       "name": "_configured_testpaths",
-      "line": 150,
-      "end_line": 158,
-      "hash": "888383e2501173fc74bea7f8dd8cfb4a38436b2ed9c643d874227258233d897a"
+      "line": 151,
+      "end_line": 166,
+      "hash": "5712f52a2f4d65826f67bbc4b1096647e5d01594c7f5b487fcbb194d1776d31d"
     },
     {
       "id": "func/_collection_roots",
       "name": "_collection_roots",
-      "line": 161,
-      "end_line": 169,
+      "line": 169,
+      "end_line": 177,
       "hash": "e4ce1fc15317de156e9634ea7b81c8bdce0a83c76e582d36abf55db86982644a"
     },
     {
       "id": "func/_pyproject_pytest_table",
       "name": "_pyproject_pytest_table",
-      "line": 175,
-      "end_line": 188,
+      "line": 183,
+      "end_line": 196,
       "hash": "160db7a73b1e714e8299714c1b1a164adef3515a80d76baf617cce916d3b5d36"
     },
     {
       "id": "func/_config_inputs",
       "name": "_config_inputs",
-      "line": 191,
-      "end_line": 199,
+      "line": 199,
+      "end_line": 207,
       "hash": "04e4fabfaf49c93ccd6e582b2aee7f3d2243e9693f944920eaa60f71f9fdcad5"
     },
     {
       "id": "func/_explicit_config_inputs",
       "name": "_explicit_config_inputs",
-      "line": 202,
-      "end_line": 208,
+      "line": 210,
+      "end_line": 216,
       "hash": "0ffb5de27d2e90c58e2e2d72cf57d5cb10c237963ccbccbb3d7de0e5b45c1661"
     },
     {
       "id": "func/_config_dirs",
       "name": "_config_dirs",
-      "line": 211,
-      "end_line": 215,
+      "line": 219,
+      "end_line": 223,
       "hash": "3b521e57aac09d53aec342e0bf023763c7a30e0525c1df8b2a9ac39b2562d8cb"
     },
     {
       "id": "func/_config_and_lock_inputs",
       "name": "_config_and_lock_inputs",
-      "line": 218,
-      "end_line": 222,
+      "line": 226,
+      "end_line": 230,
       "hash": "3f094753e6cfa60dc58d435fd5614dc03f30781170a320faddcc1a57f276d875"
     },
     {
       "id": "func/_mutate4py_version",
       "name": "_mutate4py_version",
-      "line": 225,
-      "end_line": 229,
+      "line": 233,
+      "end_line": 237,
       "hash": "0168d19e257f113e9fdce63f932aa617509a36fa8dc24b2f6534bb7dc3ddc69e"
     },
     {
       "id": "func/_digest",
       "name": "_digest",
-      "line": 232,
-      "end_line": 243,
+      "line": 240,
+      "end_line": 251,
       "hash": "ee525c4cbf9b42a31363c07175bbaf2eeacf3d6b24846ec7a4b1cc481d66f4e5"
     },
     {
       "id": "func/tests_fingerprint",
       "name": "tests_fingerprint",
-      "line": 246,
-      "end_line": 255,
+      "line": 254,
+      "end_line": 263,
       "hash": "5929ee3dc3f75e42cf6d8fcb9e31cae3b90d8f2af1a5ba107a4dcd10fa7d2cf2"
     }
   ]
