@@ -1,0 +1,302 @@
+{
+  "version": 1,
+  "tested_at": "2026-11-13T06:55:41Z",
+  "module_hash": "fd183266b76f5f43f5d5630395d1ad9c54e4ae653a87e4f61849ee735be19976",
+  "source_sha256": "3634a2267f12da71157331f2b092578a03d91c923d206b1fa7af4b824e8bd5d7",
+  "functions": [
+    {
+      "id": "func/SwapPlan.apply",
+      "name": "apply",
+      "line": 40,
+      "end_line": 51,
+      "hash": "423962c404fc704337dc6b876b5d4426aff823b4299097ba3452706a099f03fd",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/plan_swap",
+      "name": "plan_swap",
+      "line": 54,
+      "end_line": 65,
+      "hash": "4dc6e688cdd707ddef5f8425f519aadfd6765f1460227fa028aa40b2e2f9d7ee",
+      "score": {
+        "killed": 4,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/_changed_keys",
+      "name": "_changed_keys",
+      "line": 68,
+      "end_line": 69,
+      "hash": "c1e15b14f8e815d30ca45a2b88ab0654636a88e534e95ff5b50cc9b2d96a31ef",
+      "score": {
+        "killed": 3,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/_swappable_tops",
+      "name": "_swappable_tops",
+      "line": 72,
+      "end_line": 74,
+      "hash": "81aaed5511c3416beb1ae5e2e59552b02d340a20bad96c7137037928ee79fd85",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/_refusal",
+      "name": "_refusal",
+      "line": 77,
+      "end_line": 93,
+      "hash": "99316cc2aee4775382d4bb5c9242833b184e0cbf0a0ee652405b15cf27b9ead9",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/_freevars_changed",
+      "name": "_freevars_changed",
+      "line": 96,
+      "end_line": 97,
+      "hash": "b64e1a2c7afae03f670e0add87f6184b62a9c24099b8e79db18b0e8a58245046",
+      "score": {
+        "killed": 3,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/_import_time_changed",
+      "name": "_import_time_changed",
+      "line": 100,
+      "end_line": 101,
+      "hash": "03ec527f6d9252ad1329fd0d757d452566f668e2dec053513a6af12421ab6627",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/_body_ran_at_import",
+      "name": "_body_ran_at_import",
+      "line": 104,
+      "end_line": 105,
+      "hash": "2ad2c4da8e2d9de3033451d1d0348942b75bdf504c22df630f4bcbf7da047df3",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/_function_like",
+      "name": "_function_like",
+      "line": 108,
+      "end_line": 109,
+      "hash": "ab9de7d835bb5d2141ac5f8022ced9cae0d09461c087c1edf7241dad0bbc91ed",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/_runs_at_import",
+      "name": "_runs_at_import",
+      "line": 112,
+      "end_line": 115,
+      "hash": "8127cc65e8a8a024633f731b70c2871152904343f8e12e095a4e64b38abc7b91",
+      "score": {
+        "killed": 3,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/_outermost_function",
+      "name": "_outermost_function",
+      "line": 118,
+      "end_line": 128,
+      "hash": "f4342d2e0f30007da9d05552492eddc0d6a4d7f4742027129081bcf397ad50a5",
+      "score": {
+        "killed": 4,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/_body_lines",
+      "name": "_body_lines",
+      "line": 134,
+      "end_line": 142,
+      "hash": "1431ad47f91bf86bf8718ee2a33eca7195d5152622f538cf5fbf109cd8a4339a",
+      "score": {
+        "killed": 2,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/_shape",
+      "name": "_shape",
+      "line": 145,
+      "end_line": 147,
+      "hash": "2710d3b1f158eb6b1fe6667acfef808357c4f86a1f973d5baa9a10a960b8c7c8",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/_compile",
+      "name": "_compile",
+      "line": 150,
+      "end_line": 152,
+      "hash": "edfee4bd8e1b6c5ff9de523e5a8b0019aa26f7d183fba9c446a0cfd56285b1e1",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/_is_live_match",
+      "name": "_is_live_match",
+      "line": 155,
+      "end_line": 156,
+      "hash": "aeb74aa01197702b732840605bafabf767518ad568922b0ff6abdd9aed75dab5",
+      "score": {
+        "killed": 3,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/_live_functions",
+      "name": "_live_functions",
+      "line": 159,
+      "end_line": 160,
+      "hash": "34ce1003a1c1fd633082539288149ce974cdbb706ce447665bdbc9e10dea4c23",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/_targets",
+      "name": "_targets",
+      "line": 163,
+      "end_line": 174,
+      "hash": "206d636a85872cccc1c34b8e4877dfa07f63955eb8e4d60ec84ee275c575a888",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/_index",
+      "name": "_index",
+      "line": 177,
+      "end_line": 191,
+      "hash": "dfcccb6cef3467fda695e8b3f74817e47fb4729cb5ed67b7de13235bf5005505",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/_shallow_key",
+      "name": "_shallow_key",
+      "line": 194,
+      "end_line": 208,
+      "hash": "cc9c52912cefc3a8a97015b4bfd3cb0384436d5a1cc5748347dfd723b73e3854",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/_typed_constants",
+      "name": "_typed_constants",
+      "line": 211,
+      "end_line": 213,
+      "hash": "f8a02a35c3a2d55434d5a8f52b789a86b04abe30f4c8a359b9e5b4b0be3ebef8",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    },
+    {
+      "id": "func/_typed_constant",
+      "name": "_typed_constant",
+      "line": 216,
+      "end_line": 221,
+      "hash": "6dc696a3da4a1b3d5b8d324da661f68689f3af9703099a235bbd2cb6680e7915",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": []
+    }
+  ]
+}
