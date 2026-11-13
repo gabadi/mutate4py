@@ -141,6 +141,32 @@ def test_editing_a_file_outside_the_configured_testpaths_does_not_change_it(tmp_
 
 
 @pytest.mark.unit
+def test_a_testpaths_glob_is_expanded_so_its_matches_are_hashed(tmp_path):
+    root = _project(tmp_path)
+    (tmp_path / "pytest.ini").write_text("[pytest]\ntestpaths = tests/*\n")
+    before = fingerprint_of(root, "")
+    (tmp_path / "tests" / "test_a.py").write_text("def test_a():\n    assert 1 == 1\n")
+    assert fingerprint_of(root, "") != before
+
+
+@pytest.mark.unit
+def test_a_testpaths_glob_matching_nothing_widens_to_the_run_directory(tmp_path):
+    root = _project(tmp_path)
+    (tmp_path / "pytest.ini").write_text("[pytest]\ntestpaths = nowhere/*\n")
+    before = fingerprint_of(root, "")
+    (tmp_path / "src" / "app.py").write_text("VALUE = 2\n")
+    assert fingerprint_of(root, "") != before
+
+
+@pytest.mark.unit
+def test_missing_testpaths_widens_to_the_run_directory(tmp_path):
+    root = _project(tmp_path)
+    before = fingerprint_of(root, "")
+    (tmp_path / "src" / "app.py").write_text("VALUE = 2\n")
+    assert fingerprint_of(root, "") != before
+
+
+@pytest.mark.unit
 def test_editing_a_conftest_above_the_root_changes_it(tmp_path):
     root = _project(tmp_path)
     (tmp_path / "conftest.py").write_text("SHARED = 1\n")
