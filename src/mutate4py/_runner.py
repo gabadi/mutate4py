@@ -23,6 +23,7 @@ from mutate4py._execution import (
     NoTestsCollectedError,
     _execute_mutations,
 )
+from mutate4py._fresh_digests import fresh_digests
 from mutate4py._manifest import recorded_survivors
 from mutate4py._manifest_modes import check_manifest, update_manifest
 from mutate4py._measurement import ALL, CoverageCoreRefused, Measurement, MeasurementFailed, measure_in_scratch
@@ -311,7 +312,10 @@ def _run_loop(request: RunMutationsRequest) -> int:
 
     ctx = _mutant_exec_ctx(request, outcome, markers)
     scored_run: ScoredRun | None = None
+    digests: dict[str, str] | None = None
     try:
+        # The digests read the Measurement, not the Mutants, so they are taken before any Mutant runs.
+        digests = fresh_digests(outcome.measurement, os.path.abspath(request.path), setup.loaded.clean_source)
         result = _execute_mutations(
             selected_sites=outcome.selected_sites,
             clean_source=setup.loaded.clean_source,
@@ -328,6 +332,7 @@ def _run_loop(request: RunMutationsRequest) -> int:
             setup.loc,
             existing_manifest=setup.loaded.existing_manifest,
             scored_run=scored_run,
+            fresh_digests=digests,
         )
     if result.error_msg is not None:
         # .info, not .error: this has always gone to stdout, like the cov_error branch above.

@@ -110,73 +110,94 @@ def _scored_fields(fn: dict) -> dict | None:
 
     Missing values read as defaults: a missing score int is 0, a missing or
     null list is [], a missing desc or reason is "", a missing line is 0. A list
-    entry that is not a dict is skipped.
+    entry that is not a dict is skipped. The tests_digest is kept only when the
+    entry stores one, so a 0.2.x entry reads with no tests_digest key.
     """
     score = fn.get("score")
     if not isinstance(score, dict):
         return None
-    return {
+    fields = {
         "score": {
             "killed": score.get("killed", 0),
             "survived": score.get("survived", 0),
             "uncovered": score.get("uncovered", 0),
         },
-        "survivors": [
-            {"line": s.get("line", 0), "desc": s.get("desc", "")}
-            for s in _list_field(fn, "survivors")
-            if isinstance(s, dict)
-        ],
+        "survivors": [{"line": s.get("line", 0), "desc": s.get("desc", "")} for s in _dict_entries(fn, "survivors")],
         "accepted": [
             {"line": a.get("line", 0), "desc": a.get("desc", ""), "reason": a.get("reason", "")}
-            for a in _list_field(fn, "accepted")
-            if isinstance(a, dict)
+            for a in _dict_entries(fn, "accepted")
         ],
     }
+    if fn.get("tests_digest") is not None:
+        fields["tests_digest"] = fn["tests_digest"]
+    return fields
 
 
-def _list_field(fn: dict, key: str) -> list:
-    """A list field of a function entry; a missing or null list reads as []."""
-    return fn.get(key) or []
+def _dict_entries(fn: dict, key: str) -> list[dict]:
+    """The dict entries of a list field; a missing or null list reads as [], and a non-dict entry is skipped."""
+    return [entry for entry in (fn.get(key) or []) if isinstance(entry, dict)]
 
 
-def _fields_for(fn: dict, prev: dict | None, scores: dict[str, dict] | None) -> dict | None:
+def _fields_for(
+    fn: dict, prev: dict | None, scores: dict[str, dict] | None, fresh_digests: dict[str, str] | None
+) -> dict | None:
     """Score fields for one candidate function: rescored this run, else kept
-    while its hash is unchanged, else None (changed or new, so unscored)."""
-    if scores is not None and fn["id"] in scores:
-        return _scored_fields(scores[fn["id"]])
+    while its hash is unchanged, else None (changed or new, so unscored).
+
+    A rescored function takes the fresh tests digest. A kept entry with no
+    digest adopts the fresh one when it has no survivors (ADR 0026). A stored
+    digest is kept even when it differs from the fresh one.
+    """
+    fid = fn["id"]
+    fresh = (fresh_digests or {}).get(fid)
+    if scores is not None and fid in scores:
+        return _fields_with_digest(scores[fid], fresh, replace=True)
     if prev is not None and prev.get("hash") == fn["hash"]:
-        return _scored_fields(prev)
+        return _fields_with_digest(prev, fresh, replace=False)
     return None
 
 
-def _scored_by_id(manifest: dict | None) -> dict[str, dict | None]:
-    if manifest is None:
-        return {}
-    return {fn["id"]: _scored_fields(fn) for fn in manifest["functions"]}
+def _fields_with_digest(entry: dict, fresh: str | None, *, replace: bool) -> dict | None:
+    """The entry's score fields, given the fresh tests digest. A replacing call always takes the fresh
+    digest; otherwise it is adopted only when the entry has none and no survivors."""
+    fields = _scored_fields(entry)
+    if fields is None or fresh is None:
+        return fields
+    if replace or ("tests_digest" not in fields and not fields["survivors"]):
+        fields["tests_digest"] = fresh
+    return fields
 
 
-def reconcile_manifest(existing: dict | None, candidate: dict, scores: dict[str, dict] | None = None) -> dict:
+def reconcile_manifest(
+    existing: dict | None,
+    candidate: dict,
+    scores: dict[str, dict] | None = None,
+    fresh_digests: dict[str, str] | None = None,
+) -> dict:
     """Return the manifest to embed, carrying each function's score block forward.
 
     A function rescored this run takes its fields from scores. An unchanged
     function (same hash as in existing) keeps its fields. A changed or new
     function has none, so it stays unscored until a scored run records it.
+    fresh_digests maps function id to this run's tests digest; see _fields_for.
 
     Returns existing itself when nothing but tested_at or source_sha256 would
     change (ADR 0006), so callers detect "unchanged" by identity.
     """
     prior = {fn["id"]: fn for fn in existing["functions"]} if existing is not None else {}
-    entries = [_carry_entry(fn, prior.get(fn["id"]), scores) for fn in candidate["functions"]]
+    entries = [_carry_entry(fn, prior.get(fn["id"]), scores, fresh_digests) for fn in candidate["functions"]]
     merged = {**candidate, "functions": entries}
     if _unchanged(existing, merged):
         return existing
     return merged
 
 
-def _carry_entry(fn: dict, prev: dict | None, scores: dict[str, dict] | None) -> dict:
+def _carry_entry(
+    fn: dict, prev: dict | None, scores: dict[str, dict] | None, fresh_digests: dict[str, str] | None
+) -> dict:
     """Unit keys plus the score fields this function keeps or gains this run."""
     entry = {k: fn[k] for k in _UNIT_KEYS}
-    entry.update(_fields_for(fn, prev, scores) or {})
+    entry.update(_fields_for(fn, prev, scores, fresh_digests) or {})
     return entry
 
 
@@ -185,7 +206,8 @@ def _unchanged(existing: dict | None, merged: dict) -> bool:
     return (
         existing is not None
         and manifests_structurally_equal(existing, merged)
-        and _scored_by_id(existing) == _scored_by_id(merged)
+        and {fn["id"]: _scored_fields(fn) for fn in existing["functions"]}
+        == {fn["id"]: _scored_fields(fn) for fn in merged["functions"]}
     )
 
 

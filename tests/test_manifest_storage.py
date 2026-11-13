@@ -46,6 +46,33 @@ def test_write_sidecar_manifest_round_trips_through_read(tmp_path):
 
 
 @pytest.mark.unit
+def test_write_sidecar_manifest_keeps_tests_digest_of_a_function(tmp_path):
+    p = tmp_path / "mod.py"
+    m = {
+        "version": 1,
+        "tested_at": "2026-01-01T00:00:00Z",
+        "module_hash": "abc",
+        "functions": [
+            {
+                "id": "func/f",
+                "name": "f",
+                "line": 1,
+                "end_line": 2,
+                "hash": "h",
+                "score": {"killed": 1, "survived": 0, "uncovered": 0},
+                "survivors": [],
+                "accepted": [],
+                "tests_digest": "d1",
+            }
+        ],
+    }
+    write_sidecar_manifest(str(p), m)
+    result, ok = read_sidecar_manifest(str(p))
+    assert ok is True
+    assert result["functions"][0]["tests_digest"] == "d1"
+
+
+@pytest.mark.unit
 def test_write_sidecar_manifest_overwrites_previous_content(tmp_path):
     p = tmp_path / "mod.py"
     write_sidecar_manifest(

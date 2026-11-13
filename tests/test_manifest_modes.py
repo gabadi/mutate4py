@@ -211,6 +211,41 @@ def test_update_manifest_drops_scores_of_changed_function(tmp_path, manifest_fil
     assert "score" not in g
 
 
+@pytest.mark.unit
+@pytest.mark.parametrize("manifest_file", [True, False], ids=["sidecar", "embedded"])
+def test_update_manifest_keeps_tests_digest_of_unchanged_function(tmp_path, manifest_file):
+    path = str(tmp_path / "calc.py")
+    assert update_manifest(path=path, source=_seed(path, SRC), manifest_file=manifest_file) == 0
+    scored = _apply_scores(_read_stored(path, manifest_file), _SCORES)
+    _fn(scored, "func/f")["tests_digest"] = "d-f"
+    _store(path, SRC, scored, manifest_file)
+
+    assert update_manifest(path=path, source=_read_source(path), manifest_file=manifest_file) == 0
+
+    assert _fn(_read_stored(path, manifest_file), "func/f")["tests_digest"] == "d-f"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("manifest_file", [True, False], ids=["sidecar", "embedded"])
+def test_update_manifest_drops_tests_digest_of_changed_function(tmp_path, manifest_file):
+    path = str(tmp_path / "calc.py")
+    assert update_manifest(path=path, source=_seed(path, SRC), manifest_file=manifest_file) == 0
+    scored = _apply_scores(_read_stored(path, manifest_file), _SCORES)
+    _fn(scored, "func/f")["tests_digest"] = "d-f"
+    _fn(scored, "func/g")["tests_digest"] = "d-g"
+    _store(path, SRC_G_CHANGED, scored, manifest_file)
+
+    assert update_manifest(path=path, source=_read_source(path), manifest_file=manifest_file) == 0
+
+    stored = _read_stored(path, manifest_file)
+    assert _fn(stored, "func/f")["tests_digest"] == "d-f"
+    assert "tests_digest" not in _fn(stored, "func/g")
+
+
+def _fn(manifest, fid):
+    return next(fn for fn in manifest["functions"] if fn["id"] == fid)
+
+
 def _seed(path, clean):
     """Write the clean source and return the text --update-manifest reads from it."""
     with open(path, "w") as f:

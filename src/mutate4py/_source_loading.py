@@ -70,6 +70,7 @@ def _finalize_source(  # noqa: PLR0913 - keeps the positional contract tests/tes
     *,
     existing_manifest: dict | None = None,
     scored_run: ScoredRun | None = None,
+    fresh_digests: dict[str, str] | None = None,
 ) -> None:
     # Unlike update_manifest, the write can't be skipped outright: a run with
     # selected sites leaves the last-tested mutant on disk (the per-site loop
@@ -80,7 +81,7 @@ def _finalize_source(  # noqa: PLR0913 - keeps the positional contract tests/tes
     scores = None
     if scored_run is not None:
         scores = scored_run.function_scores([fn["id"] for fn in candidate_manifest["functions"]])
-    manifest_to_embed = reconcile_manifest(existing_manifest, candidate_manifest, scores)
+    manifest_to_embed = reconcile_manifest(existing_manifest, candidate_manifest, scores, fresh_digests=fresh_digests)
     _write_manifest_output(clean_source, manifest_to_embed, loc)
     if os.path.isfile(bak_path):
         os.remove(bak_path)
