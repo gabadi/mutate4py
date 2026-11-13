@@ -1,13 +1,10 @@
-"""Site selection for the run loop: since-last-run/lines-filter narrowing of which
-sites get mutated, and the serial/parallel switch.
+"""Site selection for the run loop: differential narrowing of which sites get
+mutated (only the Sites of changed functions once a Manifest exists), and the
+serial/parallel switch.
 """
 
 from mutate4py._discovery import Site
 from mutate4py._report import _uncovered_block_lines
-
-
-def _filter_by_lines(covered: list[Site], lines_filter: set[int]) -> list[Site]:
-    return [s for s in covered if s.line in lines_filter]
 
 
 def _filter_by_fn(covered: list[Site], changed_fn_ids: set[str]) -> list[Site]:
@@ -19,26 +16,18 @@ def _select_sites(
     covered_lines: set[int],
     changed_fn_ids: set[str],
     *,
-    effective_since_last_run: bool,
-    lines_filter: set[int] | None,
+    differential: bool,
 ) -> tuple[list[Site], list[Site]]:
     """Return (covered_sites, selected_sites)."""
     covered = [s for s in all_sites if s.line in covered_lines]
-    if lines_filter is not None:
-        return covered, _filter_by_lines(covered, lines_filter)
-    if effective_since_last_run:
+    if differential:
         return covered, _filter_by_fn(covered, changed_fn_ids)
     return covered, covered
 
 
-def _is_effective_since_last_run(
-    *,
-    since_last_run: bool,
-    manifest_exists: bool,
-    mutate_all: bool,
-    lines_filter: set[int] | None,
-) -> bool:
-    return since_last_run or (manifest_exists and not mutate_all and lines_filter is None)
+def _is_differential(*, manifest_exists: bool, mutate_all: bool) -> bool:
+    """A differential rerun (CONTEXT.md): a Manifest exists and --mutate-all is not given."""
+    return manifest_exists and not mutate_all
 
 
 def _should_run_parallel(max_workers: int, n_selected: int) -> bool:
@@ -49,8 +38,7 @@ def _uncovered_lines_if_needed(
     all_sites: list[Site],
     covered_lines: set[int],
     *,
-    effective_since_last_run: bool,
-    lines_filter: set[int] | None,
+    differential: bool,
 ) -> list[str]:
     """Return the uncovered-sites report block's lines, or [] when it doesn't apply.
 
@@ -58,6 +46,6 @@ def _uncovered_lines_if_needed(
     loop's edge, so the caller (`_select_and_prepare`) is responsible for the
     single `_print_lines` call, same as every other report block it prints.
     """
-    if not effective_since_last_run and lines_filter is None:
+    if not differential:
         return _uncovered_block_lines(all_sites, covered_lines)
     return []

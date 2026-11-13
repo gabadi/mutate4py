@@ -295,8 +295,8 @@ def rejected_args(description: str, src: str) -> list[str]:
         "--mutation-warning 0": [src, "--scan", "--mutation-warning", "0"],
         "--max-workers -1": [src, "--scan", "--max-workers", "-1"],
         "--timeout-factor 1.5": [src, "--scan", "--timeout-factor", "1.5"],
-        # Value validation runs before any pytest run, so the empty pytest args are never exercised.
-        "--lines 7,x": [src, "--pytest-args", "", "--lines", "7,x"],
+        # The removed-flag refusal runs before any pytest run, so the empty pytest args are never exercised.
+        "--lines 7": [src, "--pytest-args", "", "--lines", "7"],
         "--scan --max-workers 4": [src, "--scan", "--max-workers", "4"],
         "--scan --mutate-all": [src, "--scan", "--mutate-all"],
         "--update-manifest --lines 7": [src, "--update-manifest", "--lines", "7"],

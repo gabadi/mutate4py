@@ -272,8 +272,7 @@ def test_unary_site_selected_only_in_changed_function():
         sites,
         covered,
         {minus_site.function_id},
-        effective_since_last_run=True,
-        lines_filter=None,
+        differential=True,
     )
     assert [s.orig_text for s in selected] == ["-"]
 

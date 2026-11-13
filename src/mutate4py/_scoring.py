@@ -9,7 +9,7 @@ from mutate4py._discovery import Site
 class ScoredRun:
     """A run's Sites, coverage, selection and survivors, as the Manifest score block needs them.
 
-    full_selection is True only for a full-file run (no line filter, no since-last-run narrowing).
+    full_selection is True only for a full-file run (no differential narrowing).
     Only such a run may score a function with no covered Site: a narrowed run never tested it,
     so the function's recorded score must stay as it was.
 

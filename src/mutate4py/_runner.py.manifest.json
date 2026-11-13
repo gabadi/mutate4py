@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T15:52:08Z",
-  "module_hash": "4cd717fee8acbe98935c9608798d432eb7bd1f8312641fd1a5345a6908bae4a9",
-  "source_sha256": "575c51af502851b245740596966a33b2d096d8f3c54cf395ae58774c43add86a",
+  "tested_at": "2026-11-13T16:26:59Z",
+  "module_hash": "f424e2c959836ca09dc327961dfc04727bebad7764b96c1adaa4de5da85fe808",
+  "source_sha256": "550183620bfbc4d88695c15f116e16d12e4a2b5863aaf6eb929bd091962cedde",
   "functions": [
     {
       "id": "func/_print_lines",
@@ -36,49 +36,49 @@
       "id": "func/_select_and_prepare",
       "name": "_select_and_prepare",
       "line": 155,
-      "end_line": 227,
-      "hash": "7b5f82fa5448da3683fe68efea2d1942c3b634c5ddf302e7faea0de26af598c9"
+      "end_line": 220,
+      "hash": "50766092f17b184638614686e2a9066d554ad5b53ca60f35624616d7d1847e8b"
     },
     {
       "id": "func/_recorded_survivor_keys",
       "name": "_recorded_survivor_keys",
-      "line": 230,
-      "end_line": 234,
+      "line": 223,
+      "end_line": 227,
       "hash": "2caf9f350eb375bc9a0154107e5892a37bc35603559ebd8b29828156b307bdc3"
     },
     {
       "id": "func/_scored_run_for",
       "name": "_scored_run_for",
-      "line": 237,
-      "end_line": 251,
+      "line": 230,
+      "end_line": 244,
       "hash": "c721eb5dbab34f508f0b6a269fd8ba77d976ad61fe4334eb195c68499d885a1e"
     },
     {
       "id": "func/_mutant_exec_ctx",
       "name": "_mutant_exec_ctx",
-      "line": 254,
-      "end_line": 276,
+      "line": 247,
+      "end_line": 269,
       "hash": "87c87b646d2858cb781856252a75e4a7614ee1348aef70e6a53516eeba41705d"
     },
     {
       "id": "func/run_mutations",
       "name": "run_mutations",
-      "line": 279,
-      "end_line": 292,
+      "line": 272,
+      "end_line": 285,
       "hash": "a913b808b21ba46ab1de6a58d2f02a28468b1291c61052da41d5cca90be28754"
     },
     {
       "id": "func/_run_loop",
       "name": "_run_loop",
-      "line": 295,
-      "end_line": 325,
+      "line": 288,
+      "end_line": 318,
       "hash": "5111b96d94ef66dc5e449a6388f846bbca35d17965349bd01f0de577ea914ce4"
     },
     {
       "id": "func/_report_run",
       "name": "_report_run",
-      "line": 328,
-      "end_line": 352,
+      "line": 321,
+      "end_line": 345,
       "hash": "40786b071175ba4844a44dba01667aa34eb31f472018f771b527f9bc886d84c8"
     }
   ]

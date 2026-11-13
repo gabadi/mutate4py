@@ -54,24 +54,29 @@ def _make_args(**kwargs):
 # ── Mutant-killing gap tests ──────────────────────────────────────────────────
 
 
+COVERAGE = "the run measures coverage itself"
+
+
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ("flag", "args_kwargs"),
+    ("flag", "args_kwargs", "reason"),
     [
-        ("--cov-cmd", dict(cov_cmd="pytest --cov")),
-        ("--lcov", dict(lcov="/some/path")),
-        ("--reuse-coverage", dict(reuse_coverage=True)),
-        ("--test-contexts", dict(test_contexts=".coverage")),
-        ("--build-test-contexts", dict(build_test_contexts="out.coverage")),
+        ("--cov-cmd", dict(cov_cmd="pytest --cov"), COVERAGE),
+        ("--lcov", dict(lcov="/some/path"), COVERAGE),
+        ("--reuse-coverage", dict(reuse_coverage=True), COVERAGE),
+        ("--test-contexts", dict(test_contexts=".coverage"), COVERAGE),
+        ("--build-test-contexts", dict(build_test_contexts="out.coverage"), COVERAGE),
+        ("--since-last-run", dict(since_last_run=True), "a default run already re-scores only changed functions"),
+        ("--lines", dict(lines="7"), "re-score a function by editing it, or use --mutate-all"),
     ],
-    ids=["cov-cmd", "lcov", "reuse-coverage", "test-contexts", "build-test-contexts"],
+    ids=["cov-cmd", "lcov", "reuse-coverage", "test-contexts", "build-test-contexts", "since-last-run", "lines"],
 )
-def test_check_removed_flags_names_the_flag(flag, args_kwargs):
+def test_check_removed_flags_names_the_flag(flag, args_kwargs, reason):
     args = _make_args(**args_kwargs)
     with pytest.raises(ValidationError) as exc:
         _check_removed_flags(args)
     assert exc.value.exit_code == 2
-    assert str(exc.value) == f"{flag} removed in 0.3.0: the run measures coverage itself"
+    assert str(exc.value) == f"{flag} removed in 0.3.0: {reason}"
 
 
 @pytest.mark.unit
@@ -82,25 +87,6 @@ def test_check_removed_flags_no_flags_passes():
 @pytest.mark.unit
 def test_check_removed_flags_reuse_coverage_false_passes():
     _check_removed_flags(_make_args(reuse_coverage=False))
-
-
-@pytest.mark.unit
-def test_max_workers_with_lines_parse_accepted():
-    from mutate4py.__main__ import _build_parser
-
-    parser = _build_parser()
-    args = parser.parse_args(["f.py", "--max-workers", "4", "--lines", "7"])
-    # Should not raise
-    _validate_mutual_exclusions(args)
-
-
-@pytest.mark.unit
-def test_max_workers_with_since_last_run_parse_accepted():
-    from mutate4py.__main__ import _build_parser
-
-    parser = _build_parser()
-    args = parser.parse_args(["f.py", "--max-workers", "4", "--since-last-run"])
-    _validate_mutual_exclusions(args)
 
 
 @pytest.mark.unit
@@ -127,8 +113,6 @@ def test_validate_scan_and_update_manifest_raises():
 @pytest.mark.parametrize(
     "extra",
     [
-        {"lines": "7"},
-        {"since_last_run": True},
         {"mutate_all": True},
         {"max_workers": 4},
     ],
@@ -144,8 +128,6 @@ def test_validate_scan_with_run_only_flag_raises(extra):
 @pytest.mark.parametrize(
     "extra",
     [
-        {"lines": "7"},
-        {"since_last_run": True},
         {"mutate_all": True},
         {"max_workers": 4},
     ],
@@ -158,18 +140,9 @@ def test_validate_check_manifest_with_run_only_flag_raises(extra):
 
 
 @pytest.mark.unit
-def test_validate_update_manifest_with_lines_raises():
-    with pytest.raises(ValidationError) as exc:
-        _validate_mutual_exclusions(_make_args(update_manifest=True, lines="5"))
-    assert exc.value.exit_code == 2
-    assert "--update-manifest" in str(exc.value)
-
-
-@pytest.mark.unit
 @pytest.mark.parametrize(
     "extra",
     [
-        {"since_last_run": True},
         {"mutate_all": True},
         {"max_workers": 4},
     ],
@@ -195,22 +168,6 @@ def test_validate_scan_with_pytest_args_raises():
         _validate_mutual_exclusions(_make_args(scan=True, pytest_args="-k foo"))
     assert exc.value.exit_code == 2
     assert "--pytest-args" in str(exc.value)
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    "extra",
-    [
-        {"since_last_run": True, "mutate_all": True},
-        {"since_last_run": True, "lines": "7"},
-        {"mutate_all": True, "lines": "7"},
-    ],
-)
-def test_validate_pairwise_selection_raises(extra):
-    with pytest.raises(ValidationError) as exc:
-        _validate_mutual_exclusions(_make_args(**extra))
-    assert exc.value.exit_code == 2
-    assert "pairwise exclusive" in str(exc.value)
 
 
 @pytest.mark.unit

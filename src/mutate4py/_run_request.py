@@ -18,8 +18,6 @@ class RunMutationsRequest:
     source: str
     pytest_args: list[str]
     timeout_factor: int
-    lines_filter: set[int] | None
-    since_last_run: bool
     mutate_all: bool
     warning_threshold: int
     cwd: str
