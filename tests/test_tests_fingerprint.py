@@ -143,6 +143,33 @@ def test_editing_a_file_outside_the_configured_testpaths_does_not_change_it(tmp_
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize(
+    ("name", "text"),
+    [
+        pytest.param("pyproject.toml", '[tool.pytest.ini_options]\ntestpaths = ["tests"]\n', id="pyproject"),
+        pytest.param("tox.ini", "[pytest]\ntestpaths = tests\n", id="tox-ini"),
+        pytest.param("setup.cfg", "[tool:pytest]\ntestpaths = tests\n", id="setup-cfg"),
+    ],
+)
+def test_testpaths_in_any_pytest_config_file_narrow_the_walk(tmp_path, name, text):
+    root = _project(tmp_path)
+    (tmp_path / "pytest.ini").unlink()
+    (tmp_path / name).write_text(text)
+    before = fingerprint_of(root, "")
+    (tmp_path / "src" / "app.py").write_text("VALUE = 2\n")
+    assert fingerprint_of(root, "") == before
+
+
+@pytest.mark.unit
+def test_a_pytest_ini_without_testpaths_wins_over_a_pyproject_testpaths(tmp_path):
+    root = _project(tmp_path)
+    (tmp_path / "pyproject.toml").write_text('[tool.pytest.ini_options]\ntestpaths = ["tests"]\n')
+    before = fingerprint_of(root, "")
+    (tmp_path / "src" / "app.py").write_text("VALUE = 2\n")
+    assert fingerprint_of(root, "") != before
+
+
+@pytest.mark.unit
 def test_a_testpaths_glob_is_expanded_so_its_matches_are_hashed(tmp_path):
     root = _project(tmp_path)
     (tmp_path / "pytest.ini").write_text("[pytest]\ntestpaths = tests/*\n")
@@ -273,6 +300,31 @@ def test_a_flag_with_a_separate_value_widens_to_the_whole_root(tmp_path):
     before = fingerprint_of(root, "-k test_a")
     (tmp_path / "src" / "app.py").write_text("VALUE = 2\n")
     assert fingerprint_of(root, "-k test_a") != before
+
+
+@pytest.mark.unit
+def test_an_unclassified_flag_may_take_the_next_token_so_the_walk_widens(tmp_path):
+    root = _project(tmp_path)
+    (tmp_path / "pytest.ini").write_text("[pytest]\ntestpaths = tests\n")
+    before = fingerprint_of(root, "--some-plugin-flag tests")
+    (tmp_path / "src" / "app.py").write_text("VALUE = 2\n")
+    assert fingerprint_of(root, "--some-plugin-flag tests") != before
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "args",
+    [
+        pytest.param("-p no:cacheprovider -m 'not integration'", id="plugin-and-marker"),
+        pytest.param("-k src", id="keyword-value-named-like-a-path"),
+    ],
+)
+def test_value_options_take_their_value_and_keep_the_walk_narrowed(tmp_path, args):
+    root = _project(tmp_path)
+    (tmp_path / "pytest.ini").write_text("[pytest]\ntestpaths = tests\n")
+    before = fingerprint_of(root, args)
+    (tmp_path / "src" / "app.py").write_text("VALUE = 2\n")
+    assert fingerprint_of(root, args) == before
 
 
 @pytest.mark.unit

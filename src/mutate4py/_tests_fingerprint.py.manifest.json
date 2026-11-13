@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T20:28:54Z",
-  "module_hash": "8a0863773621eb14efc8f2c52f6b2055796e49ca5c755ef720163a4dc35f48e4",
-  "source_sha256": "90b03a1ddcb301647b21710416f27db79d1e06e0c4517b117e91bf9c5d70e8b7",
+  "tested_at": "2026-11-13T21:42:21Z",
+  "module_hash": "eb6a94497c1605f64bc0dd6a2b3c57b30b3d7d293bcd06d9dd5a6a17767191fb",
+  "source_sha256": "eb8bfb74cb42ef915c5055430456b414bfecd43f2de384774551dfca473c409c",
   "functions": [
     {
       "id": "func/_target_skippable",
@@ -86,83 +86,83 @@
       "name": "_positional_roots",
       "line": 161,
       "end_line": 163,
-      "hash": "faec8bced2a2406c42de64ee6b98d8e86a1f7f48f1eeed53b528f6892afe0c46"
+      "hash": "9285a7ac0a33792b6bcd21dad0332d6389ad734f3415dfb95cb70956f8a35622"
     },
     {
-      "id": "func/_configured_testpaths",
-      "name": "_configured_testpaths",
+      "id": "func/_is_classified_flag",
+      "name": "_is_classified_flag",
       "line": 166,
-      "end_line": 181,
-      "hash": "5712f52a2f4d65826f67bbc4b1096647e5d01594c7f5b487fcbb194d1776d31d"
+      "end_line": 168,
+      "hash": "e68ab0a8e54c2d8f27129432355fff03bee2b81a5e291aaf231a9e78b0467ef4"
     },
     {
       "id": "func/_collection_roots",
       "name": "_collection_roots",
-      "line": 184,
-      "end_line": 192,
-      "hash": "e4ce1fc15317de156e9634ea7b81c8bdce0a83c76e582d36abf55db86982644a"
+      "line": 171,
+      "end_line": 179,
+      "hash": "d124ebcaa65093a8d9b2b6d61c0d7f2826e78422bb69c23761f1cfeb889b5e53"
     },
     {
       "id": "func/_pyproject_pytest_table",
       "name": "_pyproject_pytest_table",
-      "line": 198,
-      "end_line": 211,
+      "line": 185,
+      "end_line": 198,
       "hash": "160db7a73b1e714e8299714c1b1a164adef3515a80d76baf617cce916d3b5d36"
     },
     {
       "id": "func/_config_inputs",
       "name": "_config_inputs",
-      "line": 214,
-      "end_line": 222,
+      "line": 201,
+      "end_line": 209,
       "hash": "04e4fabfaf49c93ccd6e582b2aee7f3d2243e9693f944920eaa60f71f9fdcad5"
     },
     {
       "id": "func/_explicit_config_inputs",
       "name": "_explicit_config_inputs",
-      "line": 225,
-      "end_line": 231,
+      "line": 212,
+      "end_line": 218,
       "hash": "0ffb5de27d2e90c58e2e2d72cf57d5cb10c237963ccbccbb3d7de0e5b45c1661"
     },
     {
       "id": "func/_config_dirs",
       "name": "_config_dirs",
-      "line": 234,
-      "end_line": 238,
+      "line": 221,
+      "end_line": 225,
       "hash": "3b521e57aac09d53aec342e0bf023763c7a30e0525c1df8b2a9ac39b2562d8cb"
     },
     {
       "id": "func/_config_and_lock_inputs",
       "name": "_config_and_lock_inputs",
-      "line": 241,
-      "end_line": 245,
+      "line": 228,
+      "end_line": 232,
       "hash": "3f094753e6cfa60dc58d435fd5614dc03f30781170a320faddcc1a57f276d875"
     },
     {
       "id": "func/_mutate4py_version",
       "name": "_mutate4py_version",
-      "line": 248,
-      "end_line": 252,
+      "line": 235,
+      "end_line": 239,
       "hash": "0168d19e257f113e9fdce63f932aa617509a36fa8dc24b2f6534bb7dc3ddc69e"
     },
     {
       "id": "func/fingerprint_inputs",
       "name": "fingerprint_inputs",
-      "line": 255,
-      "end_line": 270,
+      "line": 242,
+      "end_line": 257,
       "hash": "04c9e51190f4581fa8477c288460d07ea3901095f86ddbf50c0fc07c00e25abd"
     },
     {
       "id": "func/_digest",
       "name": "_digest",
-      "line": 273,
-      "end_line": 274,
+      "line": 260,
+      "end_line": 261,
       "hash": "5563ce180ffeb9f233104413337d374bf5970da6342bbf01c8c2570040d63f5c"
     },
     {
       "id": "func/tests_fingerprint",
       "name": "tests_fingerprint",
-      "line": 277,
-      "end_line": 286,
+      "line": 264,
+      "end_line": 273,
       "hash": "5929ee3dc3f75e42cf6d8fcb9e31cae3b90d8f2af1a5ba107a4dcd10fa7d2cf2"
     }
   ]

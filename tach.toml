@@ -82,6 +82,20 @@ path = "mutate4py._py_tree"
 layer = "primitives"
 depends_on = []
 
+# How a pytest argv reads (flag, value, positional). Read by both `_tests_fingerprint` and
+# `_test_dispatch`, which sit in different layers, so it lives in `primitives`.
+[[modules]]
+path = "mutate4py._pytest_argv"
+layer = "primitives"
+depends_on = []
+
+# Where pytest's configuration declares its testpaths. Split from `_tests_fingerprint`, which sits
+# at its size cap (tests/test_module_size_guard.py). Stdlib-only, so it lives in `primitives`.
+[[modules]]
+path = "mutate4py._pytest_config"
+layer = "primitives"
+depends_on = []
+
 [[modules]]
 path = "mutate4py._sidecar_io"
 layer = "primitives"

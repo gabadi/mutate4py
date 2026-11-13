@@ -223,7 +223,7 @@ def _recorded_block_lines(recorded: list[tuple[str, dict]]) -> list[str]:
     """
     if not recorded:
         return []
-    lines = ["", "Recorded survivors (not re-run):"]
+    lines = ["", "Recorded survivors (function unchanged, not re-run):"]
     for fid, s in recorded:
         lines.append(f"  line {s['line']} {s['desc']} {fid}")
     return lines

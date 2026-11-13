@@ -12,12 +12,10 @@ run writes into a source file never changes the fingerprint that run wrote.
 `can_skip_measurement` decides from per-target facts the caller reduced from
 the stored Manifests. This module reads no Manifest itself: its one Manifest
 import is `strip_manifest`, which removes the footer text and reads no stored
-value. Its other import is `primitives` (`_py_tree`).
+value. Its other imports are `primitives` (`_py_tree`, `_pytest_argv`, `_pytest_config`).
 """
 
-import configparser
 import dataclasses
-import glob
 import hashlib
 import importlib.metadata
 import json
@@ -31,6 +29,8 @@ from collections.abc import Sequence
 
 from mutate4py._manifest import strip_manifest
 from mutate4py._py_tree import walkable_dirs
+from mutate4py._pytest_config import configured_testpaths
+from mutate4py._pytest_argv import VALUE_OPTIONS, flag_tokens, positional_tokens
 
 
 @dataclasses.dataclass(frozen=True)
@@ -134,9 +134,9 @@ def _conftest_inputs(root: str, base: str) -> list[tuple[str, str]]:
     return [_file_input(os.path.join(directory, "conftest.py"), base) for directory in directories]
 
 
-# A flag that takes no separate value: a bare switch, a value attached with `=`, or a value attached directly.
-# Any other flag may consume the next token, so reading that token as a path would be wrong.
-_VALUELESS_FLAG = re.compile(r"-[vqsxl]+|--(lf|ff|pdb|trace|strict-markers|no-header)|--[\w-]+=.+|-[a-zA-Z].+")
+# A flag that carries everything it needs: a bare switch, a value attached with `=`, or a value attached directly.
+# A flag outside this set and outside VALUE_OPTIONS may consume the next token, so the walk widens instead.
+_SELF_CONTAINED_FLAG = re.compile(r"-[vqsxl]+|--(lf|ff|pdb|trace|strict-markers|no-header)|--[\w-]+=.+|-[a-zA-Z].+")
 
 
 def _attached_value(token: str, name: str) -> str | None:
@@ -160,25 +160,12 @@ def _option_values(tokens: list[str], name: str) -> list[str]:
 
 def _positional_roots(cwd: str, tokens: list[str]) -> list[str]:
     """Pytest's positional arguments, resolved against `cwd`; nodeid suffixes (`::name`) are dropped."""
-    return [os.path.join(cwd, token.split("::")[0]) for token in tokens if not token.startswith("-")]
+    return [os.path.join(cwd, token.split("::")[0]) for token in positional_tokens(tokens)]
 
 
-def _configured_testpaths(cwd: str) -> list[str]:
-    """`testpaths` from pytest.ini, each glob expanded as pytest expands it.
-
-    A file that does not parse, and a glob that matches nothing, yield no root
-    for that entry. When no entry matches, the walk widens to `cwd`, as pytest does.
-    """
-    parser = configparser.ConfigParser()
-    try:
-        parser.read(os.path.join(cwd, "pytest.ini"))
-        testpaths = parser.get("pytest", "testpaths", fallback="")
-    except configparser.Error:
-        return []
-    found: list[str] = []
-    for pattern in testpaths.split():
-        found.extend(sorted(glob.glob(os.path.join(cwd, pattern), recursive=True)))
-    return found
+def _is_classified_flag(token: str) -> bool:
+    """Whether this reader knows the flag's arity: a value option, or a flag that carries its own value."""
+    return token in VALUE_OPTIONS or _SELF_CONTAINED_FLAG.fullmatch(token) is not None
 
 
 def _collection_roots(cwd: str, tokens: list[str]) -> list[str]:
@@ -187,9 +174,9 @@ def _collection_roots(cwd: str, tokens: list[str]) -> list[str]:
     A flag this reader cannot classify may take the next token as its value, so the
     positional reading would be wrong. The walk then widens to the whole rootdir.
     """
-    if not all(_VALUELESS_FLAG.fullmatch(token) for token in tokens if token.startswith("-")):
+    if not all(_is_classified_flag(token) for token in flag_tokens(tokens)):
         return [cwd]
-    return _positional_roots(cwd, tokens) or _configured_testpaths(cwd) or [cwd]
+    return _positional_roots(cwd, tokens) or configured_testpaths(cwd) or [cwd]
 
 
 _CONFIG_FILES = ("pytest.ini", "tox.ini", "setup.cfg")

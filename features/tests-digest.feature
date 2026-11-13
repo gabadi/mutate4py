@@ -14,7 +14,7 @@ Feature: A scored function stays proven while the tests that reach it do not cha
   #     whose hash and digest are both unchanged is skipped, even with Survivors.
   #   report — the progress lines name every function a run re-scored. The Survivors a
   #     skipped function kept from the Manifest print on their own
-  #     "Recorded survivors (not re-run):" block, apart from this run's "Survivors:".
+  #     "Recorded survivors (function unchanged, not re-run):" block, apart from this run's "Survivors:".
   #   exit code — recorded Survivors count like this run's: exit 3, or 0 with
   #     --allow-survivors.
   #   --check-manifest — checks hashes, recorded Survivors and equivalent markers. It

@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T19:29:44Z",
-  "module_hash": "2822cb35299396a03e6ea65f68b6dfde82714927f3e6ca1b5a757ef9e66caae8",
-  "source_sha256": "1612a79ac2298c4a17f0bf59222d4d7d3050f4646e2ef29ba5cda1ea50bf8c30",
+  "tested_at": "2026-11-13T21:35:11Z",
+  "module_hash": "a5866e7936ffcc83492af4f0e43c75f065068f765d5b12e6968f2e45c4870118",
+  "source_sha256": "aa3b723afe9ba9afe92c4280fc4f6544d49dd9f56856e61236354fd0cec01557",
   "functions": [
     {
       "id": "func/_run_header_lines",
@@ -100,7 +100,7 @@
       "name": "_recorded_block_lines",
       "line": 219,
       "end_line": 229,
-      "hash": "ea70d728f401b79cbb5f09dc54828788aba3cbde28c51e1ca23266b41cb68c37"
+      "hash": "68c598155d8d05590f1cf13ec6e6768490c641d1f36730000208a622258ff80a"
     },
     {
       "id": "func/executor_block_lines",

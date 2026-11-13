@@ -12,6 +12,7 @@ import logging
 from collections.abc import Callable
 
 from mutate4py._discovery import Site
+from mutate4py._pytest_argv import POSITIONAL, token_roles
 
 __all__ = [
     "NO_TESTS_HINT",
@@ -57,53 +58,17 @@ def _log_dispatch_abort(exc: NoTestsCollectedError) -> int:
     return 2
 
 
-# pytest options whose value is the next argv token. That token is an option
-# value, never a positional, even when it spells one (`-k tests`).
-_VALUE_OPTIONS = frozenset(
-    {
-        "-k",
-        "-m",
-        "-p",
-        "-o",
-        "-c",
-        "-W",
-        "-r",
-        "-n",
-        "--rootdir",
-        "--ignore",
-        "--ignore-glob",
-        "--deselect",
-        "--tb",
-        "--maxfail",
-        "--basetemp",
-        "--junitxml",
-        "--import-mode",
-        "--log-level",
-        "--capture",
-        "--durations",
-        "--confcutdir",
-        "--override-ini",
-    }
-)
-
-
 def _without_positionals(pytest_args: list[str], positionals: tuple[str, ...]) -> list[str]:
     """pytest_args minus the run's positional path arguments, which a narrowed Mutant replaces with node ids.
 
-    A token is a positional only when it is not the value of a value-taking
-    option, so `-k tests` keeps its `tests`. Each positional is dropped once.
+    A token is a positional only when the shared argv reader (`_pytest_argv`) reads
+    it so, not the value of a value-taking option, so `-k tests` keeps its `tests`.
+    Each positional is dropped once.
     """
     remaining = list(positionals)
     kept: list[str] = []
-    value_next = False
-    for token in pytest_args:
-        if value_next:
-            kept.append(token)
-            value_next = False
-        elif token in _VALUE_OPTIONS:
-            kept.append(token)
-            value_next = True
-        elif token in remaining:
+    for token, role in zip(pytest_args, token_roles(pytest_args)):
+        if role == POSITIONAL and token in remaining:
             remaining.remove(token)
         else:
             kept.append(token)

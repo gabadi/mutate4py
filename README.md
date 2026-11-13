@@ -198,7 +198,7 @@ through state it reads. So before a Survivor is reported, it is re-run with the 
 set, in a fresh interpreter through the subprocess executor. It counts only if it survives
 that run too; a kill, or a timeout, folds into killed (ADR 0011). Accepted equivalents are
 not confirmed. The `Time:` line shows the cost as
-`confirmation <s> (<n> run, <k> killed)`. See ADR 0018 (amendment #97) and
+`confirmation <s> (<n> run, <k> kills)`. See ADR 0018 (amendment #97) and
 [ADR 0028](docs/adr/0028-fork-server-harness-mode-and-swap-mode.md).
 
 ## Tests digest and the rerun skip rule
@@ -216,7 +216,7 @@ run's support files, the pytest table of `pyproject.toml`, the pytest ini file a
 though the function itself did not change.
 
 A function whose Unit hash and digest are both unchanged is **skipped**, even when it
-records Survivors. Its recorded Survivors print under `Recorded survivors (not re-run):`,
+records Survivors. Its recorded Survivors print under `Recorded survivors (function unchanged, not re-run):`,
 apart from the run's own Survivors, and they count toward the exit code: exit 3, or 0 with
 `--allow-survivors`. A rerun with nothing changed skips the Measurement and the Mutants,
 and reports the recorded Survivors on the same terms. `--mutate-all` re-scores every

@@ -421,7 +421,7 @@ def test_executor_block_lines_names_the_serial_subprocess_executor_and_its_reaso
     lines = executor_block_lines(ExecutorDescription(mode="subprocess", reason="--no-fork"), MutantTiming())
     assert lines == [
         "",
-        "Time: mutants 0.00s (0), timeouts 0.00s (0), confirmation 0.00s (0 run, 0 killed)",
+        "Time: mutants 0.00s (0), timeouts 0.00s (0), confirmation 0.00s (0 run, 0 kills)",
         "Executor: subprocess (--no-fork)",
     ]
 
@@ -445,7 +445,7 @@ def test_executor_block_lines_time_line_splits_mutants_timeouts_and_confirmation
     lines = executor_block_lines(ExecutorDescription(mode="subprocess", reason="--no-fork"), timing)
     assert lines == [
         "",
-        "Time: mutants 1.50s (2), timeouts 0.25s (1), confirmation 1.00s (2 run, 1 killed)",
+        "Time: mutants 1.50s (2), timeouts 0.25s (1), confirmation 1.00s (2 run, 1 kills)",
         "Executor: subprocess (--no-fork)",
     ]
 
@@ -455,4 +455,4 @@ def test_executor_block_lines_counts_a_confirmation_timeout_as_a_kill():
     timing = MutantTiming()
     timing.record_confirmation("timeout", 2.0)
     lines = executor_block_lines(ExecutorDescription(mode="subprocess", reason="--no-fork"), timing)
-    assert lines[1] == "Time: mutants 0.00s (0), timeouts 0.00s (0), confirmation 2.00s (1 run, 1 killed)"
+    assert lines[1] == "Time: mutants 0.00s (0), timeouts 0.00s (0), confirmation 2.00s (1 run, 1 kills)"

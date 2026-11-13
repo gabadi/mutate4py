@@ -8,6 +8,7 @@ and its wiring from the CLI namespace into the run request.
 """
 
 import io
+import json
 import os
 from contextlib import redirect_stdout
 
@@ -263,21 +264,22 @@ def test_mutate_all_scores_uncovered_function(tmp_path):
 
 
 @pytest.mark.component
-def test_noop_default_run_leaves_014_sidecar_bytes(tmp_path):
-    # A 0.1.4 sidecar (no score blocks) must not gain them on a default run that selects nothing.
+def test_noop_default_run_gains_no_score_blocks_on_a_014_sidecar(tmp_path):
+    # A 0.1.4 sidecar (no score blocks) must not gain them on a default run that selects nothing. That run took
+    # the Measurement and completed, so it records its fingerprint (spec 5b) and no score block.
     src_path = str(tmp_path / "calc.py")
     with open(src_path, "w") as f:
         f.write(_TWO_FUNCTIONS)
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
     assert update_manifest(path=src_path, source=_TWO_FUNCTIONS, manifest_file=True) == 0
-    with open(src_path + ".manifest.json") as f:
-        before = f.read()
 
     measurement = _covering(src_path, [2])
     assert _run(tmp_path, src_path, measurement, pytest_args, source=_TWO_FUNCTIONS, manifest_file=True) == 0
 
     with open(src_path + ".manifest.json") as f:
-        assert f.read() == before
+        after = json.load(f)
+    assert all("score" not in fn for fn in after["functions"])
+    assert after.get("tests_fingerprint") is not None
 
 
 @pytest.mark.unit
