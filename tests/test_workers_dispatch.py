@@ -302,7 +302,7 @@ def test_parallel_dogfood_run_scores_the_same_as_the_serial_run(tmp_path):
     project.mkdir()
     for name in ("pyproject.toml", "uv.lock", ".python-version", "README.md", "LICENSE"):
         shutil.copy2(os.path.join(REPO_ROOT, name), project / name)
-    for name in ("src", "tests", "scripts"):
+    for name in ("src", "tests"):
         shutil.copytree(os.path.join(REPO_ROOT, name), project / name, ignore=shutil.ignore_patterns(*_SKIP_ENTRIES))
     env = {k: v for k, v in os.environ.items() if k not in ("VIRTUAL_ENV", "PYTHONPATH")}
     subprocess.run(["uv", "sync"], cwd=project, env=env, capture_output=True, text=True, check=True)

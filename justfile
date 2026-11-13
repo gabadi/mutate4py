@@ -87,18 +87,13 @@ install-tools:
 # Verbose gate output. Truncated at the start of every `just check`; gitignored.
 LOG := "check.log"
 
-# Single source of truth for which tests exist for this project's scored
-# `mutate` runs. Both `test-context-db` (builds the db `mutate` narrows
-# against) and `mutate` itself (the scored run's own --pytest-args) read this
-# ONE variable, so the db's contexts and the Mutant run's own test selection
-# can't silently drift apart into two argument sets that disagree.
-MUTATE_PYTEST_ARGS := "-p no:tach -m 'not integration'"
-
-# Isolated-session test-context db `mutate` reads via --test-contexts (see
-# `test-context-db` below). Its cache sidecar is
-# TEST_CONTEXT_DB + ".test-context-cache.json" (mutate4py's own convention);
-# both are gitignored.
-TEST_CONTEXT_DB := "contexts.db"
+# Test selection for `mutate`'s scored runs (#98): unit tests only. `integration`
+# tests are coverage-blind and `component` tests are excluded too, so a Mutant
+# that only a component test kills is scored a Survivor until #108 adds unit
+# tests for it. `-p no:tach` skips tach's pytest plugin, which re-runs its
+# impact analysis uncached on every subprocess spawn (~1-1.3s per Mutant, issue
+# #26); `tach check` already covers it in the `lint` gate.
+MUTATE_PYTEST_ARGS := "-p no:tach -m 'not integration and not component'"
 
 # No argument runs everything CI runs, in CI's order. Naming gates runs
 # exactly those, in the order given: `just check lint test`.
@@ -111,8 +106,8 @@ TEST_CONTEXT_DB := "contexts.db"
 check *gates:
     #!/usr/bin/env bash
     set -euo pipefail
-    all=(lint format-check test-unit test-component test-integration context-deselection crap dry manifest acceptance)
-    extra=(gherkin-mutation mutate-sample test-context-db)
+    all=(lint format-check test-unit test-component test-integration crap dry manifest acceptance)
+    extra=(gherkin-mutation mutate-sample)
     known=("${all[@]}" "${extra[@]}")
     selected=({{gates}})
     if [ ${#selected[@]} -eq 0 ]; then
@@ -130,42 +125,14 @@ check *gates:
     # `test-unit` writes both lcov.info and .coverage, and --no-deps means
     # nothing here will produce either on its own. `test-integration` is
     # coverage-blind, so it is never a prerequisite — see `test-unit`'s comment.
-    # Each guard's `run:` must name the COMPLETE command: mutate-sample also
-    # needs test-context-db (next guard) and context-deselection also needs
-    # test-component (guard after that), and fixing one must not trip another.
-    for needs_test in crap mutate-sample context-deselection; do
+    # Each guard's `run:` must name the COMPLETE command.
+    for needs_test in crap; do
         if [[ " ${selected[*]} " == *" ${needs_test} "* && " ${selected[*]} " != *" test-unit "* ]]; then
-            echo "  ✗ ${needs_test} reads lcov.info/.coverage, which \`test-unit\` writes" >&2
-            case "${needs_test}" in
-                mutate-sample)       echo "    run:  just check test-unit test-context-db mutate-sample" >&2 ;;
-                context-deselection) echo "    run:  just check test-unit test-component context-deselection" >&2 ;;
-                *)                   echo "    run:  just check test-unit ${needs_test}" >&2 ;;
-            esac
+            echo "  ✗ ${needs_test} reads lcov.info, which \`test-unit\` writes" >&2
+            echo "    run:  just check test-unit ${needs_test}" >&2
             exit 1
         fi
     done
-    # `crap` and `mutate-sample` read lcov.info, which is unit-only by design.
-    # `context-deselection` reads .coverage instead, and needs EVERY context a
-    # Mutant run could narrow against — `component` tests are narrowing
-    # candidates (MUTATE_PYTEST_ARGS excludes only `integration`), so their
-    # append has to have happened before this gate reads the file.
-    if [[ " ${selected[*]} " == *" context-deselection "* && " ${selected[*]} " != *" test-component "* ]]; then
-        echo "  ✗ context-deselection must see every narrowable context; \`test-component\` appends the rest" >&2
-        echo "    run:  just check test-unit test-component context-deselection" >&2
-        exit 1
-    fi
-    # `mutate` (which `mutate-sample` shells out to) depends on `test-context-db`
-    # itself, so it always builds/refreshes the db it needs — this guard isn't
-    # for correctness. It's for cost: that dependency can be a ~16-minute cold
-    # build (see `test-context-db`'s own comment for the measured figure), and
-    # without this guard it would run silently, nested inside `mutate-sample`,
-    # with no gate of its own in {{LOG}} and no ✓/✗ line. Selecting
-    # `test-context-db` explicitly makes that cost visible up front instead.
-    if [[ " ${selected[*]} " == *" mutate-sample "* && " ${selected[*]} " != *" test-context-db "* ]]; then
-        echo "  ✗ mutate-sample builds the test-context db via \`mutate\`'s own dependency; make that cost visible as its own gate" >&2
-        echo "    run:  just check test-unit test-component test-context-db mutate-sample" >&2
-        exit 1
-    fi
     # The append chain runs test-unit -> test-component -> test-integration.
     # Only test-unit starts the data file; either later gate on its own would
     # append to whatever stale data happened to be on disk.
@@ -282,11 +249,11 @@ format:
 # Reasoning and evidence: docs/adr/0023-unit-component-integration-test-split.md.
 #
 # .coverage still accumulates all three, because --cov-context=test records
-# which test covers which line and `context-deselection` below needs EVERY
-# narrowable context, not just the unit ones. `mutate` narrows against
-# `contexts.db` instead (ADR 0021), and MUTATE_PYTEST_ARGS excludes only
-# `integration` — so moving a test to `component` costs it its place in the
-# fast gate and in the coverage metric, not its place in narrowing.
+# which test covers which line. Nothing in `check` reads those contexts since
+# `context-deselection` and the test-context db went (#98), so the flag is a
+# candidate for removal in a follow-up. `mutate` scores with unit tests only
+# (MUTATE_PYTEST_ARGS), so moving a test to `component` costs it its place in
+# the fast gate, the coverage metric and `mutate`'s scoring alike.
 [private]
 test-unit:
     uv run pytest -m 'not integration and not component' --cov --cov-context=test \
@@ -308,17 +275,6 @@ test-component:
 test-integration:
     uv run pytest -m integration --cov --cov-append --cov-context=test \
         --cov-report= --cov-fail-under=0
-
-# No test recorded as a named context in `.coverage` may be deselected by the
-# `mutate` recipe's --pytest-args below: narrowing could still pick that
-# test's node ID for some Site, the marker filter then deselects it, and
-# pytest exits 5/4 -- which _cmd.py's classify_exit_code (#55) now raises on
-# instead of scoring `killed`, aborting the whole mutation run mid-batch over
-# a misconfiguration this gate catches ahead of time instead. Requires
-# .coverage from `test-unit` + `test-component` (see `check`'s guards).
-[private]
-context-deselection:
-    uv run python scripts/check_context_deselection.py
 
 # Requires lcov.info from `test-unit`.
 [private]
@@ -346,39 +302,12 @@ acceptance:
 gherkin-mutation:
     bash acceptance/run_gherkin_mutation.sh
 
-# Fast CI-friendly mutation signal (one file, full test suite via `mutate`
+# Fast CI-friendly mutation signal (one file, unit-test selection via `mutate`
 # below). Not in `all` for the same reason it wasn't in CI before: real
-# mutation scoring is slow. Opt in: `just check test-unit test-context-db
-# mutate-sample` (see the `check` guard above for why test-context-db is
-# listed explicitly rather than left implicit).
+# mutation scoring is slow. Opt in: `just check mutate-sample`.
 [private]
 mutate-sample:
     just mutate src/mutate4py/_cmd.py --mutate-all --allow-survivors
-
-# Builds (or, on a fresh cache, skips rebuilding — mutate4py's own staleness
-# cache, see docs/adr/0022 and issue #52) the isolated-session test-context
-# db `mutate` below reads via --test-contexts (ADR 0021), scoped by the SAME
-# MUTATE_PYTEST_ARGS `mutate` itself uses for scoring — one declared argument
-# set for both, instead of restating the string in two places that could
-# silently disagree.
-#
-# `mutate` also declares this as its own dependency, so a bare `just mutate
-# <path>` always builds or refreshes it first — a stale db is never narrowed
-# against silently, it's rebuilt (the cache's own staleness check, ADR 0022).
-# Cost: ~16 minutes cold on this project's full non-integration suite (957
-# tests, measured; ADR 0021 accepts this class of cost as deliberate), ~4s on
-# an unchanged tree.
-#
-# Decision: not in `all`, and .github/workflows/ci.yml is deliberately left
-# unchanged — CI does not invoke mutate or mutate-sample at all, and this
-# recipe doesn't change that. A fresh CI checkout has no
-# warm cache, so folding this into the default `just check` would add ~16 cold
-# minutes to every run; local/hardener use (which does warm the cache) is
-# unaffected. Revisit only as its own deliberate change, not a side effect of
-# this recipe existing.
-[private]
-test-context-db:
-    uv run mutate4py --build-test-contexts {{TEST_CONTEXT_DB}} --pytest-args "{{MUTATE_PYTEST_ARGS}}"
 
 # --- Mutation testing (hardener loop) ---------------------------------------
 #
@@ -393,32 +322,22 @@ test-context-db:
 # infra failure that happens before the summary prints is still visible.
 # Exit 3 (unaccepted survivors, ADR 0026) is a normal result: the report already lists them, so no tail.
 #
-# Requires lcov.info from `just check test-unit` first — REWRITES `path`
-# afterward, same as mutate4py always does on a scored run: expect a diff.
+# Rewrites `path` on a scored run, same as mutate4py always does: expect a diff.
 #
-# --test-contexts reads {{TEST_CONTEXT_DB}}, not `.coverage`: a single shared
-# --cov-context=test session under-lists covering tests for any line more than
-# one test reaches (ADR 0021), so narrowing against it can silently score a
-# Mutant `survived` when a killing test exists but was never selected. The
-# `test-context-db` dependency above builds or refreshes the sound
-# isolated-session replacement on every run, so this never narrows against a
-# missing or stale db.
-#
-# MUTATE_PYTEST_ARGS excludes `integration` because those tests are
-# coverage-blind (see `test-integration`) and so never contribute to
-# per-mutant scoping — confirmed 0/346 sites depend on them; they only cost
-# baseline and full-suite-fallback time. `{{args}}` can override with an
-# explicit --pytest-args, which changes this run's selection scope but not
-# what `test-context-db` already built the db from — see that recipe on why
-# both read one variable. `-p no:tach` skips tach's pytest plugin, which
-# re-runs its impact analysis uncached on every subprocess spawn (~1-1.3s per
-# mutant, issue #26); `tach check` already covers it in the `lint` gate.
-mutate path *args: test-context-db
+# MUTATE_PYTEST_ARGS (declared above the gates) selects unit tests only.
+# `integration` tests are coverage-blind (see `test-integration`), and
+# `component` tests are excluded too: a Mutant only a component test kills
+# scores as a Survivor until #108 adds unit tests for it. `{{args}}` can
+# override with an explicit --pytest-args, which changes this run's selection
+# scope. `-p no:tach` skips tach's pytest plugin, which re-runs its impact
+# analysis uncached on every subprocess spawn (~1-1.3s per mutant, issue #26);
+# `tach check` already covers it in the `lint` gate.
+mutate path *args:
     #!/usr/bin/env bash
     set -uo pipefail
     log="$(mktemp)"
     trap 'rm -f "$log"' EXIT
-    uv run mutate4py {{path}} --lcov lcov.info --test-contexts {{TEST_CONTEXT_DB}} --pytest-args "{{MUTATE_PYTEST_ARGS}}" {{args}} >"$log" 2>&1
+    uv run mutate4py {{path}} --pytest-args "{{MUTATE_PYTEST_ARGS}}" {{args}} >"$log" 2>&1
     status=$?
     awk '/^Mutation Report$/,0' "$log"
     if [ "$status" -ne 0 ] && [ "$status" -ne 3 ]; then
@@ -468,8 +387,7 @@ perf:
     _run "dry"    "$DRYWALL" src/
     _run "check-manifest" uv run mutate4py src/ --check-manifest --manifest-file
     _run "acceptance" bash acceptance/run_acceptance.sh
-    _run "test-context-db" just --no-deps test-context-db
-    _run "mutation (src/, --test-contexts)" \
+    _run "mutation (src/)" \
         just mutate src/ --mutate-all --mutation-warning 100000 --allow-survivors
 
     name_width=0
