@@ -89,6 +89,11 @@ layer = "primitives"
 depends_on = []
 
 [[modules]]
+path = "mutate4py._code_swap"
+layer = "primitives"
+depends_on = []
+
+[[modules]]
 path = "mutate4py._discovery"
 layer = "domain"
 depends_on = []
