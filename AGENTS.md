@@ -15,7 +15,7 @@ Navigation and universal invariants for all agents in this project.
 
 ## Tool Paths (Local Machine)
 - `crap4py`: installed from local sibling `~/workspace/addi/crap4py` via `uv tool install ~/workspace/addi/crap4py` (not PyPI, not GitHub URL)
-- `drywall`: available at `/Users/gabadi/.local/bin/drywall` (not in PyPI under that name)
+- `drywall` and `gherkin-parser` (not in PyPI): run `just install-tools` once per machine. It installs the versions pinned in the `justfile` (`DRYWALL_TAG`, `GHERKIN_PARSER_COMMIT`) into `~/.local/bin`, the same pins CI installs with, and rerunning it is a no-op. `~/.local/bin` must be on PATH. When either tool is missing, `just check` fails before its first gate and names this recipe.
 - `uv run mutate4py` is the correct invocation for mutation scan and manifest checks (not `uvx mutate4py`); uvx isolates the env and breaks self-referential scanning
 - `uv run mutate4py src/ --check-manifest --manifest-file` — CI gate; exits 0 if all manifests current, 1 if any are missing/stale. `src/` stores manifests as sidecars (`*.manifest.json`), so `--manifest-file` is required — without it the check looks for embedded footers and always fails (issue #47).
 
