@@ -38,6 +38,7 @@ class MutantExecCtx:
     abs_source_path: str = ""
     test_ctx_db: object = None
     forking_requested: bool = True
+    positionals: tuple[str, ...] = ()
 
 
 def _run_mutation_loop(
@@ -66,6 +67,7 @@ def _run_mutation_loop(
             test_ctx_db=ctx.test_ctx_db,
             abs_source_path=ctx.abs_source_path,
             timeout_policy=ctx.timeout_policy,
+            positionals=ctx.positionals,
         )
         if plan.selection is not None:
             selection_counts[plan.selection] += 1
@@ -113,6 +115,7 @@ def _run_parallel_workers(
                 abs_source_path=ctx.abs_source_path,
                 forking_requested=ctx.forking_requested,
                 executor=ctx.executor,
+                positionals=ctx.positionals,
             )
         )
         return counts, survivors, selection_counts, None

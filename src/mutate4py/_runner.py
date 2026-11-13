@@ -316,6 +316,7 @@ def _mutant_exec_ctx(request: RunMutationsRequest, outcome: SelectionOutcome, te
         abs_source_path=os.path.abspath(request.path),
         test_ctx_db=test_ctx_db,
         forking_requested=request.forking_requested,
+        positionals=outcome.measurement.positional_args,
     )
 
 

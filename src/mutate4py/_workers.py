@@ -74,6 +74,7 @@ class ParallelRunRequest:
     test_ctx_db: object = None
     abs_source_path: str = ""
     forking_requested: bool = True
+    positionals: tuple[str, ...] = ()
     # Test-injection seam: when set, every Worker shares this one
     # Executor instead of provisioning a real WorkerProcessExecutor — makes
     # narrowed/static dispatch, per-Worker Site assignment, and
@@ -360,6 +361,7 @@ def run_parallel(request: ParallelRunRequest) -> tuple[dict, list[Site], dict[st
                 test_ctx_db=request.test_ctx_db,
                 abs_source_path=request.abs_source_path,
                 timeout_policy=request.timeout_policy,
+                positionals=request.positionals,
             )
             for site in selected_sites
         ]

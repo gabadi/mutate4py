@@ -57,12 +57,17 @@ def test_named_tests_narrow_import_time_lines_are_static_and_unreached_lines_unc
     assert m.outcome(calc, ADD_DEF) == Static()
     assert m.outcome(calc, UNUSED_BODY) == Uncovered()
     assert m.covered_lines(calc) == {line for line in range(1, 16) if m.outcome(calc, line) != Uncovered()}
-    assert (m.core, m.tests, m.positional_args) == ("ctrace", 5, ("tests",))
+    assert (m.core, m.tests, m.positional_args) == ("ctrace", 5, ())
 
 
 @pytest.mark.component
 def test_positional_args_are_pytests_parsed_ones(project):
     assert _measure(project, "tests/test_calc.py").positional_args == ("tests/test_calc.py",)
+
+
+@pytest.mark.component
+def test_a_value_spelled_like_a_path_is_not_a_positional_arg(project):
+    assert _measure(project, "-k", "tests").positional_args == ()
 
 
 @pytest.mark.component

@@ -958,3 +958,21 @@ def test_check_manifest_sidecar_ignores_embedded_footer_in_source(tmp_path, caps
 
     assert rc == 1
     assert "Manifest missing:" in capsys.readouterr().out
+
+
+@pytest.mark.unit
+def test_the_exec_context_carries_the_measurements_positional_args():
+    """A narrowed Mutant strips the run's positional path, so the exec context must carry the Measurement's."""
+    from types import SimpleNamespace
+
+    from mutate4py._runner import SelectionOutcome, _mutant_exec_ctx
+
+    request = SimpleNamespace(path="calc.py", cwd="/proj", pytest_args=["-k", "tests", "tests"], forking_requested=True)
+    outcome = SelectionOutcome(
+        mutant_pytest_args=["-k", "tests", "tests"],
+        measurement=SimpleNamespace(positional_args=("tests",)),
+    )
+
+    ctx = _mutant_exec_ctx(request, outcome, test_ctx_db=None)
+
+    assert ctx.positionals == ("tests",)

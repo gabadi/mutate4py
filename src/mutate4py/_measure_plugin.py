@@ -58,7 +58,9 @@ class MeasurePlugin:
         facts = SessionFacts(
             core=core_from_sys_info(self._cov.sys_info()),
             collected=len(self._items),
-            args=tuple(config.args),
+            # The explicit positionals only: config.args falls back to the ini
+            # testpaths when none were given, which is not what the run was asked for.
+            args=tuple(config.known_args_namespace.file_or_dir),
             rootdir=str(config.rootpath),
             inipath=str(config.inipath) if config.inipath else None,
             plugin_files=_files(config.pluginmanager.get_plugins()),

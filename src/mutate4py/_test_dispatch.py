@@ -77,6 +77,59 @@ def _log_dispatch_abort(exc: TestSelectionError | NoTestsCollectedError) -> int:
     return 2
 
 
+# pytest options whose value is the next argv token. That token is an option
+# value, never a positional, even when it spells one (`-k tests`).
+_VALUE_OPTIONS = frozenset(
+    {
+        "-k",
+        "-m",
+        "-p",
+        "-o",
+        "-c",
+        "-W",
+        "-r",
+        "-n",
+        "--rootdir",
+        "--ignore",
+        "--ignore-glob",
+        "--deselect",
+        "--tb",
+        "--maxfail",
+        "--basetemp",
+        "--junitxml",
+        "--import-mode",
+        "--log-level",
+        "--capture",
+        "--durations",
+        "--confcutdir",
+        "--override-ini",
+    }
+)
+
+
+def _without_positionals(pytest_args: list[str], positionals: tuple[str, ...]) -> list[str]:
+    """pytest_args minus the run's positional path arguments, which a narrowed Mutant replaces with node ids.
+
+    A token is a positional only when it is not the value of a value-taking
+    option, so `-k tests` keeps its `tests`. Each positional is dropped once.
+    """
+    remaining = list(positionals)
+    kept: list[str] = []
+    value_next = False
+    for token in pytest_args:
+        if value_next:
+            kept.append(token)
+            value_next = False
+        elif token in _VALUE_OPTIONS:
+            kept.append(token)
+            value_next = True
+        elif token in remaining:
+            remaining.remove(token)
+        else:
+            kept.append(token)
+    return kept
+
+
 @dataclasses.dataclass(frozen=True)
 class TimeoutPolicy:
     """How a Mutant's timeout is derived: factor x the Baseline duration, floored at min_timeout."""
@@ -106,10 +159,13 @@ def plan_mutant(
     test_ctx_db,
     abs_source_path: str,
     timeout_policy: TimeoutPolicy,
+    positionals: tuple[str, ...],
 ) -> MutantPlan:
     """Return the MutantPlan for site; selection is None without a context db.
 
-    "narrowed" runs only the tests covering site.line; "static" runs the full
+    "narrowed" runs only the tests covering site.line, with the run's positional
+    path args (`positionals`) removed from pytest_args so the path does not run
+    beside the node ids; "static" runs the full
     pytest_args because the line executes at import time and no test owns it;
     "degraded" also runs the full pytest_args — the db named covering tests
     for site.line, but at least one came from a dynamic (pytest-cov
@@ -123,7 +179,7 @@ def plan_mutant(
         return MutantPlan(list(pytest_args), timeout, None)
     outcome, node_ids = test_ctx_db.tests_for_line(abs_source_path, site.line)
     if outcome == "narrowed":
-        return MutantPlan([*pytest_args, *node_ids], timeout, "narrowed")
+        return MutantPlan([*_without_positionals(pytest_args, positionals), *node_ids], timeout, "narrowed")
     if outcome == "static":
         return MutantPlan(list(pytest_args), timeout, "static")
     if outcome == "under-listed":
