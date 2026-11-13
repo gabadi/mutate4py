@@ -23,6 +23,7 @@ from typing import Callable
 
 from mutate4py._discovery import Site, apply_mutant
 from mutate4py._executor import Executor, ExecutorDescription, MutantTiming, combine_descriptions
+from mutate4py._plugin_neutralisation import disabled_plugin_args
 from mutate4py._worker_results import (
     _assign_sites_to_workers,
     _drop_one_result_if_injected,
@@ -31,7 +32,7 @@ from mutate4py._worker_results import (
     _summarize_timing,
 )
 from mutate4py._test_dispatch import MutantPlan, PlanInputs, TimeoutPolicy, _check_execution_status, plan_sites
-from mutate4py._worker_protocol import WorkerProcessError, WorkerProcessExecutor
+from mutate4py._worker_protocol import ServerLaunch, WorkerProcessError, WorkerProcessExecutor
 from mutate4py._worker_provision import (
     _copy_tree,
     _link_import_root,
@@ -141,7 +142,7 @@ def _provision_worker_executors(
     worker_roots: list[str],
     source_rel: str,
     *,
-    forking_requested: bool,
+    launch: ServerLaunch,
     injected_executor: Executor | None,
     source_root: str,
 ) -> list[Executor]:
@@ -161,9 +162,8 @@ def _provision_worker_executors(
         WorkerProcessExecutor(
             worker_root=root,
             guarded_path=os.path.join(root, source_rel),
-            forking_requested=forking_requested,
             source_root=source_root,
-            worker_id=f"gw{i}",
+            launch=dataclasses.replace(launch, worker_id=f"gw{i}"),
         )
         for i, root in enumerate(worker_roots, start=1)
     ]
@@ -360,7 +360,10 @@ def run_parallel(request: ParallelRunRequest) -> ParallelRunResult:
         executors = _provision_worker_executors(
             worker_roots,
             source_rel,
-            forking_requested=request.forking_requested,
+            launch=ServerLaunch(
+                forking_requested=request.forking_requested,
+                prime_args=tuple(disabled_plugin_args(request.pytest_args)),
+            ),
             injected_executor=request.executor,
             source_root=real_cwd,
         )

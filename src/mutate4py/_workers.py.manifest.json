@@ -1,22 +1,22 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T15:52:08Z",
-  "module_hash": "2a5e77f7a15bf03819269a21a91efd70841e51b3d6ed877e02bb5ca4d0987e64",
-  "source_sha256": "415909862e9d589cb94d8da1c7a1e43a707550f81ad4a56506eb73aefbddf55e",
+  "tested_at": "2026-11-13T16:25:35Z",
+  "module_hash": "478e3ec5f47f59c95ce0830ea907cea4192138b0c9e3ae70de22fb765fb18384",
+  "source_sha256": "74792edb73f55a6f007ade0e075875979aa96effbfade318101fe3c133582ad8",
   "functions": [
     {
       "id": "func/_provision_worker",
       "name": "_provision_worker",
-      "line": 127,
-      "end_line": 137,
+      "line": 128,
+      "end_line": 138,
       "hash": "16d6e06e6a2e85e93ced6926f72bf332fa32d131f84d0ff61f93bcee315cbafe"
     },
     {
       "id": "func/_provision_worker_executors",
       "name": "_provision_worker_executors",
-      "line": 140,
+      "line": 141,
       "end_line": 169,
-      "hash": "49667f5e7f6de91363a4fd2aa35caf8cc5473f3839174a940e49b2d98d1614c0"
+      "hash": "a82c69e3098672dda9fc23cec2f7ba3205c30e3c7d9c4c28980da9a4aca451d6"
     },
     {
       "id": "func/_run_one_site",
@@ -78,8 +78,8 @@
       "id": "func/run_parallel",
       "name": "run_parallel",
       "line": 330,
-      "end_line": 395,
-      "hash": "d57c7200b5b87ac09ac656624abac5a4dd601f3b3ddec8b71cabb3e1176c72ba"
+      "end_line": 398,
+      "hash": "3e3342ca4359993a94778f6ddcac8a606727a79859a9d96729533ef8b8728363"
     }
   ]
 }

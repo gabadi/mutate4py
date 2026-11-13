@@ -12,7 +12,7 @@ import pytest
 from mutate4py._discovery import Site, discover_sites
 from mutate4py._executor import ExecutorDescription
 from mutate4py._test_dispatch import MutantPlan, NoTestsCollectedError
-from mutate4py._worker_protocol import WorkerProcessError, check_worker_python
+from mutate4py._worker_protocol import ServerLaunch, WorkerProcessError, check_worker_python
 from mutate4py._worker_provision import _copy_tree, _link_import_root
 from mutate4py._workers import (
     SiteAssignment,
@@ -280,12 +280,12 @@ def test_provision_worker_executors_assigns_distinct_worker_ids():
     executors = _provision_worker_executors(
         ["/tmp/worker-1", "/tmp/worker-2", "/tmp/worker-3"],
         "calc.py",
-        forking_requested=True,
         injected_executor=None,
         source_root="/tmp/project",
+        launch=ServerLaunch(forking_requested=True),
     )
-    assert [e._worker_id for e in executors] == ["gw1", "gw2", "gw3"]
-    assert len({e._worker_id for e in executors}) == 3
+    assert [e.launch.worker_id for e in executors] == ["gw1", "gw2", "gw3"]
+    assert len({e.launch.worker_id for e in executors}) == 3
 
 
 @pytest.mark.unit
@@ -296,9 +296,9 @@ def test_provision_worker_executors_injected_fake_ignores_worker_id():
     executors = _provision_worker_executors(
         ["/tmp/worker-1", "/tmp/worker-2"],
         "calc.py",
-        forking_requested=True,
         injected_executor=fake,
         source_root="/tmp/project",
+        launch=ServerLaunch(forking_requested=True),
     )
     assert executors == [fake, fake]
 
@@ -325,12 +325,33 @@ def test_provision_worker_executors_primes_each_real_worker_under_its_venv(tmp_p
     monkeypatch.delenv("PYTHONPATH", raising=False)
     worker_root = str(tmp_path / "worker-1")
     (executor,) = _provision_worker_executors(
-        [worker_root], "calc.py", forking_requested=True, injected_executor=None, source_root=str(tmp_path)
+        [worker_root],
+        "calc.py",
+        injected_executor=None,
+        source_root=str(tmp_path),
+        launch=ServerLaunch(forking_requested=True),
     )
     executor.prime()
     argv, kwargs = launches[0]
     assert argv[0] == os.path.join(worker_root, ".venv", "bin", "python")
     assert "PYTHONPATH" not in kwargs["env"]
+
+
+@pytest.mark.unit
+def test_provision_worker_executors_primes_each_real_worker_with_the_runs_plugin_blocks(tmp_path, monkeypatch):
+    from mutate4py._workers import _provision_worker_executors
+
+    launches = _ready_popen(monkeypatch)
+    (executor,) = _provision_worker_executors(
+        [str(tmp_path / "worker-1")],
+        "calc.py",
+        injected_executor=None,
+        source_root=str(tmp_path),
+        launch=ServerLaunch(forking_requested=True, prime_args=("-p", "no:tach")),
+    )
+    executor.prime()
+    argv, _ = launches[0]
+    assert argv[-2:] == ["-p", "no:tach"]
 
 
 # ── worker interpreter and import root ────────────────────────────────────────
@@ -477,8 +498,8 @@ def test_prime_worker_executor_reports_a_missing_worker_interpreter_as_a_worker_
     executor = WorkerProcessExecutor(
         worker_root=str(tmp_path),
         guarded_path=str(tmp_path / "calc.py"),
-        forking_requested=True,
         source_root=str(tmp_path),
+        launch=ServerLaunch(forking_requested=True),
     )
     with pytest.raises(WorkerFailureError, match="worker-2 could not start") as exc:
         _prime_worker_executor(executor, 2)
@@ -497,8 +518,8 @@ def test_prime_worker_executor_refuses_a_worker_venv_without_pytest(tmp_path):
     executor = WorkerProcessExecutor(
         worker_root=str(worker_root),
         guarded_path=str(worker_root / "calc.py"),
-        forking_requested=True,
         source_root=str(tmp_path),
+        launch=ServerLaunch(forking_requested=True),
     )
     with pytest.raises(WorkerFailureError, match="has no pytest") as exc:
         _prime_worker_executor(executor, 1)

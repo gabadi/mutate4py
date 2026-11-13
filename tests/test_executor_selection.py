@@ -11,52 +11,10 @@ import sys
 
 import pytest
 
-from mutate4py._executor import ExecutorDescription
 from mutate4py._executor_selection import _prepare_executor, select_executor
 
 
 # ── select_executor ───────────────────────────────────────────────────────
-
-
-class _FakeExecutor:
-    """Stands in for an executor the caller already owns and primed."""
-
-    def prime(self):  # pragma: no cover - select_executor must never call this
-        raise AssertionError("select_executor must not re-prime a caller-supplied executor")
-
-    def run(self, args, timeout):  # pragma: no cover - never dispatched here
-        raise AssertionError("select_executor must not dispatch")
-
-    def describe(self) -> ExecutorDescription:  # pragma: no cover - never described here
-        raise AssertionError("select_executor must not describe a caller-supplied executor")
-
-
-@pytest.mark.unit
-def test_select_executor_returns_a_caller_supplied_executor_unprimed(tmp_path):
-    """The caller owns priming; _FakeExecutor.prime() fails the test if this
-    path ever re-primes."""
-    caller_supplied = _FakeExecutor()
-    chosen = select_executor(
-        caller_supplied=caller_supplied,
-        use_parallel=False,
-        no_fork_reason=None,
-        cwd=str(tmp_path),
-        guarded_path=str(tmp_path / "x.py"),
-    )
-    assert chosen is caller_supplied
-
-
-@pytest.mark.unit
-def test_select_executor_prefers_a_caller_supplied_executor_over_deferring_to_workers(tmp_path):
-    caller_supplied = _FakeExecutor()
-    chosen = select_executor(
-        caller_supplied=caller_supplied,
-        use_parallel=True,
-        no_fork_reason=None,
-        cwd=str(tmp_path),
-        guarded_path=str(tmp_path / "x.py"),
-    )
-    assert chosen is caller_supplied
 
 
 @pytest.mark.unit
@@ -64,7 +22,6 @@ def test_select_executor_defers_to_each_worker_for_a_parallel_run(tmp_path):
     """None, not a prepared executor: a parallel run primes one Executor per
     Worker in that Worker's own process (issue 04b)."""
     chosen = select_executor(
-        caller_supplied=None,
         use_parallel=True,
         no_fork_reason=None,
         cwd=str(tmp_path),
@@ -76,7 +33,6 @@ def test_select_executor_defers_to_each_worker_for_a_parallel_run(tmp_path):
 @pytest.mark.unit
 def test_select_executor_passes_the_no_fork_reason_through_to_the_subprocess_executor(tmp_path):
     chosen = select_executor(
-        caller_supplied=None,
         use_parallel=False,
         cwd=str(tmp_path),
         guarded_path=str(tmp_path / "x.py"),
@@ -90,7 +46,6 @@ def test_select_executor_prepares_one_for_a_serial_run(tmp_path):
     from mutate4py._subprocess_executor import SubprocessExecutor
 
     chosen = select_executor(
-        caller_supplied=None,
         use_parallel=False,
         no_fork_reason="--no-fork",
         cwd=str(tmp_path),
@@ -207,3 +162,48 @@ def test_prepare_executor_imports_subprocess_module_when_falling_back(tmp_path, 
     monkeypatch.delattr(mutate4py, "_subprocess_executor", raising=False)
     _prepare_executor(requested=False, cwd=str(tmp_path), guarded_path=str(tmp_path / "x.py"))
     assert "mutate4py._subprocess_executor" in sys.modules
+
+
+class _RecordingServer:
+    def __init__(self, **kwargs):
+        self.launched_with = kwargs
+        self.primed = False
+
+    def prime(self):
+        self.primed = True
+
+
+@pytest.mark.unit
+def test_select_executor_primes_a_fork_server_with_the_runs_plugin_blocks_for_a_serial_forking_run(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr("mutate4py._worker_protocol.fork_server", lambda **kwargs: _RecordingServer(**kwargs))
+    monkeypatch.setattr("mutate4py._forking_executor.is_available", lambda: True)
+
+    chosen = select_executor(
+        use_parallel=False,
+        no_fork_reason=None,
+        cwd=str(tmp_path),
+        guarded_path=str(tmp_path / "x.py"),
+        pytest_args=["-q", "-p", "no:tach", "tests"],
+    )
+
+    assert chosen.primed
+    assert chosen.launched_with == {
+        "cwd": str(tmp_path),
+        "guarded_path": str(tmp_path / "x.py"),
+        "prime_args": ["-p", "no:tach"],
+    }
+
+
+@pytest.mark.unit
+def test_select_executor_on_a_platform_without_fork_starts_no_fork_server(tmp_path, monkeypatch):
+    def refuse(**kwargs):
+        raise AssertionError("a platform without fork must not start a fork server")
+
+    monkeypatch.setattr("mutate4py._worker_protocol.fork_server", refuse)
+    monkeypatch.setattr("mutate4py._forking_executor.is_available", lambda: False)
+
+    chosen = select_executor(use_parallel=False, no_fork_reason=None, cwd=str(tmp_path), guarded_path="x.py")
+
+    assert chosen.describe().render() == "subprocess (the forking executor needs a POSIX platform)"

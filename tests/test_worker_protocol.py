@@ -21,6 +21,7 @@ import pytest
 from mutate4py._executor import ExecutorDescription
 from mutate4py._worker_protocol import (
     WorkerProcessError,
+    ServerLaunch,
     WorkerProcessExecutor,
     _decode_description,
     _decode_ready,
@@ -49,7 +50,9 @@ def test_worker_python_resolves_a_relative_root_to_an_absolute_path():
 
 @pytest.mark.unit
 def test_worker_server_argv_runs_under_the_worker_venv_not_the_orchestrator():
-    argv = worker_server_argv(worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, worker_id="gw1")
+    argv = worker_server_argv(
+        worker_root="/w", guarded_path="/w/calc.py", launch=ServerLaunch(forking_requested=True, worker_id="gw1")
+    )
     assert argv[0] == os.path.join(os.path.abspath("/w"), ".venv", "bin", "python")
     assert argv[0] != sys.executable
     assert argv[1:] == ["-m", "mutate4py._worker_server", "/w", "/w/calc.py", "1", "gw1"]
@@ -57,14 +60,29 @@ def test_worker_server_argv_runs_under_the_worker_venv_not_the_orchestrator():
 
 @pytest.mark.unit
 def test_worker_server_argv_encodes_a_declined_fork_request_as_zero():
-    argv = worker_server_argv(worker_root="/w", guarded_path="/w/calc.py", forking_requested=False, worker_id="gw1")
+    argv = worker_server_argv(
+        worker_root="/w", guarded_path="/w/calc.py", launch=ServerLaunch(forking_requested=False, worker_id="gw1")
+    )
     assert argv[5] == "0"
 
 
 @pytest.mark.unit
 def test_worker_server_argv_encodes_an_absent_worker_id_as_an_empty_string():
-    argv = worker_server_argv(worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, worker_id=None)
+    argv = worker_server_argv(worker_root="/w", guarded_path="/w/calc.py", launch=ServerLaunch(forking_requested=True))
     assert argv[6] == ""
+
+
+@pytest.mark.unit
+def test_worker_server_argv_round_trips_the_prime_args_and_an_interpreter_override():
+    from mutate4py._worker_server import parse_worker_argv
+
+    argv = worker_server_argv(
+        worker_root="/w",
+        guarded_path="/w/calc.py",
+        launch=ServerLaunch(forking_requested=True, prime_args=("-p", "no:tach"), python="/project/.venv/bin/python"),
+    )
+    assert argv[:3] == ["/project/.venv/bin/python", "-m", "mutate4py._worker_server"]
+    assert parse_worker_argv(argv[3:]).prime_args == ("-p", "no:tach")
 
 
 @pytest.mark.unit
@@ -167,7 +185,7 @@ def test_shutdown_process_kills_a_worker_that_outstays_the_grace_period():
 @pytest.mark.unit
 def test_run_before_prime_is_rejected():
     executor = WorkerProcessExecutor(
-        worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, source_root="/src"
+        worker_root="/w", guarded_path="/w/calc.py", source_root="/src", launch=ServerLaunch(forking_requested=True)
     )
     with pytest.raises(WorkerProcessError, match="prime\\(\\) must succeed before run\\(\\)"):
         executor.run(["-q"], timeout=1.0)
@@ -176,7 +194,7 @@ def test_run_before_prime_is_rejected():
 @pytest.mark.unit
 def test_describe_before_prime_is_rejected():
     executor = WorkerProcessExecutor(
-        worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, source_root="/src"
+        worker_root="/w", guarded_path="/w/calc.py", source_root="/src", launch=ServerLaunch(forking_requested=True)
     )
     with pytest.raises(WorkerProcessError, match="prime\\(\\) must succeed before describe\\(\\)"):
         executor.describe()
@@ -194,7 +212,7 @@ def test_describe_asks_the_worker_and_returns_the_description_it_reports(monkeyp
     monkeypatch.setattr(subprocess, "Popen", lambda argv, **kwargs: types.SimpleNamespace(stdin=stdin, stdout=stdout))
     monkeypatch.setattr("mutate4py._worker_protocol.check_worker_pytest", lambda root: None)
     executor = WorkerProcessExecutor(
-        worker_root="/w", guarded_path="/w/calc.py", forking_requested=False, source_root="/src"
+        worker_root="/w", guarded_path="/w/calc.py", source_root="/src", launch=ServerLaunch(forking_requested=False)
     )
     executor.prime()
 
@@ -230,7 +248,7 @@ def test_prime_keeps_the_import_root_off_the_worker_pythonpath(monkeypatch, call
         monkeypatch.setenv("PYTHONPATH", caller_pythonpath)
     launches = _fake_popen(monkeypatch)
     executor = WorkerProcessExecutor(
-        worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, source_root="/src"
+        worker_root="/w", guarded_path="/w/calc.py", source_root="/src", launch=ServerLaunch(forking_requested=True)
     )
     executor.prime()
     argv, kwargs = launches[0]
@@ -248,7 +266,7 @@ def test_prime_rebases_a_caller_pythonpath_entry_inside_the_project_onto_the_wor
     monkeypatch.setenv("PYTHONPATH", os.pathsep.join([os.path.join(project, "src"), "/existing"]))
     launches = _fake_popen(monkeypatch)
     executor = WorkerProcessExecutor(
-        worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, source_root=project
+        worker_root="/w", guarded_path="/w/calc.py", source_root=project, launch=ServerLaunch(forking_requested=True)
     )
     executor.prime()
     _, kwargs = launches[0]
@@ -259,7 +277,7 @@ def test_prime_rebases_a_caller_pythonpath_entry_inside_the_project_onto_the_wor
 def test_prime_reports_an_unstartable_worker_interpreter_as_a_protocol_failure(monkeypatch):
     _fake_popen(monkeypatch, raises=FileNotFoundError(2, "No such file or directory"))
     executor = WorkerProcessExecutor(
-        worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, source_root="/src"
+        worker_root="/w", guarded_path="/w/calc.py", source_root="/src", launch=ServerLaunch(forking_requested=True)
     )
     with pytest.raises(WorkerProcessError, match="could not be started") as exc:
         executor.prime()
@@ -304,7 +322,7 @@ def test_check_worker_pytest_reports_an_unstartable_worker_interpreter(monkeypat
 @pytest.mark.unit
 def test_close_before_prime_is_a_no_op():
     executor = WorkerProcessExecutor(
-        worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, source_root="/src"
+        worker_root="/w", guarded_path="/w/calc.py", source_root="/src", launch=ServerLaunch(forking_requested=True)
     )
     executor.close()
 
@@ -344,8 +362,8 @@ def test_worker_process_executor_round_trip(tmp_path):
     executor = WorkerProcessExecutor(
         worker_root=str(tmp_path),
         guarded_path=str(target),
-        forking_requested=True,
         source_root=str(tmp_path),
+        launch=ServerLaunch(forking_requested=True),
     )
     executor.prime()
     try:
@@ -366,8 +384,8 @@ def test_worker_process_executor_subprocess_forced(tmp_path):
     executor = WorkerProcessExecutor(
         worker_root=str(tmp_path),
         guarded_path=str(target),
-        forking_requested=False,
         source_root=str(tmp_path),
+        launch=ServerLaunch(forking_requested=False),
     )
     executor.prime()
     try:
@@ -386,8 +404,8 @@ def test_worker_process_executor_describes_the_subprocess_executor_its_worker_ru
     executor = WorkerProcessExecutor(
         worker_root=str(tmp_path),
         guarded_path=str(target),
-        forking_requested=False,
         source_root=str(tmp_path),
+        launch=ServerLaunch(forking_requested=False),
     )
     executor.prime()
     try:
@@ -427,9 +445,8 @@ def test_worker_process_executor_supplies_worker_id(tmp_path, forking_requested)
     executor = WorkerProcessExecutor(
         worker_root=str(tmp_path),
         guarded_path=str(target),
-        forking_requested=forking_requested,
-        worker_id="gw3",
         source_root=str(tmp_path),
+        launch=ServerLaunch(forking_requested=forking_requested, worker_id="gw3"),
     )
     executor.prime()
     try:
@@ -455,8 +472,8 @@ def test_worker_process_executor_without_worker_id_leaves_workerinput_unset(tmp_
     executor = WorkerProcessExecutor(
         worker_root=str(tmp_path),
         guarded_path=str(target),
-        forking_requested=True,
         source_root=str(tmp_path),
+        launch=ServerLaunch(forking_requested=True),
     )
     executor.prime()
     try:
@@ -482,10 +499,16 @@ def test_worker_forking_and_subprocess_parity(tmp_path):
 
     _provision_test_worker(tmp_path)
     forking_worker = WorkerProcessExecutor(
-        worker_root=str(tmp_path), guarded_path=str(target), forking_requested=True, source_root=str(tmp_path)
+        worker_root=str(tmp_path),
+        guarded_path=str(target),
+        source_root=str(tmp_path),
+        launch=ServerLaunch(forking_requested=True),
     )
     subprocess_worker = WorkerProcessExecutor(
-        worker_root=str(tmp_path), guarded_path=str(target), forking_requested=False, source_root=str(tmp_path)
+        worker_root=str(tmp_path),
+        guarded_path=str(target),
+        source_root=str(tmp_path),
+        launch=ServerLaunch(forking_requested=False),
     )
     forking_worker.prime()
     subprocess_worker.prime()
