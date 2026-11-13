@@ -128,7 +128,7 @@ class MutantTiming:
             f"Time: mutants {self.mutants_seconds:.2f}s ({self.mutants_count}), "
             f"timeouts {self.timeouts_seconds:.2f}s ({self.timeouts_count}), "
             f"confirmation {self.confirmation_seconds:.2f}s "
-            f"({self.confirmation_runs} run, {self.confirmation_kills} killed)"
+            f"({self.confirmation_runs} run, {self.confirmation_kills} kills)"
         )
 
 

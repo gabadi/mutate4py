@@ -9,7 +9,7 @@ it re-scored and the Survivors it only recorded. Unit tests: tests/test_tests_di
 import json
 import re
 
-RECORDED_HEADER = "Recorded survivors (not re-run):"
+RECORDED_HEADER = "Recorded survivors (function unchanged, not re-run):"
 
 # One module per case the digest has to get right. Each function is killed by its own tests,
 # so a run's progress lines name exactly the functions it re-scored.
@@ -107,7 +107,7 @@ def survivor_ids(stdout: str) -> list[str]:
 
 
 def recorded_survivor_ids(stdout: str) -> list[str]:
-    """The FunctionIDs under the `Recorded survivors (not re-run):` block."""
+    """The FunctionIDs under the `Recorded survivors (function unchanged, not re-run):` block."""
     return _block_ids(stdout, RECORDED_HEADER)
 
 

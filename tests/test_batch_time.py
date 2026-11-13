@@ -20,7 +20,7 @@ from mutate4py._measurement import measurement_from
 
 TIME_LINE = re.compile(
     r"Time: mutants \d+\.\d\ds \((\d+)\), timeouts \d+\.\d\ds \((\d+)\), "
-    r"confirmation \d+\.\d\ds \((\d+) run, (\d+) killed\)"
+    r"confirmation \d+\.\d\ds \((\d+) run, (\d+) kills\)"
 )
 WALL_LINE = re.compile(r"^Wall: \d+\.\d\ds$", re.MULTILINE)
 

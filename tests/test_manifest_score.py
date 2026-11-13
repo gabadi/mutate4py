@@ -544,7 +544,7 @@ def test_recorded_block_lines_format():
 
     assert lines == [
         "",
-        "Recorded survivors (not re-run):",
+        "Recorded survivors (function unchanged, not re-run):",
         "  line 2 a > b -> a >= b func/f",
     ]
 

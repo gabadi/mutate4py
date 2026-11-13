@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "tested_at": "2026-11-13T21:42:21Z",
+  "module_hash": "a3a2c04132ce552526ff70890a748ca0bda81cc2c8cdd43d3a8775060030d5b0",
+  "source_sha256": "6ccae1003cddd8b6964a23580e95ddee9f4caabcb876eb36ddfdb8ac3b3810d9",
+  "functions": [
+    {
+      "id": "func/_ini_testpaths",
+      "name": "_ini_testpaths",
+      "line": 16,
+      "end_line": 25,
+      "hash": "72e39685d2ec4ea7d85aebddf654d56edad96f0bc64707f5c26c954b1155fd60"
+    },
+    {
+      "id": "func/_testpath_patterns",
+      "name": "_testpath_patterns",
+      "line": 28,
+      "end_line": 32,
+      "hash": "0b121ce754c9cd55c3a687c49ed8a64b775171d478a46ef0869e0f2a6a639fb5"
+    },
+    {
+      "id": "func/_pyproject_testpaths",
+      "name": "_pyproject_testpaths",
+      "line": 35,
+      "end_line": 48,
+      "hash": "e052a9e39cce7ed14b3e298c25a4846ce327a171560d7730cdf758a8411b4968"
+    },
+    {
+      "id": "func/_declared_testpaths",
+      "name": "_declared_testpaths",
+      "line": 51,
+      "end_line": 67,
+      "hash": "4a75c3b80b1efacea68c8e6181bce18a18fd9a9b8f648de0e35d7e46c60ffb75"
+    },
+    {
+      "id": "func/configured_testpaths",
+      "name": "configured_testpaths",
+      "line": 70,
+      "end_line": 79,
+      "hash": "036b4a76c55c6dbf8386bcc5d6a4a0814c5a06ca352e0ba097c2473d6faff511"
+    }
+  ]
+}

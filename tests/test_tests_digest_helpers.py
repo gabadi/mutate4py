@@ -29,7 +29,7 @@ Survivors:
 
 Time: mutants 1.04s (3)
 
-Recorded survivors (not re-run):
+Recorded survivors (function unchanged, not re-run):
   line 2 a > b -> a >= b func/keep
 
 Measurement: 0.50s, 2 tests, core ctrace

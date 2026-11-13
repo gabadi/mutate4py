@@ -15,7 +15,6 @@ Key commands:
 
 Invoke scored runs through the justfile instead of calling `mutate4py` directly:
 ```
-just check test-unit test-integration   # verification pass; test-unit also writes lcov.info for the crap gate
 just mutate <path>                      # e.g. just mutate src/mutate4py/_runner.py
 ```
 `just mutate` is `justfile`'s wrapper: it redirects the run to a temp log, then prints only the `Mutation Report` block (Killed/Survived/Uncovered counts + every Survivor's `line N desc` — still fully actionable) via `awk '/^Mutation Report$/,0'`. On a non-zero exit other than 3 it also tails the last 20 log lines, so an infra failure that happens before the summary prints is still visible.

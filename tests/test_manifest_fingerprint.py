@@ -148,7 +148,8 @@ class _ScoredNothingStub:
 
 
 @pytest.mark.unit
-def test_finalize_source_of_a_run_that_scored_nothing_keeps_the_stored_fingerprint(tmp_path):
+def test_finalize_source_of_a_run_that_scored_nothing_records_the_fresh_fingerprint(tmp_path):
+    """A completed run records its fingerprint even when it writes no score block (spec 5b)."""
     from mutate4py._manifest import reconcile_manifest
     from mutate4py._manifest_storage import ManifestLocation
     from mutate4py._source_loading import _finalize_source
@@ -168,7 +169,7 @@ def test_finalize_source_of_a_run_that_scored_nothing_keeps_the_stored_fingerpri
         fingerprint="fp-new",
     )
 
-    assert _footer_tests_fingerprint(src_path) == "fp-old"
+    assert _footer_tests_fingerprint(src_path) == "fp-new"
 
 
 @pytest.mark.unit

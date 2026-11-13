@@ -31,7 +31,7 @@ Remove them from scripts and CI.
   or its tests digest differs, it is Unscored, or it records Survivors and has no digest yet
   (ADR 0029). `--mutate-all` re-scores every covered function.
 - Unchanged functions are skipped even when they record Survivors. Those Survivors print under
-  `Recorded survivors (not re-run):` and still count toward exit 3 (0 with `--allow-survivors`).
+  `Recorded survivors (function unchanged, not re-run):` and still count toward exit 3 (0 with `--allow-survivors`).
 - Test selection has two outcomes, `narrowed` and `static`, read from the Measurement's Test map
   (ADR 0018). The report prints `Test selection: narrowed <n>, static <k>`.
 - Every non-accepted Survivor is re-run with the full test set, in a fresh interpreter through the

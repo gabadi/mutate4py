@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T20:28:54Z",
-  "module_hash": "117f5622178df8c3dfbf0f1503f2cb583fe7637dcfdfe7ed5eabfb18182d5b44",
-  "source_sha256": "9eca0b5a8bb43f052dbbe909d264d7ed74b3c795386f498c539f374676c6649d",
+  "tested_at": "2026-11-13T21:35:11Z",
+  "module_hash": "e7e3585ebb0407df84fa9413308e134dd4bfa115444b4369fddfc6c47f78866b",
+  "source_sha256": "32f03b1f1af2a0cdefeea94d5b285bbc6900bf063bacf59ef1578bc4feb9cb72",
   "functions": [
     {
       "id": "func/_restore_from_backup",
@@ -23,7 +23,7 @@
       "name": "_finalize_source",
       "line": 70,
       "end_line": 99,
-      "hash": "e77ca018d9d2adf39c9cf44d822d2414e29569902dbb03fae99a291e8e88bdc4"
+      "hash": "5cac02cb8b4fe3500242ce88805fb4c73efdbf582b271ce5b659b0c23570200d"
     },
     {
       "id": "func/_load_clean_source",

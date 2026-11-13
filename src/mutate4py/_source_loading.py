@@ -87,9 +87,9 @@ def _finalize_source(  # noqa: PLR0913 - keeps the positional contract tests/tes
     scores = None
     if scored_run is not None:
         scores = scored_run.function_scores([fn["id"] for fn in candidate_manifest["functions"]])
-    # A run that wrote at least one score block records its fingerprint; any other run keeps the stored one, so a
-    # run that scored nothing (a no-op default run) leaves the Manifest bytes as they were.
-    recorded = fingerprint if scores else None
+    # Every completed scored run records the fingerprint it measured, even one that wrote no score block (spec 5b).
+    # A run with no scored run (an errored one, or an unscored caller) keeps the stored one.
+    recorded = fingerprint if scored_run is not None else None
     manifest_to_embed = reconcile_manifest(
         existing_manifest, candidate_manifest, scores, fresh_digests=fresh_digests, fingerprint=recorded
     )

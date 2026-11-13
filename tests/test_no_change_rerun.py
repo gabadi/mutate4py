@@ -13,7 +13,7 @@ import pytest
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SKIPPED_LINE = "Measurement: skipped (code and tests unchanged since the last scored run)"
-RECORDED_HEADER = "Recorded survivors (not re-run):"
+RECORDED_HEADER = "Recorded survivors (function unchanged, not re-run):"
 
 # Every relational mutant of `a > b` is killed by these assertions, so the scored run has no Survivor.
 _KILLING_TESTS = (

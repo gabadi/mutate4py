@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "tested_at": "2026-11-13T21:42:21Z",
+  "module_hash": "0f24bbc15f17815c72913fe39730d4d58cb93515b1026f38377b7fdb2f7ffb6a",
+  "source_sha256": "ef46921e1ab6fcaffe35179b61fb19439511afeb32b7fd0208b57b9f1748f612",
+  "functions": [
+    {
+      "id": "func/token_roles",
+      "name": "token_roles",
+      "line": 49,
+      "end_line": 69,
+      "hash": "5ae653a6a22f379a1d9ae9e70a8effb4e4562a21441f371840bd4d4c3d97c95b"
+    },
+    {
+      "id": "func/flag_tokens",
+      "name": "flag_tokens",
+      "line": 72,
+      "end_line": 74,
+      "hash": "15ee3c5b1bb3a5f52659f00fc93981911edb073003d54a9e8b2bc25d1f713dcf"
+    },
+    {
+      "id": "func/positional_tokens",
+      "name": "positional_tokens",
+      "line": 77,
+      "end_line": 79,
+      "hash": "ecebeebb220cb423966d97c2be61c26d87f4e9426fbfe85f811994671b71ef18"
+    }
+  ]
+}

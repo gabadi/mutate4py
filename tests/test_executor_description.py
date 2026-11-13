@@ -65,4 +65,4 @@ def test_merge_adds_one_files_timing_into_the_running_batch_total():
         )
     )
 
-    assert total.render() == "Time: mutants 1.50s (3), timeouts 3.00s (1), confirmation 0.25s (1 run, 1 killed)"
+    assert total.render() == "Time: mutants 1.50s (3), timeouts 3.00s (1), confirmation 0.25s (1 run, 1 kills)"

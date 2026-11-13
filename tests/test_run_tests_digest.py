@@ -373,7 +373,7 @@ def test_recorded_survivors_of_a_skipped_function_print_apart_and_count_toward_t
 
     assert got == rc
     report = caplog.text
-    this_run, marker, recorded = report.partition("Recorded survivors (not re-run):")
+    this_run, marker, recorded = report.partition("Recorded survivors (function unchanged, not re-run):")
     assert marker, "the recorded survivors print in their own block"
     assert "func/g" in this_run and "Survivors:" in this_run
     assert "func/f" not in this_run

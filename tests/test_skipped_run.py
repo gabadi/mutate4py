@@ -52,7 +52,7 @@ def test_an_unaccepted_recorded_survivor_is_listed_and_exits_3(tmp_path):
     )
 
     assert code == 3
-    assert "Recorded survivors (not re-run):" in lines
+    assert "Recorded survivors (function unchanged, not re-run):" in lines
     assert "  line 2 a > b -> a >= b calc.py func/f" in lines
 
 
