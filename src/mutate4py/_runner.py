@@ -39,6 +39,7 @@ from mutate4py._report import (
     _accepted_block_lines,
     CoverageSource,
     RunStats,
+    SelectionTally,
     _mutation_report_lines,
     _run_header_lines,
     _workers_header_lines,
@@ -315,7 +316,8 @@ def _mutant_exec_ctx(request: RunMutationsRequest, outcome: SelectionOutcome, te
         max_workers=outcome.max_workers,
         use_parallel=outcome.use_parallel,
         abs_source_path=os.path.abspath(request.path),
-        test_ctx_db=test_ctx_db,
+        # Without --test-contexts the Measurement selects: it names the tests that reached each line (issue #96).
+        selection_source=test_ctx_db if test_ctx_db is not None else outcome.measurement,
         forking_requested=request.forking_requested,
         positionals=outcome.measurement.positional_args,
     )
@@ -368,8 +370,7 @@ def _run_loop(request: RunMutationsRequest, test_ctx_db) -> int:
             scored_run=scored_run,
         )
     if result.error_msg is not None:
-        # .info, not .error: this has always gone to stdout, same as the
-        # cov_error/baseline_error branches in _select_and_prepare above.
+        # .info, not .error: this has always gone to stdout, like the cov_error branch above.
         _logger.info(result.error_msg)
         return 1
     return _report_run(request, outcome, result, scored_run)
@@ -381,12 +382,15 @@ def _report_run(request: RunMutationsRequest, outcome, result, scored_run: Score
     # Measurement and overhead lines once for the whole batch.
     measured_here = request.measurement is None
     overhead = overhead_info(outcome.overhead_duration, outcome.baseline_duration) if measured_here else None
+    selection = None
+    if result.selection_counts is not None:
+        selection = SelectionTally(result.selection_counts, tally_degraded=request.test_contexts_path is not None)
     _print_lines(
         _mutation_report_lines(
             result.counts,
             scored_run.unaccepted(),
             outcome.uncovered_count,
-            result.selection_counts,
+            selection=selection,
             overhead=overhead,
         )
     )

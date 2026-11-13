@@ -56,7 +56,7 @@ def test_run_parallel_short_result_raises(tmp_path, monkeypatch):
 # ── run_parallel: narrowing composes with Worker dispatch (issue 04b) ────────
 
 
-class _FakeTestContextDB:
+class _FakeSelectionSource:
     def __init__(self, outcome: str, node_ids: tuple = ()) -> None:
         self._result = (outcome, list(node_ids))
 
@@ -90,7 +90,7 @@ def test_run_parallel_composes_narrowed_dispatch_with_workers(tmp_path, monkeypa
             timeout_policy=_FIVE_SECOND_POLICY,
             max_workers=2,
             on_result=noop_on_result,
-            test_ctx_db=_FakeTestContextDB("narrowed", ("tests/test_calc.py::test_f",)),
+            selection_source=_FakeSelectionSource("narrowed", ("tests/test_calc.py::test_f",)),
             abs_source_path=str(src_file),
             executor=executor,
         )
@@ -124,7 +124,7 @@ def test_run_parallel_composes_static_dispatch_with_workers(tmp_path, monkeypatc
             timeout_policy=_FIVE_SECOND_POLICY,
             max_workers=2,
             on_result=noop_on_result,
-            test_ctx_db=_FakeTestContextDB("static"),
+            selection_source=_FakeSelectionSource("static"),
             abs_source_path=str(src_file),
             executor=executor,
         )
@@ -159,7 +159,7 @@ def test_run_parallel_composes_degraded_dispatch_with_workers(tmp_path, monkeypa
             timeout_policy=_FIVE_SECOND_POLICY,
             max_workers=2,
             on_result=noop_on_result,
-            test_ctx_db=_FakeTestContextDB("under-listed", ("tests/test_calc.py::test_f",)),
+            selection_source=_FakeSelectionSource("under-listed", ("tests/test_calc.py::test_f",)),
             abs_source_path=str(src_file),
             executor=executor,
         )
@@ -197,7 +197,7 @@ def test_run_parallel_disagreement_aborts_before_any_worker_is_provisioned(tmp_p
                 timeout_policy=_FIVE_SECOND_POLICY,
                 max_workers=2,
                 on_result=noop_on_result,
-                test_ctx_db=_FakeTestContextDB("line-absent"),
+                selection_source=_FakeSelectionSource("line-absent"),
                 abs_source_path=str(src_file),
                 executor=executor,
             )

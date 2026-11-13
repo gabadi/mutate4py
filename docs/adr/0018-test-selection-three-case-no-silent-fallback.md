@@ -114,3 +114,13 @@ source lines, which the three-case model then turns into a loud abort.
 
 **Note:** this ADR originally recorded that `--test-contexts` forces serial
 execution. It no longer does — narrowing composes with parallel Workers.
+
+**Amendment (issue #96): the Measurement is a selection source.** With no
+`--test-contexts` db, selection reads the same-run Measurement's coverage index,
+so the run prints `Test selection: narrowed <n>, static <k>` with no `degraded`
+tally. The Measurement never degrades a Site, so the `degraded` tally and its
+`Warning:` line appear only on a `--test-contexts` run. Its outcomes map onto the
+table above: a line reached by named tests is `narrowed`; a line reached only by
+the whole-run context is `static`. A line the Measurement holds no context for is
+`uncovered`: it runs the full test set and is tallied `static`, rather than
+aborting. The abort stays reserved for the db's `line-absent` and `file-absent`.

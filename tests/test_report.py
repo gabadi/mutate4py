@@ -5,6 +5,7 @@ from mutate4py._report import (
     OverheadInfo,
     _accepted_block_lines,
     RunStats,
+    SelectionTally,
     _mutation_report_lines,
     _on_parallel_result,
     _overhead_report_lines,
@@ -189,9 +190,21 @@ def test_mutation_report_lines_selection_counts_included():
         {"killed": 1, "timeout": 0, "survived": 0},
         [],
         uncovered_count=0,
-        selection_counts={"narrowed": 3, "static": 1},
+        selection=SelectionTally({"narrowed": 3, "static": 1}, tally_degraded=True),
     )
     assert "Test selection: narrowed 3, static 1, degraded 0" in lines
+
+
+@pytest.mark.unit
+def test_mutation_report_lines_measured_selection_omits_degraded_tally():
+    lines = _mutation_report_lines(
+        {"killed": 1, "timeout": 0, "survived": 0},
+        [],
+        uncovered_count=0,
+        selection=SelectionTally({"narrowed": 3, "static": 1, "degraded": 0}, tally_degraded=False),
+    )
+    assert "Test selection: narrowed 3, static 1" in lines
+    assert not any("degraded" in ln for ln in lines)
 
 
 @pytest.mark.unit
@@ -209,7 +222,7 @@ def test_mutation_report_lines_degraded_sites_reported_not_silent():
         {"killed": 1, "timeout": 0, "survived": 0},
         [],
         uncovered_count=0,
-        selection_counts={"narrowed": 0, "static": 0, "degraded": 5},
+        selection=SelectionTally({"narrowed": 0, "static": 0, "degraded": 5}, tally_degraded=True),
     )
     assert "Test selection: narrowed 0, static 0, degraded 5" in lines
     warning = next(ln for ln in lines if ln.startswith("Warning:"))
@@ -224,7 +237,7 @@ def test_mutation_report_lines_no_degraded_warning_when_zero():
         {"killed": 1, "timeout": 0, "survived": 0},
         [],
         uncovered_count=0,
-        selection_counts={"narrowed": 3, "static": 1, "degraded": 0},
+        selection=SelectionTally({"narrowed": 3, "static": 1, "degraded": 0}, tally_degraded=True),
     )
     assert not any("rejected as incomplete" in ln for ln in lines)
 

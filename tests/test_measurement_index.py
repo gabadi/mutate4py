@@ -93,6 +93,30 @@ def test_an_unreached_line_or_unmeasured_file_is_uncovered():
 
 
 @pytest.mark.unit
+def test_tests_for_line_names_the_reaching_tests_sorted_when_narrowed():
+    data = _data({"": [1], "tests/test_b.py::test_y": [4], "tests/test_a.py::test_x": [4]})
+
+    m = measurement_from(data, _record(), wall=1.0)
+
+    assert m.tests_for_line(TARGET, 4) == ("narrowed", ["tests/test_a.py::test_x", "tests/test_b.py::test_y"])
+
+
+@pytest.mark.unit
+def test_tests_for_line_is_static_with_no_tests_when_only_import_time_reached_it():
+    m = measurement_from(_data({"": [1]}), _record(), wall=1.0)
+
+    assert m.tests_for_line(TARGET, 1) == ("static", [])
+
+
+@pytest.mark.unit
+def test_tests_for_line_is_uncovered_with_no_tests_when_nothing_reached_it():
+    m = measurement_from(_data({"tests/test_a.py::test_x": [3]}), _record(), wall=1.0)
+
+    assert m.tests_for_line(TARGET, 9) == ("uncovered", [])
+    assert m.tests_for_line("/proj/pkg/other.py", 3) == ("uncovered", [])
+
+
+@pytest.mark.unit
 def test_covered_lines_are_every_line_any_context_reached_and_empty_lines_the_import_time_ones():
     m = measurement_from(_data({"": [1, 2], "tests/test_a.py::test_x": [2, 5]}), _record(), wall=1.0)
 

@@ -402,10 +402,19 @@ def test_report_counts_static_selections(tmp_path, monkeypatch, capsys):
 
 
 @pytest.mark.component
-def test_report_omits_test_selection_line_without_a_context_db(tmp_path, monkeypatch, capsys):
+def test_report_prints_test_selection_on_the_measured_path_without_a_context_db(tmp_path, monkeypatch, capsys):
+    """With no --test-contexts db the Measurement is the selection source, so the
+    line still prints: narrowed and static together account for every selected Site,
+    and no degraded tally appears (the Measurement never degrades a Site)."""
+    import re
+
     rc, _, _ = _run_with_stub_ctx_db(tmp_path, monkeypatch, "narrowed", test_contexts=None)
     assert rc == 3
-    assert "Test selection:" not in capsys.readouterr().out
+    out = capsys.readouterr().out
+    match = re.search(r"^Test selection: narrowed (\d+), static (\d+)$", out, re.MULTILINE)
+    assert match is not None, out
+    assert int(match.group(1)) + int(match.group(2)) == 3
+    assert "degraded" not in out
 
 
 @pytest.mark.component

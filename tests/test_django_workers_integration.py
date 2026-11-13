@@ -54,6 +54,10 @@ def _run_cli(cwd: str, extra_args: list[str], *, extra_env: dict | None = None) 
 
 @pytest.mark.integration
 def test_two_workers_get_distinct_test_databases_with_reuse_db(tmp_path):
+    # Premise: a narrowed calc.py Mutant runs only the tests covering its line.
+    # tests/test_polls.py::test_calc_thresholds_hold_alongside_a_database_write
+    # is the one DB-using test on those lines, so it is what creates the
+    # per-Worker test databases asserted below.
     project = _copy_fixture(tmp_path)
     lcov = _write_lcov(os.path.join(project, "calc.py"), [6, 10])
     shared_db_dir = tmp_path / "shared_db"

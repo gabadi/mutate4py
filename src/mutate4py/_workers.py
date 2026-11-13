@@ -26,7 +26,7 @@ from typing import Callable
 
 from mutate4py._discovery import Site, apply_mutant
 from mutate4py._executor import Executor
-from mutate4py._test_dispatch import MutantPlan, TimeoutPolicy, _check_execution_status, plan_mutant
+from mutate4py._test_dispatch import MutantPlan, PlanInputs, TimeoutPolicy, _check_execution_status, plan_sites
 from mutate4py._worker_protocol import WorkerProcessError, WorkerProcessExecutor
 from mutate4py._worker_provision import (
     _copy_tree,
@@ -71,7 +71,7 @@ class ParallelRunRequest:
     timeout_policy: TimeoutPolicy
     max_workers: int
     on_result: Callable
-    test_ctx_db: object = None
+    selection_source: object = None
     abs_source_path: str = ""
     forking_requested: bool = True
     positionals: tuple[str, ...] = ()
@@ -330,7 +330,7 @@ def run_parallel(request: ParallelRunRequest) -> tuple[dict, list[Site], dict[st
     callers use this to print progress lines in arrival order.
 
     Returns (counts, survivors, selection_counts) sorted by stable site index;
-    selection_counts is None unless a test-context db is in play.
+    selection_counts is None unless a selection source is in play.
     Raises WorkerFailureError on write/restore/dispatch failure.
     Raises ParallelRunError if collected results != selected site count.
     A TestSelectionError (case 3) or NoTestsCollectedError (case 4) propagates uncaught.
@@ -354,17 +354,16 @@ def run_parallel(request: ParallelRunRequest) -> tuple[dict, list[Site], dict[st
     try:
         # Planned before any Worker is provisioned, so a selection disagreement
         # aborts the run before a single Mutant is dispatched.
-        plans = [
-            plan_mutant(
-                site,
+        plans = plan_sites(
+            selected_sites,
+            PlanInputs(
                 pytest_args=request.pytest_args,
-                test_ctx_db=request.test_ctx_db,
+                selection_source=request.selection_source,
                 abs_source_path=request.abs_source_path,
                 timeout_policy=request.timeout_policy,
                 positionals=request.positionals,
-            )
-            for site in selected_sites
-        ]
+            ),
+        )
         worker_roots = _provision_workers(run_root, n_workers, real_cwd)
         by_worker = _assign_sites_to_workers(selected_sites, n_workers)
         executors = _provision_worker_executors(
@@ -392,7 +391,7 @@ def run_parallel(request: ParallelRunRequest) -> tuple[dict, list[Site], dict[st
 
         results.sort(key=lambda r: r["site_idx"])
         counts, survivors = _summarize_results(results)
-        selection_counts = _summarize_selection(results) if request.test_ctx_db is not None else None
+        selection_counts = _summarize_selection(results) if request.selection_source is not None else None
         return counts, survivors, selection_counts
 
     finally:

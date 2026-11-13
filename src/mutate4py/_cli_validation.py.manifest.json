@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-10-11T14:06:20Z",
-  "module_hash": "e7c9b0c5f2dd014c82eaad8cce9ddf86f2a3845b9cc8e93f628e2be11a55da96",
-  "source_sha256": "031caa815a4a84a4bc8e9089630f39641057aea1190cfa95ee6d2dfed2189f23",
+  "tested_at": "2026-11-13T11:20:40Z",
+  "module_hash": "8be55ed56bd97ce5c70bc8730b32eab4948364adec31a8b54cea0f2396b1997f",
+  "source_sha256": "fcb3436391a401ac55df436cb19215d478a29ac138d03dac8bd3ef8ec9a0d893",
   "functions": [
     {
       "id": "func/ValidationError.__init__",
@@ -51,7 +51,7 @@
       "name": "_check_scan_only_incompatibilities",
       "line": 66,
       "end_line": 73,
-      "hash": "c9ffb2cc156517a0b5936e68fe161ab99569ed9ca041f24cd03d1e06b5b000f6"
+      "hash": "002627e8daef422a67872a25b140f0dd065a780bdab3856605a0e5106ef26611"
     },
     {
       "id": "func/_check_build_test_contexts_incompatibilities",

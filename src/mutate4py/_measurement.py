@@ -196,6 +196,16 @@ class Measurement:
             return Narrowed(named)
         return Static() if contexts else Uncovered()
 
+    def tests_for_line(self, path: str, line: int) -> tuple[str, list[str]]:
+        """The Selection outcome for a line in the planner's terms: ("narrowed", the
+        sorted node ids that reached it), ("static", []) or ("uncovered", [])."""
+        found = self.outcome(path, line)
+        if isinstance(found, Narrowed):
+            return "narrowed", sorted(found.node_ids)
+        if isinstance(found, Static):
+            return "static", []
+        return "uncovered", []
+
     def covered_lines(self, path: str) -> frozenset[int]:
         return frozenset(self._line_contexts(path))
 

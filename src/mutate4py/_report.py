@@ -173,13 +173,26 @@ def measurement_failure(exc: MeasurementFailed | CoverageCoreRefused) -> tuple[i
     return EXIT_FAILURE, f"error: {exc}"
 
 
-def _selection_report_lines(selection_counts: dict[str, int]) -> list[str]:
-    """The Test selection summary line, plus a Warning once any Site degraded."""
-    degraded = selection_counts.get("degraded", 0)
-    lines = [
-        f"Test selection: narrowed {selection_counts['narrowed']}, "
-        f"static {selection_counts['static']}, degraded {degraded}"
-    ]
+@dataclasses.dataclass(frozen=True)
+class SelectionTally:
+    """A run's narrowed/static/degraded counts, paired with whether its degraded
+    count is printed — bundled into one param so _mutation_report_lines stays at
+    the project's 5-argument cap. Only a --test-contexts run can degrade a Site,
+    so only that run tallies degraded.
+    """
+
+    counts: dict[str, int]
+    tally_degraded: bool
+
+
+def _selection_report_lines(selection: SelectionTally) -> list[str]:
+    """The Test selection summary line. The degraded tally and its Warning belong to a
+    --test-contexts db only: the Measurement never degrades a Site, so its line is narrowed and static."""
+    counts = selection.counts
+    if not selection.tally_degraded:
+        return [f"Test selection: narrowed {counts['narrowed']}, static {counts['static']}"]
+    degraded = counts.get("degraded", 0)
+    lines = [f"Test selection: narrowed {counts['narrowed']}, static {counts['static']}, degraded {degraded}"]
     if degraded:
         lines.append(
             f"Warning: {degraded} Site(s) had test-context data rejected as incomplete "
@@ -196,7 +209,7 @@ def _mutation_report_lines(
     counts: dict[str, int],
     survivors: list[Site],
     uncovered_count: int,
-    selection_counts: dict[str, int] | None = None,
+    selection: SelectionTally | None = None,
     overhead: OverheadInfo | None = None,
 ) -> list[str]:
     killed_total = counts["killed"] + counts["timeout"]
@@ -208,8 +221,8 @@ def _mutation_report_lines(
         f"Survived: {counts['survived']}",
         f"Uncovered: {uncovered_count}",
     ]
-    if selection_counts is not None:
-        lines.extend(_selection_report_lines(selection_counts))
+    if selection is not None:
+        lines.extend(_selection_report_lines(selection))
     if overhead is not None:
         lines.extend(_overhead_report_lines(overhead.overhead_duration, overhead.baseline_duration))
     if survivors:

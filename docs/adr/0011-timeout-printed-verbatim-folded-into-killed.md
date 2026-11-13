@@ -11,6 +11,15 @@ complete within `timeout-factor × baseline` didn't survive.
 **A change that either hides the per-mutant `timeout` token or adds a `Timeout:`
 report line breaks this contract.**
 
+**Amendment (issue #96): the bound is no longer `timeout-factor × baseline`.** A
+Mutant's timeout is `max(--min-timeout, --timeout-factor × budget) + Per-Mutant
+overhead`. The budget is the summed measured duration of the tests the Mutant
+runs, plus the largest fixture setup among their files: a narrowed Mutant budgets
+its own covering tests, and a static Mutant budgets the full test set. The
+Per-Mutant overhead, the wall time spent outside the tests, is added so a narrowed
+Mutant with few tests is not timed out by fixed cost. The contract above is
+unchanged: the `timeout` token stays visible and no `Timeout:` line is added.
+
 ## The colon asymmetry is intentional
 
 The per-mutant progress line puts a colon before the function id:
