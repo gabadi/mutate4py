@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "tested_at": "2026-11-13T05:39:47Z",
+  "module_hash": "5c3f802efc54ebcf2e38bb139bc9f9e10bae8627b96ae2a8d3e634d6441a5382",
+  "source_sha256": "0869d7f8339924a33a9e88caf6393347aec79aa4827c1bfd76b885849c712271",
+  "functions": [
+    {
+      "id": "func/MeasurePlugin.__init__",
+      "name": "__init__",
+      "line": 21,
+      "end_line": 25,
+      "hash": "04c39cd647f6caf4cf015dbb8364a64c38abff631c8559c1514433404f720311"
+    },
+    {
+      "id": "func/MeasurePlugin.pytest_runtest_protocol",
+      "name": "pytest_runtest_protocol",
+      "line": 28,
+      "end_line": 36,
+      "hash": "3769d1580275437b6cf6438ac8a55f9aa319391f56bb5217bc32fe20a2f1e70c"
+    },
+    {
+      "id": "func/MeasurePlugin.pytest_fixture_setup",
+      "name": "pytest_fixture_setup",
+      "line": 39,
+      "end_line": 44,
+      "hash": "6081d2c5c9086c61f79f90607196ac55dcc46eeb587aa7f80edda31a29f5b3c0"
+    },
+    {
+      "id": "func/MeasurePlugin.pytest_runtest_logreport",
+      "name": "pytest_runtest_logreport",
+      "line": 46,
+      "end_line": 47,
+      "hash": "655cae8bc5a859529ed1631d440ccaa4f9c453e7226f615b06df9eb3b82bf29c"
+    },
+    {
+      "id": "func/MeasurePlugin.pytest_collectreport",
+      "name": "pytest_collectreport",
+      "line": 49,
+      "end_line": 51,
+      "hash": "e1b3475eaa929738b21677107991fa706b1db2fb82fcdf86a32f759b1ae67c11"
+    },
+    {
+      "id": "func/MeasurePlugin.pytest_collection_finish",
+      "name": "pytest_collection_finish",
+      "line": 53,
+      "end_line": 54,
+      "hash": "a0a4a4e060bcf37d1cfbb4626d61650f85364aef9d7beceef21b0e20af6e6e09"
+    },
+    {
+      "id": "func/MeasurePlugin.pytest_sessionfinish",
+      "name": "pytest_sessionfinish",
+      "line": 56,
+      "end_line": 69,
+      "hash": "4f0298e9be2fd18a62edca51706956a143cea095fb4e70f86de01950795215c9"
+    },
+    {
+      "id": "func/_files",
+      "name": "_files",
+      "line": 72,
+      "end_line": 73,
+      "hash": "3f1c815b5a2dbe491657e8aa9cb635c7db673f1a1ae6965e3955a22df2571b47"
+    }
+  ]
+}
