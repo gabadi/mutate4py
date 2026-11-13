@@ -8,13 +8,17 @@ import sys
 import pytest
 
 from acceptance.steps.cli_surface_helpers import (
+    REACHING_TEST,
     accepted_flags_args,
     assert_accepted,
     assert_baseline_run,
+    assert_bytes_unchanged,
     assert_dispatched_to,
+    assert_error_printed,
     assert_exit_status,
     assert_names_interpreters,
     assert_no_analysis,
+    assert_no_backup,
     assert_no_baseline_run,
     assert_nonzero_exit,
     assert_only_reported,
@@ -27,11 +31,10 @@ from acceptance.steps.cli_surface_helpers import (
     default_source,
     described_args,
     exclude_run_args,
-    lcov_content,
     mark_site_lines,
+    rejected_args,
     reported_manifest_files,
     require_result,
-    resolve_literal,
     run_with_running_interpreter,
     single_flag_args,
     split_flags,
@@ -60,7 +63,7 @@ def test_split_flags_quoted_value():
     assert split_flags('--pytest-args "-x -k foo"') == ["--pytest-args", "-x -k foo"]
 
 
-# ── default_source / lcov_content ─────────────────────────────────────────────
+# ── default_source / REACHING_TEST ────────────────────────────────────────────
 
 
 @pytest.mark.unit
@@ -70,11 +73,9 @@ def test_default_source_is_nonempty():
 
 
 @pytest.mark.unit
-def test_lcov_content_includes_sf():
-    content = lcov_content("/tmp/foo.py")
-    assert "SF:/tmp/foo.py" in content
-    assert "DA:2,1" in content
-    assert "end_of_record" in content
+def test_reaching_test_calls_the_default_sources_function():
+    assert "import sample" in REACHING_TEST
+    assert "sample.calc(2, 1)" in REACHING_TEST
 
 
 # ── single_flag_args ──────────────────────────────────────────────────────────
@@ -82,29 +83,29 @@ def test_lcov_content_includes_sf():
 
 @pytest.mark.unit
 def test_single_flag_none_gives_scan():
-    args = single_flag_args("(none)", "s.py", "cov.lcov")
+    args = single_flag_args("(none)", "s.py")
     assert args == ["s.py", "--scan"]
 
 
 @pytest.mark.unit
-def test_single_flag_scan_incompatible_gives_lcov_run():
-    args = single_flag_args("--max-workers 4", "s.py", "cov.lcov")
-    assert "--lcov" in args
+def test_single_flag_scan_incompatible_gives_a_scored_run():
+    args = single_flag_args("--max-workers 4", "s.py")
+    assert "--scan" not in args
     assert "--max-workers" in args
     assert "--allow-survivors" in args
 
 
 @pytest.mark.unit
-def test_single_flag_pytest_args_gives_lcov_run():
-    args = single_flag_args("--pytest-args -x", "s.py", "cov.lcov")
-    assert "--lcov" in args
+def test_single_flag_pytest_args_gives_a_scored_run():
+    args = single_flag_args("--pytest-args -x", "s.py")
+    assert "--scan" not in args
     assert "--pytest-args" in args
     assert "--allow-survivors" in args
 
 
 @pytest.mark.unit
 def test_single_flag_regular_adds_scan():
-    args = single_flag_args("--mutation-warning 10", "s.py", "cov.lcov")
+    args = single_flag_args("--mutation-warning 10", "s.py")
     assert "--scan" in args
     assert "--mutation-warning" in args
     assert "--allow-survivors" not in args
@@ -115,29 +116,28 @@ def test_single_flag_regular_adds_scan():
 
 @pytest.mark.unit
 def test_two_flag_args_nothing_and_flag():
-    args = two_flag_args("(nothing)", "--scan", "s.py", "cov.lcov")
+    args = two_flag_args("(nothing)", "--scan", "s.py")
     assert "--scan" in args
 
 
 @pytest.mark.unit
-def test_two_flag_args_max_workers_without_scan_gives_lcov_run():
-    args = two_flag_args("--max-workers 4", "--since-last-run", "s.py", "cov.lcov")
-    assert "--lcov" in args
+def test_two_flag_args_max_workers_without_scan_gives_a_scored_run():
+    args = two_flag_args("--max-workers 4", "--since-last-run", "s.py")
+    assert "--scan" not in args
     assert "--max-workers" in args
     assert "--allow-survivors" in args
 
 
 @pytest.mark.unit
 def test_two_flag_args_max_workers_with_scan_gives_plain_run():
-    args = two_flag_args("--scan", "--max-workers 4", "s.py", "cov.lcov")
-    assert "--lcov" not in args
+    args = two_flag_args("--scan", "--max-workers 4", "s.py")
     assert "--scan" in args
     assert "--allow-survivors" not in args
 
 
 @pytest.mark.unit
 def test_two_flag_args_no_run_flag_never_gets_survivor_flag():
-    args = two_flag_args("--max-workers 4", "--check-manifest", "s.py", "cov.lcov")
+    args = two_flag_args("--max-workers 4", "--check-manifest", "s.py")
     assert "--check-manifest" in args
     assert "--allow-survivors" not in args
 
@@ -175,7 +175,7 @@ def test_described_args_unknown_raises():
 
 @pytest.mark.unit
 def test_accepted_flags_scan():
-    args, target, workers = accepted_flags_args("--scan", "s.py", "cov.lcov")
+    args, target, workers = accepted_flags_args("--scan", "s.py")
     assert "--scan" in args
     assert target == "scan surface"
     assert workers is None
@@ -183,16 +183,16 @@ def test_accepted_flags_scan():
 
 @pytest.mark.unit
 def test_accepted_flags_update_manifest():
-    args, target, workers = accepted_flags_args("--update-manifest", "s.py", "cov.lcov")
+    args, target, workers = accepted_flags_args("--update-manifest", "s.py")
     assert "--update-manifest" in args
     assert target == "manifest write"
     assert workers is None
 
 
 @pytest.mark.unit
-def test_accepted_flags_coverage():
-    args, target, workers = accepted_flags_args("(a coverage flag)", "s.py", "cov.lcov")
-    assert "--lcov" in args
+def test_accepted_flags_scored_run():
+    args, target, workers = accepted_flags_args("(a scored run)", "s.py")
+    assert "--scan" not in args
     assert "--allow-survivors" in args
     assert target == "run loop"
     assert workers is None
@@ -200,7 +200,7 @@ def test_accepted_flags_coverage():
 
 @pytest.mark.unit
 def test_accepted_flags_max_workers():
-    args, target, workers = accepted_flags_args("--max-workers 4 (a coverage flag)", "s.py", "cov.lcov")
+    args, target, workers = accepted_flags_args("--max-workers 4 (a scored run)", "s.py")
     assert "--max-workers" in args
     assert "--allow-survivors" in args
     assert target == "run loop"
@@ -210,7 +210,7 @@ def test_accepted_flags_max_workers():
 @pytest.mark.unit
 def test_accepted_flags_unknown_raises():
     with pytest.raises(NotImplementedError):
-        accepted_flags_args("--unknown-combo", "s.py", "cov.lcov")
+        accepted_flags_args("--unknown-combo", "s.py")
 
 
 # ── require_result ────────────────────────────────────────────────────────────
@@ -584,30 +584,6 @@ def test_run_with_running_interpreter_runs_mutate4py_module_in_cwd(monkeypatch, 
 
 
 @pytest.mark.unit
-def test_resolve_literal_maps_placeholders_and_strips_the_program_name():
-    args = resolve_literal(
-        "mutate4py <file> --lcov cov.info --pytest-args <fake>",
-        "/w/sample.py",
-        "/w/lcov.info",
-        "-q tests",
-        "/w",
-    )
-    assert args == ["/w/sample.py", "--lcov", "/w/lcov.info", "--pytest-args", "-q tests"]
-
-
-@pytest.mark.unit
-def test_resolve_literal_falls_back_to_tmpdir_coverage_and_empty_fake():
-    args = resolve_literal("<file> cov.info <fake>", "/w/sample.py", None, None, "/tmp/d")
-    assert args == ["/w/sample.py", "/tmp/d/cov.info", ""]
-
-
-@pytest.mark.unit
-def test_resolve_literal_leaves_plain_arguments_alone():
-    args = resolve_literal("--scan --max-workers 4", "/w/s.py", None, None, "/d")
-    assert args == ["--scan", "--max-workers", "4"]
-
-
-@pytest.mark.unit
 def test_assert_baseline_run_passes_when_marker_present(tmp_path):
     marker = tmp_path / "baseline_ran"
     marker.touch()
@@ -618,3 +594,76 @@ def test_assert_baseline_run_passes_when_marker_present(tmp_path):
 def test_assert_baseline_run_fails_when_marker_absent(tmp_path):
     with pytest.raises(AssertionError):
         assert_baseline_run(str(tmp_path / "baseline_ran"))
+
+
+# ── rejected invocations ──────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_rejected_args_pairs_a_selection_conflict_with_a_scored_run():
+    assert rejected_args("--since-last-run --mutate-all", "s.py") == [
+        "s.py",
+        "--pytest-args",
+        "",
+        "--since-last-run",
+        "--mutate-all",
+    ]
+
+
+@pytest.mark.unit
+def test_rejected_args_missing_source_is_a_bare_scan():
+    assert rejected_args("(no source file argument)", "s.py") == ["--scan"]
+
+
+@pytest.mark.unit
+def test_rejected_args_missing_path_points_nowhere():
+    args = rejected_args("(a path that does not exist)", "s.py")
+    assert args[0].startswith("/nonexistent/")
+    assert not os.path.exists(args[0])
+
+
+@pytest.mark.unit
+def test_rejected_args_unknown_raises():
+    with pytest.raises(NotImplementedError, match="Unknown invocation description"):
+        rejected_args("--lcov cov.info --reuse-coverage", "s.py")
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("output", ["error: bad", "Invalid value", "cannot combine"])
+def test_assert_error_printed_accepts_an_error_message(output):
+    assert_error_printed(output)
+
+
+@pytest.mark.unit
+def test_assert_error_printed_fails_on_silence():
+    with pytest.raises(AssertionError, match="Expected an error message"):
+        assert_error_printed("Mutation scan: 3 sites")
+
+
+@pytest.mark.unit
+def test_assert_bytes_unchanged_passes_on_equal_bytes():
+    assert_bytes_unchanged(b"abc", b"abc")
+
+
+@pytest.mark.unit
+def test_assert_bytes_unchanged_fails_on_a_difference():
+    with pytest.raises(AssertionError, match="Source file changed"):
+        assert_bytes_unchanged(b"abc", b"abd")
+
+
+@pytest.mark.unit
+def test_assert_bytes_unchanged_fails_when_nothing_was_recorded():
+    with pytest.raises(AssertionError, match="No source bytes were recorded"):
+        assert_bytes_unchanged(None, b"abc")
+
+
+@pytest.mark.unit
+def test_assert_no_backup_passes_without_a_bak_file(tmp_path):
+    assert_no_backup(str(tmp_path / "s.py"))
+
+
+@pytest.mark.unit
+def test_assert_no_backup_fails_when_a_bak_file_exists(tmp_path):
+    (tmp_path / "s.py.bak").write_text("")
+    with pytest.raises(AssertionError, match="Unexpected .mutate4py.bak"):
+        assert_no_backup(str(tmp_path / "s.py"))
