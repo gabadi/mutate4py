@@ -6,7 +6,7 @@ set -euo pipefail
 # Without gherkin-parser, generation used to be skipped silently and the stale
 # acceptance/generated/*.py ran instead (#83). Fail before anything runs.
 if ! command -v gherkin-parser &>/dev/null; then
-    echo "  ✗ gherkin-parser not found on PATH — build it as the 'Install gherkin-parser' step in .github/workflows/ci.yml does" >&2
+    echo "  ✗ gherkin-parser not found on PATH — run 'just install-tools' (it builds the CI-pinned version into ~/.local/bin)" >&2
     exit 1
 fi
 

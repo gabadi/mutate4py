@@ -12,6 +12,76 @@ default:
 install:
     uv sync
 
+# Pins for the external tools the gates need. `install-tools` is the only
+# reader: ci.yml calls that recipe, so CI and a local run cannot disagree.
+# drywall is a release of gabadi/drywall; gherkin-parser has no upstream tags,
+# so its pin is a commit SHA.
+DRYWALL_REPO := "gabadi/drywall"
+DRYWALL_TAG := "v0.1.3"
+GHERKIN_PARSER_REPO := "https://github.com/unclebob/Acceptance-Pipeline-Specification"
+GHERKIN_PARSER_COMMIT := "accaa33d503340c56513ef387258f8da929ba902"
+
+# Install the pinned drywall and gherkin-parser into ~/.local/bin. Rerunning is
+# cheap: a tool already at its pin is left alone.
+install-tools:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    BIN="$HOME/.local/bin"
+    mkdir -p "$BIN"
+
+    # drywall: one release asset per platform, stamped with its tag so a rerun
+    # can tell it is current without downloading again.
+    os="$(uname -s)"
+    arch="$(uname -m)"
+    case "$os-$arch" in
+        Darwin-arm64)  asset=drywall-macos-aarch64 ;;
+        Darwin-x86_64) asset=drywall-macos-x86_64 ;;
+        Linux-x86_64)  asset=drywall-linux-x86_64 ;;
+        *)
+            echo "install-tools: no pinned drywall asset for $os/$arch" >&2
+            exit 1
+            ;;
+    esac
+    stamp="$BIN/.drywall.tag"
+    if [ -x "$BIN/drywall" ] && [ "$(cat "$stamp" 2>/dev/null || true)" = "{{DRYWALL_TAG}}" ]; then
+        echo "  ✓ drywall {{DRYWALL_TAG}} already in $BIN"
+    else
+        tmp="$(mktemp "$BIN/.drywall.XXXXXX")"
+        url="https://github.com/{{DRYWALL_REPO}}/releases/download/{{DRYWALL_TAG}}/$asset"
+        curl -fsSL -o "$tmp" "$url" || { rm -f "$tmp"; echo "install-tools: download failed: $url" >&2; exit 1; }
+        chmod +x "$tmp"
+        mv "$tmp" "$BIN/drywall"
+        echo "{{DRYWALL_TAG}}" > "$stamp"
+        echo "  ✓ drywall {{DRYWALL_TAG}} installed in $BIN"
+    fi
+
+    # gherkin-parser: built from source at the pinned commit. `go version -m`
+    # reports the commit a binary was built from, which is the rerun check.
+    if ! command -v go >/dev/null 2>&1; then
+        echo "install-tools: go is needed to build gherkin-parser; install Go first" >&2
+        exit 1
+    fi
+    target="$BIN/gherkin-parser"
+    info="$(go version -m "$target" 2>/dev/null || true)"
+    case "$info" in
+        *"vcs.revision={{GHERKIN_PARSER_COMMIT}}"*)
+            echo "  ✓ gherkin-parser {{GHERKIN_PARSER_COMMIT}} already in $BIN" ;;
+        *)
+            work="$(mktemp -d "${TMPDIR:-/tmp}/install-tools.XXXXXX")"
+            trap 'rm -rf "$work"' EXIT
+            git clone --quiet "{{GHERKIN_PARSER_REPO}}" "$work/src"
+            git -C "$work/src" checkout --quiet "{{GHERKIN_PARSER_COMMIT}}"
+            tmp="$(mktemp "$BIN/.gherkin-parser.XXXXXX")"
+            (cd "$work/src" && go build -o "$tmp" ./cmd/gherkin-parser) || { rm -f "$tmp"; exit 1; }
+            mv "$tmp" "$target"
+            echo "  ✓ gherkin-parser {{GHERKIN_PARSER_COMMIT}} built into $BIN" ;;
+    esac
+
+    case ":$PATH:" in
+        *":$BIN:"*) ;;
+        *) echo "install-tools: warning: $BIN is not on PATH; add it to your shell profile" >&2 ;;
+    esac
+
 # --- The gate -------------------------------------------------------------
 
 # Verbose gate output. Truncated at the start of every `just check`; gitignored.
@@ -109,6 +179,9 @@ check *gates:
         echo "    run:  just check test-unit test-component test-integration" >&2
         exit 1
     fi
+    # A missing tool otherwise surfaces only when its gate runs, as exit 127,
+    # after the gates before it have spent their minutes. Check them first.
+    just --no-deps require-tools "${selected[@]}"
     : > "{{LOG}}"
     # An agent driving this through a Bash tool sees only the ✓/✗ lines, then
     # has to decide whether to read {{LOG}} — and a bare path says nothing
@@ -150,6 +223,33 @@ check *gates:
         _run "$gate"
     done
     echo "✓ check OK  ($(_log_hint))"
+
+# Fails when a selected gate's external tool is missing. The tools are not
+# Python dependencies, so nothing else would notice. `install-tools` puts them
+# where this looks. drywall is resolved exactly as `dry` resolves it.
+[private]
+require-tools *gates:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    missing=0
+    for gate in {{gates}}; do
+        case "$gate" in
+            dry)
+                drywall="${DRYWALL:-$(command -v drywall 2>/dev/null || echo "$HOME/.local/bin/drywall")}"
+                if ! command -v "$drywall" >/dev/null 2>&1; then
+                    echo "  ✗ drywall not found; the dry gate needs it. Install it with: just install-tools" >&2
+                    missing=1
+                fi
+                ;;
+            acceptance)
+                if ! command -v gherkin-parser >/dev/null 2>&1; then
+                    echo "  ✗ gherkin-parser not found on PATH; the acceptance gate needs it. Install it with: just install-tools" >&2
+                    missing=1
+                fi
+                ;;
+        esac
+    done
+    exit "$missing"
 
 [private]
 lint:
