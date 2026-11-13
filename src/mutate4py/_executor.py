@@ -28,6 +28,32 @@ class ExecutorDescription:
         return f"{self.mode} ({self.reason})"
 
 
+def _split_by_mode(
+    descriptions: list[ExecutorDescription],
+) -> tuple[list[ExecutorDescription], list[ExecutorDescription]]:
+    forked = [d for d in descriptions if d.mode == "forking"]
+    return forked, [d for d in descriptions if d.mode != "forking"]
+
+
+def _reasons(plain: list[ExecutorDescription]) -> str:
+    return "; ".join(dict.fromkeys(d.reason for d in plain))
+
+
+def _fresh_import(descriptions: list[ExecutorDescription]) -> int:
+    return sum(d.fresh_import for d in descriptions)
+
+
+def _mixed_description(forked: list[ExecutorDescription], plain: list[ExecutorDescription]) -> ExecutorDescription:
+    total = len(forked) + len(plain)
+    return ExecutorDescription(
+        mode="mixed",
+        reason=(
+            f"forking on {len(forked)} of {total} workers, fresh import {_fresh_import(forked)}; "
+            f"subprocess on {len(plain)} of {total} workers: {_reasons(plain)}"
+        ),
+    )
+
+
 def combine_descriptions(descriptions: list[ExecutorDescription]) -> ExecutorDescription:
     """One Executor line for a parallel run, from the description each Worker gave of its own executor.
 
@@ -37,22 +63,12 @@ def combine_descriptions(descriptions: list[ExecutorDescription]) -> ExecutorDes
     """
     if not descriptions:
         raise ValueError("no Workers to describe")
-    forked = [d for d in descriptions if d.mode == "forking"]
-    plain = [d for d in descriptions if d.mode != "forking"]
+    forked, plain = _split_by_mode(descriptions)
     if not plain:
-        return ExecutorDescription(mode="forking", fresh_import=sum(d.fresh_import for d in forked))
-    reasons = "; ".join(dict.fromkeys(d.reason for d in plain))
-    if not forked:
-        return ExecutorDescription(mode="subprocess", reason=reasons)
-    total = len(descriptions)
-    fresh = sum(d.fresh_import for d in forked)
-    return ExecutorDescription(
-        mode="mixed",
-        reason=(
-            f"forking on {len(forked)} of {total} workers, fresh import {fresh}; "
-            f"subprocess on {len(plain)} of {total} workers: {reasons}"
-        ),
-    )
+        return ExecutorDescription(mode="forking", fresh_import=_fresh_import(forked))
+    if forked:
+        return _mixed_description(forked, plain)
+    return ExecutorDescription(mode="subprocess", reason=_reasons(plain))
 
 
 @dataclasses.dataclass

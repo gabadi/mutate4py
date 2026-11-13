@@ -1,29 +1,36 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T11:26:45Z",
-  "module_hash": "142e285fed2e2d976781fab6f5971cc26ed02bdd977ccebff6e0860aeb525e99",
-  "source_sha256": "53dabce0c94d255cdb81aac0ab5f271419b44875326ee51ff7049ecc2c2021e0",
+  "tested_at": "2026-11-13T13:18:58Z",
+  "module_hash": "a94b9da0bb3f592f34cb9a125787cc03cf42571134f3562de64f13c2300b837e",
+  "source_sha256": "4636cba945c21214abd2f5b4f7e192e66e7345d09411dd9ed53b2ca5edb06b29",
   "functions": [
     {
       "id": "func/_run_mutation_loop",
       "name": "_run_mutation_loop",
-      "line": 45,
-      "end_line": 87,
-      "hash": "dcf89e0910e5a38523b1b28056f2dc6a257401112c4d33eae3e1a3f8ea2f2522"
+      "line": 57,
+      "end_line": 102,
+      "hash": "279684ffd5b913c16d66ca1ce245bb18d0e9dc9bfa3e904d4a77c5f580946653"
     },
     {
       "id": "func/_run_parallel_workers",
       "name": "_run_parallel_workers",
-      "line": 90,
-      "end_line": 126,
-      "hash": "fcb3508f479b07ff9e1d6f1b4745341499ff8525914bf1a7980ea7030d4fd186"
+      "line": 105,
+      "end_line": 141,
+      "hash": "40ef0e2d63c8b1fca359dc25492da6584c8a787a3c92c44013d3f724684c0b7b"
+    },
+    {
+      "id": "func/_confirm_survivors",
+      "name": "_confirm_survivors",
+      "line": 163,
+      "end_line": 197,
+      "hash": "904ef70480788b2c6c0151bf3bd2e0fc6990c071fdf53f7b6b23e8f1b9d604cd"
     },
     {
       "id": "func/_execute_mutations",
       "name": "_execute_mutations",
-      "line": 144,
-      "end_line": 163,
-      "hash": "574374c8bb4e44dbe3959b9c91e775a411bc211eb27ac6cc8909b393c9f9549a"
+      "line": 200,
+      "end_line": 237,
+      "hash": "5dbbe28884bd50e08aacb31cf195f001a45baf5030927f61e7f7e5916c7a9e76"
     }
   ]
 }

@@ -21,7 +21,6 @@ __all__ = [
 ]
 from mutate4py._discovery import Site, partition_sites
 from mutate4py._equivalent import EquivalentMarkerError, equivalent_markers
-from mutate4py._executor import Executor
 from mutate4py._executor_selection import select_executor
 from mutate4py._exit_codes import EXIT_USAGE, scored_run_exit_code
 from mutate4py._execution import (
@@ -50,6 +49,7 @@ from mutate4py._report import (
     scan_report,
     scan_report_with_coverage,
 )
+from mutate4py._run_request import RunMutationsRequest
 from mutate4py._scoring import ScoredRun
 from mutate4py._site_selection import (
     _is_effective_since_last_run,
@@ -67,36 +67,6 @@ from mutate4py._test_dispatch import TimeoutPolicy, _log_dispatch_abort
 from mutate4py._test_selection import open_test_context_db
 
 _logger = logging.getLogger(__name__)
-
-
-@dataclasses.dataclass
-class RunMutationsRequest:
-    """Everything a mutation run needs: target, coverage source, test invocation,
-    selection/execution knobs, and manifest storage.
-    """
-
-    path: str
-    source: str
-    cov_cmd: str | None
-    lcov_path: str | None
-    reuse_coverage: bool
-    pytest_args: list[str]
-    timeout_factor: int
-    lines_filter: set[int] | None
-    since_last_run: bool
-    mutate_all: bool
-    warning_threshold: int
-    cwd: str
-    max_workers: int = 0
-    min_timeout: float = 5.0
-    test_contexts_path: str | None = None
-    manifest_file: bool = False
-    forking_requested: bool = True
-    executor: Executor | None = None
-    allow_survivors: bool = False
-    # The run's Measurement when the caller took it (a batch run takes one for all its
-    # files); None makes the run measure itself and print the Measurement lines.
-    measurement: Measurement | None = None
 
 
 def _print_lines(lines: list[str]) -> None:
@@ -182,14 +152,17 @@ def _prepare_baseline_and_executor(
     )
     # A run with nothing selected never forks, and the Executor line says why: the user's --no-fork
     # first, else the empty selection.
-    no_fork_reason = "--no-fork" if not request.forking_requested else "no Mutants selected"
+    no_fork_reason = None
+    if not request.forking_requested:
+        no_fork_reason = "--no-fork"
+    elif not selected_sites:
+        no_fork_reason = "no Mutants selected"
     executor = select_executor(
         caller_supplied=request.executor,
         use_parallel=use_parallel,
-        requested=request.forking_requested and bool(selected_sites),
+        no_fork_reason=no_fork_reason,
         cwd=request.cwd,
         guarded_path=os.path.abspath(request.path),
-        no_fork_reason=no_fork_reason,
     )
 
     return _BaselinePrep(measurement.wall, measurement.per_mutant_overhead, timeout_policy, executor)
@@ -405,6 +378,8 @@ def _report_run(request: RunMutationsRequest, outcome, result, scored_run: Score
         )
         + executor_block_lines(result.executor_description, result.timing)
     )
+    if request.timing_sink is not None:
+        request.timing_sink.merge(result.timing)
     if measured_here and outcome.measurement is not None:
         _print_lines(measurement_lines(outcome.measurement))
     _print_lines(_accepted_block_lines(scored_run.accepted()))

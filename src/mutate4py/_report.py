@@ -157,11 +157,14 @@ def measurement_lines(measurement: Measurement) -> list[str]:
     return lines
 
 
-def batch_summary_lines(measurement: Measurement) -> list[str]:
-    """The batch summary's Measurement and Per-Mutant overhead lines, printed once for a directory run."""
+def batch_summary_lines(measurement: Measurement, timing: MutantTiming, wall: float) -> list[str]:
+    """A directory run's closing lines: the Measurement and Per-Mutant overhead, then the Time line
+    summed over every file and the run's total wall time (Measurement included), printed once."""
     return [
         *measurement_lines(measurement),
         *_overhead_report_lines(measurement.per_mutant_overhead, measurement.wall),
+        timing.render(),
+        f"Wall: {wall:.2f}s",
     ]
 
 

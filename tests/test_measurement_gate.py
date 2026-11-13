@@ -66,7 +66,9 @@ def _write_source(tmp_path) -> str:
     return src_path
 
 
-def _run_without_coverage_flags(tmp_path, src_path, measurement, executor, pytest_args=()) -> tuple[int, str]:
+def _run_without_coverage_flags(
+    tmp_path, src_path, measurement, executor, pytest_args=(), **request_fields
+) -> tuple[int, str]:
     request = RunMutationsRequest(
         path=src_path,
         source=SRC,
@@ -82,6 +84,7 @@ def _run_without_coverage_flags(tmp_path, src_path, measurement, executor, pytes
         cwd=str(tmp_path),
         executor=executor,
         measurement=measurement,
+        **request_fields,
     )
     buf = io.StringIO()
     with redirect_stdout(buf):

@@ -13,12 +13,15 @@ programmatically. The one exception is `NoFilesToProcessError` from
 """
 
 import argparse
+import dataclasses
 import logging
 import os
 import shlex
 import sys
+import time
 
 from mutate4py._cli_validation import check_run_env
+from mutate4py._executor import MutantTiming
 from mutate4py._exit_codes import EXIT_USAGE, worse_exit_code
 from mutate4py._measurement import CoverageCoreRefused, Measurement, MeasurementFailed, measure_in_scratch
 from mutate4py._report import batch_summary_lines, measurement_failure
@@ -120,13 +123,23 @@ def _run_scan(args: argparse.Namespace, path: str, source: str, cwd: str) -> Non
         sys.exit(2)
 
 
+@dataclasses.dataclass
+class BatchShare:
+    """What a directory run's files share: the one Measurement (None when no file runs Mutants)
+    and the Time total each file's run adds its own timing to (None for a lone file)."""
+
+    measurement: Measurement | None
+    timing: MutantTiming | None
+
+
 def _run_on_file(
     args: argparse.Namespace,
     py_file: str,
     source: str,
     cwd: str,
-    measurement: Measurement | None = None,
+    batch: BatchShare | None = None,
 ) -> int:
+    batch = batch or BatchShare(None, None)
     if args.check_manifest:
         return check_manifest(path=py_file, source=source, manifest_file=args.manifest_file)
     if args.update_manifest:
@@ -153,7 +166,8 @@ def _run_on_file(
             warning_threshold=args.warning_threshold,
             max_workers=max_workers,
             cwd=cwd,
-            measurement=measurement,
+            measurement=batch.measurement,
+            timing_sink=batch.timing,
             test_contexts_path=args.test_contexts,
             manifest_file=args.manifest_file,
             forking_requested=not args.no_fork,
@@ -267,7 +281,10 @@ def _collect_union_files(args: argparse.Namespace, roots: list[str]) -> list[str
 
 
 def _run_each_file(
-    args: argparse.Namespace, files: list[str], cwd: str, measurement: Measurement | None
+    args: argparse.Namespace,
+    files: list[str],
+    cwd: str,
+    batch: BatchShare,
 ) -> tuple[int, int]:
     """Run the configured mode over every file; return (worst code, parse failures).
 
@@ -277,10 +294,7 @@ def _run_each_file(
     parse_failures = 0
     for py_file in files:
         try:
-            exit_code = worse_exit_code(
-                exit_code,
-                _run_on_file(args, py_file, _load_source(py_file), cwd, measurement=measurement),
-            )
+            exit_code = worse_exit_code(exit_code, _run_on_file(args, py_file, _load_source(py_file), cwd, batch))
         except SyntaxError as exc:
             _report_parse_error(py_file, exc)
             exit_code = worse_exit_code(exit_code, EXIT_USAGE)
@@ -294,11 +308,13 @@ def _run_files_and_exit(args: argparse.Namespace, files: list[str]) -> None:
     error. A failing file never stops the batch — including a file that fails
     to parse, which contributes code 2 and is tallied into the trailing
     parse-failure summary line."""
+    started = time.monotonic()
     cwd = os.getcwd()
     measurement = _prepare_directory_measurement(args, files, cwd) if _needs_measurement(files, args) else None
-    exit_code, parse_failures = _run_each_file(args, files, cwd, measurement)
+    timing = MutantTiming()
+    exit_code, parse_failures = _run_each_file(args, files, cwd, BatchShare(measurement, timing))
     if measurement is not None:
-        _logger.info("\n".join(batch_summary_lines(measurement)))
+        _logger.info("\n".join(batch_summary_lines(measurement, timing, time.monotonic() - started)))
     if parse_failures:
         _logger.error(f"error: {parse_failures} files could not be parsed")
     sys.exit(exit_code)

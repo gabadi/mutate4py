@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "tested_at": "2026-11-13T13:18:58Z",
+  "module_hash": "70b1cc6bc726471dca375f53dcfed7b6472280f7dabf67031c142b1660957d03",
+  "source_sha256": "88f8ca02f585d3f4e9af5bef62469915937f8a5df946c0e0b0a59c4f1101efac",
+  "functions": [
+    {
+      "id": "func/_assign_sites_to_workers",
+      "name": "_assign_sites_to_workers",
+      "line": 19,
+      "end_line": 25,
+      "hash": "38182f3ff4d30bc4333538f3b42892b1be3285e6ae0c194917a5ac9075ae763f"
+    },
+    {
+      "id": "func/_summarize_results",
+      "name": "_summarize_results",
+      "line": 28,
+      "end_line": 37,
+      "hash": "f13aab7e3a9b5709751bc84562dafffcbba38134093167fac49188a4ba6947e1"
+    },
+    {
+      "id": "func/_summarize_timing",
+      "name": "_summarize_timing",
+      "line": 40,
+      "end_line": 45,
+      "hash": "f1c3977570949c7c0dbbe0e4e857bbfe22efc3fb9d69677d3f91942b43260fed"
+    },
+    {
+      "id": "func/_summarize_selection",
+      "name": "_summarize_selection",
+      "line": 48,
+      "end_line": 55,
+      "hash": "11a4354b6c8bd6ff98a2905019aec59f9abd1cc1490515aa74fbe25d3f78ebef"
+    },
+    {
+      "id": "func/_drop_one_result_if_injected",
+      "name": "_drop_one_result_if_injected",
+      "line": 58,
+      "end_line": 64,
+      "hash": "e310a4623b2b76858fad0129f12afe9fd9be0a1f187ed3984b18dca8358370f2"
+    }
+  ]
+}

@@ -39,7 +39,7 @@ def test_select_executor_returns_a_caller_supplied_executor_unprimed(tmp_path):
     chosen = select_executor(
         caller_supplied=caller_supplied,
         use_parallel=False,
-        requested=True,
+        no_fork_reason=None,
         cwd=str(tmp_path),
         guarded_path=str(tmp_path / "x.py"),
     )
@@ -52,7 +52,7 @@ def test_select_executor_prefers_a_caller_supplied_executor_over_deferring_to_wo
     chosen = select_executor(
         caller_supplied=caller_supplied,
         use_parallel=True,
-        requested=True,
+        no_fork_reason=None,
         cwd=str(tmp_path),
         guarded_path=str(tmp_path / "x.py"),
     )
@@ -66,7 +66,7 @@ def test_select_executor_defers_to_each_worker_for_a_parallel_run(tmp_path):
     chosen = select_executor(
         caller_supplied=None,
         use_parallel=True,
-        requested=True,
+        no_fork_reason=None,
         cwd=str(tmp_path),
         guarded_path=str(tmp_path / "x.py"),
     )
@@ -78,7 +78,6 @@ def test_select_executor_passes_the_no_fork_reason_through_to_the_subprocess_exe
     chosen = select_executor(
         caller_supplied=None,
         use_parallel=False,
-        requested=False,
         cwd=str(tmp_path),
         guarded_path=str(tmp_path / "x.py"),
         no_fork_reason="no Mutants selected",
@@ -93,7 +92,7 @@ def test_select_executor_prepares_one_for_a_serial_run(tmp_path):
     chosen = select_executor(
         caller_supplied=None,
         use_parallel=False,
-        requested=False,
+        no_fork_reason="--no-fork",
         cwd=str(tmp_path),
         guarded_path=str(tmp_path / "x.py"),
     )

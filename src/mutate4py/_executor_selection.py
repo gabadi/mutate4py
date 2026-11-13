@@ -22,23 +22,25 @@ def select_executor(
     *,
     caller_supplied: Executor | None,
     use_parallel: bool,
-    requested: bool,
+    no_fork_reason: str | None,
     cwd: str,
     guarded_path: str,
-    no_fork_reason: str = "--no-fork",
 ) -> Executor | None:
     """Pick the executor for a run: the caller-supplied one when given (used
     as-is, never re-primed here — the caller owns priming, e.g. a fake
     executor in tests or one already primed by a longer-lived caller); None
     when a parallel run defers priming to each Worker's own process (issue
-    04b); a freshly prepared one otherwise. no_fork_reason is the reason a
-    prepared subprocess executor reports for not forking.
+    04b); a freshly prepared one otherwise. no_fork_reason is None when the
+    forking executor is wanted; otherwise it is the reason a prepared
+    subprocess executor reports for not forking.
     """
     if caller_supplied is not None:
         return caller_supplied
     if use_parallel:
         return None
-    return _prepare_executor(requested=requested, cwd=cwd, guarded_path=guarded_path, no_fork_reason=no_fork_reason)
+    return _prepare_executor(
+        requested=no_fork_reason is None, cwd=cwd, guarded_path=guarded_path, no_fork_reason=no_fork_reason or ""
+    )
 
 
 def _prepare_executor(*, requested: bool, cwd: str, guarded_path: str, no_fork_reason: str = "--no-fork") -> Executor:

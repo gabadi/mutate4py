@@ -1,98 +1,105 @@
 {
   "version": 1,
-  "tested_at": "2026-10-11T16:52:34Z",
-  "module_hash": "c38d7c471f530bb02f24560a7bd5e5de672e97be0ea5a814cab7d0d1bcf2cb1c",
-  "source_sha256": "1bb6f4ebd867dec45e15be508557b7cccac3110612e839d97c74b889a0cc7fbf",
+  "tested_at": "2026-11-13T13:18:58Z",
+  "module_hash": "16eb2eddffe704458f97e9cd1a4895e4f8012b51800cf9df4aab3309db4cd6d1",
+  "source_sha256": "1730764e6adacdd775d4478ed093fcc4b92a7854d82fc280a8e4b1e2dc3b3e1d",
   "functions": [
     {
       "id": "func/isolated_coverage_session_safe",
       "name": "isolated_coverage_session_safe",
-      "line": 61,
-      "end_line": 69,
+      "line": 62,
+      "end_line": 70,
       "hash": "74ccc6983647c8f0c390897ebb726a518743adba67f8140ebd021d69a56ca33d"
     },
     {
       "id": "func/is_available",
       "name": "is_available",
-      "line": 80,
-      "end_line": 82,
+      "line": 81,
+      "end_line": 83,
       "hash": "5de088524027f935fa5a9c9c536d318f189bcc175a56f57f0bb575ae0cf0a1d2"
     },
     {
       "id": "func/_leaked_modules",
       "name": "_leaked_modules",
-      "line": 85,
-      "end_line": 92,
+      "line": 86,
+      "end_line": 93,
       "hash": "adfe44856e110fd86da612fb594d943266512ada8559050952f1ad49241b87d5"
     },
     {
       "id": "func/assert_source_clean",
       "name": "assert_source_clean",
-      "line": 95,
-      "end_line": 110,
+      "line": 96,
+      "end_line": 111,
       "hash": "1b8138e155ba290ffc32e211b86df20c56a32627b39dc601fdcce0c4df24f90f"
     },
     {
       "id": "func/ForkingExecutor.__init__",
       "name": "__init__",
-      "line": 123,
-      "end_line": 126,
-      "hash": "aa81716cee82c82302f38ed191009326cc7e66504513cb67a8b8a898e55897a6"
+      "line": 124,
+      "end_line": 128,
+      "hash": "ce0839919e7c234e17766d6de7baae4ee4d69867855e431af1686d07dc92b033"
+    },
+    {
+      "id": "func/ForkingExecutor.describe",
+      "name": "describe",
+      "line": 130,
+      "end_line": 131,
+      "hash": "dc07a8285fe91ae569fdbb2bd81d5ca2ab531b1045569e920a4ff4b6dc05af23"
     },
     {
       "id": "func/ForkingExecutor.prime",
       "name": "prime",
-      "line": 128,
-      "end_line": 152,
+      "line": 133,
+      "end_line": 157,
       "hash": "33d88f0a67e5764a9fb9eba07346658c529d99fa73b4be6f9fecc9c653f9ddbf"
     },
     {
       "id": "func/ForkingExecutor._fork_and_wait",
       "name": "_fork_and_wait",
-      "line": 154,
-      "end_line": 165,
+      "line": 159,
+      "end_line": 170,
       "hash": "a682e5e740bb4dcfc5bc5f95bfde5b596b3bca7a8283911a2bef15bb443eeda8"
     },
     {
       "id": "func/ForkingExecutor.run",
       "name": "run",
-      "line": 167,
-      "end_line": 171,
-      "hash": "e73888502e62dd35affa5ec3d7c51f676c0ee05fd9fd17d7474dd874062349d4"
+      "line": 172,
+      "end_line": 177,
+      "hash": "b87a965cad1c5ca0da122c52c14e51f1f016e7e66f7c9a093fb7c95dea42f799"
     },
     {
       "id": "func/ForkingExecutor.run_isolated_coverage_session",
       "name": "run_isolated_coverage_session",
-      "line": 173,
-      "end_line": 200,
+      "line": 179,
+      "end_line": 206,
       "hash": "32e38140285325b7b2a749069c39d38ced791c81aa13345a550e3ac4cf50a9b2"
     },
     {
       "id": "func/ForkingExecutor._run_child",
       "name": "_run_child",
-      "line": 202,
-      "end_line": 217,
+      "line": 208,
+      "end_line": 223,
       "hash": "15083ec81778cfdf5d38f85fe2c8cd0063e32da59fb0f0a076383204d6747ee7"
     },
     {
       "id": "func/ForkingExecutor._run_coverage_child",
       "name": "_run_coverage_child",
-      "line": 219,
-      "end_line": 241,
+      "line": 225,
+      "end_line": 247,
       "hash": "aba741e83d7ea388b43d475fa589e0ba7c3c43016f7d0489a6113338387fe0b0"
     },
     {
       "id": "func/_run_pytest_output_suppressed",
       "name": "_run_pytest_output_suppressed",
-      "line": 244,
-      "end_line": 282,
+      "line": 250,
+      "end_line": 288,
       "hash": "8fb7421e72d7f90a52f4cf746e5df3db0d9907310cd68d760fcd29e967959287"
     },
     {
       "id": "func/_wait_for_child",
       "name": "_wait_for_child",
-      "line": 285,
-      "end_line": 298,
+      "line": 291,
+      "end_line": 304,
       "hash": "fe8dcd42a3b2263c5b0140a65e391c796187c1e414837cc43834f8a393abb423"
     }
   ]

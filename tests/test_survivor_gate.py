@@ -380,4 +380,3 @@ def test_memoised_body_survivor_is_confirmed_killed_by_the_full_set(tmp_path):
     fn = _recorded_function(src_path)
     assert fn["survivors"] == []
     assert fn["score"]["survived"] == 0
-

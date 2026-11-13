@@ -1,49 +1,56 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T11:30:39Z",
-  "module_hash": "8cb9ad5ba9daf2915de3dbca0925226718f285a35362e2d3c7d2023a31f2113a",
-  "source_sha256": "59778decb8f26a4eb6cb0d675eed9ab84d3c93f224884136c93374c992f8ff93",
+  "tested_at": "2026-11-13T13:18:58Z",
+  "module_hash": "b7809bfbbce1472dd7cb65713afd87572b9fbe263814454177aca255a56f7b32",
+  "source_sha256": "c2c3ccd569e8dc6e12a498cb0802e088aed4adab7b71234eb39cdc48ab654b72",
   "functions": [
     {
       "id": "func/_check_execution_status",
       "name": "_check_execution_status",
-      "line": 67,
-      "end_line": 71,
+      "line": 68,
+      "end_line": 72,
       "hash": "f129ab238daaf03b6bbf5522a05d812d0c382d32da5a7d4e7e7962fd438eac78"
     },
     {
       "id": "func/_log_dispatch_abort",
       "name": "_log_dispatch_abort",
-      "line": 74,
-      "end_line": 80,
+      "line": 75,
+      "end_line": 81,
       "hash": "1944e590dc505407d3dd486aae69a08553d3dfba068498f461056bd66ff11cd5"
     },
     {
       "id": "func/_without_positionals",
       "name": "_without_positionals",
-      "line": 113,
-      "end_line": 133,
+      "line": 114,
+      "end_line": 134,
       "hash": "99f5fbe41d83a099523625a114a18f26c5442d79603ad9e30b06ef4230e98b84"
     },
     {
       "id": "func/TimeoutPolicy.timeout_for",
       "name": "timeout_for",
-      "line": 151,
-      "end_line": 152,
+      "line": 152,
+      "end_line": 153,
       "hash": "3b66c19b5889cc277438a2a480e384afcf791d9ea52a52f3188eb9e7c3293805"
     },
     {
       "id": "func/plan_mutant",
       "name": "plan_mutant",
-      "line": 178,
-      "end_line": 209,
+      "line": 179,
+      "end_line": 210,
       "hash": "cab2058276921b888e7bf4e29a362872052b5c23d63c39f58c000ff5fa68d59f"
+    },
+    {
+      "id": "func/confirm_plan",
+      "name": "confirm_plan",
+      "line": 213,
+      "end_line": 221,
+      "hash": "f8ac202262e292b3482f9dc0c0b8b453b90d551e427ffaa6711440dc5b582eca"
     },
     {
       "id": "func/plan_sites",
       "name": "plan_sites",
-      "line": 212,
-      "end_line": 214,
+      "line": 224,
+      "end_line": 226,
       "hash": "8f8da030eab9cdd7f6d40ce61cdead4253acc94b90f4619702411c3bea3d6f36"
     }
   ]

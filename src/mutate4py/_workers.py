@@ -14,24 +14,29 @@ serial loop — neither path may special-case the other.
 """
 
 import dataclasses
-import importlib.metadata
 import os
 import shutil
 import subprocess
-import sys
 import time
-from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable
 
 from mutate4py._discovery import Site, apply_mutant
 from mutate4py._executor import Executor, ExecutorDescription, MutantTiming, combine_descriptions
+from mutate4py._worker_results import (
+    _assign_sites_to_workers,
+    _drop_one_result_if_injected,
+    _summarize_results,
+    _summarize_selection,
+    _summarize_timing,
+)
 from mutate4py._test_dispatch import MutantPlan, PlanInputs, TimeoutPolicy, _check_execution_status, plan_sites
 from mutate4py._worker_protocol import WorkerProcessError, WorkerProcessExecutor
 from mutate4py._worker_provision import (
     _copy_tree,
     _link_import_root,
     _provision_venv,
+    _required_worker_distributions,
 )
 
 __all__ = ["ParallelRunError", "ParallelRunRequest", "ParallelRunResult", "WorkerFailureError", "run_parallel"]
@@ -210,16 +215,6 @@ def _run_one_site(assignment: SiteAssignment, executor: Executor, settings: Work
     return result
 
 
-def _required_worker_distributions(real_cwd: str) -> frozenset[str]:
-    """The distributions every Worker venv must hold (ADR 0015): the project environment's
-    when the orchestrator runs under that `.venv`, else none (mutate4py's own venv, as in
-    the parallel-workers-15 acceptance scenario). mutate4py itself is never required."""
-    if os.path.realpath(sys.prefix) != os.path.realpath(os.path.join(real_cwd, ".venv")):
-        return frozenset()
-    names = {d.metadata["Name"].lower().replace("_", "-") for d in importlib.metadata.distributions()}
-    return frozenset(names - {"mutate4py"})
-
-
 def _provision_workers(run_root: str, n_workers: int, real_cwd: str) -> list[str]:
     """Create and provision n_workers isolated tree copies; return their root paths."""
     worker_roots = []
@@ -235,45 +230,6 @@ def _provision_workers(run_root: str, n_workers: int, real_cwd: str) -> list[str
             raise WorkerFailureError(f"could not link the mutate4py import root for {worker_root}: {e}") from e
         worker_roots.append(worker_root)
     return worker_roots
-
-
-def _assign_sites_to_workers(selected_sites: list[Site], n_workers: int) -> dict[int, list[tuple[int, Site, int]]]:
-    """Round-robin assign sites to workers; return by_worker grouping."""
-    by_worker: dict[int, list[tuple[int, Site, int]]] = defaultdict(list)
-    for i, site in enumerate(selected_sites):
-        worker_idx = (site.index % n_workers) + 1
-        by_worker[worker_idx].append((worker_idx, site, i + 1))
-    return by_worker
-
-
-def _summarize_results(results: list[dict]) -> tuple[dict[str, int], list[Site]]:
-    """Tally counts and collect survivors from sorted result list."""
-    counts: dict[str, int] = {"killed": 0, "timeout": 0, "survived": 0}
-    survivors: list[Site] = []
-    for r in results:
-        counts[r["status"]] += 1
-        if r["status"] == "survived":
-            survivors.append(r["site"])
-    survivors.sort(key=lambda s: s.index)
-    return counts, survivors
-
-
-def _summarize_timing(results: list[dict]) -> MutantTiming:
-    """Add each Mutant's own elapsed run time to the bucket its status names."""
-    timing = MutantTiming()
-    for r in results:
-        timing.record(r["status"], r["seconds"])
-    return timing
-
-
-def _summarize_selection(results: list[dict]) -> dict[str, int]:
-    """Tally narrowed/static/degraded selection counts, mirroring the serial loop's tally."""
-    counts = {"narrowed": 0, "static": 0, "degraded": 0}
-    for r in results:
-        selection = r.get("selection")
-        if selection is not None:
-            counts[selection] += 1
-    return counts
 
 
 def _prime_worker_executor(executor: Executor, worker_idx: int) -> None:
@@ -300,15 +256,6 @@ def _close_worker_executor(executor: Executor) -> None:
     close = getattr(executor, "close", None)
     if close is not None:
         close()
-
-
-def _drop_one_result_if_injected(worker_results: list[dict], *, short_fail: bool) -> list[dict]:
-    """Test-injection seam (_MUTATE4PY_TEST_WORKER_SHORT_RESULT=1): silently
-    lose one Worker's last result, so run_parallel's own
-    results-vs-sites reconciliation can be proven to fire."""
-    if short_fail and worker_results:
-        return worker_results[:-1]
-    return worker_results
 
 
 def _dispatch_worker_groups(plan: _WorkerDispatchPlan) -> tuple[list[dict], list[ExecutorDescription]]:
@@ -362,6 +309,24 @@ def _dispatch_worker_groups(plan: _WorkerDispatchPlan) -> tuple[list[dict], list
     return results, [descriptions[worker_idx] for worker_idx in sorted(descriptions)]
 
 
+def _plan_inputs(request: ParallelRunRequest) -> PlanInputs:
+    return PlanInputs(
+        pytest_args=request.pytest_args,
+        selection_source=request.selection_source,
+        abs_source_path=request.abs_source_path,
+        timeout_policy=request.timeout_policy,
+        positionals=request.positionals,
+    )
+
+
+def _run_settings(request: ParallelRunRequest) -> WorkerRunSettings:
+    return WorkerRunSettings(
+        clean_source=request.clean_source,
+        on_result=request.on_result,
+        abs_source_path=request.abs_source_path,
+    )
+
+
 def run_parallel(request: ParallelRunRequest) -> ParallelRunResult:
     """Run sites in parallel across max_workers isolated Workers, each owning
     exactly one primed Executor for the whole run.
@@ -386,25 +351,10 @@ def run_parallel(request: ParallelRunRequest) -> ParallelRunResult:
     source_rel = os.path.relpath(real_source, real_cwd)
     run_root = os.path.join(real_cwd, ".mutate4py", "workers", f"run-{os.getpid()}-{time.monotonic_ns()}")
 
-    settings = WorkerRunSettings(
-        clean_source=request.clean_source,
-        on_result=request.on_result,
-        abs_source_path=request.abs_source_path,
-    )
-
     try:
         # Planned before any Worker is provisioned, so a selection disagreement
         # aborts the run before a single Mutant is dispatched.
-        plans = plan_sites(
-            selected_sites,
-            PlanInputs(
-                pytest_args=request.pytest_args,
-                selection_source=request.selection_source,
-                abs_source_path=request.abs_source_path,
-                timeout_policy=request.timeout_policy,
-                positionals=request.positionals,
-            ),
-        )
+        plans = plan_sites(selected_sites, _plan_inputs(request))
         worker_roots = _provision_workers(run_root, n_workers, real_cwd)
         by_worker = _assign_sites_to_workers(selected_sites, n_workers)
         executors = _provision_worker_executors(
@@ -422,7 +372,7 @@ def run_parallel(request: ParallelRunRequest) -> ParallelRunResult:
                 source_rel=source_rel,
                 total=len(selected_sites),
                 plans=plans,
-                settings=settings,
+                settings=_run_settings(request),
                 n_workers=n_workers,
             )
         )

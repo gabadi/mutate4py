@@ -124,3 +124,31 @@ table above: a line reached by named tests is `narrowed`; a line reached only by
 the whole-run context is `static`. A line the Measurement holds no context for is
 `uncovered`: it runs the full test set and is tallied `static`, rather than
 aborting. The abort stays reserved for the db's `line-absent` and `file-absent`.
+
+**Amendment (issue #97): a Survivor is confirmed before it counts.** Narrowing runs
+a Mutant with only the tests that reached its line, and a narrowed list can miss a
+killing test: one that reads state a covering test left behind (a memoised body)
+reaches no line of the Site, so no covering list names it. Such a Mutant survives
+the narrowed run and would be reported as a Survivor though the full suite kills it.
+So every Survivor of a non-accepted Site is re-run with the full test set, in a fresh
+interpreter through the subprocess executor, under the full-set timeout, and counts
+as a Survivor only if it survives that run too. A kill, or a timeout, under the full
+set folds into `killed` (ADR 0011).
+
+- **The orchestrator confirms, serial and parallel alike.** Workers return `survived`
+  and the orchestrator confirms serially on its own copy of the file, spliced and
+  restored as the serial loop splices it. One path gives both run shapes one verdict.
+- **Accepted-equivalent Sites are not confirmed.** Their line carries an equivalent
+  marker, so the Survivor is accepted by design and a full run would buy nothing.
+- **A fresh interpreter, not the forking executor.** The confirmation exists to rule
+  out state leaking between runs; a forked child shares the primed parent's imports,
+  and a memoised body read from that parent is the very state to avoid.
+- **Visible in the report.** The `Time:` line carries `confirmation .. (n run, k
+  killed)`, and the `Executor:` line says how the Mutants ran (`forking (fresh import
+  N)`, or `subprocess (<reason>)` for a whole-run fallback).
+
+**Rejected: widen the narrowed list instead.** A covering list is derived from the
+lines each test reaches, so a test that matters only through state it reads cannot be
+named by it; widening it means running the full set for every Mutant, which is the
+cost narrowing exists to avoid. Confirming only the few Survivors keeps narrowing for
+the Mutants that die early.

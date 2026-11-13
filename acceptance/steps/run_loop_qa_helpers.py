@@ -64,18 +64,22 @@ def one_timeout_rest_killed_body(counter_path: str) -> str:
     )
 
 
-def n_survivors_body(counter_path: str, n: int) -> str:
-    """Baseline (call 0) passes; the first n mutant calls survive, the rest are killed."""
+# The mutated line each of the QA calc.py fixture's two sites produces, in site order.
+_SITE_MUTANTS = ("a >= b", "c >= d")
+
+
+def n_survivors_body(calc_path: str, n: int) -> str:
+    """Passes on the unmutated source and on the first n sites' mutants; fails on the rest.
+
+    Decided from the source's content, not from a call count, so a Survivor still
+    survives when it is re-run for confirmation.
+    """
     return (
         "def test_qa():\n"
-        f"    counter_path = {counter_path!r}\n"
-        "    with open(counter_path) as f:\n"
-        "        count = int(f.read())\n"
-        "    with open(counter_path, 'w') as f:\n"
-        "        f.write(str(count + 1))\n"
-        "    if count == 0:\n"  # baseline: always pass
-        "        return\n"
-        f"    assert count <= {n}\n"  # first n mutant(s) survive; rest killed
+        f"    with open({calc_path!r}) as f:\n"
+        "        content = f.read()\n"
+        f"    killing = {_SITE_MUTANTS[n:]!r}\n"  # the sites past the first n are killed
+        "    assert not any(mutant in content for mutant in killing)\n"
     )
 
 

@@ -1,22 +1,22 @@
 {
   "version": 1,
-  "tested_at": "2026-10-11T16:36:53Z",
-  "module_hash": "06a9fc56a683731efcbc83f2818c2ed2a7ffdee0f3dc1308671963a47751e38a",
-  "source_sha256": "a2ff257d492b4a978082a6a6383de9ce04472ed38b37545fca4bcccf90486dda",
+  "tested_at": "2026-11-13T13:18:58Z",
+  "module_hash": "8d03467ed58988b39838de819bf401f7011e7739a09d4962d41695daff23df7b",
+  "source_sha256": "6e32f2f542380eeee5b6f8302d7b11e08450f1061ac3a6d382a1f6a49a20a953",
   "functions": [
     {
       "id": "func/select_executor",
       "name": "select_executor",
       "line": 21,
-      "end_line": 34,
-      "hash": "51c4ca839dc77239699c0568e5d3193c515197ec345e39a121affbcb77b23d9b"
+      "end_line": 43,
+      "hash": "66b72daec919502177fa6d7161dc2e8d3313f901050007db97b1a47df3364555"
     },
     {
       "id": "func/_prepare_executor",
       "name": "_prepare_executor",
-      "line": 37,
-      "end_line": 66,
-      "hash": "dfef1aad60d3b21cc6a7eac3c15e5d4ba397c821adbf4db985f8985bac8f338f"
+      "line": 46,
+      "end_line": 78,
+      "hash": "d200ff62a9932cebc2eeb5a49bdf650bd046f55730e2d8423e417a7fdb838fb0"
     }
   ]
 }
