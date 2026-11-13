@@ -7,6 +7,7 @@ import signal
 import sys
 import textwrap
 import time
+import types
 
 import pytest
 
@@ -16,10 +17,11 @@ from mutate4py._forking_executor import (
     ForkingExecutorUnavailable,
     ForkUnsafePlugin,
     file_mode,
-    fork_unsafe_plugins,
     fresh_interpreter_argv,
     fresh_interpreter_env,
     is_available,
+    loaded_files,
+    refuse_fork_unsafe_plugins,
 )
 from mutate4py._forking_executor import _wait_for_child
 from mutate4py._plugin_neutralisation import neutralising_args
@@ -74,17 +76,36 @@ def test_file_mode_compares_real_paths(tmp_path):
     assert file_mode(str(link), harness_files=set(), loaded_after_prime={os.path.realpath(real)}) == "loaded"
 
 
-# --- fork_unsafe_plugins ------------------------------------------------------
+# --- loaded_files ------------------------------------------------------------
 
 
 @pytest.mark.unit
-def test_tach_among_the_registered_plugins_is_fork_unsafe():
-    assert fork_unsafe_plugins(["_pytest.python", "tach.pytest_plugin", "pytest_cov.plugin"]) == ["tach.pytest_plugin"]
+def test_loaded_files_are_the_real_paths_of_the_modules_with_a_file(tmp_path):
+    real = tmp_path / "calc.py"
+    real.write_text("")
+    link = tmp_path / "link.py"
+    link.symlink_to(real)
+    modules = {
+        "calc": types.SimpleNamespace(__file__=str(link)),
+        "builtin_like": types.SimpleNamespace(),
+        "namespace_like": types.SimpleNamespace(__file__=None),
+    }
+    assert loaded_files(modules) == {os.path.realpath(real)}
+
+
+# --- refuse_fork_unsafe_plugins -------------------------------------------------
 
 
 @pytest.mark.unit
-def test_a_session_without_a_known_unsafe_plugin_has_none():
-    assert fork_unsafe_plugins(["_pytest.python", "tach"]) == []
+def test_tach_among_the_registered_plugins_is_refused_by_name():
+    with pytest.raises(ForkUnsafePlugin) as refused:
+        refuse_fork_unsafe_plugins(["_pytest.python", "tach.pytest_plugin", "pytest_cov.plugin"])
+    assert refused.value.reason == "fork-unsafe plugin: tach.pytest_plugin"
+
+
+@pytest.mark.unit
+def test_a_session_without_a_known_unsafe_plugin_is_not_refused():
+    refuse_fork_unsafe_plugins(["_pytest.python", "tach"])
 
 
 @pytest.mark.unit

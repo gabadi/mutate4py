@@ -48,7 +48,8 @@ __all__ = [
     "ForkingExecutor",
     "ForkingExecutorUnavailable",
     "file_mode",
-    "fork_unsafe_plugins",
+    "loaded_files",
+    "refuse_fork_unsafe_plugins",
     "fresh_interpreter_argv",
     "fresh_interpreter_env",
     "is_available",
@@ -64,12 +65,6 @@ _POLL_INTERVAL = 0.01
 # matches CPython's own fork()-in-multithreaded-process warning). Confirmed
 # by hanging faulthandler.dump_traceback_later inside tach's Rust parser.
 _FORK_UNSAFE_PLUGIN_MODULES = ("tach.pytest_plugin",)
-
-
-def fork_unsafe_plugins(plugin_module_names: Sequence[str]) -> list[str]:
-    """The plugins, among the module names a pytest session registered, known
-    to deadlock a fork()-after-prime() (see `_FORK_UNSAFE_PLUGIN_MODULES`)."""
-    return [name for name in _FORK_UNSAFE_PLUGIN_MODULES if name in plugin_module_names]
 
 
 class ForkingExecutorUnavailable(Exception):
@@ -92,19 +87,24 @@ class ForkUnsafePlugin(ForkingExecutorUnavailable):
         return str(self)
 
 
+def refuse_fork_unsafe_plugins(plugin_module_names: Sequence[str]) -> None:
+    """Raise `ForkUnsafePlugin` if a pytest session registered, among these plugin
+    module names, one known to deadlock a fork()-after-prime() (see
+    `_FORK_UNSAFE_PLUGIN_MODULES`)."""
+    unsafe = [name for name in _FORK_UNSAFE_PLUGIN_MODULES if name in plugin_module_names]
+    if unsafe:
+        raise ForkUnsafePlugin(unsafe)
+
+
 def is_available() -> bool:
     """True if the platform supports the forking executor (POSIX os.fork)."""
     return hasattr(os, "fork")
 
 
-def _loaded_files() -> set[str]:
-    """The real path of every module file this process has imported."""
-    files = set()
-    for mod in list(sys.modules.values()):
-        mod_file = getattr(mod, "__file__", None)
-        if mod_file:
-            files.add(os.path.realpath(mod_file))
-    return files
+def loaded_files(modules: Mapping[str, object]) -> set[str]:
+    """The real path of every module file among `modules` (a `sys.modules`)."""
+    files = (getattr(mod, "__file__", None) for mod in list(modules.values()))
+    return {os.path.realpath(mod_file) for mod_file in files if mod_file}
 
 
 def file_mode(guarded_path: str, *, harness_files: set[str], loaded_after_prime: set[str]) -> str:
@@ -173,16 +173,16 @@ class ForkingExecutor:
         # already-armed line/branch tracking for the rest of the run.
         # prime_args (the run's own `-p no:<name>` blocks) keep a plugin the
         # run disables out of the process every child forks from.
-        harness_files = _loaded_files()
+        harness_files = loaded_files(sys.modules)
         recorder = _PluginRecorder()
         with tempfile.TemporaryDirectory(dir=scratch_root, prefix="prime-") as empty_dir:
             collect_only = ["--collect-only", "-q", empty_dir, *neutralising_args(), *self._prime_args]
             _run_pytest_output_suppressed(pytest, collect_only, self._cwd, plugins=[recorder])
 
-        unsafe = fork_unsafe_plugins(recorder.module_names)
-        if unsafe:
-            raise ForkUnsafePlugin(unsafe)
-        self._mode = file_mode(self._guarded_path, harness_files=harness_files, loaded_after_prime=_loaded_files())
+        refuse_fork_unsafe_plugins(recorder.module_names)
+        self._mode = file_mode(
+            self._guarded_path, harness_files=harness_files, loaded_after_prime=loaded_files(sys.modules)
+        )
 
     def _fork_and_wait(self, child: Callable[[], None], timeout: float) -> str:
         """Fork, run `child` in the forked process, and classify how it ended.
@@ -201,11 +201,15 @@ class ForkingExecutor:
         """Fork a child that runs pytest once over args; return the classification."""
         if self._mode is None:
             raise ForkingExecutorUnavailable("prime() must succeed before run()")
+        return self._fork_and_wait(self._counted_child(args), timeout)
+
+    def _counted_child(self, args: list[str]) -> Callable[[], None]:
+        """The child entry point this file's mode runs args with, counted for `describe`."""
         if self._mode == "fresh import":
             self._fresh_imports += 1
-            return self._fork_and_wait(lambda: self._run_child(args), timeout)
+            return lambda: self._run_child(args)
         self._fresh_interpreters += 1
-        return self._fork_and_wait(lambda: self._exec_fresh_interpreter(args), timeout)
+        return lambda: self._exec_fresh_interpreter(args)
 
     def _exec_fresh_interpreter(self, args: list[str]) -> None:
         """Replace this child with this interpreter's `python -m pytest args`, as
