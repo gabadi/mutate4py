@@ -284,7 +284,7 @@ def test_run_mutation_loop_kills_a_mutant_that_breaks_the_run_when_the_original_
     any test. The same argv on the original code runs tests: the Mutant caused the exit, and it is killed."""
     import mutate4py._execution as execution_mod
 
-    # Two readings for the one Mutant. A timed control run would need two more and end the clock.
+    # Two readings for the one Mutant. A timed Control run would need two more and end the clock.
     monkeypatch.setattr(execution_mod, "time", _StepClock([10.0, 11.5]))
     ctx, executor = _loop_ctx(tmp_path, [status, "survived"])
     site = discover_sites(_ONE_SITE)[0]
@@ -305,8 +305,23 @@ def test_run_mutation_loop_aborts_when_the_control_run_on_the_original_code_runs
     did not start): the argv may be the defect, so the run aborts."""
     ctx, _ = _loop_ctx(tmp_path, ["usage-error", control])
 
-    with pytest.raises(NoTestsCollectedError, match="usage error before collecting any test"):
+    with pytest.raises(NoTestsCollectedError, match="usage error before collecting any test") as excinfo:
         _run_mutation_loop(selected_sites=discover_sites(_ONE_SITE), clean_source=_ONE_SITE, ctx=ctx)
+    assert "A Control run of the same pytest args on the original code" in str(excinfo.value)
+
+
+@pytest.mark.unit
+def test_run_mutation_loop_says_the_control_run_timed_out_instead_of_blaming_a_fine_argv(tmp_path):
+    """The Mutant's exit 4 alone reads as a bad --pytest-args. The Control run on the original code timed
+    out, which shows nothing of the argv, and the abort says that run happened and how it ended."""
+    ctx, _ = _loop_ctx(tmp_path, ["usage-error", "timeout"])
+
+    with pytest.raises(NoTestsCollectedError) as excinfo:
+        _run_mutation_loop(selected_sites=discover_sites(_ONE_SITE), clean_source=_ONE_SITE, ctx=ctx)
+
+    message = str(excinfo.value)
+    assert "A Control run of the same pytest args on the original code timed out after 5s" in message
+    assert "did not show whether the args or the Mutant caused the exit" in message
 
 
 @pytest.mark.unit
@@ -333,8 +348,9 @@ def test_run_mutation_loop_aborts_when_pytest_cannot_start_for_the_control_run(t
         abs_source_path=str(src_file),
     )
 
-    with pytest.raises(NoTestsCollectedError, match="usage error before collecting any test"):
+    with pytest.raises(NoTestsCollectedError, match="usage error before collecting any test") as excinfo:
         _run_mutation_loop(selected_sites=discover_sites(_ONE_SITE), clean_source=_ONE_SITE, ctx=ctx)
+    assert "A Control run of the same pytest args on the original code" in str(excinfo.value)
 
 
 @pytest.mark.unit
@@ -558,8 +574,9 @@ def test_confirm_survivors_aborts_when_the_control_run_on_the_original_code_runs
     site = discover_sites(_ONE_SITE)[0]
     executor = ScriptedExecutor(str(src_file), ["no-tests-collected", "no-tests-collected"])
 
-    with pytest.raises(NoTestsCollectedError, match="collected no tests"):
+    with pytest.raises(NoTestsCollectedError, match="collected no tests") as excinfo:
         _confirm_survivors([site], _ONE_SITE, _confirm_ctx(tmp_path, src_file), executor)
+    assert "A Control run of the same pytest args on the original code" in str(excinfo.value)
 
 
 @pytest.mark.unit

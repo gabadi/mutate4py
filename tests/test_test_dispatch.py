@@ -1,10 +1,11 @@
-"""Unit tests for the per-Mutant plan builder (`_test_dispatch.plan_mutant`).
+"""Unit tests for the per-Mutant dispatch planning of `_test_dispatch`.
 
-`plan_mutant` is pure: given a Site, the run's pytest args, the run's explicit
-positional path args, the optional selection source, the source path and a
-TimeoutPolicy, it returns the MutantPlan (argv, timeout, selection) that both the
-serial loop and the parallel Workers dispatch. Expected values are literals, so
-the assertions cannot be satisfied by recomputing what the code computes.
+`plan_mutant` is pure but for the node id file check: given a Site, the run's pytest args, the run's
+explicit positional path args, the optional selection source, the source path and a TimeoutPolicy, it
+returns the MutantPlan (argv, timeout, selection) that both the serial loop and the parallel Workers
+dispatch. Expected values are literals, so the assertions cannot be satisfied by recomputing what the
+code computes. `ControlRuns.settle` decides what a Mutant that ends in pytest exit 4 or 5 is, with the
+Control run it makes on the original code.
 """
 
 import pytest
@@ -12,14 +13,16 @@ import pytest
 from mutate4py._discovery import discover_sites
 from mutate4py._test_dispatch import (
     ControlRuns,
+    ControlTarget,
     MutantPlan,
     NoTestsCollectedError,
     PlanInputs,
     TimeoutPolicy,
     confirm_plan,
-    control_run,
     plan_mutant,
 )
+
+from ._scripted_executor import ScriptedExecutor
 
 SRC = "/src/calc.py"
 GT = "tests/test_calc.py::test_gt"
@@ -231,108 +234,120 @@ def test_plan_static_line_names_no_node_id_so_no_path_is_checked(tmp_path):
     )
 
 
-# -- The control run: a Mutant that ends in pytest exit 4 or 5 ---------------------------------
+# -- The Control run: a Mutant that ends in pytest exit 4 or 5 ---------------------------------
+
+_PLAN = MutantPlan(args=["-q", GT], timeout=6.0, selection="narrowed")
 
 
-def _no_control():
-    raise AssertionError("no control run was due")
+def _settle(tmp_path, status, control_answers=(), controls=None, plan=_PLAN):
+    """Settle `status` for the one Site of _one_site() against a file that holds the Mutant's source.
+
+    Returns (what settle gave, the executor, which records each Control run: argv, timeout and source)."""
+    path = tmp_path / "calc.py"
+    path.write_text("mutated\n")
+    executor = ScriptedExecutor(str(path), control_answers)
+    target = ControlTarget(str(path), "original\n", executor, SRC)
+    controls = ControlRuns() if controls is None else controls
+    return controls.settle(status, plan, _one_site(), target), executor
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize("status", ["killed", "survived", "timeout"])
-def test_settle_leaves_a_classification_that_is_not_exit_4_or_5_alone_and_runs_no_control(status):
-    assert ControlRuns().settle(status, ["-q"], _no_control) == status
+def test_settle_leaves_a_classification_that_is_not_exit_4_or_5_alone_and_runs_no_control(tmp_path, status):
+    settled, executor = _settle(tmp_path, status)
+    assert settled == status
+    assert executor.calls == []
+
+
+@pytest.mark.unit
+def test_settle_counts_a_mutant_that_ends_abnormally_as_killed_and_runs_no_control(tmp_path):
+    """Exit 2 or 3, a signal, a pytest that did not start: the Executor says `errored`. For a Mutant
+    that is a kill (ADR 0011), and it is no exit 4 or 5 that a Control run must explain."""
+    settled, executor = _settle(tmp_path, "errored")
+    assert settled == "killed"
+    assert executor.calls == []
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize("status", ["usage-error", "no-tests-collected"])
 @pytest.mark.parametrize("control", ["survived", "killed"])
-def test_settle_kills_a_mutant_whose_control_run_ran_tests(status, control):
-    """The same argv ran tests on the original code, so the Mutant broke the run: it is killed."""
-    assert ControlRuns().settle(status, ["-q"], lambda: control) == "killed"
+def test_settle_kills_a_mutant_whose_control_run_ran_tests(tmp_path, status, control):
+    """The same argv ran tests on the original code, so the Mutant broke the run: it is killed.
+    The Control run puts the original source back first, then runs the plan as planned."""
+    settled, executor = _settle(tmp_path, status, [control])
+    assert settled == "killed"
+    assert executor.calls == [(["-q", GT], 6.0)]
+    assert executor.seen_sources == ["original\n"]
 
 
-@pytest.mark.unit
-def test_settle_counts_a_mutant_that_ends_abnormally_as_killed_and_runs_no_control():
-    """Exit 2 or 3, a signal, a pytest that did not start: the Executor says `errored`. For a Mutant
-    that is a kill (ADR 0011), and it is no exit 4 or 5 that a Control run must explain."""
-    assert ControlRuns().settle("errored", ["-q"], _no_control) == "killed"
+_CONTROL_ENDS = [
+    ("usage-error", "exited with a usage error (exit 4)"),
+    ("no-tests-collected", "collected no tests (exit 5)"),
+    ("timeout", "timed out after 6s"),
+    ("errored", "ended with no test result"),
+]
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize("status", ["usage-error", "no-tests-collected"])
-@pytest.mark.parametrize("control", ["usage-error", "no-tests-collected", "timeout", "errored"])
-def test_settle_keeps_the_exit_when_the_control_run_ran_no_test(status, control):
-    """The original code ends the same way, or shows no test ran (a timeout; an exit 2 or 3, a signal,
-    a pytest that did not start): the argv may be the defect, so the exit stays."""
-    assert ControlRuns().settle(status, ["-q"], lambda: control) == status
+@pytest.mark.parametrize(("control", "ended"), _CONTROL_ENDS)
+def test_settle_aborts_and_says_what_the_control_run_gave_when_it_ran_no_test(tmp_path, status, control, ended):
+    """A Control run on the original code ran, and its end shows no test ran. The abort names the Site,
+    says a Control run on the original code ran, and says how it ended."""
+    with pytest.raises(NoTestsCollectedError) as excinfo:
+        _settle(tmp_path, status, [control])
+    message = str(excinfo.value)
+    assert message.startswith(f"{SRC}:2: ")
+    assert f"A Control run of the same pytest args on the original code {ended}" in message
 
 
 @pytest.mark.unit
-def test_settle_clears_no_argv_on_a_control_run_that_proved_nothing():
+@pytest.mark.parametrize("control", ["timeout", "errored"])
+def test_settle_does_not_blame_the_args_when_the_control_run_proved_nothing(tmp_path, control):
+    """A Control run that timed out or crashed says nothing of the args. The abort says so, instead of
+    leaving only the Mutant's own exit, which tells the user to check --pytest-args for a fine argv."""
+    with pytest.raises(NoTestsCollectedError, match="did not show whether the args or the Mutant caused"):
+        _settle(tmp_path, "usage-error", [control])
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("control", ["usage-error", "no-tests-collected"])
+def test_settle_blames_the_args_when_the_control_run_ends_in_exit_4_or_5_too(tmp_path, control):
+    with pytest.raises(NoTestsCollectedError) as excinfo:
+        _settle(tmp_path, "usage-error", [control])
+    assert "check --pytest-args" in str(excinfo.value)
+    assert "did not show" not in str(excinfo.value)
+
+
+@pytest.mark.unit
+def test_settle_keeps_the_hint_of_the_exit_the_mutant_ended_in(tmp_path):
+    with pytest.raises(NoTestsCollectedError, match="pytest collected no tests to run"):
+        _settle(tmp_path, "no-tests-collected", ["timeout"])
+
+
+@pytest.mark.unit
+def test_settle_clears_no_argv_on_a_control_run_that_proved_nothing(tmp_path):
     """With a bad argv, one Control run that ended in a signal must not clear the argv: every later
     exit 4 of it would be scored killed while no test ran, a false win."""
-    answers = iter(["errored", "usage-error"])
     controls = ControlRuns()
 
-    assert controls.settle("usage-error", ["--bad"], lambda: next(answers)) == "usage-error"
-    assert controls.settle("usage-error", ["--bad"], lambda: next(answers)) == "usage-error"
+    for answer in ["errored", "usage-error"]:
+        with pytest.raises(NoTestsCollectedError):
+            _settle(tmp_path, "usage-error", [answer], controls=controls)
+
     assert controls.cleared == set()
 
 
 @pytest.mark.unit
-def test_settle_runs_one_control_per_argv_once_it_ran_tests():
-    runs = []
-
-    def control():
-        runs.append("run")
-        return "survived"
-
+def test_settle_runs_one_control_per_argv_once_it_ran_tests(tmp_path):
     controls = ControlRuns()
-    assert controls.settle("usage-error", ["-q", "a"], control) == "killed"
-    assert controls.settle("no-tests-collected", ["-q", "a"], control) == "killed"
-    assert runs == ["run"]
-    assert controls.settle("usage-error", ["-q", "b"], control) == "killed"
-    assert runs == ["run", "run"]
+    other = MutantPlan(args=["-q", "other"], timeout=6.0, selection=None)
 
+    first, executor = _settle(tmp_path, "usage-error", ["survived"], controls=controls)
+    second, again = _settle(tmp_path, "no-tests-collected", [], controls=controls)
+    third, other_executor = _settle(tmp_path, "usage-error", ["survived"], controls=controls, plan=other)
 
-@pytest.mark.unit
-def test_settle_does_not_remember_a_control_run_that_ran_no_test():
-    runs = []
-
-    def control():
-        runs.append("run")
-        return "usage-error"
-
-    controls = ControlRuns()
-    assert controls.settle("usage-error", ["-q"], control) == "usage-error"
-    assert controls.settle("usage-error", ["-q"], control) == "usage-error"
-    assert runs == ["run", "run"]
-
-
-class _SourceSpy:
-    """An Executor that records the argv, the timeout and the guarded file's text at each run."""
-
-    def __init__(self, path, status):
-        self._path = path
-        self._status = status
-        self.runs = []
-
-    def run(self, args, timeout):
-        with open(self._path) as f:
-            self.runs.append((args, timeout, f.read()))
-        return self._status
-
-
-@pytest.mark.unit
-def test_control_run_restores_the_original_source_then_runs_the_plan_as_planned(tmp_path):
-    path = tmp_path / "calc.py"
-    path.write_text("mutated\n")
-    executor = _SourceSpy(str(path), "survived")
-
-    status = control_run(
-        str(path), "original\n", executor, MutantPlan(args=["-q", GT], timeout=6.0, selection="narrowed")
-    )
-
-    assert status == "survived"
-    assert executor.runs == [(["-q", GT], 6.0, "original\n")]
+    assert (first, second, third) == ("killed", "killed", "killed")
+    assert len(executor.calls) == 1
+    assert again.calls == []
+    assert other_executor.calls == [(["-q", "other"], 6.0)]

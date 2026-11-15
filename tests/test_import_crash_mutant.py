@@ -69,7 +69,7 @@ def test_a_mutant_that_breaks_the_module_at_import_is_killed_and_the_run_goes_on
 def test_a_pytest_argv_that_runs_no_test_on_the_original_code_still_aborts_the_run(
     tmp_path, monkeypatch, capsys, forking_requested
 ):
-    """The node id names a test that does not exist: pytest exits 4 on the Mutant and on the control run."""
+    """The node id names a test that does not exist: pytest exits 4 on the Mutant and on the Control run."""
     monkeypatch.setenv("PYTHONDONTWRITEBYTECODE", "1")
     src_path, source = write_import_time_lookup_project(str(tmp_path))
     measurement = measurement_for(os.path.abspath(src_path), {"tests/test_calc.py::test_gone": [6]}, wall=0.01)
@@ -80,6 +80,7 @@ def test_a_pytest_argv_that_runs_no_test_on_the_original_code_still_aborts_the_r
     assert rc == 2, captured.out + captured.err
     assert "error: pytest ran no test for a Mutant" in captured.err
     assert f"{src_path}:6" in captured.err
+    assert "A Control run of the same pytest args on the original code" in captured.err
     assert "Mutation Report" not in captured.out
     assert _source_on_disk(src_path) == source
 

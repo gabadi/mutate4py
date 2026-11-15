@@ -674,7 +674,7 @@ def _assignment(tmp_path, site, worker_file):
 @pytest.mark.unit
 def test_run_one_site_kills_a_mutant_that_breaks_the_run_when_the_original_code_runs_tests(tmp_path, monkeypatch):
     """A Mutant that breaks the module at import makes pytest exit 4 before any test. The same argv on the
-    original code runs tests, so the Mutant caused the exit and is killed. The control run is not timed."""
+    original code runs tests, so the Mutant caused the exit and is killed. The Control run is not timed."""
     import mutate4py._workers as workers_mod
 
     src = "def f(a, b):\n    return a > b\n"
@@ -763,7 +763,7 @@ def test_run_one_site_aborts_and_still_restores_when_the_control_run_runs_no_tes
     monkeypatch.delenv("_MUTATE4PY_TEST_WORKER_WRITE_FAIL", raising=False)
     executor = ScriptedExecutor(worker_file, ["no-tests-collected", "no-tests-collected"])
 
-    with pytest.raises(NoTestsCollectedError, match="collected no tests"):
+    with pytest.raises(NoTestsCollectedError, match="A Control run of the same pytest args on the original code"):
         _run_one_site(
             _assignment(tmp_path, site, worker_file),
             executor,

@@ -10,7 +10,8 @@
   argv on the original code. If tests run there (pytest exit 0 or 1), the Mutant broke the run
   and is killed. If the Control run ends in any other way (exit 4 or 5 again, a timeout, an
   interrupted or crashed pytest), the argv is the suspect and the run still aborts with exit 2
-  (ADR 0018 amendment).
+  (ADR 0018 amendment). The abort message says that a Control run on the original code ran and
+  how it ended: a Control run that timed out no longer reads as a bad `--pytest-args`.
 - An Executor now reports `errored` for a pytest that ended with no result (exit 2 or 3, any
   other exit code, a signal, a process that did not start). It reported `killed` before, so one
   such Control run could clear a bad argv and score every later exit 4 as killed. A Mutant that

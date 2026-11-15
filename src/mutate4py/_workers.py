@@ -32,15 +32,7 @@ from mutate4py._worker_results import (
     _summarize_selection,
     _summarize_timing,
 )
-from mutate4py._test_dispatch import (
-    ControlRuns,
-    MutantPlan,
-    PlanInputs,
-    TimeoutPolicy,
-    _check_execution_status,
-    control_run,
-    plan_sites,
-)
+from mutate4py._test_dispatch import ControlRuns, ControlTarget, MutantPlan, PlanInputs, TimeoutPolicy, plan_sites
 from mutate4py._worker_protocol import ServerLaunch, WorkerProcessError, WorkerProcessExecutor
 from mutate4py._worker_provision import (
     _copy_tree,
@@ -187,11 +179,9 @@ def _run_one_site(assignment: SiteAssignment, executor: Executor, settings: Work
         started = time.monotonic()
         status = executor.run(plan.args, plan.timeout)
         seconds = time.monotonic() - started
-        status = settings.controls.settle(
-            status, plan.args, lambda: control_run(assignment.worker_file_path, settings.clean_source, executor, plan)
-        )
         # Raises before a tally: a Mutant pytest never exercised must not count as `killed` (issue #55).
-        _check_execution_status(status, settings.abs_source_path, assignment.site)
+        target = ControlTarget(assignment.worker_file_path, settings.clean_source, executor, settings.abs_source_path)
+        status = settings.controls.settle(status, plan, assignment.site, target)
     except WorkerProcessError as e:
         raise WorkerFailureError(f"worker-{assignment.worker_idx} process failed: {e}") from e
     finally:

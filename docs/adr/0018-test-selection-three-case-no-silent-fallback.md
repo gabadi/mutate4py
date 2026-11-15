@@ -187,6 +187,12 @@ Control run. It applies to exit 4 and exit 5 alike.
   other end shows nothing about the argv: exit 4 or 5 again, a timeout, or `errored`.
   Then the argv is the suspect and the run aborts with exit 2, as case 4 always did. A
   run that proves nothing about the argv must not turn a failure into a kill.
+- **The abort says what the Control run gave.** The message names the Mutant's own exit,
+  then says that a Control run of the same pytest args on the original code ran, and how
+  it ended: in exit 4 or 5 too (the args are the defect), in a timeout, or `errored`. A
+  timeout or `errored` shows nothing of the args, so the message says it did not show
+  whether the args or the Mutant caused the exit. Without that, a Control run that timed
+  out told the user to check `--pytest-args` for an argv that was fine.
 - **`errored`.** An Executor reports `errored` for a pytest that ended with no result:
   exit 2 (interrupted) or 3 (internal error), any other exit code, a signal, or a process
   that did not start. Before 0.3.1 the Executors reported these as `killed`, so one Control
