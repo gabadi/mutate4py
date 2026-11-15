@@ -292,7 +292,7 @@ def test_a_missing_mutate4py_install_still_fingerprints(tmp_path, monkeypatch):
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("name", ["tox.ini", "setup.cfg"])
+@pytest.mark.parametrize("name", [".pytest.ini", "pytest.toml", ".pytest.toml", "tox.ini", "setup.cfg"])
 def test_editing_another_pytest_config_file_changes_it(tmp_path, name):
     root = _project(tmp_path)
     (tmp_path / name).write_text("[pytest]\n")
@@ -421,14 +421,10 @@ def test_every_file_a_digest_reads_is_a_fingerprint_input(digest_project):
     assert sorted(named - set(listed)) == []
 
 
-def _checkout(parent, name: str, *, marker_is_file: bool = False) -> str:
-    """The same project under `parent/name`, with a repository marker (`.git`) at its top."""
+def _checkout(parent, name: str) -> str:
+    """The same project under `parent/name`."""
     root = parent / name
     root.mkdir(parents=True)
-    if marker_is_file:
-        (root / ".git").write_text("gitdir: elsewhere\n")
-    else:
-        (root / ".git").mkdir()
     return _project(root)
 
 
@@ -441,29 +437,53 @@ def test_the_same_project_at_two_depths_gives_the_same_fingerprint(tmp_path):
 
 
 @pytest.mark.unit
-def test_a_worktree_marker_file_bounds_the_walk_like_a_git_directory(tmp_path):
-    shallow = _checkout(tmp_path / "a", "checkout", marker_is_file=True)
-    deep = _checkout(tmp_path / "b" / "c", "checkout", marker_is_file=True)
-    assert fingerprint_of(shallow, "tests") == fingerprint_of(deep, "tests")
+def test_an_absent_ancestor_file_is_not_recorded(tmp_path):
+    root = _checkout(tmp_path / "a" / "b", "checkout")
+    assert "absent" not in fingerprint_inputs(root, "tests").values()
+    assert [key for key in fingerprint_inputs(root, "tests") if key.startswith("..")] == []
 
 
 @pytest.mark.unit
-def test_a_conftest_above_the_project_root_does_not_change_it(tmp_path):
-    root = _checkout(tmp_path / "a", "checkout")
-    before = fingerprint_of(root, "tests")
-    (tmp_path / "a" / "conftest.py").write_text("OUTSIDE = 1\n")
-    (tmp_path / "a" / "pytest.ini").write_text("[pytest]\nx = 1\n")
-    (tmp_path / "a" / "pyproject.toml").write_text("[tool.pytest]\nx = 1\n")
-    assert fingerprint_of(root, "tests") == before
-
-
-@pytest.mark.unit
-def test_a_conftest_at_the_project_root_still_changes_a_subdirectory_run(tmp_path):
-    _checkout(tmp_path, "checkout")
-    package = tmp_path / "checkout" / "pkg"
+def test_a_conftest_at_the_project_root_changes_a_subdirectory_run(tmp_path):
+    _project(tmp_path)
+    package = tmp_path / "pkg"
     package.mkdir()
-    conftest = tmp_path / "checkout" / "conftest.py"
+    conftest = tmp_path / "conftest.py"
     conftest.write_text("SHARED = 1\n")
     before = fingerprint_of(str(package), "")
     conftest.write_text("SHARED = 2\n")
     assert fingerprint_of(str(package), "") != before
+
+
+@pytest.mark.unit
+def test_a_superproject_conftest_changes_a_submodule_run(tmp_path):
+    superproject = tmp_path / "super"
+    superproject.mkdir()
+    (superproject / ".git").mkdir()
+    conftest = superproject / "conftest.py"
+    conftest.write_text("SHARED = 1\n")
+    submodule = _checkout(superproject, "sub")
+    (superproject / "sub" / ".git").write_text("gitdir: ../.git/modules/sub\n")
+    before = fingerprint_of(submodule, "tests")
+    conftest.write_text("SHARED = 2\n")
+    assert fingerprint_of(submodule, "tests") != before
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("name", ["pytest.ini", ".pytest.ini", "pytest.toml", ".pytest.toml", "tox.ini", "setup.cfg"])
+def test_creating_a_config_file_in_an_ancestor_changes_it(tmp_path, name):
+    root = _checkout(tmp_path, "checkout")
+    before = fingerprint_of(root, "tests")
+    (tmp_path / name).write_text("[pytest]\n")
+    created = fingerprint_of(root, "tests")
+    assert created != before
+    (tmp_path / name).unlink()
+    assert fingerprint_of(root, "tests") == before
+
+
+@pytest.mark.unit
+def test_creating_a_pyproject_in_an_ancestor_changes_it(tmp_path):
+    root = _checkout(tmp_path, "checkout")
+    before = fingerprint_of(root, "tests")
+    (tmp_path / "pyproject.toml").write_text("[tool.pytest.ini_options]\naddopts = '-q'\n")
+    assert fingerprint_of(root, "tests") != before

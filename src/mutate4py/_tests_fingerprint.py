@@ -1,9 +1,9 @@
 """Pytest-run fingerprint and the no-change skip predicate (design 89 §5b).
 
 `tests_fingerprint` hashes every input a Measurement and every tests-digest can
-read: the Python files under the collection roots, the conftests above them
-and the pytest configuration above them, both up to the project root (the nearest
-`.git`, so the key is the same in every checkout of a commit), the lockfile, the --pytest-args string, the Python
+read: the Python files under the collection roots, the conftests above them and
+the pytest configuration above them (both up to the filesystem root, recording
+only the files that exist), the lockfile, the --pytest-args string, the Python
 version and the mutate4py version. Equal fingerprints therefore prove the
 digests would come out the same.
 
@@ -111,42 +111,37 @@ def _root_inputs(root: str, base: str) -> list[tuple[str, str]]:
     return [_file_input(root, base)]
 
 
-def _project_root(path: str) -> str | None:
-    """The nearest directory at or above `path` that holds a `.git` (a directory, or a worktree's file).
+def _ancestors(path: str) -> list[str]:
+    """`path` and every directory above it, up to the filesystem root.
 
-    None when there is none. The git root is the same directory in every checkout of a commit.
-    """
-    current = os.path.abspath(path)
-    while True:
-        if os.path.exists(os.path.join(current, ".git")):
-            return current
-        parent = os.path.dirname(current)
-        if parent == current:
-            return None
-        current = parent
-
-
-def _ancestors(path: str, project_root: str | None) -> list[str]:
-    """`path` and every directory above it, up to the project root (the filesystem root when there is none).
-
-    Bounding the walk at the project root keeps the keys of the ancestor config files the same
-    in every checkout of a commit, at any depth. A `path` outside the project root walks on to
-    the filesystem root.
+    Pytest's rootdir and conftest search walks that far, so the inputs it loads can sit anywhere above.
     """
     found: list[str] = []
     current = os.path.abspath(path)
     while True:
         found.append(current)
         parent = os.path.dirname(current)
-        if parent == current or current == project_root:
+        if parent == current:
             return found
         current = parent
 
 
+def _existing_file_input(path: str, base: str) -> list[tuple[str, str]]:
+    """The file's (base-relative path, content sha), or nothing when it does not exist.
+
+    An absent file carries no information: creating it adds an entry and deleting it removes
+    one, so both changes still move the key, and a checkout with nothing above it has no
+    depth-dependent keys.
+    """
+    return [(os.path.relpath(path, base), _file_sha(path))] if os.path.isfile(path) else []
+
+
 def _conftest_inputs(root: str, base: str) -> list[tuple[str, str]]:
-    """conftest.py in every directory above `root` up to the project root, since pytest loads each one it finds."""
-    directories = _ancestors(os.path.dirname(os.path.abspath(root)), _project_root(base))
-    return [_file_input(os.path.join(directory, "conftest.py"), base) for directory in directories]
+    """Each conftest.py in every directory above `root`, since pytest loads each one it finds."""
+    found: list[tuple[str, str]] = []
+    for directory in _ancestors(os.path.dirname(os.path.abspath(root))):
+        found.extend(_existing_file_input(os.path.join(directory, "conftest.py"), base))
+    return found
 
 
 # A flag that carries everything it needs: a bare switch, a value attached with `=`, or a value attached directly.
@@ -194,17 +189,14 @@ def _collection_roots(cwd: str, tokens: list[str]) -> list[str]:
     return _positional_roots(cwd, tokens) or configured_testpaths(cwd) or [cwd]
 
 
-_CONFIG_FILES = ("pytest.ini", "tox.ini", "setup.cfg")
+_CONFIG_FILES = ("pytest.ini", ".pytest.ini", "pytest.toml", ".pytest.toml", "tox.ini", "setup.cfg")
 
 
-def _pyproject_pytest_table(directory: str) -> str:
-    """The `[tool.pytest]` table of a pyproject.toml as canonical JSON.
+def _pyproject_pytest_table(path: str) -> str:
+    """The `[tool.pytest]` table of the pyproject.toml at `path` as canonical JSON.
 
     A file that does not parse is hashed whole.
     """
-    path = os.path.join(directory, "pyproject.toml")
-    if not os.path.isfile(path):
-        return "absent"
     try:
         with open(path, "rb") as handle:
             table = tomllib.load(handle).get("tool", {}).get("pytest")
@@ -218,9 +210,12 @@ def _config_inputs(directory: str, base: str) -> list[tuple[str, str]]:
 
     Hashing every candidate only over-invalidates, which is the safe direction.
     """
-    found = [_file_input(os.path.join(directory, name), base) for name in _CONFIG_FILES]
-    pyproject = os.path.relpath(os.path.join(directory, "pyproject.toml"), base)
-    found.append((pyproject, _pyproject_pytest_table(directory)))
+    found: list[tuple[str, str]] = []
+    for name in _CONFIG_FILES:
+        found.extend(_existing_file_input(os.path.join(directory, name), base))
+    pyproject = os.path.join(directory, "pyproject.toml")
+    if os.path.isfile(pyproject):
+        found.append((os.path.relpath(pyproject, base), _pyproject_pytest_table(pyproject)))
     return found
 
 
@@ -234,14 +229,13 @@ def _explicit_config_inputs(cwd: str, tokens: list[str]) -> list[tuple[str, str]
 
 
 def _config_dirs(cwd: str, roots: list[str], tokens: list[str]) -> list[str]:
-    """Each start point and every directory above it, up to the project root.
+    """Each start point and every directory above it, up to the filesystem root.
 
     Start points: the run directory, each root, each --rootdir.
     """
     rootdirs = [os.path.join(cwd, value) for value in _option_values(tokens, "--rootdir")]
     starts = [cwd, *roots, *rootdirs]
-    project_root = _project_root(cwd)
-    return list(dict.fromkeys(directory for start in starts for directory in _ancestors(start, project_root)))
+    return list(dict.fromkeys(directory for start in starts for directory in _ancestors(start)))
 
 
 def _config_and_lock_inputs(cwd: str, roots: list[str], tokens: list[str]) -> list[tuple[str, str]]:
