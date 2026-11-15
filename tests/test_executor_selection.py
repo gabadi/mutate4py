@@ -72,7 +72,7 @@ def test_prepare_executor_fallback_on_a_non_posix_platform_reports_the_platform(
 
 @pytest.mark.system
 @pytest.mark.skipif(importlib.util.find_spec("tach") is None, reason="needs tach, a fork-unsafe plugin, installed")
-def test_prepare_executor_fallback_on_a_fork_unsafe_plugin_names_the_plugin(tmp_path):
+def test_prepare_executor_fallback_on_a_fork_unsafe_plugin_names_the_plugin(tmp_path, nested_pytest_loads_tach):
     (tmp_path / "conftest.py").write_text("")
     executor = _prepare_executor(requested=True, cwd=str(tmp_path), guarded_path=str(tmp_path / "x.py"))
     assert executor.describe().render() == "subprocess (fork-unsafe plugin: tach.pytest_plugin)"

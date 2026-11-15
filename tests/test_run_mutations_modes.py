@@ -114,14 +114,39 @@ def _stub_provision_with_interpreter(monkeypatch):
     monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
 
 
-@pytest.mark.system
-def test_serial_path_no_workers_header(tmp_path):
-    """max_workers=0 -> no 'Mutation workers:' line."""
+@pytest.fixture(scope="module")
+def static_serial_run(tmp_path_factory):
+    """The one serial run of three static Sites (default max_workers) that the report
+    tests read: its return code and its stdout."""
+    import io
+    from contextlib import redirect_stdout
+
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        rc, _, _ = _run_selected(tmp_path_factory.mktemp("static"), "")
+    return rc, buf.getvalue()
+
+
+@pytest.fixture(scope="module")
+def parallel_three_site_run(tmp_path_factory):
+    """The one parallel run of three Sites (max_workers=3, provisioning stubbed to this
+    test's venv) that the parallel-path tests read: its return code, its stdout, the
+    run's cwd and the target path."""
+    tmp_path = tmp_path_factory.mktemp("parallel")
     src = _make_multi_site_source(3)
     src_path = str(tmp_path / "calc.py")
     with open(src_path, "w") as f:
         f.write(src)
-    _, output = _run_with_capture(tmp_path, src_path, src, max_workers=0)
+    with pytest.MonkeyPatch.context() as mp:
+        _stub_provision_with_interpreter(mp)
+        rc, output = _run_with_capture(tmp_path, src_path, src, max_workers=3)
+    return rc, output, tmp_path, src_path
+
+
+@pytest.mark.system
+def test_serial_path_no_workers_header(static_serial_run):
+    """max_workers=0 -> no 'Mutation workers:' line."""
+    _, output = static_serial_run
     assert "Mutation workers:" not in output
 
 
@@ -185,15 +210,9 @@ def test_parallel_path_worker_token_in_progress(tmp_path, monkeypatch):
 
 
 @pytest.mark.system
-def test_parallel_path_report_present(tmp_path, monkeypatch):
+def test_parallel_path_report_present(parallel_three_site_run):
     """Parallel run produces a Mutation Report."""
-    _stub_provision_with_interpreter(monkeypatch)
-
-    src = _make_multi_site_source(3)
-    src_path = str(tmp_path / "calc.py")
-    with open(src_path, "w") as f:
-        f.write(src)
-    rc, output = _run_with_capture(tmp_path, src_path, src, max_workers=3)
+    rc, output, _, _ = parallel_three_site_run
     assert rc == 3
     assert "Mutation Report" in output
 
@@ -240,15 +259,9 @@ def test_parallel_path_target_outside_cwd_error(tmp_path, monkeypatch):
 
 
 @pytest.mark.system
-def test_parallel_path_worker_root_cleaned_up(tmp_path, monkeypatch):
+def test_parallel_path_worker_root_cleaned_up(parallel_three_site_run):
     """After parallel run, worker root is removed."""
-    _stub_provision_with_interpreter(monkeypatch)
-
-    src = _make_multi_site_source(3)
-    src_path = str(tmp_path / "calc.py")
-    with open(src_path, "w") as f:
-        f.write(src)
-    rc, _ = _run_with_capture(tmp_path, src_path, src, max_workers=3)
+    rc, _, tmp_path, _ = parallel_three_site_run
     assert rc == 3
     workers_dir = os.path.join(str(tmp_path), ".mutate4py", "workers")
     if os.path.exists(workers_dir):
@@ -256,17 +269,11 @@ def test_parallel_path_worker_root_cleaned_up(tmp_path, monkeypatch):
 
 
 @pytest.mark.system
-def test_parallel_path_original_file_restored(tmp_path, monkeypatch):
+def test_parallel_path_original_file_restored(parallel_three_site_run):
     """After parallel run, original source has no mutant; manifest footer present."""
     from mutate4py._manifest import strip_manifest
 
-    _stub_provision_with_interpreter(monkeypatch)
-
-    src = _make_multi_site_source(3)
-    src_path = str(tmp_path / "calc.py")
-    with open(src_path, "w") as f:
-        f.write(src)
-    rc, _ = _run_with_capture(tmp_path, src_path, src, max_workers=3)
+    rc, _, _, src_path = parallel_three_site_run
     assert rc == 3
     with open(src_path) as f:
         final = f.read()
@@ -310,18 +317,17 @@ def test_report_counts_narrowed_selections(tmp_path, capsys):
 
 
 @pytest.mark.system
-def test_report_counts_static_selections(tmp_path, capsys):
-    rc, _, _ = _run_selected(tmp_path, "")
+def test_report_counts_static_selections(static_serial_run):
+    rc, out = static_serial_run
     assert rc == 3
-    out = capsys.readouterr().out
     assert "Test selection: narrowed 0, static 3" in out
     assert "degraded" not in out
 
 
 @pytest.mark.system
-def test_test_selection_line_sits_after_uncovered_in_the_report(tmp_path, capsys):
-    _run_selected(tmp_path, "")
-    lines = capsys.readouterr().out.splitlines()
+def test_test_selection_line_sits_after_uncovered_in_the_report(static_serial_run):
+    _, out = static_serial_run
+    lines = out.splitlines()
     report = lines[lines.index("Mutation Report") :]
     assert report[4].startswith("Uncovered: ")
     assert report[5].startswith("Test selection: ")

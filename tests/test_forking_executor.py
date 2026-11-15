@@ -387,7 +387,7 @@ def test_run_does_not_leak_child_stdout(tmp_path, capsys):
 
 @pytest.mark.system
 @pytest.mark.skipif(importlib.util.find_spec("tach") is None, reason="needs tach, a fork-unsafe plugin, installed")
-def test_prime_refuses_a_session_that_registers_a_fork_unsafe_plugin(tmp_path):
+def test_prime_refuses_a_session_that_registers_a_fork_unsafe_plugin(tmp_path, nested_pytest_loads_tach):
     cwd, target = _write_fixture_project(
         tmp_path,
         target_body="def add(a, b):\n    return a + b\n",
