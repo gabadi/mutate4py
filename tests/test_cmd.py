@@ -116,3 +116,23 @@ def test_run_argv_unresolvable_program_is_killed(monkeypatch):
     graceful nonzero exit; run_argv must still classify it, not crash."""
     _stub_child(monkeypatch, error=FileNotFoundError(2, "No such file or directory", "no-such-program-xyz"))
     assert run_argv(["no-such-program-xyz"], "/tmp", timeout=5.0) == "killed"
+
+
+@pytest.mark.unit
+def test_run_argv_hands_cwd_timeout_and_captured_output_to_the_child(monkeypatch):
+    """The child's stdout and stderr are captured (not left on this process's fds), and it runs in `cwd`
+    under `timeout`. The child is stubbed, so the kwargs handed to subprocess.run are what is asserted."""
+    seen = {}
+
+    def fake_run(argv, **kwargs):
+        seen["argv"] = argv
+        seen.update(kwargs)
+        return subprocess.CompletedProcess(argv, 0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    run_argv(["pytest", "-x"], "/some/dir", timeout=7.5)
+    assert seen["argv"] == ["pytest", "-x"]
+    assert seen["cwd"] == "/some/dir"
+    assert seen["timeout"] == 7.5
+    assert seen["capture_output"] is True
+    assert not seen.get("shell")
