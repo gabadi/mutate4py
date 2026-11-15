@@ -107,6 +107,7 @@ def test_live_functions_resolve_each_distinct_filename_once_and_keep_gc_order(tm
     found = live_functions_of(path)
 
     assert found == expected
+    assert [ns["add"] in found for ns in namespaces] == [True, True, True, False, True]
     assert len(calls) == len(set(calls))
     assert calls.count(path) == 1
     assert calls.count(str(link)) == 1
