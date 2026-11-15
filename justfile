@@ -230,15 +230,16 @@ format:
 # Measurement cannot see, so counting it in a unit metric would mislead.
 # Reasoning and evidence: docs/adr/0023-unit-component-integration-test-split.md.
 #
-# .coverage holds only test-unit's contexts. --cov-context=test records which
-# test covers which line; nothing in `check` reads those contexts since
-# `context-deselection` and the test-context db went (#98), so the flag is a
-# candidate for removal in a follow-up. `mutate` scores with unit tests only
-# (MUTATE_PYTEST_ARGS), so a test moved to `system` loses its place in the fast
-# gate, the coverage metric and `mutate`'s scoring alike.
+# .coverage holds plain line data, with no per-test contexts: nothing in `check`
+# reads them since `context-deselection` and the test-context db went (#98), so
+# `--cov-context=test` is gone. `-p no:tach` skips tach's pytest plugin here as
+# in MUTATE_PYTEST_ARGS; `tach check` covers it in the `lint` gate. `mutate`
+# scores with unit tests only (MUTATE_PYTEST_ARGS), so a test moved to `system`
+# loses its place in the fast gate, the coverage metric and `mutate`'s scoring
+# alike.
 [private]
 test-unit:
-    uv run pytest -m unit --cov --cov-context=test \
+    uv run pytest -m unit -p no:tach --cov \
         --cov-report=lcov:lcov.info --cov-report=term-missing --cov-fail-under=90
 
 # Real processes: a fork server, worker servers, nested pytest runs and a
