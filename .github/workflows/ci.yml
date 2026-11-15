@@ -7,12 +7,11 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   ci:
     name: CI
-    runs-on: ubuntu-24.04 # not ubuntu-latest: lcov 2.4 on ubuntu-26.04 rejects coverage.py property getter/setter FN records (#117)
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
@@ -34,11 +33,10 @@ jobs:
       - name: Format check
         run: just format-check
       # Coverage is measured on test-unit alone: it writes lcov.info and
-      # applies the threshold, so the Coverage report and CRAP steps below
-      # both score unit-only data. test-component appends to .coverage without
-      # touching lcov.info, and test-integration adds no coverage data at all
-      # (measured; see the justfile). Both stay here as test gates in their own
-      # right. These steps share one working directory by necessity: test-unit
+      # applies the threshold, so the CRAP step below scores unit-only data.
+      # test-component appends to .coverage without touching lcov.info, and
+      # test-integration adds no coverage data at all (measured; see the
+      # justfile). Both stay here as test gates in their own right. These steps share one working directory by necessity: test-unit
       # cannot move to a separate job from CRAP without merging coverage first.
       - name: Tests (unit)
         run: just test-unit
@@ -46,15 +44,6 @@ jobs:
         run: just test-component
       - name: Tests (integration)
         run: just test-integration
-      - name: Install lcov
-        run: sudo apt-get install -y lcov
-        if: always()
-      - name: Coverage report
-        uses: zgosalvez/github-actions-report-lcov@84f16a83ae03e846a4c697bd75cae3f94fa9f426 # v7.0.12
-        if: always()
-        with:
-          coverage-files: lcov.info
-          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: CRAP
         run: just crap
       - name: Install tools
