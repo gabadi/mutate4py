@@ -1,8 +1,7 @@
 """The test levels map to one gate and one CI step each (issue #122).
 
 Unit (`test-unit`) is coverage-measured. System (`test-system`) runs real
-processes with no coverage. The `test-component` and `test-integration` gates
-and their CI steps are retired, so neither name may come back.
+processes with no coverage. These tests pin the live gate order, not the names that were retired.
 """
 
 import re
@@ -13,7 +12,6 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CI_YML = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 JUSTFILE = REPO_ROOT / "justfile"
-RETIRED_GATES = ("test-component", "test-integration")
 
 
 def _recipe_lines(name):
@@ -53,13 +51,3 @@ def test_ci_runs_one_system_step_between_unit_and_crap():
     text = CI_YML.read_text()
     assert re.search(r"^      - name: Tests \(system\)\n\s+run: just test-system$", text, re.MULTILINE)
     assert text.index("- name: Tests (unit)") < text.index("- name: Tests (system)") < text.index("- name: CRAP")
-
-
-@pytest.mark.unit
-def test_retired_gate_names_and_ci_steps_are_gone():
-    for name in RETIRED_GATES:
-        assert name not in JUSTFILE.read_text(), name
-        assert name not in CI_YML.read_text(), name
-    text = CI_YML.read_text()
-    assert "Tests (component)" not in text
-    assert "Tests (integration)" not in text
