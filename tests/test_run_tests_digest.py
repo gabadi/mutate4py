@@ -88,25 +88,21 @@ def _forget_digests(src_path: str, *, manifest_file: bool) -> None:
 
 @pytest.mark.system
 @pytest.mark.parametrize("manifest_file", [False, True], ids=["footer", "sidecar"])
-def test_a_scored_run_records_the_tests_digest_of_each_scored_function(tmp_path, manifest_file):
+def test_a_scored_run_records_the_tests_digest_and_an_unchanged_function_without_one_gains_it_on_rerun(
+    tmp_path, manifest_file
+):
+    """One scored run records the function's tests digest (#105). Its Manifest is then stored as
+    a 0.2.x run left it, and the rerun, which does not rescore the unchanged function, gives it one."""
     src_path = _write_project(tmp_path)
-    executor = FakeExecutor("killed")
+    first_executor = FakeExecutor("killed")
 
-    rc = _run(src_path, executor, manifest_file=manifest_file)
+    rc = _run(src_path, first_executor, manifest_file=manifest_file)
 
     assert rc == 0
-    assert executor.calls, "the function must be scored in this run"
-    (fn,) = _manifest_of(src_path, manifest_file=manifest_file)["functions"]
-    assert fn["id"] == "func/f"
-    assert isinstance(fn["tests_digest"], str) and fn["tests_digest"]
-
-
-@pytest.mark.system
-@pytest.mark.parametrize("manifest_file", [False, True], ids=["footer", "sidecar"])
-def test_an_unchanged_function_without_a_digest_gains_one_on_a_run_that_does_not_rescore_it(tmp_path, manifest_file):
-    src_path = _write_project(tmp_path)
-    _run(src_path, FakeExecutor("killed"), manifest_file=manifest_file)
+    assert first_executor.calls, "the function must be scored in this run"
     (first,) = _manifest_of(src_path, manifest_file=manifest_file)["functions"]
+    assert first["id"] == "func/f"
+    assert isinstance(first["tests_digest"], str) and first["tests_digest"]
     _forget_digests(src_path, manifest_file=manifest_file)
     executor = FakeExecutor("killed")
 
