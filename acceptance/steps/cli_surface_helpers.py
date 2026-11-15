@@ -1,6 +1,7 @@
 """Testable helpers for cli_surface_steps.py."""
 
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -52,12 +53,8 @@ def survivor_flag(tokens: list[str]) -> list[str]:
 
 def single_flag_args(flag_str: str, src: str) -> list[str]:
     """Return CLI args for a single-flag invocation."""
-    if flag_str == "(none)":
-        return [src, "--scan"]
     flags = split_flags(flag_str)
     flag_name = flags[0] if flags else ""
-    if flag_name == "--pytest-args":
-        return [src, "--pytest-args", _FAKE_PYTEST_ARGS, *survivor_flag(flags)]
     if flag_name in _SCAN_INCOMPATIBLE_FLAGS:
         return [src, "--pytest-args", _FAKE_PYTEST_ARGS] + flags + survivor_flag(flags)
     return [src, "--scan"] + flags
@@ -74,42 +71,17 @@ def two_flag_args(flag1: str, flag2: str, src: str) -> list[str]:
     return [src] + all_flags
 
 
-def accepted_flags_args(flags_str: str, src: str) -> tuple[list[str], str, int | None]:
-    """Return (cli_args, dispatch_target, dispatch_max_workers) for an accepted-flags invocation."""
+def accepted_flags_args(flags_str: str, src: str) -> tuple[list[str], str]:
+    """Return (cli_args, dispatch_target) for an accepted-flags invocation."""
     if flags_str == "--scan":
-        return [src, "--scan"], "scan surface", None
+        return [src, "--scan"], "scan surface"
     if flags_str == "--update-manifest":
-        return [src, "--update-manifest"], "manifest write", None
+        return [src, "--update-manifest"], "manifest write"
     if flags_str == "(a scored run)":
-        return [src, "--pytest-args", _FAKE_PYTEST_ARGS, _SURVIVOR_FLAG], "run loop", None
+        return [src, "--pytest-args", _FAKE_PYTEST_ARGS, _SURVIVOR_FLAG], "run loop"
     if flags_str == "--max-workers 4 (a scored run)":
-        return (
-            [src, "--max-workers", "4", "--pytest-args", _FAKE_PYTEST_ARGS, _SURVIVOR_FLAG],
-            "run loop",
-            4,
-        )
+        return [src, "--max-workers", "4", "--pytest-args", _FAKE_PYTEST_ARGS, _SURVIVOR_FLAG], "run loop"
     raise NotImplementedError(f"Unknown flags: {flags_str!r}")
-
-
-def assert_option_accepted(option: str, value: str, returncode: int, stderr: str) -> None:
-    """Assert that a CLI option was accepted (zero exit or no error in stderr)."""
-    if option in ("mutation-warning", "timeout-factor", "pytest-args"):
-        default_values = {
-            "mutation-warning": "50",
-            "timeout-factor": "10",
-            "pytest-args": "(none)",
-        }
-        if value == default_values.get(option):
-            assert returncode == 0 or "error" not in stderr.lower(), (
-                f"Unexpected error with default {option}:\n{stderr}"
-            )
-        else:
-            assert returncode == 0, f"Expected accepted with --{option}={value}, got rc={returncode}\n{stderr}"
-    elif option == "max-workers":
-        if value == "serial":
-            assert returncode == 0 or "error" not in stderr.lower()
-        else:
-            assert returncode == 0, f"Expected accepted with --max-workers={value}\n{stderr}"
 
 
 def described_args(description: str, src: str) -> list[str]:
@@ -162,9 +134,16 @@ def assert_usage_lists_max_workers(stdout: str) -> None:
     assert "--max-workers" in stdout, f"Expected '--max-workers' in usage output:\n{stdout}"
 
 
-def assert_worker_count(dispatch_max_workers: int | None, count: str, returncode: int, stderr: str) -> None:
+def reported_worker_count(stdout: str) -> int | None:
+    """The count on the run's `Mutation workers: <n>` header line, or None when no such line printed."""
+    match = re.search(r"^Mutation workers: (\d+)$", stdout, re.MULTILINE)
+    return int(match.group(1)) if match else None
+
+
+def assert_worker_count(stdout: str, count: str, returncode: int, stderr: str) -> None:
     assert returncode == 0, f"Expected accepted run with --max-workers {count}:\n{stderr}"
-    assert dispatch_max_workers == int(count), f"Expected dispatch_max_workers={count}, got {dispatch_max_workers}"
+    reported = reported_worker_count(stdout)
+    assert reported == int(count), f"Expected 'Mutation workers: {count}' in the run output, got {reported}:\n{stdout}"
 
 
 def exclude_run_args(mode_flag: str, pattern: str, directory: str) -> list[str]:

@@ -22,7 +22,6 @@ from acceptance.steps.cli_surface_helpers import (
     assert_no_baseline_run,
     assert_nonzero_exit,
     assert_only_reported,
-    assert_option_accepted,
     assert_usage_error,
     assert_usage_lists_max_workers,
     assert_usage_printed,
@@ -36,6 +35,7 @@ from acceptance.steps.cli_surface_helpers import (
     reported_manifest_files,
     require_result,
     run_with_running_interpreter,
+    reported_worker_count,
     single_flag_args,
     split_flags,
     two_flag_args,
@@ -82,24 +82,10 @@ def test_reaching_test_calls_the_default_sources_function():
 
 
 @pytest.mark.unit
-def test_single_flag_none_gives_scan():
-    args = single_flag_args("(none)", "s.py")
-    assert args == ["s.py", "--scan"]
-
-
-@pytest.mark.unit
 def test_single_flag_scan_incompatible_gives_a_scored_run():
     args = single_flag_args("--max-workers 4", "s.py")
     assert "--scan" not in args
     assert "--max-workers" in args
-    assert "--allow-survivors" in args
-
-
-@pytest.mark.unit
-def test_single_flag_pytest_args_gives_a_scored_run():
-    args = single_flag_args("--pytest-args -x", "s.py")
-    assert "--scan" not in args
-    assert "--pytest-args" in args
     assert "--allow-survivors" in args
 
 
@@ -175,36 +161,32 @@ def test_described_args_unknown_raises():
 
 @pytest.mark.unit
 def test_accepted_flags_scan():
-    args, target, workers = accepted_flags_args("--scan", "s.py")
+    args, target = accepted_flags_args("--scan", "s.py")
     assert "--scan" in args
     assert target == "scan surface"
-    assert workers is None
 
 
 @pytest.mark.unit
 def test_accepted_flags_update_manifest():
-    args, target, workers = accepted_flags_args("--update-manifest", "s.py")
+    args, target = accepted_flags_args("--update-manifest", "s.py")
     assert "--update-manifest" in args
     assert target == "manifest write"
-    assert workers is None
 
 
 @pytest.mark.unit
 def test_accepted_flags_scored_run():
-    args, target, workers = accepted_flags_args("(a scored run)", "s.py")
+    args, target = accepted_flags_args("(a scored run)", "s.py")
     assert "--scan" not in args
     assert "--allow-survivors" in args
     assert target == "run loop"
-    assert workers is None
 
 
 @pytest.mark.unit
 def test_accepted_flags_max_workers():
-    args, target, workers = accepted_flags_args("--max-workers 4 (a scored run)", "s.py")
+    args, target = accepted_flags_args("--max-workers 4 (a scored run)", "s.py")
     assert "--max-workers" in args
     assert "--allow-survivors" in args
     assert target == "run loop"
-    assert workers == 4
 
 
 @pytest.mark.unit
@@ -341,20 +323,41 @@ def test_assert_usage_lists_max_workers_fails():
 
 
 @pytest.mark.unit
+def test_reported_worker_count_reads_the_header_line():
+    assert reported_worker_count("Total mutation sites: 1\nMutation workers: 4\nKilled: 0\n") == 4
+
+
+@pytest.mark.unit
+def test_reported_worker_count_is_none_without_the_header_line():
+    assert reported_worker_count("Total mutation sites: 1\n") is None
+
+
+@pytest.mark.unit
+def test_reported_worker_count_ignores_a_line_that_only_contains_the_header():
+    assert reported_worker_count("note: Mutation workers: 4\n") is None
+
+
+@pytest.mark.unit
 def test_assert_worker_count_passes():
-    assert_worker_count(4, "4", 0, "")
+    assert_worker_count("Mutation workers: 4\n", "4", 0, "")
 
 
 @pytest.mark.unit
 def test_assert_worker_count_fails_on_nonzero():
     with pytest.raises(AssertionError):
-        assert_worker_count(4, "4", 1, "some error")
+        assert_worker_count("Mutation workers: 4\n", "4", 1, "some error")
 
 
 @pytest.mark.unit
 def test_assert_worker_count_fails_on_mismatch():
     with pytest.raises(AssertionError):
-        assert_worker_count(2, "4", 0, "")
+        assert_worker_count("Mutation workers: 2\n", "4", 0, "")
+
+
+@pytest.mark.unit
+def test_assert_worker_count_fails_when_the_run_reports_none():
+    with pytest.raises(AssertionError):
+        assert_worker_count("Total mutation sites: 1\n", "4", 0, "")
 
 
 # ── assert_dispatched_to ──────────────────────────────────────────────────────
@@ -390,51 +393,6 @@ def test_assert_dispatched_run_loop_passes_on_output():
 def test_assert_dispatched_unknown_raises():
     with pytest.raises(NotImplementedError):
         assert_dispatched_to("unknown target", 0, "", "")
-
-
-# ── assert_option_accepted ────────────────────────────────────────────────────
-
-
-@pytest.mark.unit
-def test_assert_option_mutation_warning_default():
-    assert_option_accepted("mutation-warning", "50", 0, "")
-
-
-@pytest.mark.unit
-def test_assert_option_mutation_warning_custom():
-    assert_option_accepted("mutation-warning", "25", 0, "")
-
-
-@pytest.mark.unit
-def test_assert_option_mutation_warning_custom_fails_on_nonzero():
-    with pytest.raises(AssertionError):
-        assert_option_accepted("mutation-warning", "25", 1, "error")
-
-
-@pytest.mark.unit
-def test_assert_option_timeout_factor_default():
-    assert_option_accepted("timeout-factor", "10", 0, "")
-
-
-@pytest.mark.unit
-def test_assert_option_pytest_args_default():
-    assert_option_accepted("pytest-args", "", 0, "")
-
-
-@pytest.mark.unit
-def test_assert_option_max_workers_serial():
-    assert_option_accepted("max-workers", "serial", 0, "")
-
-
-@pytest.mark.unit
-def test_assert_option_max_workers_value():
-    assert_option_accepted("max-workers", "4", 0, "")
-
-
-@pytest.mark.unit
-def test_assert_option_max_workers_value_fails():
-    with pytest.raises(AssertionError):
-        assert_option_accepted("max-workers", "4", 1, "err")
 
 
 # ── --exclude helpers ─────────────────────────────────────────────────────────
