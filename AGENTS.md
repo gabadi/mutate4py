@@ -17,7 +17,7 @@ Navigation and universal invariants for all agents in this project.
 - Each test carries exactly one of `@pytest.mark.unit` or `@pytest.mark.system` as its own decorator; `tests/conftest.py` enforces it.
 
 ## Code Review
-- Use `/mattpocock-skills:code-review`, never bare `/code-review` (different, heavier skill).
+- Use `/gabadi-matt:code-review`, never bare `/code-review` (different, heavier skill).
 
 ## Tool Paths (Local Machine)
 - `crap4py`: installed from local sibling `~/workspace/addi/crap4py` via `uv tool install ~/workspace/addi/crap4py` (not PyPI, not GitHub URL)
