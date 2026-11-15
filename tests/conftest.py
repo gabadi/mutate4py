@@ -8,6 +8,7 @@ entirely is failed here, with its measured duration and a duration-based
 suggestion attached to *that* failure, so the fix stays visible right where the
 test broke rather than as a separate, easy-to-ignore report."""
 
+import logging
 import multiprocessing.process
 import os
 import subprocess
@@ -42,6 +43,14 @@ def _nested_pytest_loads_only_named_plugins(request, monkeypatch):
     env = nested_pytest_env(os.environ)
     monkeypatch.setenv(AUTOLOAD_SWITCH, env[AUTOLOAD_SWITCH])
     monkeypatch.setenv(ADDOPTS, env[ADDOPTS])
+
+
+@pytest.fixture(autouse=True)
+def _package_logger_level_survives_the_test():
+    package_logger = logging.getLogger("mutate4py")
+    level = package_logger.level
+    yield
+    package_logger.setLevel(level)
 
 
 @pytest.fixture
