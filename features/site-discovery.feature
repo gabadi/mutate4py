@@ -144,11 +144,12 @@ Feature: Mutation site discovery and the --scan count surface
       | 1     | 1     |
       | 7     | 7     |
 
-  # site-discovery-5: the warning line appears only when sites exceed the threshold
+  # site-discovery-5: the warning line appears only when sites exceed the threshold.
+  # <warning> is compared with the real `--scan` stdout; an empty cell means no Warning line.
   Scenario Outline: the warning line is gated by the threshold
     Given a Python file containing <total> mutation sites
     And the mutation warning threshold is <threshold>
-    When the file is scanned
+    When the file is scanned with that threshold
     Then the warning line is "<warning>"
 
     Examples:
