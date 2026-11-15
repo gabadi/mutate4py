@@ -1,6 +1,21 @@
 # Changelog
 
-## 0.3.0 (unreleased)
+## 0.3.1
+
+### Fixed
+
+- A Mutant that breaks a module at import time is killed. In 0.3.0 it stopped the run with
+  exit 2 (`pytest ran no test for a Mutant ... exit 4`), when a conftest imported the module.
+  When a Mutant ends in pytest exit 4 or 5, the run now makes a Control run: the same pytest
+  argv on the original code. If tests run there, the Mutant broke the run and is killed. If
+  the Control run runs no test or times out, the argv is the defect and the run still aborts
+  with exit 2 (ADR 0018 amendment).
+- A node id from another pytest rootdir now aborts the run before any Mutant runs, on every
+  Executor. In 0.3.0 the result depended on timing: the run aborted, or each Mutant timed out
+  and was scored killed. The message names the node id and says to run mutate4py from the
+  pytest rootdir.
+
+## 0.3.0
 
 The run measures coverage itself and re-scores only what changed (spec #89). Decisions
 are in [`docs/adr/`](docs/adr/): ADR 0027 (the Measurement), ADR 0028 (executors),
