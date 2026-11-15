@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T04:59:09Z",
-  "module_hash": "d38ad28b0180336d881989d128aec69be1f876a70fdcfde448518b52b72aa299",
-  "source_sha256": "17f261c167d609e8263f5f140f69ba6ba2344c469eca962b3099fda516ab9696",
+  "tested_at": "2026-11-15T05:06:49Z",
+  "module_hash": "0da70f3d4473d297b2956855c62b24f93956cb1b05d57e7f27bf5ef616394e86",
+  "source_sha256": "b15afea2f473a438525d1c722dae5e2eafee593b0a43b9cd139061469fab5509",
   "functions": [
     {
       "id": "func/ancestors",
@@ -200,13 +200,28 @@
       "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     },
     {
+      "id": "func/_as_dict",
+      "name": "_as_dict",
+      "line": 168,
+      "end_line": 170,
+      "hash": "6607b476a0702588cae42cdb78d92b592009339d17edad7b8a49089e61f09151",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+    },
+    {
       "id": "func/_toml_addopts",
       "name": "_toml_addopts",
-      "line": 168,
+      "line": 173,
       "end_line": 178,
-      "hash": "37275db7abb04665587f96a082c00c2666a8135118a55f8dd3fdc3b1c2301013",
+      "hash": "7f4635779ee2cb3d377019305e1c346c150d312f94e96aa7406c91ec7ebc8160",
       "score": {
-        "killed": 2,
+        "killed": 1,
         "survived": 0,
         "uncovered": 0
       },
