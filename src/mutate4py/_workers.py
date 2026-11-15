@@ -22,17 +22,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable
 
 from mutate4py._discovery import Site, apply_mutant
-from mutate4py._executor import Executor, MutantTiming, combine_descriptions
+from mutate4py._executor import Executor, MutantTiming
 from mutate4py._plugin_neutralisation import disabled_plugin_args
 from mutate4py._worker_results import (
     ParallelRunResult,
     WorkerGroupOutcome,
     _assign_sites_to_workers,
+    _build_result,
     _drop_one_result_if_injected,
-    _summarize_confirmation,
-    _summarize_results,
-    _summarize_selection,
-    _summarize_timing,
 )
 from mutate4py._test_dispatch import (
     ControlRuns,
@@ -323,6 +320,23 @@ def _run_settings(request: ParallelRunRequest) -> WorkerRunSettings:
     )
 
 
+def _locate_source(request: ParallelRunRequest) -> tuple[str, str]:
+    """The real working directory and the source path relative to it."""
+    real_source = os.path.realpath(request.source_path)
+    real_cwd = os.path.realpath(request.cwd)
+    if not real_source.startswith(real_cwd + os.sep):
+        raise ParallelRunError(f"target file must be inside working directory: {request.source_path}")
+    return real_cwd, os.path.relpath(real_source, real_cwd)
+
+
+def _collected_results(groups: list[WorkerGroupOutcome], expected: int) -> list[dict]:
+    """Every Worker's results in site order; ParallelRunError when fewer than `expected` came back."""
+    results = [r for group in groups for r in group.results]
+    if len(results) != expected:
+        raise ParallelRunError(f"mutation workers stopped after {len(results)}/{expected} results")
+    return sorted(results, key=lambda r: r["site_idx"])
+
+
 def run_parallel(request: ParallelRunRequest) -> ParallelRunResult:
     """Run sites in parallel across max_workers isolated Workers, each owning
     exactly one primed Executor for the whole run.
@@ -337,14 +351,9 @@ def run_parallel(request: ParallelRunRequest) -> ParallelRunResult:
     Raises ParallelRunError if collected results != selected site count.
     A NoTestsCollectedError (case 4) propagates uncaught.
     """
-    real_source = os.path.realpath(request.source_path)
-    real_cwd = os.path.realpath(request.cwd)
-    if not real_source.startswith(real_cwd + os.sep):
-        raise ParallelRunError(f"target file must be inside working directory: {request.source_path}")
-
+    real_cwd, source_rel = _locate_source(request)
     selected_sites = request.selected_sites
     n_workers = min(request.max_workers, len(selected_sites))
-    source_rel = os.path.relpath(real_source, real_cwd)
     run_root = os.path.join(real_cwd, ".mutate4py", "workers", f"run-{os.getpid()}-{time.monotonic_ns()}")
 
     try:
@@ -377,21 +386,8 @@ def run_parallel(request: ParallelRunRequest) -> ParallelRunResult:
             )
         )
 
-        results = [r for group in groups for r in group.results]
-        if len(results) != len(selected_sites):
-            raise ParallelRunError(f"mutation workers stopped after {len(results)}/{len(selected_sites)} results")
-
-        results.sort(key=lambda r: r["site_idx"])
-        counts, survivors = _summarize_results(results)
-        selection_counts = _summarize_selection(results) if request.selection_source is not None else None
-        return ParallelRunResult(
-            counts=counts,
-            survivors=survivors,
-            selection_counts=selection_counts,
-            timing=_summarize_timing(results, [g.confirmation_timing for g in groups]),
-            executor_description=combine_descriptions([g.description for g in groups]),
-            confirmation=_summarize_confirmation(groups),
-        )
+        results = _collected_results(groups, len(selected_sites))
+        return _build_result(groups, results, with_selection=request.selection_source is not None)
 
     finally:
         shutil.rmtree(run_root, ignore_errors=True)

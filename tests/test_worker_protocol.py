@@ -10,7 +10,6 @@ same dispatch logic without paying for a real subprocess spawn.
 
 import io
 import json
-import logging
 import os
 import subprocess
 import sys
@@ -679,13 +678,10 @@ def test_worker_forking_and_subprocess_parity(tmp_path):
 
 @pytest.fixture
 def restore_import_state(tmp_path):
-    """In-process pytest.main leaves the tmp project on sys.path and its conftest in sys.modules (#80).
-    `_worker_server.main` also leaves the mutate4py logger at WARNING, which silences later runs."""
+    """In-process pytest.main leaves the tmp project on sys.path and its conftest in sys.modules (#80)."""
     saved_path = list(sys.path)
     saved_modules = set(sys.modules)
-    saved_level = logging.getLogger("mutate4py").level
     yield
-    logging.getLogger("mutate4py").setLevel(saved_level)
     sys.path[:] = saved_path
     root = os.path.realpath(tmp_path) + os.sep
     for name in set(sys.modules) - saved_modules:

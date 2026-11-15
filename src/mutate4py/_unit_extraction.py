@@ -6,7 +6,8 @@ from mutate4py._ids import class_unit_id, function_unit_id
 
 __all__ = ["ast_sha256", "extract_units"]
 
-_DEFINITIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+_FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef)
+_DEFINITIONS = (*_FUNCTIONS, ast.ClassDef)
 
 
 def ast_sha256(node: ast.AST) -> str:
@@ -23,18 +24,26 @@ def _unit(unit_id: str, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.Class
     return {"id": unit_id, "name": node.name, "line": node.lineno, "end_line": node.end_lineno, "hash": unit_hash}
 
 
+def _own_unit(node: ast.AST, parent: ast.AST | None, *, inside_fn: bool) -> dict | None:
+    if inside_fn:
+        return None
+    if isinstance(node, _FUNCTIONS):
+        return _unit(function_unit_id(node, parent), node, ast_sha256(node))
+    if isinstance(node, ast.ClassDef):
+        return _unit(class_unit_id(node), node, ast_sha256(_class_body(node)))
+    return None
+
+
 def extract_units(tree: ast.Module) -> list[dict]:
     results = []
     stack: list[tuple[ast.AST, ast.AST | None, bool]] = [(tree, None, False)]
     while stack:
         node, parent, inside_fn = stack.pop()
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            if not inside_fn:
-                results.append(_unit(function_unit_id(node, parent), node, ast_sha256(node)))
-            inside_fn = True
-        elif isinstance(node, ast.ClassDef) and not inside_fn:
-            results.append(_unit(class_unit_id(node), node, ast_sha256(_class_body(node))))
+        unit = _own_unit(node, parent, inside_fn=inside_fn)
+        if unit is not None:
+            results.append(unit)
+        inside_child = inside_fn or isinstance(node, _FUNCTIONS)
         for child in ast.iter_child_nodes(node):
-            stack.append((child, node, inside_fn))
+            stack.append((child, node, inside_child))
     results.sort(key=lambda unit: unit["line"])
     return results

@@ -7,13 +7,14 @@ from collections import defaultdict
 from collections.abc import Sequence
 
 from mutate4py._discovery import Site
-from mutate4py._executor import ExecutorDescription, MutantTiming
+from mutate4py._executor import ExecutorDescription, MutantTiming, combine_descriptions
 from mutate4py._test_dispatch import ConfirmationResult
 
 __all__ = [
     "ParallelRunResult",
     "WorkerGroupOutcome",
     "_assign_sites_to_workers",
+    "_build_result",
     "_drop_one_result_if_injected",
     "_summarize_results",
     "_summarize_confirmation",
@@ -79,8 +80,10 @@ def _summarize_timing(results: list[dict], confirmations: Sequence[MutantTiming]
 
 def _summarize_confirmation(groups: list[WorkerGroupOutcome]) -> ConfirmationResult | None:
     confirmed = [g.confirmation for g in groups if g.confirmation is not None]
-    if not confirmed:
-        return None
+    return _merge_confirmations(confirmed) if confirmed else None
+
+
+def _merge_confirmations(confirmed: list[ConfirmationResult]) -> ConfirmationResult:
     still = sorted((site for c in confirmed for site in c.still), key=lambda s: s.index)
     return ConfirmationResult(still, sum(c.runs for c in confirmed), sum(c.kills for c in confirmed))
 
@@ -93,6 +96,19 @@ def _summarize_selection(results: list[dict]) -> dict[str, int]:
         if selection is not None:
             counts[selection] += 1
     return counts
+
+
+def _build_result(groups: list[WorkerGroupOutcome], results: list[dict], *, with_selection: bool) -> ParallelRunResult:
+    """Tally the site-ordered results of a parallel dispatch into its ParallelRunResult."""
+    counts, survivors = _summarize_results(results)
+    return ParallelRunResult(
+        counts=counts,
+        survivors=survivors,
+        selection_counts=_summarize_selection(results) if with_selection else None,
+        timing=_summarize_timing(results, [g.confirmation_timing for g in groups]),
+        executor_description=combine_descriptions([g.description for g in groups]),
+        confirmation=_summarize_confirmation(groups),
+    )
 
 
 def _drop_one_result_if_injected(worker_results: list[dict], *, short_fail: bool) -> list[dict]:

@@ -14,6 +14,7 @@ from mutate4py._executor import ExecutorDescription
 from mutate4py._test_dispatch import MutantPlan, NoTestsCollectedError
 from mutate4py._worker_protocol import ServerLaunch, WorkerProcessError, check_worker_python
 from mutate4py._worker_provision import _copy_tree, _link_import_root
+from mutate4py._worker_results import _summarize_results
 from mutate4py._workers import (
     SiteAssignment,
     WorkerFailureError,
@@ -25,7 +26,6 @@ from mutate4py._workers import (
     _provision_worker,
     _provision_workers,
     _run_one_site,
-    _summarize_results,
 )
 
 from ._scripted_executor import ScriptedExecutor

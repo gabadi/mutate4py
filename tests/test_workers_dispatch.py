@@ -52,6 +52,66 @@ def test_run_parallel_short_result_raises(tmp_path, monkeypatch):
         )
 
 
+@pytest.mark.unit
+def test_run_parallel_refuses_a_target_outside_the_working_directory_before_provisioning_a_worker(
+    tmp_path, monkeypatch
+):
+    import mutate4py._workers as workers_mod
+
+    provisioned = []
+    monkeypatch.setattr(workers_mod, "_provision_workers", lambda *args: provisioned.append(args))
+
+    src = "def f(a, b):\n    return a > b\n"
+    cwd = tmp_path / "project"
+    cwd.mkdir()
+    outside = tmp_path / "calc.py"
+    outside.write_text(src)
+
+    with pytest.raises(ParallelRunError, match="target file must be inside working directory") as raised:
+        run_parallel(
+            ParallelRunRequest(
+                selected_sites=discover_sites(src),
+                clean_source=src,
+                source_path=str(outside),
+                cwd=str(cwd),
+                pytest_args=[],
+                timeout_policy=_FIVE_SECOND_POLICY,
+                max_workers=2,
+                on_result=noop_on_result,
+                executor=FakeExecutor("killed"),
+            )
+        )
+
+    assert str(outside) in str(raised.value)
+    assert provisioned == []
+
+
+@pytest.mark.unit
+def test_run_parallel_refuses_a_target_in_a_sibling_directory_sharing_the_working_directory_prefix(tmp_path):
+    src = "def f(a, b):\n    return a > b\n"
+    cwd = tmp_path / "project"
+    cwd.mkdir()
+    sibling = tmp_path / "project-other"
+    sibling.mkdir()
+    target = sibling / "calc.py"
+    target.write_text(src)
+
+    with pytest.raises(ParallelRunError, match="target file must be inside working directory"):
+        run_parallel(
+            ParallelRunRequest(
+                selected_sites=discover_sites(src),
+                clean_source=src,
+                source_path=str(target),
+                cwd=str(cwd),
+                pytest_args=[],
+                timeout_policy=_FIVE_SECOND_POLICY,
+                max_workers=2,
+                on_result=noop_on_result,
+                executor=FakeExecutor("killed"),
+            )
+        )
+
+
 # ── run_parallel: narrowing composes with Worker dispatch (issue 04b) ────────
 
 

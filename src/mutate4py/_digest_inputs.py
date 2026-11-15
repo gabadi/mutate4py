@@ -50,15 +50,25 @@ def _support_files(record: MeasureRecord, rootdir: str) -> set[str]:
 
 
 def _data_files(record: MeasureRecord, rootdir: str) -> set[str]:
+    return {_relative(path, rootdir) for root in _outermost_test_roots(record, rootdir) for path in _data_paths(root)}
+
+
+def _outermost_test_roots(record: MeasureRecord, rootdir: str) -> list[str]:
     roots = test_roots([os.path.realpath(path) for path in record.test_files], rootdir)
-    outermost = [root for root in roots if os.path.dirname(root) not in roots]
-    return {
-        _relative(os.path.join(directory, name), rootdir)
-        for root in outermost
+    return [root for root in roots if os.path.dirname(root) not in roots]
+
+
+def _data_paths(root: str) -> list[str]:
+    return [
+        os.path.join(directory, name)
         for directory, names in _walk_visible(root)
         for name in names
-        if not name.endswith(".py") and not name.startswith(".")
-    }
+        if _is_data_name(name)
+    ]
+
+
+def _is_data_name(name: str) -> bool:
+    return not (name.endswith(".py") or name.startswith("."))
 
 
 def _walk_visible(root: str) -> Iterable[tuple[str, list[str]]]:
