@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.2
 
 ### Fixed
 
@@ -18,6 +18,9 @@
 
 ### Fixed
 
+- A fresh worktree of an unchanged checkout now takes the skip. In 0.3.0 the tests digest keyed
+  ancestor config files by path up to the filesystem root, so every new worktree rescored. The
+  ancestor walk now stops at pytest's inifile (#119). (Added to these notes in 0.3.2.)
 - A Mutant that breaks a module at import time is killed. In 0.3.0 it stopped the run with
   exit 2 (`pytest ran no test for a Mutant ... exit 4`), when a conftest imported the module.
   When a Mutant ends in pytest exit 4 or 5, the run now makes a Control run: the same pytest
