@@ -125,12 +125,21 @@ def test_nested_constructs_fold_into_outer(src):
     [
         ("class C:\n    LIMIT = 2 > 1\n", "class/C"),
         ("@wrap(1 > 0)\nclass C:\n    pass\n", "class/C"),
-        ("class Outer:\n    class Inner:\n        LIMIT = 2 > 1\n", "class/Inner"),
+        ("class Outer:\n    class Inner:\n        LIMIT = 2 > 1\n", "class/Outer.Inner"),
         ("class Outer:\n    class Inner:\n        pass\n    LIMIT = 2 > 1\n", "class/Outer"),
     ],
 )
 def test_a_site_in_a_class_body_belongs_to_that_class(src, expected_id):
     assert scan(src)[-1].function_id == expected_id
+
+
+@pytest.mark.unit
+def test_a_site_in_a_nested_class_of_each_of_two_classes_gets_its_own_id():
+    sites = scan("class A:\n    class Meta:\n        X = 1 > 0\n\n\nclass B:\n    class Meta:\n        X = 2 > 1\n")
+    assert {s.line: s.function_id for s in sites if s.desc.endswith("> 0") or s.desc.endswith("> 1")} == {
+        3: "class/A.Meta",
+        8: "class/B.Meta",
+    }
 
 
 @pytest.mark.unit

@@ -39,7 +39,8 @@ entry has the same `score` block as a Function unit's.
 
 **FunctionID**:
 The Function unit id attributed to a Site by line range (`func/<Name>`), or the Class
-unit id for a Site in a class body (`class/<Name>`). Empty for module-level Sites,
+unit id for a Site in a class body (`class/<Name>`, with the names of its enclosing classes
+before it: `class/<Outer>.<Name>`). Empty for module-level Sites,
 which are still mutated.
 
 ### Manifest

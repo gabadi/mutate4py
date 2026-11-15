@@ -312,7 +312,14 @@ def test_build_manifest_records_a_class_as_its_own_unit_beside_its_methods():
 @pytest.mark.unit
 def test_build_manifest_records_a_class_nested_in_a_class_but_not_one_inside_a_function():
     entries = _entries("class A:\n    class B:\n        X = 1\n\n\ndef f():\n    class C:\n        X = 1\n")
-    assert list(entries) == ["class/A", "class/B", "func/f"]
+    assert list(entries) == ["class/A", "class/A.B", "func/f"]
+
+
+@pytest.mark.unit
+def test_two_classes_that_nest_a_class_of_the_same_name_get_two_entries():
+    entries = _entries("class A:\n    class Meta:\n        X = 1\n\n\nclass B:\n    class Meta:\n        X = 2\n")
+    assert list(entries) == ["class/A", "class/A.Meta", "class/B", "class/B.Meta"]
+    assert entries["class/A.Meta"]["line"] != entries["class/B.Meta"]["line"]
 
 
 @pytest.mark.unit
@@ -341,7 +348,7 @@ def test_an_outer_class_hash_ignores_an_edit_to_a_nested_class():
     before = _entries("class A:\n    X = 1\n\n    class B:\n        Y = 1\n")
     after = _entries("class A:\n    X = 1\n\n    class B:\n        Y = 2\n")
     assert before["class/A"]["hash"] == after["class/A"]["hash"]
-    assert before["class/B"]["hash"] != after["class/B"]["hash"]
+    assert before["class/A.B"]["hash"] != after["class/A.B"]["hash"]
 
 
 @pytest.mark.unit
