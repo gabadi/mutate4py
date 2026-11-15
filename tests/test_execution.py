@@ -15,6 +15,8 @@ from mutate4py._executor import ExecutorDescription, MutantTiming
 from mutate4py._test_dispatch import TimeoutPolicy
 from mutate4py._workers import ParallelRunResult
 
+from ._scripted_executor import ScriptedExecutor
+
 
 class _FakeExecutor:
     def __init__(self, status="survived"):
@@ -251,29 +253,13 @@ def test_run_mutation_loop_times_a_timed_out_mutant_into_the_timeouts_bucket(tmp
 # ── _run_mutation_loop: a Mutant that ends in pytest exit 4 or 5 ─────────────────
 
 
-class _ScriptedExecutor(_FakeExecutor):
-    """Answers each run with the next scripted status; records the source on disk when each run starts."""
-
-    def __init__(self, path, statuses):
-        super().__init__()
-        self._path = path
-        self._statuses = iter(statuses)
-        self.seen_sources = []
-
-    def run(self, args, timeout):
-        with open(self._path) as f:
-            self.seen_sources.append(f.read())
-        super().run(args, timeout)
-        return next(self._statuses)
-
-
 _ONE_SITE = "def f(a, b):\n    return a > b\n"
 
 
 def _loop_ctx(tmp_path, statuses, source=_ONE_SITE, **extra):
     src_file = tmp_path / "calc.py"
     src_file.write_text(source)
-    executor = _ScriptedExecutor(str(src_file), statuses)
+    executor = ScriptedExecutor(str(src_file), statuses)
     ctx = MutantExecCtx(
         path=str(src_file),
         cwd=str(tmp_path),
@@ -500,7 +486,7 @@ def test_confirm_survivors_a_full_set_run_that_breaks_pytest_is_a_kill_when_the_
     src_file = tmp_path / "calc.py"
     src_file.write_text(_ONE_SITE)
     site = discover_sites(_ONE_SITE)[0]
-    executor = _ScriptedExecutor(str(src_file), ["usage-error", "survived"])
+    executor = ScriptedExecutor(str(src_file), ["usage-error", "survived"])
 
     still, runs, kills = _confirm_survivors([site], _ONE_SITE, _confirm_ctx(tmp_path, src_file), executor)
 
@@ -514,7 +500,7 @@ def test_confirm_survivors_aborts_when_the_control_run_on_the_original_code_runs
     src_file = tmp_path / "calc.py"
     src_file.write_text(_ONE_SITE)
     site = discover_sites(_ONE_SITE)[0]
-    executor = _ScriptedExecutor(str(src_file), ["no-tests-collected", "no-tests-collected"])
+    executor = ScriptedExecutor(str(src_file), ["no-tests-collected", "no-tests-collected"])
 
     with pytest.raises(NoTestsCollectedError, match="collected no tests"):
         _confirm_survivors([site], _ONE_SITE, _confirm_ctx(tmp_path, src_file), executor)

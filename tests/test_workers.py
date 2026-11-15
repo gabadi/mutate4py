@@ -28,6 +28,7 @@ from mutate4py._workers import (
     _summarize_results,
 )
 
+from ._scripted_executor import ScriptedExecutor
 from ._worker_fakes_helpers import FakeExecutor, noop_on_result
 
 
@@ -658,21 +659,6 @@ def test_run_one_site_no_tests_collected_raises_and_still_restores(tmp_path, mon
     assert worker_file.read_text() == src
 
 
-class _ScriptedExecutor(FakeExecutor):
-    """Answers each run with the next scripted status; records the worker file's text when each run starts."""
-
-    def __init__(self, worker_file, statuses):
-        super().__init__("survived")
-        self._worker_file = worker_file
-        self._statuses = iter(statuses)
-        self.seen_sources = []
-
-    def run(self, args, timeout):
-        self.seen_sources.append(self._worker_file.read_text())
-        super().run(args, timeout)
-        return next(self._statuses)
-
-
 def _assignment(tmp_path, site, worker_file):
     return SiteAssignment(
         worker_idx=1,
@@ -697,7 +683,7 @@ def test_run_one_site_kills_a_mutant_that_breaks_the_run_when_the_original_code_
     worker_file.write_text(src)
     monkeypatch.delenv("_MUTATE4PY_TEST_WORKER_WRITE_FAIL", raising=False)
     monkeypatch.setattr(workers_mod, "time", types.SimpleNamespace(monotonic=iter([10.0, 11.5]).__next__))
-    executor = _ScriptedExecutor(worker_file, ["usage-error", "survived"])
+    executor = ScriptedExecutor(worker_file, ["usage-error", "survived"])
     reported = []
 
     result = _run_one_site(
@@ -708,7 +694,7 @@ def test_run_one_site_kills_a_mutant_that_breaks_the_run_when_the_original_code_
 
     assert (result["status"], result["seconds"]) == ("killed", 1.5)
     assert reported == [result]
-    assert executor.calls == [["-q"], ["-q"]]
+    assert executor.calls == [(["-q"], 5.0), (["-q"], 5.0)]
     assert executor.seen_sources == [src.replace(">", ">="), src]
     assert worker_file.read_text() == src
 
@@ -720,7 +706,7 @@ def test_run_one_site_runs_one_control_for_every_mutant_that_runs_the_same_argv(
     worker_file = tmp_path / "calc.py"
     worker_file.write_text(src)
     monkeypatch.delenv("_MUTATE4PY_TEST_WORKER_WRITE_FAIL", raising=False)
-    executor = _ScriptedExecutor(worker_file, ["usage-error", "survived", "no-tests-collected"])
+    executor = ScriptedExecutor(worker_file, ["usage-error", "survived", "no-tests-collected"])
     settings = WorkerRunSettings(clean_source=src, on_result=noop_on_result)
 
     first = _run_one_site(_assignment(tmp_path, site, worker_file), executor, settings)
@@ -737,7 +723,7 @@ def test_run_one_site_aborts_and_still_restores_when_the_control_run_runs_no_tes
     worker_file = tmp_path / "calc.py"
     worker_file.write_text(src)
     monkeypatch.delenv("_MUTATE4PY_TEST_WORKER_WRITE_FAIL", raising=False)
-    executor = _ScriptedExecutor(worker_file, ["no-tests-collected", "no-tests-collected"])
+    executor = ScriptedExecutor(worker_file, ["no-tests-collected", "no-tests-collected"])
 
     with pytest.raises(NoTestsCollectedError, match="collected no tests"):
         _run_one_site(
