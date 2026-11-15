@@ -120,3 +120,34 @@ def test_a_system_test_is_not_guarded():
     assert _current_entry_points() == before
     with pytest.raises(StopIteration):
         next(gen)
+
+
+@pytest.mark.unit
+def test_a_refusal_that_monkeypatch_teardown_reinstalls_is_removed_after_teardown():
+    """A test that monkeypatches an entry point during its call makes monkeypatch record the
+    refusal as the value to restore. Its undo runs after the call hook, so the refusal comes back
+    until the teardown hook puts the originals back."""
+    before = _current_entry_points()
+    # This test runs under the outer guard itself, so what `before` holds may be a refusal.
+    originals = {key: getattr(value, "guard_original", value) for key, value in before.items()}
+    patch = pytest.MonkeyPatch()
+    item = _Item("tests/example.py::test_patches_fork", unit=True)
+    try:
+        gen = _enter(item)
+        patch.setattr(os, "fork", lambda: 0)
+        patch.delattr(subprocess, "Popen")
+        with pytest.raises(StopIteration):
+            next(gen)
+        patch.undo()  # what fixture teardown does, after the call hook has restored the originals
+        reinstalled = _current_entry_points() != before
+        teardown = conftest.pytest_runtest_teardown(item, None)
+        next(teardown)
+        with pytest.raises(StopIteration):
+            next(teardown)
+        restored = _current_entry_points()
+    finally:
+        patch.undo()
+        for (owner, attr), original in before.items():
+            setattr(owner, attr, original)
+    assert reinstalled  # the leak this test reproduces
+    assert restored == originals

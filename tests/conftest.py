@@ -122,7 +122,7 @@ def _call_site(frame) -> str:
     return f"{start.f_code.co_filename}:{start.f_lineno}"
 
 
-def _refusal(nodeid: str, label: str, refusals: list[str]):
+def _refusal(nodeid: str, label: str, refusals: list[str], original):
     def refuse(*_args, **_kwargs):
         site = _call_site(sys._getframe(1))
         message = (
@@ -131,6 +131,7 @@ def _refusal(nodeid: str, label: str, refusals: list[str]):
         refusals.append(message)
         pytest.fail(message, pytrace=False)
 
+    refuse.guard_original = original
     return refuse
 
 
@@ -142,8 +143,8 @@ def _no_process_creation(nodeid: str):
     refusals: list[str] = []
     entry_points = _process_entry_points()
     saved = [(owner, attr, getattr(owner, attr)) for owner, attr, _label in entry_points]
-    for owner, attr, label in entry_points:
-        setattr(owner, attr, _refusal(nodeid, label, refusals))
+    for (owner, attr, label), (_owner, _attr, original) in zip(entry_points, saved, strict=True):
+        setattr(owner, attr, _refusal(nodeid, label, refusals, original))
     try:
         yield refusals
     finally:
@@ -160,3 +161,26 @@ def pytest_runtest_call(item):
     if refusals:
         pytest.fail(refusals[0], pytrace=False)
     return result
+
+
+def _restore_leaked_refusals():
+    """Put the original back on every entry point that still holds a refusal (however deeply nested)."""
+    for owner, attr, _label in _process_entry_points():
+        current = getattr(owner, attr)
+        original = current
+        while hasattr(original, "guard_original"):
+            original = original.guard_original
+        if original is not current:
+            setattr(owner, attr, original)
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_teardown(item, nextitem):
+    """A test that monkeypatches an entry point during its call makes monkeypatch record the
+    refusal as the value to restore. Its teardown runs after the call hook has put the originals
+    back, and reinstalls the refusal for the rest of the session. So once teardown is done, put
+    the originals back again wherever a refusal remains."""
+    try:
+        return (yield)
+    finally:
+        _restore_leaked_refusals()
