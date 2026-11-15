@@ -165,16 +165,16 @@ def _rootdir_option(cwd: str, tokens: list[str]) -> str | None:
     return os.path.abspath(os.path.join(cwd, os.path.expandvars(value))) if value else None
 
 
+def _as_dict(value: object) -> dict:
+    """`value` when it is a TOML table, else an empty one."""
+    return value if isinstance(value, dict) else {}
+
+
 def _toml_addopts(data: dict, path: str) -> str:
     """The `addopts` of parsed pytest.toml or pyproject.toml `data`, whichever table declares them."""
-    table = data.get("pytest")
-    if os.path.basename(path) == "pyproject.toml":
-        tool = data.get("tool")
-        table = tool.get("pytest") if isinstance(tool, dict) else None
-    if not isinstance(table, dict):
-        return ""
-    declared = [table, table.get("ini_options")]
-    values = [entry.get("addopts") for entry in declared if isinstance(entry, dict)]
+    root = _as_dict(data.get("tool")) if os.path.basename(path) == "pyproject.toml" else data
+    table = _as_dict(root.get("pytest"))
+    values = [table.get("addopts"), _as_dict(table.get("ini_options")).get("addopts")]
     return " ".join(str(value) for value in values if value)
 
 
