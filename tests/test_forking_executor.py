@@ -633,3 +633,15 @@ def test_wait_for_child_timeout_sigkills_the_child_and_reaps_it(monkeypatch):
     assert _wait_for_child(_FAKE_CHILD, timeout=1.0) == "timeout"
     assert kills == [(_FAKE_CHILD, signal.SIGKILL)]
     assert waits[-1] == (_FAKE_CHILD, 0)  # the blocking reap after SIGKILL
+
+
+@pytest.mark.system
+def test_describe_names_the_file_mode_prime_settled_on_for_the_guarded_file(tmp_path):
+    cwd, target = _write_fixture_project(
+        tmp_path,
+        target_body="def add(a, b):\n    return a + b\n",
+        test_body=_ADD_TEST_BODY,
+    )
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
+    executor.prime()
+    assert executor.describe().file_mode == "fresh import"

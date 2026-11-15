@@ -130,8 +130,8 @@ a Mutant with only the tests that reached its line, and a narrowed list can miss
 killing test: one that reads state a covering test left behind (a memoised body)
 reaches no line of the Site, so no covering list names it. Such a Mutant survives
 the narrowed run and would be reported as a Survivor though the full suite kills it.
-So every Survivor of a non-accepted Site is re-run with the full test set, in a fresh
-interpreter through the subprocess executor, under the full-set timeout, and counts
+So every Survivor of a non-accepted Site is re-run with the full test set, under the
+full-set timeout, and counts
 as a Survivor only if it survives that run too. A kill, or a timeout, under the full
 set folds into `killed` (ADR 0011).
 
@@ -140,9 +140,13 @@ set folds into `killed` (ADR 0011).
   restored as the serial loop splices it. One path gives both run shapes one verdict.
 - **Accepted-equivalent Sites are not confirmed.** Their line carries an equivalent
   marker, so the Survivor is accepted by design and a full run would buy nothing.
-- **A fresh interpreter, not the forking executor.** The confirmation exists to rule
+- **The fork server only for a fresh-import file.** The confirmation exists to rule
   out state leaking between runs; a forked child shares the primed parent's imports,
-  and a memoised body read from that parent is the very state to avoid.
+  and a memoised body read from that parent is the very state to avoid. A swap or
+  harness file is in that parent, so its Survivors confirm in a fresh interpreter
+  through the subprocess executor. A fresh-import file is not, so a serial run
+  confirms its Survivors on the fork server. A parallel run has no fork server in
+  the orchestrator, so it confirms in a fresh interpreter.
 - **Visible in the report.** The `Time:` line carries `confirmation .. (n run, k
   killed)`, and the `Executor:` line says how the Mutants ran (`forking (fresh import
   N)`, or `subprocess (<reason>)` for a whole-run fallback).

@@ -684,3 +684,58 @@ def test_parallel_outcome_carries_the_workers_description_and_their_mutants_timi
 
     assert outcome.executor_description == ExecutorDescription(mode="forking", fresh_import=3)
     assert (outcome.timing.mutants_count, outcome.timing.mutants_seconds) == (1, 2.0)
+
+
+class _ForkServerFake(_FakeExecutor):
+    def __init__(self, file_mode):
+        super().__init__(status="survived")
+        self._file_mode = file_mode
+
+    def describe(self):
+        return ExecutorDescription(mode="forking", file_mode=self._file_mode)
+
+
+def _serial_run_confirming_on(tmp_path, monkeypatch, *, fork, fresh):
+    import mutate4py._execution as execution_mod
+
+    src = "def f(a, b):\n    return a > b\n"
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(src)
+    monkeypatch.setattr(execution_mod, "SubprocessExecutor", lambda cwd, guarded_path: fresh)
+    return _execute_mutations(
+        selected_sites=discover_sites(src),
+        clean_source=src,
+        ctx=MutantExecCtx(
+            path=str(src_file),
+            cwd=str(tmp_path),
+            pytest_args=["-q"],
+            executor=fork,
+            timeout_policy=_policy(7.5),
+            abs_source_path=str(src_file),
+            confirm_args=list(FULL_SET),
+        ),
+    )
+
+
+@pytest.mark.unit
+def test_serial_fresh_import_survivors_are_confirmed_on_the_fork_server(tmp_path, monkeypatch):
+    fork = _ForkServerFake(file_mode="fresh import")
+    fresh = _FakeExecutor()
+
+    _serial_run_confirming_on(tmp_path, monkeypatch, fork=fork, fresh=fresh)
+
+    assert (list(FULL_SET), 7.5) in fork.calls
+    assert fresh.calls == []
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("file_mode", ["swap", "harness"])
+def test_serial_swap_and_harness_survivors_are_confirmed_in_a_fresh_interpreter(tmp_path, monkeypatch, file_mode):
+    fork = _ForkServerFake(file_mode=file_mode)
+    fresh = _FakeExecutor()
+
+    _serial_run_confirming_on(tmp_path, monkeypatch, fork=fork, fresh=fresh)
+
+    assert fresh.calls
+    assert all(call == (list(FULL_SET), 7.5) for call in fresh.calls)
+    assert (list(FULL_SET), 7.5) not in fork.calls

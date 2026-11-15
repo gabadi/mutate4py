@@ -175,6 +175,7 @@ class ForkingExecutor:
             fresh_import=self._counts["fresh import"],
             swap=self._counts["swap"],
             fresh_interpreter=self._counts["fresh interpreter"],
+            file_mode=self._mode or "",
         )
 
     def prime(self) -> None:

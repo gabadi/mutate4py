@@ -107,7 +107,7 @@ The interface both Mutant-execution backends implement — prime once, then run 
 argument list under a timeout and classify. The forking executor runs Mutants from a
 Fork server, each by fresh import, Swap mode or a fresh interpreter. The subprocess
 executor is the whole-run fallback where forking is impossible or unsafe, and it runs
-every Survivor confirmation.
+every Survivor confirmation that the Fork server does not (see Survivor confirmation).
 
 **Fork server**:
 The `_worker_server` process a serial forking run starts over the project tree itself,
@@ -125,9 +125,10 @@ plugin): the forked child swaps the mutated function bodies into the live functi
 runs pytest in-process. A Mutant the swap refuses runs in a fresh interpreter instead.
 
 **Survivor confirmation**:
-The re-run of every Survivor through the subprocess executor with the full test set,
-before a Survivor is reported. A narrowed selection or a swap can let a Mutant survive
-that the full test set kills, so a Survivor is not trusted until this run agrees.
+The re-run of every Survivor with the full test set, before a Survivor is reported. A
+serial run re-runs a fresh-import file's Survivors on the Fork server; any other re-run
+goes through the subprocess executor. A narrowed selection or a swap can let a Mutant
+survive that the full test set kills, so a Survivor is not trusted until this run agrees.
 
 **Control run**:
 The re-run of a Mutant's pytest argv on the original code, made only when that Mutant

@@ -207,6 +207,12 @@ def _confirm_survivors(
     return still, runs, kills
 
 
+def _serial_confirmation_executor(description: ExecutorDescription, ctx: MutantExecCtx) -> Executor:
+    if description.file_mode == "fresh import":
+        return ctx.executor
+    return SubprocessExecutor(ctx.cwd, ctx.abs_source_path)
+
+
 def _execute_mutations(
     *,
     selected_sites: list[Site],
@@ -215,9 +221,10 @@ def _execute_mutations(
 ) -> ExecutionOutcome:
     """Run serial or parallel mutations, then confirm their Survivors; return counts/survivors.
 
-    Confirmation runs in the orchestrator for both paths, in a fresh interpreter
-    through the subprocess executor, so serial and parallel runs give the same
-    verdict. The caller owns the final report and error output. A
+    Confirmation runs in the orchestrator for both paths. A serial run confirms
+    on the fork server when the guarded file is fresh imported, else in a fresh
+    interpreter through the subprocess executor. A parallel run always confirms
+    in a fresh interpreter. The caller owns the final report and error output. A
     NoTestsCollectedError from the serial loop propagates to the caller,
     which must still finalize the source exactly as a completed run would
     leave it.
@@ -229,10 +236,11 @@ def _execute_mutations(
         counts, survivors, selection_counts = parallel.counts, parallel.survivors, parallel.selection_counts
         ctx.timing.merge(parallel.timing)
         description = parallel.executor_description
+        confirm_executor = SubprocessExecutor(ctx.cwd, ctx.abs_source_path)
     else:
         counts, survivors, selection_counts = _run_mutation_loop(selected_sites, clean_source, ctx)
         description = ctx.executor.describe()
-    confirm_executor = SubprocessExecutor(ctx.cwd, ctx.abs_source_path)
+        confirm_executor = _serial_confirmation_executor(description, ctx)
     survivors, runs, kills = _confirm_survivors(survivors, clean_source, ctx, confirm_executor)
     counts["killed"] += kills
     counts["survived"] -= kills

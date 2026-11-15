@@ -45,7 +45,8 @@ line counts the three separately, e.g.
 
 Live state the clean code computed during a test (a memoised result) can survive
 a swap; it can only make a Mutant survive, and Survivor confirmation re-runs
-every Survivor through the subprocess executor with the full test set.
+every Survivor with the full test set, on the fork server for a fresh-import file
+and through the subprocess executor otherwise.
 
 The whole run falls back to the subprocess executor only when forking is
 impossible or unsafe: no `os.fork`, pytest not importable in the server,

@@ -139,6 +139,7 @@ def test_serve_answers_a_describe_request_with_its_executors_description_and_run
             "fresh_import": 0,
             "swap": 0,
             "fresh_interpreter": 0,
+            "file_mode": "",
         }
     }
     assert executor.calls == []

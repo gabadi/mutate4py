@@ -23,6 +23,7 @@ class ExecutorDescription:
     fresh_import: int = 0
     swap: int = 0
     fresh_interpreter: int = 0
+    file_mode: str = ""
 
     def mode_counts(self) -> str:
         """How many Mutants ran by each forking mode, as the Executor line spells it."""
