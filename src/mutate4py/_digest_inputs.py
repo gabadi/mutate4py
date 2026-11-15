@@ -10,7 +10,7 @@ import os
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
-from mutate4py._measure_record import MeasureRecord
+from mutate4py._measure_record import MeasureRecord, test_roots
 from mutate4py._tests_digest import DigestInputs
 
 __all__ = ["digest_inputs_from"]
@@ -46,7 +46,25 @@ def _support_files(record: MeasureRecord, rootdir: str) -> set[str]:
         support.add(_relative(record.inipath, rootdir))
     if os.path.isfile(os.path.join(rootdir, _LOCKFILE)):
         support.add(_LOCKFILE)
-    return support
+    return support | _data_files(record, rootdir)
+
+
+def _data_files(record: MeasureRecord, rootdir: str) -> set[str]:
+    roots = test_roots([os.path.realpath(path) for path in record.test_files], rootdir)
+    outermost = [root for root in roots if os.path.dirname(root) not in roots]
+    return {
+        _relative(os.path.join(directory, name), rootdir)
+        for root in outermost
+        for directory, names in _walk_visible(root)
+        for name in names
+        if not name.endswith(".py") and not name.startswith(".")
+    }
+
+
+def _walk_visible(root: str) -> Iterable[tuple[str, list[str]]]:
+    for directory, subdirectories, names in os.walk(root):
+        subdirectories[:] = [name for name in subdirectories if name != "__pycache__" and not name.startswith(".")]
+        yield directory, names
 
 
 def _relative(path: str, rootdir: str) -> str:

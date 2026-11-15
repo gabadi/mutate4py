@@ -57,7 +57,8 @@ alone; behaviour-affecting edits change it.
 **Tests digest**:
 A Function unit's SHA-256 over the test inputs that can reach its covered Sites: the
 test files the Measurement shows reaching them, their conftests, the run's support
-files, the pytest table of `pyproject.toml`, the pytest ini file and `uv.lock`. Stored
+files (imported helper modules, and every non-Python file under the test folders), the
+pytest table of `pyproject.toml`, the pytest ini file and `uv.lock`. Stored
 beside the Function unit's score. A stored digest that no longer matches the fresh one
 re-scores that unit (ADR 0029).
 

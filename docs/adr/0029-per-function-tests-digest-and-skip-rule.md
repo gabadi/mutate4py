@@ -213,3 +213,31 @@ Rejected:
   `absent` keys but still records the outer checkout's `pyproject.toml` and conftests for a
   nested worktree, as `../../pyproject.toml`, so a worktree never matches. Pytest ignores
   those files, so they are not inputs.
+
+## Amended: a non-Python file under the test folders is a support file (2026-11-15)
+
+The support files above held only modules a test imported. A test reads other files too:
+fixture JSON, golden text, a CSV table. An edit to one of those changed what a test proves
+and moved no digest, so a stored proof read as current (item 6 of release 0.3.3).
+
+The support files now also hold every file that does not end in `.py` under a test folder.
+A test folder is a directory that holds a collected test file, or an ancestor of one below
+the rootdir (the test roots that decide which modules are support modules). The digest walks
+each outermost test root. It skips `__pycache__`, every directory whose name starts with a
+dot, and every file whose name starts with a dot. A project with its test files in the
+rootdir itself has no test root, so it walks nothing.
+
+The support files are shared by every function, so an edit to one such file moves every
+function's digest and re-scores the whole file. That is accepted: a fixture edit is rare,
+and an edit to a `.py` test stays per-function, which is the speed-up of issue #88. The
+rejection of "One digest over the whole tests tree" holds for `.py` files: a test edit still
+re-scores only the functions its test reaches.
+
+Rejected:
+
+- **Finding the files a test opens.** The Measurement records imports, not file reads, so
+  the set cannot be known without tracing every `open`.
+- **Walking only the directories of the test files.** A fixture directory beside the test
+  directories (`tests/data` next to `tests/unit`) would be missed. The test roots are the
+  rule that already decides which helper modules count, so data files follow it.
+
