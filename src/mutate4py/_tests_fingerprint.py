@@ -220,13 +220,17 @@ def _config_dirs(cwd: str, roots: list[str], tokens: list[str]) -> list[str]:
 
 
 def _conftest_chain(root: str, bounds: list[str] | None) -> list[str]:
-    """The directories above `root`, nearest first, up to the highest of `bounds`.
+    """The directories above `root`, nearest first, whose conftest pytest loads.
 
-    A bound that is not above `root` bounds nothing (config/__init__.py:682), so the chain then goes to `/`.
+    pytest skips a directory only when it is strictly above `confcutdir` (`_is_in_confcutdir`,
+    config/__init__.py:682, :703-704). A bound at or below `root` therefore leaves no ancestor, and a
+    bound beside the chain skips none. With several bounds, a directory is kept when any keeps it.
     """
     directories = ancestors(os.path.dirname(os.path.abspath(root)))
-    reached = [directories.index(bound) for bound in bounds or [] if bound in directories]
-    return directories[: max(reached) + 1] if bounds and len(reached) == len(bounds) else directories
+    if not bounds:
+        return directories
+    strictly_above = [set(ancestors(bound)[1:]) for bound in bounds]
+    return [directory for directory in directories if any(directory not in above for above in strictly_above)]
 
 
 def _conftest_inputs(root: str, base: str, bounds: list[str] | None) -> list[tuple[str, str]]:

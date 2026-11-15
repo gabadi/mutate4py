@@ -535,6 +535,32 @@ def test_editing_the_outer_checkout_does_not_change_a_nested_worktree(tmp_path):
 
 
 @pytest.mark.unit
+def test_a_whole_directory_run_in_a_nested_worktree_loads_no_outer_conftest(tmp_path):
+    """No args, no testpaths: the collection root is the worktree, which is also the inifile directory.
+
+    pytest skips only a directory strictly above confcutdir (config/__init__.py:703-704), so
+    a bound at the root leaves no ancestor to load.
+    """
+    standalone = _checkout(tmp_path / "alone", "project")
+    outer = _outer_checkout(tmp_path)
+    nested = _checkout(outer / ".worktrees" / "coder", "project")
+    assert fingerprint_inputs(nested, "") == fingerprint_inputs(standalone, "")
+    before = fingerprint_of(nested, "")
+    (outer / "conftest.py").write_text("OUTER = 2\n")
+    assert fingerprint_of(nested, "") == before
+
+
+@pytest.mark.unit
+def test_a_bound_below_the_collection_root_loads_no_ancestor_conftest(tmp_path):
+    root = _checkout(tmp_path / "up", "checkout")
+    (tmp_path / "up" / "conftest.py").write_text("SHARED = 1\n")
+    args = f"tests/test_a.py --confcutdir={root}/tests/deeper"
+    before = fingerprint_of(root, args)
+    (tmp_path / "up" / "conftest.py").write_text("SHARED = 2\n")
+    assert fingerprint_of(root, args) == before
+
+
+@pytest.mark.unit
 def test_a_conftest_above_the_inifile_directory_does_not_change_it(tmp_path):
     root = _checkout(tmp_path, "checkout")
     (tmp_path / "conftest.py").write_text("SHARED = 1\n")
