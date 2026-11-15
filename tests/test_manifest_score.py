@@ -322,6 +322,34 @@ def test_unmarked_acceptance_detected_when_one_of_two_same_reason_markers_remove
 
 
 @pytest.mark.unit
+def test_a_method_marker_of_the_same_reason_does_not_hide_a_removed_class_body_marker():
+    from mutate4py._equivalent import marker_lines
+    from mutate4py._manifest import functions_with_unmarked_acceptances
+
+    reason = "same for all inputs"
+    marked = (
+        "class C:\n"
+        f"    flag = LIMIT > 0  # mutate4py: equivalent {reason}\n"
+        "\n"
+        "    def m(self, a, b):\n"
+        f"        return a > b  # mutate4py: equivalent {reason}\n"
+    )
+    class_marker_removed = marked.replace(f"LIMIT > 0  # mutate4py: equivalent {reason}", "LIMIT > 0")
+    manifest = build_manifest(marked, tested_at=TESTED_AT)
+    _fn(manifest, "class/C").update(
+        score=_F_SCORE, survivors=[], accepted=[{"line": 2, "desc": "LIMIT > 0 -> LIMIT >= 0", "reason": reason}]
+    )
+    _fn(manifest, "func/C.m").update(
+        score=_F_SCORE, survivors=[], accepted=[{"line": 5, "desc": "a > b -> a >= b", "reason": reason}]
+    )
+    current = build_manifest(class_marker_removed, tested_at=TESTED_LATER)
+
+    unmarked = functions_with_unmarked_acceptances(manifest, current, marker_lines(class_marker_removed))
+
+    assert unmarked == {"class/C"}
+
+
+@pytest.mark.unit
 def test_unmarked_acceptances_none_is_empty():
     from mutate4py._manifest import functions_with_unmarked_acceptances
 

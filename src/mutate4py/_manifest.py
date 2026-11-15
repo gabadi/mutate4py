@@ -236,7 +236,8 @@ def functions_with_unmarked_acceptances(manifest: dict | None, current: dict, ma
     That covers a marker removed, its reason reworded, or one of several
     same-reason markers removed. markers maps line -> reason for the current
     source. A marker counts for a function when it sits inside that function's
-    current span, so a function whose code merely moved keeps its acceptance.
+    current span and outside the units nested in it, so a function whose code
+    merely moved keeps its acceptance and a method's marker never counts for its class.
     None gives an empty set.
     """
     if manifest is None:
@@ -245,12 +246,13 @@ def functions_with_unmarked_acceptances(manifest: dict | None, current: dict, ma
     return {
         fn["id"]
         for fn in manifest["functions"]
-        if fn["id"] in current_by_id and _acceptance_unmarked(fn, current_by_id[fn["id"]], markers)
+        if fn["id"] in current_by_id
+        and _acceptance_unmarked(fn, current_by_id[fn["id"]], current["functions"], markers)
     }
 
 
-def _acceptance_unmarked(fn: dict, cur: dict, markers: dict[int, str]) -> bool:
-    """True when cur's span holds fewer markers of some accepted reason than fn's accepted survivors need.
+def _acceptance_unmarked(fn: dict, cur: dict, units: list[dict], markers: dict[int, str]) -> bool:
+    """True when cur's own lines hold fewer markers of some accepted reason than fn's accepted survivors need.
 
     A marker accepts every survivor on its line, so each distinct (line, reason)
     needs one marker of that reason. Two same-reason survivors on two lines need
@@ -259,14 +261,25 @@ def _acceptance_unmarked(fn: dict, cur: dict, markers: dict[int, str]) -> bool:
     accepted = (_scored_fields(fn) or {}).get("accepted")
     if not accepted:
         return False
-    found = _markers_in_span(cur, markers)
+    found = _markers_on_own_lines(cur, units, markers)
     needed = Counter(reason for _, reason in {(a["line"], a["reason"]) for a in accepted})
     return any(count > found[reason] for reason, count in needed.items())
 
 
-def _markers_in_span(cur: dict, markers: dict[int, str]) -> Counter[str]:
-    """Per reason, the markers that sit inside cur's line span."""
-    return Counter(reason for line, reason in markers.items() if cur["line"] <= line <= cur["end_line"])
+def _is_nested_in(unit: dict, cur: dict) -> bool:
+    return unit["id"] != cur["id"] and cur["line"] <= unit["line"] and unit["end_line"] <= cur["end_line"]
+
+
+def _on_own_lines(cur: dict, nested: list[dict], line: int) -> bool:
+    return cur["line"] <= line <= cur["end_line"] and not any(
+        unit["line"] <= line <= unit["end_line"] for unit in nested
+    )
+
+
+def _markers_on_own_lines(cur: dict, units: list[dict], markers: dict[int, str]) -> Counter[str]:
+    """Per reason, the markers that sit inside cur's line span and outside every unit nested in it."""
+    nested = [unit for unit in units if _is_nested_in(unit, cur)]
+    return Counter(reason for line, reason in markers.items() if _on_own_lines(cur, nested, line))
 
 
 def has_accepted_survivors(manifest: dict) -> bool:
