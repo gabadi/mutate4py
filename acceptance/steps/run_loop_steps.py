@@ -19,6 +19,7 @@ from acceptance.steps.run_loop_helpers import (
     reaching_test_body,
     uncalled_source,
 )
+from acceptance.steps.nested_pytest_helpers import nested_pytest_env
 from acceptance.steps.step_lib import make_registry
 from mutate4py._manifest import strip_manifest
 
@@ -33,6 +34,7 @@ def _run_mutate4py(cwd: str, *args: str) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
         cwd=cwd,
+        env=nested_pytest_env(),
     )
 
 

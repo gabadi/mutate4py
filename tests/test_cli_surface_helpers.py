@@ -538,7 +538,10 @@ def test_run_with_running_interpreter_runs_mutate4py_module_in_cwd(monkeypatch, 
     assert run_with_running_interpreter(["--scan"], str(tmp_path)) == "completed"
     argv, kwargs = calls[0]
     assert argv == [sys.executable, "-m", "mutate4py", "--scan"]
+    env = kwargs.pop("env")
     assert kwargs == {"capture_output": True, "text": True, "cwd": str(tmp_path)}
+    # The baseline pytest it may start loads no plugin but the ones acceptance names.
+    assert env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] == "1"
 
 
 @pytest.mark.unit

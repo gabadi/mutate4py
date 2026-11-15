@@ -26,6 +26,7 @@ from acceptance.steps.run_loop_helpers import (
     function_names,
     outcome_test_body,
 )
+from acceptance.steps.nested_pytest_helpers import nested_pytest_env
 from acceptance.steps.step_lib import make_registry
 from mutate4py._manifest import strip_manifest
 
@@ -58,6 +59,8 @@ class Context:
         # Set for the project-venv src-layout scenario: the orchestrator runs under the
         # project's own .venv, where the original src is an editable install (ADR 0015).
         self.orchestrator_python: str | None = None
+        # True only for the scenario that keeps pytest plugin autoload on (see _setup_src_layout).
+        self.autoload: bool = False
 
 
 ctx = Context()
@@ -80,6 +83,7 @@ def _reset_ctx():
     ctx.runs = []
     ctx.orchestrator_pythonpath = None
     ctx.orchestrator_python = None
+    ctx.autoload = False
 
 
 def _write_test(path: str, body: str) -> None:
@@ -94,7 +98,11 @@ def _tests_dir(d: str) -> str:
 
 
 def _make_project_dir() -> str:
-    """Create a temp project dir with the minimal uv project structure."""
+    """Create a temp project dir with the minimal uv project structure.
+
+    The dev group names pytest-cov because the run's nested pytest loads it explicitly
+    (autoload is off, nested_pytest_helpers.py) and mutate4py passes `--no-cov` to a pytest
+    that has it: the Worker venvs must have the plugin the orchestrator names."""
     d = tempfile.mkdtemp()
     pyproject = textwrap.dedent("""\
         [project]
@@ -104,7 +112,7 @@ def _make_project_dir() -> str:
         dependencies = []
 
         [dependency-groups]
-        dev = ["pytest==9.1.1"]
+        dev = ["pytest==9.1.1", "pytest-cov==7.1.0"]
     """)
     with open(os.path.join(d, "pyproject.toml"), "w") as f:
         f.write(pyproject)
@@ -380,6 +388,11 @@ def given_src_layout_with_cov(m, params):
 @step(r"the project is a src-layout editable package with pytest but without pytest-cov")
 def given_src_layout_without_cov(m, params):
     _setup_src_layout(with_cov=False)
+    # parallel-workers-15 is the ONE scenario that keeps pytest plugin autoload on (every other
+    # acceptance run turns it off, nested_pytest_helpers.py). Its Worker venv has no pytest-cov while
+    # the orchestrator has it, which one explicit `-p pytest_cov` cannot express, and autoload is the
+    # default path a user's run takes.
+    ctx.autoload = True
 
 
 @step(r'"([^"]*)" occurs during the parallel run')
@@ -397,7 +410,7 @@ def given_failure_scenario(m, params):
 
 
 def _run_mutate4py(extra: list[str]) -> subprocess.CompletedProcess:
-    env = dict(os.environ)
+    env = nested_pytest_env(autoload=ctx.autoload)
     if ctx.orchestrator_python:
         # REPO_ROOT/src lies outside the project, so the Worker rebase leaves it alone.
         env["PYTHONPATH"] = os.path.join(REPO_ROOT, "src")

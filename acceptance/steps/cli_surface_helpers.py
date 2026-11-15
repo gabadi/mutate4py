@@ -6,6 +6,8 @@ import shlex
 import subprocess
 import sys
 
+from acceptance.steps.nested_pytest_helpers import nested_pytest_env
+
 _SCAN_INCOMPATIBLE_FLAGS = {"--timeout-factor", "--pytest-args", "--max-workers"}
 
 _SURVIVOR_FLAG = "--allow-survivors"
@@ -261,6 +263,7 @@ def run_with_running_interpreter(args: list[str], cwd: str) -> subprocess.Comple
         capture_output=True,
         text=True,
         cwd=cwd,
+        env=nested_pytest_env(),
     )
 
 

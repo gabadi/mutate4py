@@ -9,6 +9,7 @@ import textwrap
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
+from acceptance.steps.nested_pytest_helpers import nested_pytest_env
 from acceptance.steps.step_lib import make_registry
 from mutate4py._plugin_neutralisation import neutralising_args
 
@@ -29,6 +30,7 @@ def _run_mutate4py(cwd: str, *args: str) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
         cwd=cwd,
+        env=nested_pytest_env(),
     )
 
 
@@ -83,7 +85,9 @@ def _write_uv_project_files(d: str) -> None:
     --max-workers run's per-Worker `uv sync` provisioning succeeds against
     this tmpdir and the Worker venv can run pytest. Mirrors
     parallel_workers_steps.py's _make_project_dir(), including no pre-made
-    uv.lock (it would not list pytest). Only the composition scenario's
+    uv.lock (it would not list pytest). The dev group also names pytest-cov: the
+    run's nested pytest loads it explicitly because autoload is off
+    (nested_pytest_helpers.py), so the Worker venv must have it. Only the composition scenario's
     Worker copies need this; every other scenario here stays on the serial
     path and never shells out to uv."""
     with open(os.path.join(d, "pyproject.toml"), "w") as f:
@@ -96,7 +100,7 @@ def _write_uv_project_files(d: str) -> None:
                 dependencies = []
 
                 [dependency-groups]
-                dev = ["pytest==9.1.1"]
+                dev = ["pytest==9.1.1", "pytest-cov==7.1.0"]
             """)
         )
 

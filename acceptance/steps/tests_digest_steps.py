@@ -10,6 +10,7 @@ import tempfile
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
+from acceptance.steps.nested_pytest_helpers import nested_pytest_env
 from acceptance.steps.step_lib import make_registry
 from acceptance.steps.tests_digest_helpers import (
     DIGEST_PROJECT_FILES,
@@ -97,6 +98,7 @@ def _run(*extra: str) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
         cwd=ctx.root,
+        env=nested_pytest_env(),
     )
 
 
@@ -166,6 +168,7 @@ def when_help(m, params):
         capture_output=True,
         text=True,
         cwd=ctx.root or REPO_ROOT,
+        env=nested_pytest_env(),
     )
 
 
@@ -176,6 +179,7 @@ def when_check_manifest(m, params):
         capture_output=True,
         text=True,
         cwd=ctx.root,
+        env=nested_pytest_env(),
     )
 
 

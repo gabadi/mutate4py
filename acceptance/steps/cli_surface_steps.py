@@ -41,6 +41,7 @@ from acceptance.steps.cli_surface_helpers import (
     write_placeholder_venv,
     write_pyproject,
 )
+from acceptance.steps.nested_pytest_helpers import nested_pytest_env
 from acceptance.steps.step_lib import make_registry
 
 STEP_HANDLERS, step, run_step = make_registry()
@@ -54,6 +55,7 @@ def _run_mutate4py(*args: str, cwd: str | None = None) -> subprocess.CompletedPr
         capture_output=True,
         text=True,
         cwd=cwd or REPO_ROOT,
+        env=nested_pytest_env(),
     )
 
 
