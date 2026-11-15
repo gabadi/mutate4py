@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T05:00:31Z",
-  "module_hash": "12495e96266bd977adecb800c723c03633b96fed834eb70ab174dea810d95097",
-  "source_sha256": "643eff82af0f0b266178cc1695e161f39a5e6d24d74b6f88d8346c93a4c7b48b",
+  "tested_at": "2026-11-15T13:16:44Z",
+  "module_hash": "cefcb66eb8f8316efd845dde2351c68a85ee8a784f9e5e2b8102b6289dfa7fa5",
+  "source_sha256": "4848b8b523bdb3fdaf234fdee153e137135e6e98d6ce1ef6fc57c909ae86636e",
   "functions": [
     {
       "id": "func/_target_skippable",
       "name": "_target_skippable",
-      "line": 62,
-      "end_line": 68,
+      "line": 60,
+      "end_line": 66,
       "hash": "bd89a050469e39cca55c500626bb75d3172e5da6128cfa30b080315e45185f17",
       "score": {
         "killed": 2,
@@ -17,13 +17,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "4fa237a4d0ca677dc5345095216cd5687cc7e7008d5344f3e6ae8da9b552b911"
+      "tests_digest": "fdc30d2cc7e83c5ae250e66914df7d86be59679f651f9903a25832287a48fb8e"
     },
     {
       "id": "func/can_skip_measurement",
       "name": "can_skip_measurement",
-      "line": 71,
-      "end_line": 78,
+      "line": 69,
+      "end_line": 76,
       "hash": "a4e95f2c426de16ba67836427a4dc8e6160a183bc462d9aeb392885d527794dc",
       "score": {
         "killed": 2,
@@ -32,13 +32,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "4fa237a4d0ca677dc5345095216cd5687cc7e7008d5344f3e6ae8da9b552b911"
+      "tests_digest": "fdc30d2cc7e83c5ae250e66914df7d86be59679f651f9903a25832287a48fb8e"
     },
     {
       "id": "func/_hashable",
       "name": "_hashable",
-      "line": 81,
-      "end_line": 89,
+      "line": 79,
+      "end_line": 87,
       "hash": "199431ce06ba2096069607bc20e9c6b3517e8acea8dc55e076d1266a72e5af6d",
       "score": {
         "killed": 1,
@@ -47,13 +47,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "75b62fe2b12c776142569a690c1aafe911f0a0635d3c7f450bc77257d064f871"
+      "tests_digest": "d3e1683a70c144fa070d3ae8baf465ccd8f62fe2f1b322094e335bee799ecfcd"
     },
     {
       "id": "func/_file_sha",
       "name": "_file_sha",
-      "line": 92,
-      "end_line": 94,
+      "line": 90,
+      "end_line": 92,
       "hash": "251b2e780c2fbff9223df48db0cf41033b99ebf32fcbd216798c1cb45bd154df",
       "score": {
         "killed": 0,
@@ -62,13 +62,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/_py_inputs",
       "name": "_py_inputs",
-      "line": 97,
-      "end_line": 106,
+      "line": 95,
+      "end_line": 104,
       "hash": "0c6178beaeb73e6642b9cade3ea5ccae2cbb548001c152689355446fc25a1f15",
       "score": {
         "killed": 0,
@@ -77,13 +77,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/_file_input",
       "name": "_file_input",
-      "line": 109,
-      "end_line": 114,
+      "line": 107,
+      "end_line": 112,
       "hash": "3fd12ee50f4ed0cd6d0eca7ebdc6024072bcbf085f179047fe90430db2abe2cb",
       "score": {
         "killed": 0,
@@ -92,13 +92,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/_root_inputs",
       "name": "_root_inputs",
-      "line": 117,
-      "end_line": 121,
+      "line": 115,
+      "end_line": 119,
       "hash": "a6d37069970050349c2e6d759328523eaa5ccad6aed7bba870aa881c78160db0",
       "score": {
         "killed": 0,
@@ -107,13 +107,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/_existing_file_input",
       "name": "_existing_file_input",
-      "line": 124,
-      "end_line": 131,
+      "line": 122,
+      "end_line": 129,
       "hash": "4eb6aeb8314d8f8c6d1d283e53cd3c0de5e2ef956acc7a3564f2c787d2771162",
       "score": {
         "killed": 0,
@@ -122,58 +122,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
-    },
-    {
-      "id": "func/_positional_roots",
-      "name": "_positional_roots",
-      "line": 139,
-      "end_line": 141,
-      "hash": "9285a7ac0a33792b6bcd21dad0332d6389ad734f3415dfb95cb70956f8a35622",
-      "score": {
-        "killed": 1,
-        "survived": 0,
-        "uncovered": 0
-      },
-      "survivors": [],
-      "accepted": [],
-      "tests_digest": "75b62fe2b12c776142569a690c1aafe911f0a0635d3c7f450bc77257d064f871"
-    },
-    {
-      "id": "func/_is_classified_flag",
-      "name": "_is_classified_flag",
-      "line": 144,
-      "end_line": 146,
-      "hash": "e68ab0a8e54c2d8f27129432355fff03bee2b81a5e291aaf231a9e78b0467ef4",
-      "score": {
-        "killed": 3,
-        "survived": 0,
-        "uncovered": 0
-      },
-      "survivors": [],
-      "accepted": [],
-      "tests_digest": "42ef912dfb8da1b80adf2e512bb6ad4c04630495338afbb9a683d59b33a1e205"
-    },
-    {
-      "id": "func/_collection_roots",
-      "name": "_collection_roots",
-      "line": 149,
-      "end_line": 157,
-      "hash": "d124ebcaa65093a8d9b2b6d61c0d7f2826e78422bb69c23761f1cfeb889b5e53",
-      "score": {
-        "killed": 2,
-        "survived": 0,
-        "uncovered": 0
-      },
-      "survivors": [],
-      "accepted": [],
-      "tests_digest": "75b62fe2b12c776142569a690c1aafe911f0a0635d3c7f450bc77257d064f871"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/_pyproject_pytest_table",
       "name": "_pyproject_pytest_table",
-      "line": 160,
-      "end_line": 170,
+      "line": 132,
+      "end_line": 142,
       "hash": "00de110a53665b817fd2a4e796b4ff31721077faacac13b94fb23227a8ac31f7",
       "score": {
         "killed": 1,
@@ -182,13 +137,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "508c6ef5d41a89353cfac7d43bb4f808ed65acbc0c61550e58d8186e031438be"
+      "tests_digest": "c7293e3ab3af2d9103c89b68bcdf1dfe2d564231e93f782c4ffa2b0f58b953c3"
     },
     {
       "id": "func/_config_inputs",
       "name": "_config_inputs",
-      "line": 173,
-      "end_line": 184,
+      "line": 145,
+      "end_line": 156,
       "hash": "874b6a78d1d99dba5f38a08eb6d85fda2be764c2c0e52cef0d7f76ef25e70d79",
       "score": {
         "killed": 0,
@@ -197,13 +152,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/_explicit_config_inputs",
       "name": "_explicit_config_inputs",
-      "line": 187,
-      "end_line": 193,
+      "line": 159,
+      "end_line": 165,
       "hash": "880b0e483d5ca2f09e92516c6577889084cf95330af7979137a7d710b66b1d36",
       "score": {
         "killed": 0,
@@ -212,29 +167,14 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
-    },
-    {
-      "id": "func/_pytest_start",
-      "name": "_pytest_start",
-      "line": 196,
-      "end_line": 204,
-      "hash": "953f7160997a0c1ba6aa1f014474272fb2af20468c21d1482bb656e6ad2ce14e",
-      "score": {
-        "killed": 0,
-        "survived": 0,
-        "uncovered": 0
-      },
-      "survivors": [],
-      "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/_config_dirs",
       "name": "_config_dirs",
-      "line": 207,
-      "end_line": 219,
-      "hash": "2c1f94c2359565b8982886263be41d6fa8aaba35de89a6dd01fbd6de1b6917af",
+      "line": 168,
+      "end_line": 180,
+      "hash": "80349e4e1850beb1eb0a455c286614b05988710973a8dd49bfe2addfbd1a6a11",
       "score": {
         "killed": 0,
         "survived": 0,
@@ -242,29 +182,14 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
-    },
-    {
-      "id": "func/_conftest_chain",
-      "name": "_conftest_chain",
-      "line": 222,
-      "end_line": 234,
-      "hash": "3da45e4b8ef2c6e29c6aa47725808d06d247f67772a3354fc347e9de89ca3350",
-      "score": {
-        "killed": 3,
-        "survived": 0,
-        "uncovered": 0
-      },
-      "survivors": [],
-      "accepted": [],
-      "tests_digest": "75b62fe2b12c776142569a690c1aafe911f0a0635d3c7f450bc77257d064f871"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/_conftest_inputs",
       "name": "_conftest_inputs",
-      "line": 237,
-      "end_line": 242,
-      "hash": "0b8accb06a96da9aefe0b115ead658b939b58170841485ad96dc4f8da99f0679",
+      "line": 183,
+      "end_line": 188,
+      "hash": "5da5554dff21acccedc084ea5cb99be0c575979bde35cf3b94edb88ce9e3d490",
       "score": {
         "killed": 0,
         "survived": 0,
@@ -272,13 +197,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/_config_and_lock_inputs",
       "name": "_config_and_lock_inputs",
-      "line": 245,
-      "end_line": 249,
+      "line": 191,
+      "end_line": 195,
       "hash": "3f094753e6cfa60dc58d435fd5614dc03f30781170a320faddcc1a57f276d875",
       "score": {
         "killed": 0,
@@ -287,13 +212,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/_mutate4py_version",
       "name": "_mutate4py_version",
-      "line": 252,
-      "end_line": 256,
+      "line": 198,
+      "end_line": 202,
       "hash": "0168d19e257f113e9fdce63f932aa617509a36fa8dc24b2f6534bb7dc3ddc69e",
       "score": {
         "killed": 0,
@@ -302,14 +227,14 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/fingerprint_inputs",
       "name": "fingerprint_inputs",
-      "line": 259,
-      "end_line": 275,
-      "hash": "6069554645954a5b70c8e14ad70a4cb56f9540c205c233627cd9c5526b1b5732",
+      "line": 205,
+      "end_line": 221,
+      "hash": "d349e17a3642a4cef75eca69849c7a48450d7e50223b22743f38b7ff63b79175",
       "score": {
         "killed": 0,
         "survived": 0,
@@ -317,13 +242,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/_digest",
       "name": "_digest",
-      "line": 278,
-      "end_line": 279,
+      "line": 224,
+      "end_line": 225,
       "hash": "5563ce180ffeb9f233104413337d374bf5970da6342bbf01c8c2570040d63f5c",
       "score": {
         "killed": 0,
@@ -332,13 +257,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/tests_fingerprint",
       "name": "tests_fingerprint",
-      "line": 282,
-      "end_line": 291,
+      "line": 228,
+      "end_line": 237,
       "hash": "5929ee3dc3f75e42cf6d8fcb9e31cae3b90d8f2af1a5ba107a4dcd10fa7d2cf2",
       "score": {
         "killed": 0,
@@ -347,8 +272,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     }
   ],
-  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
+  "tests_fingerprint": "f91a5c3bed9d8084ceb884e20b4b6a86dee437760ddb24bc9ab3d0586ff46a5d"
 }

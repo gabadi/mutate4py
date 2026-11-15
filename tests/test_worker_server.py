@@ -180,9 +180,11 @@ def test_main_asks_for_the_kill_switches_in_the_workers_own_directory(monkeypatc
     monkeypatch.setattr(
         worker_server_mod.sys, "stdin", io.StringIO(json.dumps({"args": ["-q"], "timeout": 1.0}) + "\n")
     )
-    monkeypatch.setattr(worker_server_mod.sys, "stdout", io.StringIO())
+    stdout = io.StringIO()
+    monkeypatch.setattr(worker_server_mod.sys, "stdout", stdout)
 
     worker_server_mod.main(["/the/worker/cwd", "/the/worker/cwd/calc.py", "0"])
 
+    assert [json.loads(line) for line in stdout.getvalue().splitlines()] == [{"ready": True}, {"status": "survived"}]
     assert asked == [(["-q"], "/the/worker/cwd")]
     assert executor.calls == [["-q", "--fake-flag"]]

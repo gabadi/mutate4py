@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T12:56:19Z",
-  "module_hash": "29e4c81c34bdb2267b890564c2f088444a2ab427671adcf1ff1d9b2971da65b2",
-  "source_sha256": "f79c4df5f4b4839cb489641067869150b5d7af56b251486905135cbd72dd7c2e",
+  "tested_at": "2026-11-15T13:17:00Z",
+  "module_hash": "f9840891ab215ce2d9e8665da5f039efc8647a919d4a411b723fb1d182101530",
+  "source_sha256": "9c414d503c5711472a00e0f5c8c3d6500f3f645cb83899e0e420364ad83e2092",
   "functions": [
     {
       "id": "func/_All.__repr__",
@@ -32,7 +32,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a5a67edde541f71eb25cd005c48eb7caaa0e330f729ea8e37d9b12c05d34e72f"
+      "tests_digest": "a8624536c4cd0f5668f7dd41fcc6b02275da7b59512cffdd85441336235a96fd"
     },
     {
       "id": "func/MeasurementFailed.__init__",
@@ -47,7 +47,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "6648e98fd86cf07535a462f8cd3e7d5890b50694a1abf74b3ecc598999bd887b"
+      "tests_digest": "72a92e66faf88b0b7d26e9f793630fa2980c45f3e167a24d1487bdb1f5cde85c"
     },
     {
       "id": "func/CoverageCoreRefused.__init__",
@@ -152,7 +152,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "2d512b5633a0cb6a4c40d280b6ab91dd40055e552dafbad11b684cda5a496095"
+      "tests_digest": "b68ca358c642e1ba6c921d8e401f34e025dc8cac3ad57d704223fcfa84ae3e08"
     },
     {
       "id": "func/Measurement.budget_of",
@@ -167,7 +167,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "2d512b5633a0cb6a4c40d280b6ab91dd40055e552dafbad11b684cda5a496095"
+      "tests_digest": "b68ca358c642e1ba6c921d8e401f34e025dc8cac3ad57d704223fcfa84ae3e08"
     },
     {
       "id": "func/Measurement._line_contexts",
@@ -197,7 +197,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "b3d26515e29c944ad0e91caf9bfaa4601e65f93b69dbb4669a0d92c764be9605"
+      "tests_digest": "233b11246a0d301e820623ba4e9d8fcb62e94f59aee7a440addaeb2867b7253d"
     },
     {
       "id": "func/Measurement.tests_for_line",
@@ -242,7 +242,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "2d512b5633a0cb6a4c40d280b6ab91dd40055e552dafbad11b684cda5a496095"
+      "tests_digest": "b68ca358c642e1ba6c921d8e401f34e025dc8cac3ad57d704223fcfa84ae3e08"
     },
     {
       "id": "func/Measurement.digest_inputs",
@@ -257,7 +257,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "59d4e256cfb8f6f6c30b824b7eaac5860bc7befe981abaa07c9b70e3518a442c"
+      "tests_digest": "ba5250d7217a6111c3191c29efa5af5c868a3e37bb37f9f5cc6246c0f91ae83f"
     },
     {
       "id": "func/_largest_setup_by_file",
@@ -302,7 +302,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "ec1b115a5239ae1c9af149061d5b7e3a5db56c9877bea1a8a6b4f7b28ed61e42"
+      "tests_digest": "8ff20804c495efad51e352f3ede9f8eb7cf87773e1df490dc6d242bdc102208f"
     },
     {
       "id": "func/_session_env",
@@ -317,7 +317,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "81c8f13fbf3cfe95cd116d458c6d85a65b05a982925bd261c7b61f4802da3c2a"
+      "tests_digest": "4be5c431a6b23e41c4c7a345cf2423db5eacffb7fcd55fc4579d22703c65f364"
     },
     {
       "id": "func/_read_record",
@@ -384,7 +384,7 @@
       "name": "_run_session",
       "line": 311,
       "end_line": 325,
-      "hash": "9aa006cf2a9c6bf62af029f23d0b53339a6b7795a36606c3328255880be830ca",
+      "hash": "9f55a6dcb15a8773e2a6f5c007b207998ed39af102bc8c1fa8343a8baf055239",
       "score": {
         "killed": 2,
         "survived": 0,
@@ -392,7 +392,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "e9a5eac5820483df3c68e8c23955deb68237b6b6f49161bdf9b08e2540104d7e"
+      "tests_digest": "c1a2ff8098374d38e3b6430a24820b1529cc65ceccc0ec0a8003f8f2f0ff5be2"
     },
     {
       "id": "func/measure",
@@ -425,5 +425,5 @@
       "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     }
   ],
-  "tests_fingerprint": "2eac7fe1d93861bdc95573e129db844ea6809c28791e871756c335b216f6c74a"
+  "tests_fingerprint": "f91a5c3bed9d8084ceb884e20b4b6a86dee437760ddb24bc9ab3d0586ff46a5d"
 }
