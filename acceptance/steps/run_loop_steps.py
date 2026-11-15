@@ -149,7 +149,8 @@ def given_multi_outcome(m, params):
     with open(ctx.src_path, "w") as f:
         f.write(source)
     _set_tests(outcome_test_body(SAMPLE_MODULE, dict(zip(names, outcomes))))
-    ctx.timeout_args = list(_FAST_TIMEOUT_ARGS)
+    if timed > 0:
+        ctx.timeout_args = list(_FAST_TIMEOUT_ARGS)
 
 
 @step(r"there are (\d+) uncovered sites")
