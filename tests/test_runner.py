@@ -628,6 +628,30 @@ def test_check_manifest_fast_path_current_returns_0(tmp_path, capsys):
 
 
 @pytest.mark.unit
+def test_check_manifest_reports_stale_a_manifest_of_an_unchanged_source_that_lacks_its_class_entries(tmp_path, capsys):
+    src = "class Box:\n    LIMIT = 2\n\n\ndef f(a, b):\n    return a > b\n"
+    manifest = build_manifest(src, tested_at="2020-01-01T00:00:00Z")
+    manifest["functions"] = [fn for fn in manifest["functions"] if not fn["id"].startswith("class/")]
+    p = tmp_path / "mod.py"
+    p.write_text(embed_manifest(src, manifest))
+
+    rc = check_manifest(path=str(p), source=p.read_text())
+
+    assert rc == 1
+    assert f"Manifest stale: {p}" in capsys.readouterr().out
+
+
+@pytest.mark.unit
+def test_check_manifest_reports_current_a_manifest_of_an_unchanged_source_with_its_class_entries(tmp_path, capsys):
+    src = "class Box:\n    LIMIT = 2\n\n\ndef f(a, b):\n    return a > b\n"
+    path, source_with_manifest = _source_with_current_manifest(tmp_path, src)
+    capsys.readouterr()
+
+    assert check_manifest(path=path, source=source_with_manifest) == 0
+    assert f"Manifest current: {path}" in capsys.readouterr().out
+
+
+@pytest.mark.unit
 def test_check_manifest_missing_source_sha256_falls_back_to_slow_path(tmp_path, capsys):
     """A manifest without source_sha256 (pre-existing, additive) still works via
     the full parse-and-compare path."""

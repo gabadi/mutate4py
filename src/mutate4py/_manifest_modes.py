@@ -2,6 +2,7 @@
 
 import datetime
 import logging
+import re
 
 from mutate4py._equivalent import marker_lines
 from mutate4py._manifest import (
@@ -22,6 +23,8 @@ from mutate4py._manifest_storage import (
 )
 
 _logger = logging.getLogger(__name__)
+
+_CLASS_LINE = re.compile(r"^[ \t\f]*class\b", re.MULTILINE)
 
 
 def update_manifest(*, path: str, source: str, manifest_file: bool = False) -> int:
@@ -85,9 +88,9 @@ def _fast_path_current(existing: dict, clean: str) -> bool:
 
     A matching source_sha256 cannot vouch for an accepted survivor: update_manifest
     rewrites the sha while keeping the reason, even when the marker is gone. Only
-    manifests with accepted survivors leave the fast path, so the rest stay parse-free.
+    manifests with accepted survivors, or a source with a class line, leave the fast path, so the rest stay parse-free.
     """
-    return _source_unchanged(existing, clean) and not has_accepted_survivors(existing)
+    return _source_unchanged(existing, clean) and not has_accepted_survivors(existing) and not _CLASS_LINE.search(clean)
 
 
 def _report_unmarked(path: str, existing: dict, candidate: dict, clean: str) -> bool:
@@ -103,7 +106,9 @@ def _report_unmarked(path: str, existing: dict, candidate: dict, clean: str) -> 
 
 def _verdict(path: str, existing: dict, candidate: dict, clean: str, suffix: str) -> int:
     """Return 0 and log current when the parsed manifest matches the source, else log stale and return 1."""
-    if manifests_structurally_equal(existing, candidate) or _source_unchanged(existing, clean):
+    if _unit_ids(existing) == _unit_ids(candidate) and (
+        manifests_structurally_equal(existing, candidate) or _source_unchanged(existing, clean)
+    ):
         _logger.info(f"Manifest current: {path}{suffix}")
         return 0
     _logger.info(f"Manifest stale: {path}")
@@ -125,3 +130,7 @@ def _source_unchanged(existing: dict, clean: str) -> bool:
     """True when the stored source_sha256 matches the stripped source (the fast path)."""
     existing_sha = existing.get("source_sha256")
     return existing_sha is not None and existing_sha == source_sha256(clean)
+
+
+def _unit_ids(manifest: dict) -> set[str]:
+    return {fn["id"] for fn in manifest["functions"]}
