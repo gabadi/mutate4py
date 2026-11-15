@@ -174,7 +174,7 @@ depends_on = []
 [[modules]]
 path = "mutate4py._digest_inputs"
 layer = "domain"
-depends_on = ["mutate4py._tests_digest"]
+depends_on = ["mutate4py._tests_digest", "mutate4py._sidecar_io"]
 
 # The fresh digest of each function in a measured file (#105): reads the Measurement's
 # reach, so it sits beside it in `baseline`.

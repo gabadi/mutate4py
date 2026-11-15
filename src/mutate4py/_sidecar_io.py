@@ -10,7 +10,9 @@ header).
 import json
 import os
 
-__all__ = ["parse_json_text", "read_json_sidecar", "serialize_json_sidecar", "write_json_sidecar"]
+__all__ = ["SIDECAR_SUFFIX", "parse_json_text", "read_json_sidecar", "serialize_json_sidecar", "write_json_sidecar"]
+
+SIDECAR_SUFFIX = ".manifest.json"
 
 
 def serialize_json_sidecar(data: dict) -> str:

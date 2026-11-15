@@ -142,3 +142,46 @@ def test_measurement_reach_maps_each_covered_line_to_the_test_files_that_reached
         2: frozenset({"tests/test_calc.py", "tests/sub/test_more.py"}),
     }
     assert inputs.all_test_files == frozenset({"tests/test_calc.py", "tests/sub/test_more.py"})
+
+
+@pytest.mark.unit
+def test_a_manifest_sidecar_is_never_a_support_file(digest_project):
+    _write(digest_project.root, {"tests/data/calc.py.manifest.json": "{}", "tests/data/rates.json": "{}"})
+
+    inputs = digest_inputs_from(digest_project.record, reach={})
+
+    assert "tests/data/rates.json" in inputs.support_files
+    assert "tests/data/calc.py.manifest.json" not in inputs.support_files
+
+
+@pytest.mark.unit
+def test_a_manifest_sidecar_next_to_code_is_never_a_support_file(digest_project):
+    _write(digest_project.root, {"pkg/test_calc.py": "", "pkg/calc.py.manifest.json": "{}", "pkg/rates.json": "{}"})
+    record = dataclasses.replace(digest_project.record, test_files=(str(digest_project.root / "pkg/test_calc.py"),))
+
+    inputs = digest_inputs_from(record, reach={})
+
+    assert "pkg/rates.json" in inputs.support_files
+    assert "pkg/calc.py.manifest.json" not in inputs.support_files
+
+
+@pytest.mark.unit
+def test_the_walk_stops_at_the_test_folder_of_the_app_that_holds_the_tests(digest_project):
+    _write(
+        digest_project.root,
+        {
+            "apps/a/tests/unit/test_x.py": "",
+            "apps/a/tests/data/rates.json": "{}",
+            "apps/a/settings.json": "{}",
+            "apps/b/tests/data/rates.json": "{}",
+            "apps/b/settings.json": "{}",
+        },
+    )
+    record = dataclasses.replace(
+        digest_project.record, test_files=(str(digest_project.root / "apps/a/tests/unit/test_x.py"),)
+    )
+
+    inputs = digest_inputs_from(record, reach={})
+
+    assert "apps/a/tests/data/rates.json" in inputs.support_files
+    assert not {"apps/a/settings.json", "apps/b/tests/data/rates.json", "apps/b/settings.json"} & inputs.support_files

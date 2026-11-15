@@ -9,7 +9,7 @@ the one caller that decides it).
 import dataclasses
 
 from mutate4py._manifest import embed_manifest, extract_manifest
-from mutate4py._sidecar_io import read_json_sidecar, write_json_sidecar
+from mutate4py._sidecar_io import SIDECAR_SUFFIX, read_json_sidecar, write_json_sidecar
 
 __all__ = [
     "ManifestLocation",
@@ -28,7 +28,7 @@ class ManifestLocation:
 
 def _sidecar_path(source_path: str) -> str:
     """Return the sidecar manifest path for a source file: <source_path>.manifest.json."""
-    return source_path + ".manifest.json"
+    return source_path + SIDECAR_SUFFIX
 
 
 def read_sidecar_manifest(source_path: str) -> tuple[dict | None, bool]:
