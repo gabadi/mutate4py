@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T05:27:17Z",
-  "module_hash": "fe472a7f0f85fb4c02de4ded7a25ec88ef37384f7ab7da2723f487a9c297792d",
-  "source_sha256": "6ba638f3d552f8bd5082bcb695ba5c9d78c3b31a4e33fec791142e4c35d4196f",
+  "tested_at": "2026-11-15T12:58:44Z",
+  "module_hash": "3f23d006fc7784beeab4183e175689a4bd232ab8a199ad4a10d543471207890a",
+  "source_sha256": "a6ae071c8f7eb59881d6f73df32af151b1ecf0caeeb09906027486ccf8815b07",
   "functions": [
     {
       "id": "func/SubprocessExecutor.__init__",
@@ -17,7 +17,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "d00c757fde26178e92946eb4873e2a4b094ca1853ba8a72fb4efc9bc67adafce"
     },
     {
       "id": "func/SubprocessExecutor.prime",
@@ -32,7 +32,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "d00c757fde26178e92946eb4873e2a4b094ca1853ba8a72fb4efc9bc67adafce"
     },
     {
       "id": "func/SubprocessExecutor.describe",
@@ -47,23 +47,29 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "d00c757fde26178e92946eb4873e2a4b094ca1853ba8a72fb4efc9bc67adafce"
     },
     {
       "id": "func/SubprocessExecutor.run",
       "name": "run",
       "line": 33,
-      "end_line": 36,
-      "hash": "4de7e7c0c29fc21a28772befe9cb595820e55d3adbf1d48950fbb5cf23474b9a",
+      "end_line": 43,
+      "hash": "e740280857c5ef9870e87e554028be932b76fa4a34db9a41d497ffe7cd2ec1fc",
       "score": {
         "killed": 0,
-        "survived": 0,
+        "survived": 1,
         "uncovered": 0
       },
       "survivors": [],
-      "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "accepted": [
+        {
+          "line": 38,
+          "desc": "False -> True",
+          "reason": "this executor counts nothing, so it never reads the flag"
+        }
+      ],
+      "tests_digest": "24526e13938548b118eeb7014e875127f3229db4e6f60a88aaa96bc6753652c1"
     }
   ],
-  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
+  "tests_fingerprint": "25ae60bbb800f9d6710a8e13285b1dcacf8cf632ef0d5b1e6e12cbba25d7a607"
 }

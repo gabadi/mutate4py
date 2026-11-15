@@ -5,7 +5,7 @@ executors are primed per Worker. Internals are covered in test_workers.py."""
 import pytest
 
 from mutate4py._discovery import discover_sites
-from mutate4py._test_dispatch import TimeoutPolicy
+from mutate4py._test_dispatch import NoTestsCollectedError, TimeoutPolicy
 from mutate4py._workers import ParallelRunError, ParallelRunRequest, run_parallel
 
 from ._worker_fakes_helpers import FakeExecutor, noop_on_result
@@ -71,6 +71,8 @@ def test_run_parallel_composes_narrowed_dispatch_with_workers(tmp_path, monkeypa
     sites = discover_sites(src)
     src_file = tmp_path / "calc.py"
     src_file.write_text(src)
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_calc.py").write_text("def test_f():\n    assert True\n")
     executor = FakeExecutor("killed")
 
     result = run_parallel(
@@ -163,6 +165,44 @@ def test_run_parallel_unrecognized_outcome_aborts_before_any_worker_is_provision
     assert provisioned == []
     assert executor.calls == []
     assert src_file.read_text() == src
+
+
+@pytest.mark.unit
+def test_run_parallel_node_id_file_missing_aborts_before_any_worker_is_provisioned(tmp_path, monkeypatch):
+    """A node id whose file is not under the run directory is a pytest exit 4 for every Mutant.
+    The plan says so before any Worker is provisioned, whatever the Mutant timeout is."""
+    import mutate4py._workers as workers_mod
+
+    provisioned: list[str] = []
+    monkeypatch.setattr(
+        workers_mod,
+        "_provision_workers",
+        lambda run_root, n_workers, real_cwd: provisioned.append(run_root) or [],
+    )
+
+    src = "def f(a, b):\n    return a > b\ndef g(a, b):\n    return a < b\n"
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(src)
+    executor = FakeExecutor("killed")
+
+    with pytest.raises(NoTestsCollectedError, match="member/tests/test_calc.py::test_f"):
+        run_parallel(
+            ParallelRunRequest(
+                selected_sites=discover_sites(src),
+                clean_source=src,
+                source_path=str(src_file),
+                cwd=str(tmp_path),
+                pytest_args=["-q"],
+                timeout_policy=_FIVE_SECOND_POLICY,
+                max_workers=2,
+                on_result=noop_on_result,
+                selection_source=_FakeSelectionSource("narrowed", ("member/tests/test_calc.py::test_f",)),
+                abs_source_path=str(src_file),
+                executor=executor,
+            )
+        )
+    assert provisioned == []
+    assert executor.calls == []
 
 
 # ── run_parallel: one Worker is primed once and serves every assigned site ───

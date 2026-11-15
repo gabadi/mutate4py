@@ -30,6 +30,27 @@ from mutate4py._plugin_neutralisation import neutralising_args
 _NO_TACH = ["-p", "no:tach"]
 
 
+# --- run: which dispatches the mode counts hold ---------------------------------
+
+
+@pytest.mark.unit
+def test_run_counts_a_mutant_by_the_mode_its_child_reported_and_leaves_a_control_run_out(tmp_path, monkeypatch):
+    executor = ForkingExecutor(cwd=str(tmp_path), guarded_path=str(tmp_path / "calc.py"), prime_args=_NO_TACH)
+    monkeypatch.setattr(executor, "_mode", "swap")
+    monkeypatch.setattr(executor, "_fork_and_wait", lambda child, timeout: "survived")
+
+    def reported_swap(read_fd):
+        os.close(read_fd)
+        return b"swap"
+
+    monkeypatch.setattr(mutate4py._forking_executor, "read_report", reported_swap)
+
+    assert executor.run(["-q"], 5.0, control=True) == "survived"
+    assert executor.describe().render() == "forking (fresh import 0, swap 0, fresh interpreter 0)"
+    assert executor.run(["-q"], 5.0) == "survived"
+    assert executor.describe().render() == "forking (fresh import 0, swap 1, fresh interpreter 0)"
+
+
 # --- is_available ------------------------------------------------------------
 
 
@@ -247,6 +268,22 @@ def test_run_survives_when_tests_pass(tmp_path):
     executor.prime()
     status = executor.run(_ARGS, timeout=30.0)
     assert status == "survived"
+
+
+@pytest.mark.system
+def test_a_control_run_is_left_out_of_the_mode_counts_describe_gives(tmp_path):
+    """A Control run is no Mutant, so the Executor line of the report must not count it."""
+    cwd, target = _write_fixture_project(
+        tmp_path,
+        target_body="def add(a, b):\n    return a + b\n",
+        test_body=_ADD_TEST_BODY,
+    )
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
+    executor.prime()
+    assert executor.run(_ARGS, timeout=30.0, control=True) == "survived"
+    assert executor.describe().render() == "forking (fresh import 0, swap 0, fresh interpreter 0)"
+    assert executor.run(_ARGS, timeout=30.0) == "survived"
+    assert executor.describe().render() == "forking (fresh import 1, swap 0, fresh interpreter 0)"
 
 
 @pytest.mark.system
@@ -527,21 +564,29 @@ def _deadline_clock(monkeypatch) -> list:
 
 
 @pytest.mark.unit
-def test_wait_for_child_reports_killed_when_child_dies_by_signal(monkeypatch):
-    """A child that dies from an external signal (not its own os._exit, e.g. a
-    mutant that crashes the interpreter) must still resolve to "killed", not
-    misread WEXITSTATUS on a status word that WIFSIGNALED, not WIFEXITED.
+def test_wait_for_child_reports_errored_when_child_dies_by_signal(monkeypatch):
+    """A child that dies from an external signal (not its own os._exit, e.g. a mutant that crashes the
+    interpreter) must still resolve, not misread WEXITSTATUS on a status word that WIFSIGNALED, not
+    WIFEXITED. It is "errored": a signal shows no test ran to completion, so a Control run it ends is no
+    proof that the argv runs tests.
 
     The status word is the one waitpid reports for a child killed by SIGTERM. The real
     fork path stays covered by the system-marked tests in this file."""
     monkeypatch.setattr(os, "waitpid", lambda pid, flags: (pid, int(signal.SIGTERM)))
-    assert _wait_for_child(_FAKE_CHILD, timeout=5.0) == "killed"
+    assert _wait_for_child(_FAKE_CHILD, timeout=5.0) == "errored"
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
     ("exit_code", "status"),
-    [(0, "survived"), (1, "killed"), (4, "usage-error"), (5, "no-tests-collected")],
+    [
+        (0, "survived"),
+        (1, "killed"),
+        (2, "errored"),
+        (3, "errored"),  # the child's own os._exit(3) when it fails before it can run pytest
+        (4, "usage-error"),
+        (5, "no-tests-collected"),
+    ],
 )
 def test_wait_for_child_classifies_the_exit_code_the_child_leaves(monkeypatch, exit_code, status):
     monkeypatch.setattr(os, "waitpid", lambda pid, flags: (pid, exit_code << 8))

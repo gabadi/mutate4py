@@ -30,7 +30,14 @@ class SubprocessExecutor:
     def describe(self) -> ExecutorDescription:
         return ExecutorDescription(mode="subprocess", reason=self._reason)
 
-    def run(self, args: list[str], timeout: float) -> str:
+    def run(
+        self,
+        args: list[str],
+        timeout: float,
+        *,
+        control: bool = False,  # mutate4py: equivalent this executor counts nothing, so it never reads the flag
+    ) -> str:
+        """Run pytest over args in a fresh process. This executor counts nothing, so `control` changes nothing."""
         invalidate_bytecode_cache(self._guarded_path)
         env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
         return run_argv([sys.executable, "-m", "pytest", *args], self._cwd, timeout, env=env)

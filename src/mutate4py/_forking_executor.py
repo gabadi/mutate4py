@@ -230,9 +230,10 @@ class ForkingExecutor:
             os._exit(70)  # pragma: no cover - every child entry point calls os._exit
         return _wait_for_child(pid, timeout)
 
-    def run(self, args: list[str], timeout: float) -> str:
+    def run(self, args: list[str], timeout: float, *, control: bool = False) -> str:
         """Fork a child that runs pytest once over args; return the classification.
-        The child reports how it ran (`child_mode`), counted for `describe` once it has ended."""
+        The child reports how it ran (`child_mode`), counted for `describe` once it has ended,
+        unless this is a Control run: that is no Mutant, so it is left out of the counts."""
         if self._mode is None:
             raise ForkingExecutorUnavailable("prime() must succeed before run()")
         read_fd, write_fd = os.pipe()
@@ -240,7 +241,9 @@ class ForkingExecutor:
             status = self._fork_and_wait(lambda: self._child(args, read_fd, write_fd), timeout)
         finally:
             os.close(write_fd)
-        self._counts[reported_mode(read_report(read_fd))] += 1
+        mode = reported_mode(read_report(read_fd))
+        if not control:
+            self._counts[mode] += 1
         return status
 
     def _child(self, args: list[str], read_fd: int, write_fd: int) -> None:
@@ -353,5 +356,5 @@ def _wait_for_child(pid: int, timeout: float) -> str:
             return "timeout"
         time.sleep(_POLL_INTERVAL)
     if os.WIFSIGNALED(status):
-        return "killed"
+        return "errored"
     return classify_exit_code(os.WEXITSTATUS(status))

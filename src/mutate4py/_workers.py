@@ -22,16 +22,17 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable
 
 from mutate4py._discovery import Site, apply_mutant
-from mutate4py._executor import Executor, ExecutorDescription, MutantTiming, combine_descriptions
+from mutate4py._executor import Executor, ExecutorDescription, combine_descriptions
 from mutate4py._plugin_neutralisation import disabled_plugin_args
 from mutate4py._worker_results import (
+    ParallelRunResult,
     _assign_sites_to_workers,
     _drop_one_result_if_injected,
     _summarize_results,
     _summarize_selection,
     _summarize_timing,
 )
-from mutate4py._test_dispatch import MutantPlan, PlanInputs, TimeoutPolicy, _check_execution_status, plan_sites
+from mutate4py._test_dispatch import ControlRuns, ControlTarget, MutantPlan, PlanInputs, TimeoutPolicy, plan_sites
 from mutate4py._worker_protocol import ServerLaunch, WorkerProcessError, WorkerProcessExecutor
 from mutate4py._worker_provision import (
     _copy_tree,
@@ -65,6 +66,7 @@ class WorkerRunSettings:
     clean_source: str
     on_result: Callable
     abs_source_path: str = ""
+    controls: ControlRuns = dataclasses.field(default_factory=ControlRuns)
 
 
 @dataclasses.dataclass
@@ -111,19 +113,6 @@ class ParallelRunError(Exception):
 
 class WorkerFailureError(ParallelRunError):
     pass
-
-
-@dataclasses.dataclass
-class ParallelRunResult:
-    """What one parallel dispatch hands back: the tallies, the Survivors in site
-    order, the selection tally (None without a selection source), the Mutants'
-    timing, and the Executor description the Workers gave of themselves."""
-
-    counts: dict[str, int]
-    survivors: list[Site]
-    selection_counts: dict[str, int] | None
-    timing: MutantTiming
-    executor_description: ExecutorDescription
 
 
 def _provision_worker(worker_root: str, required: frozenset[str]) -> None:
@@ -190,10 +179,9 @@ def _run_one_site(assignment: SiteAssignment, executor: Executor, settings: Work
         started = time.monotonic()
         status = executor.run(plan.args, plan.timeout)
         seconds = time.monotonic() - started
-        # Raises before the caller can tally: a Mutant pytest never
-        # exercised must never reach the tally as `killed` (issue #55).
-        # The finally clause below still restores the worker's file copy.
-        _check_execution_status(status, settings.abs_source_path, assignment.site)
+        # Raises before a tally: a Mutant pytest never exercised must not count as `killed` (issue #55).
+        target = ControlTarget(assignment.worker_file_path, settings.clean_source, executor, settings.abs_source_path)
+        status = settings.controls.settle(status, plan, assignment.site, target)
     except WorkerProcessError as e:
         raise WorkerFailureError(f"worker-{assignment.worker_idx} process failed: {e}") from e
     finally:
@@ -317,6 +305,7 @@ def _plan_inputs(request: ParallelRunRequest) -> PlanInputs:
         abs_source_path=request.abs_source_path,
         timeout_policy=request.timeout_policy,
         positionals=request.positionals,
+        cwd=request.cwd,
     )
 
 

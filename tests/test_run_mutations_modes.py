@@ -345,7 +345,7 @@ class _FakeExecutor:
     def prime(self):
         self.primed = True
 
-    def run(self, args, timeout):
+    def run(self, args, timeout, *, control=False):
         self.calls.append(list(args))
         return self._status
 

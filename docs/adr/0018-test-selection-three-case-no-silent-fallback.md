@@ -169,3 +169,73 @@ Survivor of a non-accepted Site is re-run with the full test set through the sub
 executor (ADR 0028), and counts only if it survives that run too. A narrowed list cannot
 name a test that matters only through state it reads, so this re-run is the step that
 catches it.
+
+## Amended: a Mutant can cause exit 4 or 5 (0.3.1)
+
+Case 4 read pytest exit 4 or 5 as a defect in the pytest argv, always. That is wrong for
+one cause: a Mutant that breaks a module at import time. When a conftest imports that
+module, the conftest fails to load and pytest exits 4. The Mutant is the cause, and
+the Mutant is killed. In 0.3.0 the run stopped with exit 2 instead.
+
+The exit code cannot tell the two causes apart. So the run asks the original code, with a
+Control run. It applies to exit 4 and exit 5 alike.
+
+- **The Control run.** When a Mutant ends in exit 4 or 5, the run restores the original
+  source and runs the same pytest argv once, under the same timeout, through the same
+  Executor. If tests run, the argv is good and the Mutant caused the exit: the Mutant is
+  `killed`. Tests ran only if pytest exited 0 or 1 (all passed, or a test failed). Any
+  other end shows nothing about the argv: exit 4 or 5 again, a timeout, or `errored`.
+  Then the argv is the suspect and the run aborts with exit 2, as case 4 always did. A
+  run that proves nothing about the argv must not turn a failure into a kill.
+- **The abort says what the Control run gave.** The message names the Mutant's own exit,
+  then says that a Control run of the same pytest args on the original code ran, and how
+  it ended: in exit 4 or 5 too (the args are the defect), in a timeout, or `errored`. A
+  timeout or `errored` shows nothing of the args, so the message says it did not show
+  whether the args or the Mutant caused the exit. Without that, a Control run that timed
+  out told the user to check `--pytest-args` for an argv that was fine.
+- **`errored`.** An Executor reports `errored` for a pytest that ended with no result:
+  exit 2 (interrupted) or 3 (internal error), any other exit code, a signal, or a process
+  that did not start. Before 0.3.1 the Executors reported these as `killed`, so one Control
+  run ended by a signal looked like proof that tests ran. It cleared a bad argv for the
+  rest of the run, and every later exit 4 was scored `killed`: the false win this case
+  exists to stop. A Mutant that ends `errored` is still a kill (ADR 0011): the run folds
+  it into `killed` before it tallies.
+- **One Control run per argv.** Once a Control run has run tests, its argv is cleared
+  for the rest of the run. A later Mutant that ends in exit 4 or 5 with that argv is
+  killed with no new Control run. A Control run that ran no test is not remembered,
+  because the run aborts on it. The serial loop and Survivor confirmation each keep their
+  own record. A parallel run keeps one record for all its Workers: the argv is the same in
+  every Worker tree.
+- **The Control run is not counted as a Mutant.** It is not a Mutant, so the `Time:` line
+  does not time it and the `Executor:` line does not count it. The run tells the Executor
+  that a dispatch is a Control run (the `control` flag of `Executor.run`, which a Worker
+  carries in its request). A forking Executor runs it but leaves it out of its mode
+  counts, so the three counts add up to the number of Mutants that ran.
+
+**The timing dependence on `--no-fork` (0.3.0).** A node id from the Measurement is
+relative to pytest's rootdir. Mutants run from the working directory. When the two
+differ, every narrowed Mutant names a file pytest cannot find. Such a Mutant ended
+either in exit 4 (the abort) or in the Mutant timeout, which is scored `killed`
+(ADR 0011). Which one came first depended on whether pytest started before the
+timeout. The same project gave an abort on one run and a run of silent kills on the
+next. The Control run alone would not fix this: it must stay a dynamic proof, and a
+timeout proves nothing.
+
+So the plan now checks the node ids of a Site before it dispatches that Site's Mutant.
+For a narrowed Site, the file part of every node id must exist under the working
+directory. If one does not, the run raises the case 4 error, with no race against the
+timeout. The message names the node id and says to run mutate4py from the pytest rootdir.
+
+When the check runs depends on the path. The serial loop plans one Site at a time, so the
+Mutants of earlier Sites have run when a later Site aborts. A parallel run plans every
+Site before it provisions a Worker, so no Mutant has run. The result is the same on every
+run and every Executor, under any timeout: the run aborts with exit 2.
+
+**Rejected: drop exit 4 from the abort.** An argv that names a path that does not exist
+is a real defect, and exit 4 is how pytest reports it. Without the abort, every Mutant
+would be scored `killed` while nothing tested it: the false win this case exists to stop.
+
+**Rejected: tell the cause from pytest's output.** Matching `ImportError while loading
+conftest` in the output ties the rule to pytest's wording and to one failure shape. The
+Control run asks the question that matters, whether this argv runs tests on the original
+code, and gives the same answer for every cause.

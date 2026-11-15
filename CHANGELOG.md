@@ -14,7 +14,32 @@
   autoload off is still scored (not silently Uncovered). When unsure, the switch is kept. Amends
   ADR 0020.
 
-## 0.3.0 (unreleased)
+## 0.3.1
+
+### Fixed
+
+- A Mutant that breaks a module at import time is killed. In 0.3.0 it stopped the run with
+  exit 2 (`pytest ran no test for a Mutant ... exit 4`), when a conftest imported the module.
+  When a Mutant ends in pytest exit 4 or 5, the run now makes a Control run: the same pytest
+  argv on the original code. If tests run there (pytest exit 0 or 1), the Mutant broke the run
+  and is killed. If the Control run ends in any other way (exit 4 or 5 again, a timeout, an
+  interrupted or crashed pytest), the argv is the suspect and the run still aborts with exit 2
+  (ADR 0018 amendment). The abort message says that a Control run on the original code ran and
+  how it ended: a Control run that timed out no longer reads as a bad `--pytest-args`.
+  The Control run is not a Mutant: the `Executor:` line leaves it out of its counts, as the
+  `Time:` line leaves it out of its timing. Before, three Mutants could show as four runs.
+- An Executor now reports `errored` for a pytest that ended with no result (exit 2 or 3, any
+  other exit code, a signal, a process that did not start). It reported `killed` before, so one
+  such Control run could clear a bad argv and score every later exit 4 as killed. A Mutant that
+  ends `errored` is still a kill, and the report is unchanged.
+- A node id from another pytest rootdir now aborts the run, the same way on every run and
+  every Executor. The plan checks the node ids of a Site before it dispatches that Site's
+  Mutant. The serial loop plans one Site at a time, so Mutants of earlier Sites run first;
+  a parallel run plans every Site before it provisions a Worker. In 0.3.0 the result
+  depended on timing: the run aborted, or each Mutant timed out and was scored killed. The
+  message names the node id and says to run mutate4py from the pytest rootdir.
+
+## 0.3.0
 
 The run measures coverage itself and re-scores only what changed (spec #89). Decisions
 are in [`docs/adr/`](docs/adr/): ADR 0027 (the Measurement), ADR 0028 (executors),
