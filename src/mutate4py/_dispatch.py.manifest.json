@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T21:50:24Z",
-  "module_hash": "c2914291ea069fc7c2d655e7dedbcd011d2bee87aa4c235e9bd5909ebced4f5f",
-  "source_sha256": "372f12e8986e33bf64f440a1bb420d687432d68973d4f677243e549a9c207047",
+  "tested_at": "2026-11-15T22:32:52Z",
+  "module_hash": "865255d3cf5cff83f42d20f70b11e04b2d05d276973018871622553e5450add1",
+  "source_sha256": "025f5869ea1c6322f03bf11b44730369925eee0ab76b3baaaa68ee22a8ca1913",
   "functions": [
     {
       "id": "func/_load_source",
@@ -17,7 +17,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_syntax_error_reason",
@@ -32,7 +32,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "aa6aaa43055d4b50cfabbd0413cd049fc0da78ddb85478bc3e3b5aa78ee88df1"
+      "tests_digest": "342131530c0f3199482ba2e9ca69df208684249937b4e3a0b4cbf6c6d8175aef"
     },
     {
       "id": "func/_report_parse_error",
@@ -47,7 +47,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_parse_pytest_args",
@@ -62,7 +62,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "8731c3608842ffe9e4a61deaea86288e4297e4d894f506570759ba29ea002691"
+      "tests_digest": "103e615ce1175078db016b6e892abd18aec383bbe31ddc445983c4027733c099"
     },
     {
       "id": "func/_run_scan",
@@ -77,7 +77,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "class/BatchShare",
@@ -92,7 +92,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_run_on_file",
@@ -107,7 +107,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "760a92b555ea3d86bd677e8829a5a335bf0717e841eceee73a1e5a67438e0e3a"
+      "tests_digest": "d8f929902cd250e354f00836ded27c42c267227400233b157148f6065a35f8f9"
     },
     {
       "id": "func/_needs_measurement",
@@ -122,7 +122,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "9708b5dae9a2ba14f723d097d394ee35a85c227a9e92b56e25fb8f6feff8075b"
+      "tests_digest": "a780a4afdccabfdf3b029f8d3697535daf8f9ba8a6f04e839008e56222bdf856"
     },
     {
       "id": "func/_exit_if_skipped",
@@ -137,7 +137,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "5d4621953a5d7ddb82bde6eec74858cc3415932078dda84c2ae2a3fc9eb18947"
+      "tests_digest": "bd0939acdce34ac295e28a438b062a0524df88fbdba30e045fb5b77758a4998f"
     },
     {
       "id": "func/_prepare_directory_measurement",
@@ -152,7 +152,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_report_excluded",
@@ -167,7 +167,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_collect_union_files",
@@ -182,7 +182,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "fd1cf142cbed3267b6013db40557370377fa74d532bee4b0237de3f9eaf05cb3"
+      "tests_digest": "c96e67df536527cfdb92ae610453ba4be520bd9785e820e06fd0afa054dbfdea"
     },
     {
       "id": "func/_run_each_file",
@@ -197,7 +197,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "4c141fa3d8b0ef4690886b3b37b96b7667b7be05a000b5c9672dfe04690613e7"
+      "tests_digest": "24c4f965c53def819e14003199d67363a9c620e379f62768a69654a8411bf8e5"
     },
     {
       "id": "func/_run_files_and_exit",
@@ -212,7 +212,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "4c141fa3d8b0ef4690886b3b37b96b7667b7be05a000b5c9672dfe04690613e7"
+      "tests_digest": "24c4f965c53def819e14003199d67363a9c620e379f62768a69654a8411bf8e5"
     },
     {
       "id": "func/_dispatch_batch",
@@ -227,7 +227,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_raise_if_target_excluded",
@@ -242,7 +242,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "8731c3608842ffe9e4a61deaea86288e4297e4d894f506570759ba29ea002691"
+      "tests_digest": "103e615ce1175078db016b6e892abd18aec383bbe31ddc445983c4027733c099"
     },
     {
       "id": "func/_resolve_roots",
@@ -257,14 +257,14 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_dispatch",
       "name": "_dispatch",
       "line": 270,
-      "end_line": 305,
-      "hash": "6f04cdaa909aafa35ad0af05a697d783e710539e2b815dc3e2394ac253c339e3",
+      "end_line": 304,
+      "hash": "4bbea327afd6794fe3194b3fe754b1fb36dc3363569377ad75291ab79586e40e",
       "score": {
         "killed": 3,
         "survived": 0,
@@ -272,8 +272,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "abc37c1ee58da11f7a5763e1c07a3b70e31290e3ddc904da1ea5fc5be0cdb22c"
+      "tests_digest": "6a7214e91e311c57225a8ea8d79f7f0e9b1d3cbd21dd98b4b18f9c9d884301dd"
     }
   ],
-  "tests_fingerprint": "cbf5e43b095b8d37a686182df6e665c038f959cfad322098fafde582c58f5ead"
+  "tests_fingerprint": "293aa98b64e7d47b2e413d8da39ab7a3022363f79dc48eee51d579864ea7a380"
 }
