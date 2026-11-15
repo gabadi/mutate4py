@@ -1,6 +1,8 @@
 """Step handlers for features/tests-digest.feature (the skip rule and recorded Survivors)."""
 
+import atexit
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -38,12 +40,41 @@ class Context:
 ctx = Context()
 
 
-def _write_project(files: dict[str, str], target: str) -> None:
-    ctx.root = tempfile.mkdtemp()
+# Each project kind is written and scored once per process. A scenario starts from a copy of
+# that scored state, so the identical first run is not repeated for every scenario. The cache
+# holds only the copied-from projects; every scenario edits its own copy.
+_SCORED: dict[str, tuple[str, subprocess.CompletedProcess]] = {}
+_cache_root: str | None = None
+
+
+def _project_cache_root() -> str:
+    global _cache_root
+    if _cache_root is None:
+        _cache_root = tempfile.mkdtemp(prefix="tests_digest_cache_")
+        atexit.register(shutil.rmtree, _cache_root, ignore_errors=True)
+    return _cache_root
+
+
+def _build_scored(kind: str, files: dict[str, str], target: str) -> tuple[str, subprocess.CompletedProcess]:
+    """Write the project of `kind` into a fresh cache directory, score it once, and return that directory and the first run."""
+    ctx.root = tempfile.mkdtemp(prefix=f"{kind}_", dir=_project_cache_root())
     ctx.target = target
     ctx.cli_result = None
     for rel, text in files.items():
         _write(rel, text)
+    _score_project()
+    return ctx.root, ctx.cli_result
+
+
+def _write_project(kind: str, files: dict[str, str], target: str) -> None:
+    """Give ctx a fresh copy of the project of `kind`, already scored once, with that first run as its result."""
+    if kind not in _SCORED:
+        _SCORED[kind] = _build_scored(kind, files, target)
+    cache_dir, first = _SCORED[kind]
+    ctx.root = tempfile.mkdtemp()
+    shutil.copytree(cache_dir, ctx.root, dirs_exist_ok=True)
+    ctx.target = target
+    ctx.cli_result = first
 
 
 def _write(rel: str, text: str) -> None:
@@ -84,8 +115,7 @@ def _score_project() -> None:
 
 @step(r"a project of five modules, each with its own tests, scored once")
 def given_digest_project(m, params):
-    _write_project(DIGEST_PROJECT_FILES, "src")
-    _score_project()
+    _write_project("digest", DIGEST_PROJECT_FILES, "src")
     ctx.scored = sorted(rescored_function_ids(ctx.cli_result.stdout))
     assert len(ctx.scored) == 6, _shown()
     assert ctx.cli_result.returncode == 0, _shown()
@@ -93,8 +123,7 @@ def given_digest_project(m, params):
 
 @step(r"a module whose two functions survive their tests, scored once")
 def given_survivor_project(m, params):
-    _write_project(SURVIVOR_PROJECT_FILES, "sur.py")
-    _score_project()
+    _write_project("survivor", SURVIVOR_PROJECT_FILES, "sur.py")
     assert survivor_ids(ctx.cli_result.stdout) == ["func/keep", "func/other"], _shown()
     assert ctx.cli_result.returncode == 3, _shown()
 
