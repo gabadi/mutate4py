@@ -135,7 +135,13 @@ class MutantTiming:
 class Executor(Protocol):
     def prime(self) -> None: ...
 
-    def run(self, args: list[str], timeout: float, *, control: bool = False) -> str:
+    def run(
+        self,
+        args: list[str],
+        timeout: float,
+        *,
+        control: bool = False,  # mutate4py: equivalent a Protocol method has no body that reads the flag
+    ) -> str:
         """Run pytest once over args and classify how it ended.
 
         `control` marks a Control run: a re-run of the same args on the original code, which proves nothing
