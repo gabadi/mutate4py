@@ -1,4 +1,4 @@
-"""Integration tests for issue 05: per-Worker Django test databases.
+"""System tests for issue 05: per-Worker Django test databases.
 
 Real mutate4py CLI subprocess, real Django, real pytest-django, no fakes —
 against the reduced fixture project at tests/fixtures/django_project

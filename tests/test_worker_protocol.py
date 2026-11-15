@@ -345,7 +345,7 @@ def test_close_before_prime_is_a_no_op():
 
 
 def _provision_test_worker(tmp_path) -> None:
-    """Component-test stand-in for `uv venv` + `uv sync`. The Worker's own
+    """System-test stand-in for `uv venv` + `uv sync`. The Worker's own
     interpreter is this test process's venv, linked in as <root>/.venv so
     <root>/.venv/bin/python resolves the same site-packages (pytest and the
     editable mutate4py included)."""

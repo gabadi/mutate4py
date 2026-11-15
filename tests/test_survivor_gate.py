@@ -1,6 +1,6 @@
 """Survivor gate (#76): a scored run with an unaccepted survivor exits 3.
 
-Component tests drive run_mutations in-process with real pytest subprocesses.
+System tests drive run_mutations in-process with real pytest subprocesses.
 Each run is handed the Measurement the test states (see `_measurement_helpers`),
 so a test controls which lines the suite reached without a coverage file.
 Unit tests cover the --allow-survivors flag, its rejection in no-run modes,
