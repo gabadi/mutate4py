@@ -45,6 +45,11 @@ def _autoload_off_env() -> dict[str, str]:
     return {**os.environ, AUTOLOAD_SWITCH: "1", ADDOPTS: ""}
 
 
+def _autoload_on_env() -> dict[str, str]:
+    """Autoload on and no PYTEST_ADDOPTS: the system-test fixture sets both for the tests' own nested runs."""
+    return {**{k: v for k, v in os.environ.items() if k != AUTOLOAD_SWITCH}, ADDOPTS: ""}
+
+
 @pytest.mark.system
 def test_a_run_with_autoload_off_and_no_pytest_cov_scores_normally(tmp_path):
     run = _scored(tmp_path, "-q tests", _autoload_off_env())
@@ -83,7 +88,7 @@ def test_a_run_whose_inifile_addopts_load_pytest_cov_with_autoload_off_scores_th
 
 @pytest.mark.system
 def test_a_run_that_turns_autoload_off_in_its_pytest_args_and_names_no_plugin_scores_normally(tmp_path):
-    run = _scored(tmp_path, "-q --disable-plugin-autoload tests", {**os.environ, ADDOPTS: ""})
+    run = _scored(tmp_path, "-q --disable-plugin-autoload tests", _autoload_on_env())
 
     assert run.returncode == 0, run.stdout + run.stderr
     assert "unrecognized arguments" not in run.stdout + run.stderr
@@ -92,7 +97,7 @@ def test_a_run_that_turns_autoload_off_in_its_pytest_args_and_names_no_plugin_sc
 
 @pytest.mark.system
 def test_a_run_that_blocks_pytest_cov_with_autoload_on_scores_normally(tmp_path):
-    run = _scored(tmp_path, "-q -p no:pytest_cov tests", nested_pytest_env(os.environ, autoload=True))
+    run = _scored(tmp_path, "-q -p no:pytest_cov tests", _autoload_on_env())
 
     assert run.returncode == 0, run.stdout + run.stderr
     assert "unrecognized arguments" not in run.stdout + run.stderr
