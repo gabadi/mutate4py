@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T13:18:58Z",
+  "tested_at": "2026-11-15T05:27:17Z",
   "module_hash": "fe472a7f0f85fb4c02de4ded7a25ec88ef37384f7ab7da2723f487a9c297792d",
   "source_sha256": "6ba638f3d552f8bd5082bcb695ba5c9d78c3b31a4e33fec791142e4c35d4196f",
   "functions": [
@@ -9,28 +9,61 @@
       "name": "__init__",
       "line": 22,
       "end_line": 25,
-      "hash": "423875ff1852a658716d39ee3780ccabc0e48e2538a8121d370b3c6b60141957"
+      "hash": "423875ff1852a658716d39ee3780ccabc0e48e2538a8121d370b3c6b60141957",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     },
     {
       "id": "func/SubprocessExecutor.prime",
       "name": "prime",
       "line": 27,
       "end_line": 28,
-      "hash": "bcb854db40f6cbb816c5355e11c30391c297eda67586e644f1349efcdf3f8a01"
+      "hash": "bcb854db40f6cbb816c5355e11c30391c297eda67586e644f1349efcdf3f8a01",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     },
     {
       "id": "func/SubprocessExecutor.describe",
       "name": "describe",
       "line": 30,
       "end_line": 31,
-      "hash": "b25e38956a2752d3d64e5fc045dcd906fe48557cf1335306bd5031a5bc6ebf93"
+      "hash": "b25e38956a2752d3d64e5fc045dcd906fe48557cf1335306bd5031a5bc6ebf93",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     },
     {
       "id": "func/SubprocessExecutor.run",
       "name": "run",
       "line": 33,
       "end_line": 36,
-      "hash": "4de7e7c0c29fc21a28772befe9cb595820e55d3adbf1d48950fbb5cf23474b9a"
+      "hash": "4de7e7c0c29fc21a28772befe9cb595820e55d3adbf1d48950fbb5cf23474b9a",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     }
-  ]
+  ],
+  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
 }

@@ -1,0 +1,294 @@
+{
+  "version": 1,
+  "tested_at": "2026-11-15T05:06:49Z",
+  "module_hash": "0da70f3d4473d297b2956855c62b24f93956cb1b05d57e7f27bf5ef616394e86",
+  "source_sha256": "b15afea2f473a438525d1c722dae5e2eafee593b0a43b9cd139061469fab5509",
+  "functions": [
+    {
+      "id": "func/ancestors",
+      "name": "ancestors",
+      "line": 25,
+      "end_line": 37,
+      "hash": "4b329cbe03f8c3f8b54f9003b351a1ee91ebe597ee292ea6c6eb639a1aaddce7",
+      "score": {
+        "killed": 2,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ece229641e9f3aa7a362a225209a3b4bab43bd7511191e5e425978a0930ad667"
+    },
+    {
+      "id": "func/_has_ini_section",
+      "name": "_has_ini_section",
+      "line": 44,
+      "end_line": 51,
+      "hash": "5ca43818e25aa481d5f9d664179f86fdd3bb207e110654bef4cfb225832632c6",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "b5cf183b07be46f9abd7f9dfef153c92085f91f0b473ff3833861e6d185b7ae8"
+    },
+    {
+      "id": "func/_pyproject_configures_pytest",
+      "name": "_pyproject_configures_pytest",
+      "line": 54,
+      "end_line": 66,
+      "hash": "542974bffd19eb9525b26fa3d2134edcd18ce9285332d0565578d26a4e2dc6de",
+      "score": {
+        "killed": 5,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "c7aeb05dd9889f8524220ce0b4da7998ded155956f8bd96f0df1587db5cc6c49"
+    },
+    {
+      "id": "func/_is_inifile",
+      "name": "_is_inifile",
+      "line": 69,
+      "end_line": 87,
+      "hash": "8f126172c399cc947bf071f27b86db0f70593a40ce80c076e9738856d8f47de2",
+      "score": {
+        "killed": 6,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "c7aeb05dd9889f8524220ce0b4da7998ded155956f8bd96f0df1587db5cc6c49"
+    },
+    {
+      "id": "func/_holds_inifile",
+      "name": "_holds_inifile",
+      "line": 90,
+      "end_line": 93,
+      "hash": "430c132423e64e2aea5a77f2d8a2c59f2e5d88d1c0fbedaeb431877f55c5b74e",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ece229641e9f3aa7a362a225209a3b4bab43bd7511191e5e425978a0930ad667"
+    },
+    {
+      "id": "func/inifile_dir",
+      "name": "inifile_dir",
+      "line": 96,
+      "end_line": 105,
+      "hash": "f62d5c193ea71f29bf62ebfc24e4eca89dfa68558f3134a4744944791edc0d0d",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ece229641e9f3aa7a362a225209a3b4bab43bd7511191e5e425978a0930ad667"
+    },
+    {
+      "id": "func/up_to",
+      "name": "up_to",
+      "line": 108,
+      "end_line": 110,
+      "hash": "9e21713f7fe73d7fa9a329474798c722467ec23c2b53180c5cd961ae918448f8",
+      "score": {
+        "killed": 3,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "75b62fe2b12c776142569a690c1aafe911f0a0635d3c7f450bc77257d064f871"
+    },
+    {
+      "id": "func/_attached_value",
+      "name": "_attached_value",
+      "line": 113,
+      "end_line": 117,
+      "hash": "cea18e29917c613976f7303058d7cb732b14053ead4860aee84d7cd941269518",
+      "score": {
+        "killed": 5,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "6bdf564032e79c8b8d42018de8f2911d076d51b226f8498ebf1501950e1b5931"
+    },
+    {
+      "id": "func/_value_at",
+      "name": "_value_at",
+      "line": 120,
+      "end_line": 129,
+      "hash": "e7505a60823c355a737c1951b8aff8b485ce48490eba0f69da96fbfd5c6e7669",
+      "score": {
+        "killed": 8,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "6bdf564032e79c8b8d42018de8f2911d076d51b226f8498ebf1501950e1b5931"
+    },
+    {
+      "id": "func/option_values",
+      "name": "option_values",
+      "line": 132,
+      "end_line": 135,
+      "hash": "ca4a529cb0006de6b2f1567d4d535e612530cb24a3836545aa200cb9ceab8f7e",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ece229641e9f3aa7a362a225209a3b4bab43bd7511191e5e425978a0930ad667"
+    },
+    {
+      "id": "func/last_option_value",
+      "name": "last_option_value",
+      "line": 138,
+      "end_line": 141,
+      "hash": "8df958e1cfe66d5b100a48f9c04493533fabbd497213dee1ddbb9cde53a07d4e",
+      "score": {
+        "killed": 2,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ece229641e9f3aa7a362a225209a3b4bab43bd7511191e5e425978a0930ad667"
+    },
+    {
+      "id": "func/explicit_bound",
+      "name": "explicit_bound",
+      "line": 150,
+      "end_line": 159,
+      "hash": "93f792f12115f8a6925104212a889dc9edd86c24d37df8dad2c11cf713bc2aff",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+    },
+    {
+      "id": "func/_rootdir_option",
+      "name": "_rootdir_option",
+      "line": 162,
+      "end_line": 165,
+      "hash": "6bd960a4a48fb07070316d4ff5189c9641a2cc5e8fff25ff1c4b1fe967cf3035",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+    },
+    {
+      "id": "func/_as_dict",
+      "name": "_as_dict",
+      "line": 168,
+      "end_line": 170,
+      "hash": "6607b476a0702588cae42cdb78d92b592009339d17edad7b8a49089e61f09151",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+    },
+    {
+      "id": "func/_toml_addopts",
+      "name": "_toml_addopts",
+      "line": 173,
+      "end_line": 178,
+      "hash": "7f4635779ee2cb3d377019305e1c346c150d312f94e96aa7406c91ec7ebc8160",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "c7aeb05dd9889f8524220ce0b4da7998ded155956f8bd96f0df1587db5cc6c49"
+    },
+    {
+      "id": "func/_addopts_of",
+      "name": "_addopts_of",
+      "line": 181,
+      "end_line": 198,
+      "hash": "bb0b9128d25e4400d1f58f2372029ff5da9b031b83f37bd2b1dc7b19c77a1aea",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+    },
+    {
+      "id": "func/_searched_config_files",
+      "name": "_searched_config_files",
+      "line": 201,
+      "end_line": 204,
+      "hash": "6f03a78830ae877dc35a17b67cb690d1d455a022129da0d38057d6364add5ac9",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+    },
+    {
+      "id": "func/_addopts_set_confcutdir",
+      "name": "_addopts_set_confcutdir",
+      "line": 207,
+      "end_line": 218,
+      "hash": "9445b71ed0d383a09866c15a80fc66015b10bd115bc738bf20f3effdb9115c46",
+      "score": {
+        "killed": 4,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ece229641e9f3aa7a362a225209a3b4bab43bd7511191e5e425978a0930ad667"
+    },
+    {
+      "id": "func/conftest_bounds",
+      "name": "conftest_bounds",
+      "line": 221,
+      "end_line": 242,
+      "hash": "3b53c6ee407d5b539ec6a464a1a6a5e541df2f013d7320763af1c5e5af93870a",
+      "score": {
+        "killed": 2,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ece229641e9f3aa7a362a225209a3b4bab43bd7511191e5e425978a0930ad667"
+    }
+  ],
+  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
+}

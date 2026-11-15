@@ -1,29 +1,54 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T21:42:21Z",
-  "module_hash": "0f24bbc15f17815c72913fe39730d4d58cb93515b1026f38377b7fdb2f7ffb6a",
-  "source_sha256": "ef46921e1ab6fcaffe35179b61fb19439511afeb32b7fd0208b57b9f1748f612",
+  "tested_at": "2026-11-15T05:26:04Z",
+  "module_hash": "d77bae2377dc69951ab19db5f2922319455c294ff9dc2b10b016da92b9a7c2dd",
+  "source_sha256": "b829b3cd8457f1330a00f6e22b757d334fd6afdf429747c7074511f3696a2a29",
   "functions": [
     {
       "id": "func/token_roles",
       "name": "token_roles",
-      "line": 49,
-      "end_line": 69,
-      "hash": "5ae653a6a22f379a1d9ae9e70a8effb4e4562a21441f371840bd4d4c3d97c95b"
+      "line": 50,
+      "end_line": 70,
+      "hash": "5ae653a6a22f379a1d9ae9e70a8effb4e4562a21441f371840bd4d4c3d97c95b",
+      "score": {
+        "killed": 4,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "1af8072e9bea8997f98234175d9dc4eb4791279bf63a3727edfeb6b5d06caf61"
     },
     {
       "id": "func/flag_tokens",
       "name": "flag_tokens",
-      "line": 72,
-      "end_line": 74,
-      "hash": "15ee3c5b1bb3a5f52659f00fc93981911edb073003d54a9e8b2bc25d1f713dcf"
+      "line": 73,
+      "end_line": 75,
+      "hash": "15ee3c5b1bb3a5f52659f00fc93981911edb073003d54a9e8b2bc25d1f713dcf",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "21bc49e4e0a77dee2c8a205c505d50a41fb484022470c652820051eb6cf8eb46"
     },
     {
       "id": "func/positional_tokens",
       "name": "positional_tokens",
-      "line": 77,
-      "end_line": 79,
-      "hash": "ecebeebb220cb423966d97c2be61c26d87f4e9426fbfe85f811994671b71ef18"
+      "line": 78,
+      "end_line": 80,
+      "hash": "ecebeebb220cb423966d97c2be61c26d87f4e9426fbfe85f811994671b71ef18",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "21bc49e4e0a77dee2c8a205c505d50a41fb484022470c652820051eb6cf8eb46"
     }
-  ]
+  ],
+  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
 }

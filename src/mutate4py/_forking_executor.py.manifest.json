@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T06:04:30Z",
+  "tested_at": "2026-11-15T11:46:10Z",
   "module_hash": "5abdaab8f3cc9e9b10d54b59dd8251bf949326dc4938e46f9e918a5dcf15a2d2",
   "source_sha256": "ade276179d92c1e770cd58869e373c8fd90d7c1b926ceadcc995c8e0a92dcfd8",
   "functions": [
@@ -335,5 +335,5 @@
       "tests_digest": "6a6338494daabf02dcdb285d0e2b8162def87870add171c2316b4f9ff3c8e886"
     }
   ],
-  "tests_fingerprint": "c8c12c63fac38391b40ed3d4d9a9a1f33c764dcc6898074d404686b25a803ca0"
+  "tests_fingerprint": "af64abda1fbfd47dd58bd7d2999f8924072729b045afbc1eab051062434d2228"
 }

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "tested_at": "2026-08-11T02:30:13Z",
+  "tested_at": "2026-11-15T05:20:32Z",
   "module_hash": "a285f923fc4053dc57570a65d657eae4ab84711740cacd819eeada247e1f4e00",
   "source_sha256": "dced6064b7e0625942e56284beefb5c6350c4051d848752e8933faa215c4814e",
   "functions": [
@@ -9,7 +9,16 @@
       "name": "pytest_configure",
       "line": 25,
       "end_line": 33,
-      "hash": "7e12d343239e2c9309e4615d6e1af9d37a2f20c3d38298e717b26a8ee61566d9"
+      "hash": "7e12d343239e2c9309e4615d6e1af9d37a2f20c3d38298e717b26a8ee61566d9",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     }
-  ]
+  ],
+  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
 }

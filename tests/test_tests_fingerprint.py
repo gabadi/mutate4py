@@ -2,6 +2,7 @@
 
 import dataclasses
 import importlib.metadata
+import shlex
 import sys
 
 import pytest
@@ -9,6 +10,7 @@ import pytest
 from mutate4py._digest_inputs import digest_inputs_from
 from mutate4py._manifest import embed_manifest
 from mutate4py._tests_fingerprint import TargetFacts, can_skip_measurement, fingerprint_inputs
+from mutate4py._pytest_inifile import last_option_value, option_values
 from mutate4py._tests_fingerprint import tests_fingerprint as fingerprint_of
 
 FRESH = "fresh-fingerprint"
@@ -234,6 +236,22 @@ def test_only_the_pytest_table_of_pyproject_counts(tmp_path):
 
 
 @pytest.mark.unit
+def test_the_order_of_keys_in_the_pytest_table_does_not_count(tmp_path):
+    root = _project(tmp_path)
+    (tmp_path / "pytest.ini").unlink()
+    (tmp_path / "pyproject.toml").write_text('[tool.pytest.ini_options]\naddopts = "-q"\nmarkers = ["a"]\n')
+    before = fingerprint_of(root, "")
+    (tmp_path / "pyproject.toml").write_text('[tool.pytest.ini_options]\nmarkers = ["a"]\naddopts = "-q"\n')
+    assert fingerprint_of(root, "") == before
+
+
+@pytest.mark.unit
+def test_an_option_value_is_the_token_after_its_name_and_nothing_before_it():
+    assert option_values(["-q", "-c", "conf.ini"], "-c") == ["conf.ini"]
+    assert option_values(["-c"], "-c") == []
+
+
+@pytest.mark.unit
 def test_editing_the_lockfile_changes_it(tmp_path):
     root = _project(tmp_path)
     before = fingerprint_of(root, "")
@@ -275,7 +293,7 @@ def test_a_missing_mutate4py_install_still_fingerprints(tmp_path, monkeypatch):
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("name", ["tox.ini", "setup.cfg"])
+@pytest.mark.parametrize("name", [".pytest.ini", "pytest.toml", ".pytest.toml", "tox.ini", "setup.cfg"])
 def test_editing_another_pytest_config_file_changes_it(tmp_path, name):
     root = _project(tmp_path)
     (tmp_path / name).write_text("[pytest]\n")
@@ -363,6 +381,19 @@ def test_editing_an_explicit_config_file_changes_it(tmp_path):
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("spelling", ["--config-file {custom}", "--config-file={custom}"])
+def test_editing_a_config_file_named_by_config_file_changes_it(tmp_path, spelling):
+    root = _project(tmp_path)
+    custom = tmp_path / "elsewhere" / "custom.ini"
+    custom.parent.mkdir()
+    custom.write_text("[pytest]\n")
+    args = "tests " + spelling.format(custom=custom)
+    before = fingerprint_of(root, args)
+    custom.write_text("[pytest]\naddopts = -q\n")
+    assert fingerprint_of(root, args) != before
+
+
+@pytest.mark.unit
 def test_editing_the_config_under_an_explicit_rootdir_changes_it(tmp_path):
     root = _project(tmp_path)
     (tmp_path / "sub").mkdir()
@@ -370,6 +401,18 @@ def test_editing_the_config_under_an_explicit_rootdir_changes_it(tmp_path):
     before = fingerprint_of(root, "--rootdir=sub")
     (tmp_path / "sub" / "pytest.ini").write_text("[pytest]\naddopts = -q\n")
     assert fingerprint_of(root, "--rootdir=sub") != before
+
+
+@pytest.mark.unit
+def test_a_rootdir_given_with_an_environment_variable_is_expanded(tmp_path, monkeypatch):
+    root = _project(tmp_path)
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "pytest.ini").write_text("[pytest]\n")
+    monkeypatch.setenv("MUTATE4PY_TEST_ROOTDIR", "sub")
+    args = "--rootdir=$MUTATE4PY_TEST_ROOTDIR"
+    before = fingerprint_of(root, args)
+    (tmp_path / "sub" / "pytest.ini").write_text("[pytest]\naddopts = -q\n")
+    assert fingerprint_of(root, args) != before
 
 
 @pytest.mark.unit
@@ -402,3 +445,382 @@ def test_every_file_a_digest_reads_is_a_fingerprint_input(digest_project):
     listed = fingerprint_inputs(str(digest_project.root), "tests")
 
     assert sorted(named - set(listed)) == []
+
+
+def _checkout(parent, name: str) -> str:
+    """The same project under `parent/name`."""
+    root = parent / name
+    root.mkdir(parents=True)
+    return _project(root)
+
+
+@pytest.mark.unit
+def test_the_same_project_at_two_depths_gives_the_same_fingerprint(tmp_path):
+    shallow = _checkout(tmp_path / "a", "checkout")
+    deep = _checkout(tmp_path / "b" / "c" / "d" / "e", "checkout")
+    assert fingerprint_inputs(shallow, "tests") == fingerprint_inputs(deep, "tests")
+    assert fingerprint_of(shallow, "tests") == fingerprint_of(deep, "tests")
+
+
+@pytest.mark.unit
+def test_an_absent_ancestor_file_is_not_recorded(tmp_path):
+    root = _checkout(tmp_path / "a" / "b", "checkout")
+    assert "absent" not in fingerprint_inputs(root, "tests").values()
+    assert [key for key in fingerprint_inputs(root, "tests") if key.startswith("..")] == []
+
+
+@pytest.mark.unit
+def test_a_conftest_at_the_project_root_changes_a_subdirectory_run(tmp_path):
+    _project(tmp_path)
+    package = tmp_path / "pkg"
+    package.mkdir()
+    conftest = tmp_path / "conftest.py"
+    conftest.write_text("SHARED = 1\n")
+    before = fingerprint_of(str(package), "")
+    conftest.write_text("SHARED = 2\n")
+    assert fingerprint_of(str(package), "") != before
+
+
+@pytest.mark.unit
+def test_a_superproject_conftest_changes_a_submodule_run(tmp_path):
+    superproject = tmp_path / "super"
+    superproject.mkdir()
+    (superproject / ".git").mkdir()
+    conftest = superproject / "conftest.py"
+    conftest.write_text("SHARED = 1\n")
+    submodule = _checkout(superproject, "sub")
+    (superproject / "sub" / "pytest.ini").unlink()
+    (superproject / "sub" / ".git").write_text("gitdir: ../.git/modules/sub\n")
+    before = fingerprint_of(submodule, "tests")
+    conftest.write_text("SHARED = 2\n")
+    assert fingerprint_of(submodule, "tests") != before
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("name", ["pytest.ini", ".pytest.ini", "pytest.toml", ".pytest.toml", "tox.ini", "setup.cfg"])
+def test_creating_a_config_file_in_an_ancestor_changes_it(tmp_path, name):
+    root = _checkout(tmp_path, "checkout")
+    (tmp_path / "checkout" / "pytest.ini").unlink()
+    before = fingerprint_of(root, "tests")
+    (tmp_path / name).write_text("[pytest]\n")
+    created = fingerprint_of(root, "tests")
+    assert created != before
+    (tmp_path / name).unlink()
+    assert fingerprint_of(root, "tests") == before
+
+
+@pytest.mark.unit
+def test_creating_a_pyproject_in_an_ancestor_changes_it(tmp_path):
+    root = _checkout(tmp_path, "checkout")
+    (tmp_path / "checkout" / "pytest.ini").unlink()
+    before = fingerprint_of(root, "tests")
+    (tmp_path / "pyproject.toml").write_text("[tool.pytest.ini_options]\naddopts = '-q'\n")
+    assert fingerprint_of(root, "tests") != before
+
+
+def _outer_checkout(tmp_path):
+    """An outer checkout whose pyproject.toml has a pytest table and which has its own conftest."""
+    outer = tmp_path / "outer"
+    outer.mkdir()
+    (outer / "pyproject.toml").write_text("[tool.pytest.ini_options]\naddopts = '-q'\n")
+    (outer / "conftest.py").write_text("OUTER = 1\n")
+    return outer
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("layout", [".claude/worktrees/x", ".worktrees/coder"])
+def test_a_worktree_nested_under_an_outer_checkout_matches_the_standalone_project(tmp_path, layout):
+    standalone = _checkout(tmp_path / "alone", "project")
+    nested = _checkout(_outer_checkout(tmp_path) / layout, "project")
+    assert fingerprint_inputs(nested, "tests") == fingerprint_inputs(standalone, "tests")
+    assert fingerprint_of(nested, "tests") == fingerprint_of(standalone, "tests")
+
+
+@pytest.mark.unit
+def test_editing_the_outer_checkout_does_not_change_a_nested_worktree(tmp_path):
+    outer = _outer_checkout(tmp_path)
+    nested = _checkout(outer / ".worktrees" / "coder", "project")
+    before = fingerprint_of(nested, "tests")
+    (outer / "conftest.py").write_text("OUTER = 2\n")
+    (outer / "pyproject.toml").write_text("[tool.pytest.ini_options]\naddopts = '-x'\n")
+    assert fingerprint_of(nested, "tests") == before
+
+
+@pytest.mark.unit
+def test_a_whole_directory_run_in_a_nested_worktree_loads_no_outer_conftest(tmp_path):
+    """No args, no testpaths: the collection root is the worktree, which is also the inifile directory.
+
+    pytest skips only a directory strictly above confcutdir (config/__init__.py:703-704), so
+    a bound at the root leaves no ancestor to load.
+    """
+    standalone = _checkout(tmp_path / "alone", "project")
+    outer = _outer_checkout(tmp_path)
+    nested = _checkout(outer / ".worktrees" / "coder", "project")
+    assert fingerprint_inputs(nested, "") == fingerprint_inputs(standalone, "")
+    before = fingerprint_of(nested, "")
+    (outer / "conftest.py").write_text("OUTER = 2\n")
+    assert fingerprint_of(nested, "") == before
+
+
+@pytest.mark.unit
+def test_a_bound_below_the_collection_root_loads_no_ancestor_conftest(tmp_path):
+    root = _checkout(tmp_path / "up", "checkout")
+    (tmp_path / "up" / "conftest.py").write_text("SHARED = 1\n")
+    args = f"tests/test_a.py --confcutdir={root}/tests/deeper"
+    before = fingerprint_of(root, args)
+    (tmp_path / "up" / "conftest.py").write_text("SHARED = 2\n")
+    assert fingerprint_of(root, args) == before
+
+
+@pytest.mark.unit
+def test_a_conftest_above_the_inifile_directory_does_not_change_it(tmp_path):
+    root = _checkout(tmp_path, "checkout")
+    (tmp_path / "conftest.py").write_text("SHARED = 1\n")
+    before = fingerprint_of(root, "tests")
+    (tmp_path / "conftest.py").write_text("SHARED = 2\n")
+    assert fingerprint_of(root, "tests") == before
+
+
+@pytest.mark.unit
+def test_a_conftest_in_the_inifile_directory_still_changes_it(tmp_path):
+    root = _checkout(tmp_path, "checkout")
+    conftest = tmp_path / "checkout" / "conftest.py"
+    conftest.write_text("SHARED = 1\n")
+    before = fingerprint_of(root, "tests")
+    conftest.write_text("SHARED = 2\n")
+    assert fingerprint_of(root, "tests") != before
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("name", "text"),
+    [
+        pytest.param("pytest.ini", "", id="pytest-ini-even-empty"),
+        pytest.param(".pytest.ini", "", id="dot-pytest-ini-even-empty"),
+        pytest.param("pytest.toml", "", id="pytest-toml-even-empty"),
+        pytest.param(".pytest.toml", "", id="dot-pytest-toml-even-empty"),
+        pytest.param("pyproject.toml", "[tool.pytest.ini_options]\n", id="pyproject-ini-options"),
+        pytest.param("pyproject.toml", "[tool.pytest]\naddopts = ['-q']\n", id="pyproject-native-table"),
+        pytest.param("tox.ini", "[pytest]\n", id="tox-ini-pytest-section"),
+        pytest.param("setup.cfg", "[tool:pytest]\n", id="setup-cfg-tool-pytest-section"),
+    ],
+)
+def test_a_file_pytest_accepts_as_its_inifile_ends_the_walk(tmp_path, name, text):
+    root = _checkout(tmp_path / "up", "checkout")
+    (tmp_path / "up" / "checkout" / "pytest.ini").unlink()
+    (tmp_path / "up" / "checkout" / name).write_text(text)
+    (tmp_path / "conftest.py").write_text("SHARED = 1\n")
+    before = fingerprint_of(root, "tests")
+    (tmp_path / "conftest.py").write_text("SHARED = 2\n")
+    assert fingerprint_of(root, "tests") == before
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("name", "text"),
+    [
+        pytest.param("tox.ini", "[tox]\n", id="tox-ini-without-pytest-section"),
+        pytest.param("tox.ini", "[pytest\n", id="tox-ini-that-does-not-parse"),
+        pytest.param("setup.cfg", "[tool:pytest\n", id="setup-cfg-that-does-not-parse"),
+        pytest.param("setup.cfg", "[metadata]\nname = demo\n", id="setup-cfg-without-tool-pytest"),
+        pytest.param("setup.cfg", "[pytest]\n", id="setup-cfg-plain-pytest-section"),
+        pytest.param("pyproject.toml", "[tool.pytest]\n", id="pyproject-empty-pytest-table"),
+        pytest.param("pyproject.toml", "[tool.other]\nx = 1\n", id="pyproject-without-pytest-table"),
+        pytest.param("pyproject.toml", "[tool.pytest\n", id="pyproject-that-does-not-parse"),
+    ],
+)
+def test_a_file_pytest_does_not_accept_as_its_inifile_does_not_end_the_walk(tmp_path, name, text):
+    root = _checkout(tmp_path / "up", "checkout")
+    (tmp_path / "up" / "checkout" / "pytest.ini").unlink()
+    (tmp_path / "up" / "checkout" / name).write_text(text)
+    (tmp_path / "up" / "pytest.ini").write_text("[pytest]\n")
+    (tmp_path / "up" / "conftest.py").write_text("SHARED = 1\n")
+    before = fingerprint_of(root, "tests")
+    (tmp_path / "up" / "conftest.py").write_text("SHARED = 2\n")
+    assert fingerprint_of(root, "tests") != before
+
+
+@pytest.mark.unit
+def test_a_pyproject_without_a_pytest_table_is_the_inifile_only_when_no_other_inifile_exists(tmp_path):
+    root = _checkout(tmp_path / "up", "checkout")
+    (tmp_path / "up" / "checkout" / "pytest.ini").unlink()
+    (tmp_path / "up" / "checkout" / "pyproject.toml").write_text("[project]\nname = 'demo'\n")
+    (tmp_path / "up" / "conftest.py").write_text("SHARED = 1\n")
+    before = fingerprint_of(root, "tests")
+    (tmp_path / "up" / "conftest.py").write_text("SHARED = 2\n")
+    assert fingerprint_of(root, "tests") == before
+
+
+@pytest.mark.unit
+def test_with_no_inifile_anywhere_the_walk_reaches_the_filesystem_root(tmp_path):
+    root = _checkout(tmp_path / "a" / "b", "checkout")
+    (tmp_path / "a" / "b" / "checkout" / "pytest.ini").unlink()
+    (tmp_path / "conftest.py").write_text("SHARED = 1\n")
+    before = fingerprint_of(root, "tests")
+    (tmp_path / "conftest.py").write_text("SHARED = 2\n")
+    assert fingerprint_of(root, "tests") != before
+
+
+@pytest.mark.unit
+def test_an_explicit_config_file_ends_the_walk_at_its_directory(tmp_path):
+    base = tmp_path / "base"
+    root = _checkout(base, "checkout")
+    (base / "checkout" / "pytest.ini").unlink()
+    (base / "custom.ini").write_text("[pytest]\n")
+    (tmp_path / "conftest.py").write_text("SHARED = 1\n")
+    (base / "pyproject.toml").write_text("[tool.pytest.ini_options]\naddopts = '-q'\n")
+    args = "-c ../custom.ini tests"
+    before = fingerprint_of(root, args)
+    (tmp_path / "conftest.py").write_text("SHARED = 2\n")
+    (base / "pyproject.toml").write_text("[tool.pytest.ini_options]\naddopts = '-x'\n")
+    assert fingerprint_of(root, args) == before
+    (base / "conftest.py").write_text("SHARED = 1\n")
+    assert fingerprint_of(root, args) != before
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("spelling", ["--config-file ../custom.ini", "--config-file=../custom.ini"])
+def test_config_file_ends_the_walk_at_its_directory_like_c(tmp_path, spelling):
+    base = tmp_path / "base"
+    root = _checkout(base, "checkout")
+    (base / "checkout" / "pytest.ini").unlink()
+    (base / "custom.ini").write_text("[pytest]\n")
+    (tmp_path / "conftest.py").write_text("SHARED = 1\n")
+    (base / "pyproject.toml").write_text("[tool.pytest.ini_options]\naddopts = '-q'\n")
+    args = f"{spelling} tests"
+    before = fingerprint_of(root, args)
+    (tmp_path / "conftest.py").write_text("SHARED = 2\n")
+    (base / "pyproject.toml").write_text("[tool.pytest.ini_options]\naddopts = '-x'\n")
+    assert fingerprint_of(root, args) == before
+    (base / "conftest.py").write_text("SHARED = 1\n")
+    assert fingerprint_of(root, args) != before
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("option", ["-c", "--config-file", "--config-file="])
+def test_a_config_file_bound_above_the_checkouts_own_inifile_records_the_conftest_there(tmp_path, option):
+    base = tmp_path / "base"
+    root = _checkout(base, "checkout")
+    (base / "custom.ini").write_text("[pytest]\n")
+    (base / "conftest.py").write_text("SHARED = 1\n")
+    separator = "" if option.endswith("=") else " "
+    args = f"{option}{separator}../custom.ini tests"
+    assert (base / "checkout" / "pytest.ini").is_file()
+    assert "../conftest.py" in fingerprint_inputs(root, args)
+    before = fingerprint_of(root, args)
+    (base / "conftest.py").write_text("SHARED = 2\n")
+    assert fingerprint_of(root, args) != before
+
+
+@pytest.mark.unit
+def test_a_confcutdir_in_the_inifile_addopts_leaves_the_conftest_walk_unbounded(tmp_path):
+    root = _checkout(tmp_path / "up", "checkout")
+    (tmp_path / "up" / "checkout" / "pytest.ini").write_text("[pytest]\naddopts = -q --confcutdir=.\n")
+    (tmp_path / "up" / "conftest.py").write_text("SHARED = 1\n")
+    (tmp_path / "conftest.py").write_text("SHARED = 1\n")
+    assert {"../conftest.py", "../../conftest.py"} <= set(fingerprint_inputs(root, "tests"))
+    before = fingerprint_of(root, "tests")
+    (tmp_path / "conftest.py").write_text("SHARED = 2\n")
+    assert fingerprint_of(root, "tests") != before
+
+
+@pytest.mark.unit
+def test_a_confcutdir_in_pytest_addopts_leaves_the_conftest_walk_unbounded(tmp_path, monkeypatch):
+    root = _checkout(tmp_path / "up", "checkout")
+    (tmp_path / "conftest.py").write_text("SHARED = 1\n")
+    assert "../../conftest.py" not in fingerprint_inputs(root, "tests")
+    monkeypatch.setenv("PYTEST_ADDOPTS", "--confcutdir=.")
+    assert "../../conftest.py" in fingerprint_inputs(root, "tests")
+    before = fingerprint_of(root, "tests")
+    (tmp_path / "conftest.py").write_text("SHARED = 2\n")
+    assert fingerprint_of(root, "tests") != before
+
+
+@pytest.mark.unit
+def test_the_last_config_file_option_sets_the_bound_whichever_spelling_it_uses(tmp_path):
+    base = tmp_path / "base"
+    root = _checkout(base, "checkout")
+    (base / "checkout" / "pytest.ini").unlink()
+    (base / "custom.ini").write_text("[pytest]\n")
+    (tmp_path / "other").mkdir()
+    (tmp_path / "other" / "x.ini").write_text("[pytest]\n")
+    args = f"-c {tmp_path}/other/x.ini --config-file=../custom.ini tests"
+    assert option_values(shlex.split(args), "-c", "--config-file")[-1] == "../custom.ini"
+    assert last_option_value(shlex.split(args), "-c", "--config-file") == "../custom.ini"
+    (tmp_path / "conftest.py").write_text("SHARED = 1\n")
+    before = fingerprint_of(root, args)
+    (tmp_path / "conftest.py").write_text("SHARED = 2\n")
+    assert fingerprint_of(root, args) == before
+    (base / "conftest.py").write_text("SHARED = 1\n")
+    assert fingerprint_of(root, args) != before
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("spelling", ["--confcutdir={base}", "--confcutdir {base}"])
+def test_confcutdir_ends_the_conftest_walk_at_its_directory(tmp_path, spelling):
+    base = tmp_path / "base"
+    root = _checkout(base, "checkout")
+    (base / "checkout" / "pytest.ini").unlink()
+    (tmp_path / "conftest.py").write_text("SHARED = 1\n")
+    args = "tests " + spelling.format(base=base)
+    before = fingerprint_of(root, args)
+    (tmp_path / "conftest.py").write_text("SHARED = 2\n")
+    assert fingerprint_of(root, args) == before
+    (base / "conftest.py").write_text("SHARED = 1\n")
+    assert fingerprint_of(root, args) != before
+
+
+@pytest.mark.unit
+def test_rootdir_ends_the_conftest_walk_when_no_inifile_exists(tmp_path):
+    base = tmp_path / "base"
+    root = _checkout(base, "checkout")
+    (base / "checkout" / "pytest.ini").unlink()
+    (tmp_path / "conftest.py").write_text("SHARED = 1\n")
+    args = f"tests --rootdir={base}"
+    before = fingerprint_of(root, args)
+    (tmp_path / "conftest.py").write_text("SHARED = 2\n")
+    assert fingerprint_of(root, args) == before
+    (base / "conftest.py").write_text("SHARED = 1\n")
+    assert fingerprint_of(root, args) != before
+
+
+@pytest.mark.unit
+def test_an_ini_file_that_is_not_text_is_not_an_inifile(tmp_path):
+    root = _checkout(tmp_path / "up", "checkout")
+    (tmp_path / "up" / "checkout" / "pytest.ini").unlink()
+    (tmp_path / "up" / "checkout" / "tox.ini").write_bytes(b"\xff[pytest]\n")
+    (tmp_path / "up" / "pytest.ini").write_text("[pytest]\n")
+    (tmp_path / "up" / "conftest.py").write_text("SHARED = 1\n")
+    before = fingerprint_of(root, "tests")
+    (tmp_path / "up" / "conftest.py").write_text("SHARED = 2\n")
+    assert fingerprint_of(root, "tests") != before
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "table",
+    [
+        pytest.param("[tool.pytest.ini_options]\naddopts = '-q'\n", id="ini-options"),
+        pytest.param("[tool.pytest]\naddopts = ['-q']\n", id="native-table"),
+    ],
+)
+def test_a_pyproject_with_a_pytest_table_ends_the_walk_past_a_nearer_one_without(tmp_path, table):
+    checkout = tmp_path / "up" / "checkout"
+    package = checkout / "pkg"
+    package.mkdir(parents=True)
+    (package / "pyproject.toml").write_text("[project]\nname = 'demo'\n")
+    (checkout / "pyproject.toml").write_text(table)
+    (checkout / "conftest.py").write_text("SHARED = 1\n")
+    (tmp_path / "conftest.py").write_text("OUTER = 1\n")
+    before = fingerprint_of(str(package), "")
+    (tmp_path / "conftest.py").write_text("OUTER = 2\n")
+    assert fingerprint_of(str(package), "") == before
+    (checkout / "conftest.py").write_text("SHARED = 2\n")
+    assert fingerprint_of(str(package), "") != before
+
+
+@pytest.mark.unit
+def test_option_values_reads_every_name_in_argv_order():
+    tokens = ["-c", "a.ini", "-q", "--config-file=b.ini", "--config-file", "c.ini", "-cd.ini"]
+    assert option_values(tokens, "-c", "--config-file") == ["a.ini", "b.ini", "c.ini", "d.ini"]
+    assert option_values(["--config-file"], "-c", "--config-file") == []

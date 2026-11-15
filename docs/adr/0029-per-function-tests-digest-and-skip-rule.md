@@ -158,3 +158,58 @@ unchanged hash and no covered Site is still skipped by the rule above. This amen
 
 `--mutate-all` is removed and refused with exit 2. Its full re-score is now a run with no
 Manifest: that run is full-file and scores every function, an uncovered one with an `uncovered` score.
+
+## Amended: the ancestor walk ends at pytest's inifile (2026-11-15)
+
+The fingerprint above hashed the conftests and pytest config of every directory up to the
+filesystem root, keyed by relative path (`../../conftest.py`), and an absent file was
+recorded as `absent`. A checkout at another depth produced other keys, so the skip never
+fired in a fresh worktree (issue #119). Two changes follow.
+
+- Only ancestor files that exist are recorded. An absent entry carries no information: a
+  file that appears adds an entry and one that disappears removes it, so both changes still
+  move the fingerprint. `pytest.toml`, `.pytest.toml` and `.pytest.ini` are hashed with the
+  other config files.
+- The walk stops, inclusive, at the first directory holding a file pytest accepts as its
+  inifile, as `locate_config` (`_pytest/config/findpaths.py:158-202`) does: `pytest.ini`,
+  `.pytest.ini`, `pytest.toml`, `.pytest.toml`, a `pyproject.toml` with a `[tool.pytest]`
+  key or a `[tool.pytest.ini_options]` table, a `tox.ini` with `[pytest]`, a `setup.cfg`
+  with `[tool:pytest]`. Pytest loads no config above that directory, and conftests only from
+  it down (its `confcutdir` defaults to the inifile's directory,
+  `_pytest/config/__init__.py:1598-1603`). A worktree nested under an outer checkout
+  (`.claude/worktrees/x`, `.worktrees/<role>`) therefore fingerprints the same as the project
+  standalone. A `pyproject.toml` without a pytest table does not end the walk, unless no
+  real inifile exists anywhere above: pytest then takes the first `pyproject.toml` it met
+  (`findpaths.py:200-201`). With no inifile at all the walk goes to `/`.
+
+`-c` and `--config-file` (pytest declares them as one option, `_pytest/main.py:263-264`) bound the
+conftests at the directory of the named file, run no config search (`findpaths.py:306-311`), and the
+named file is hashed whole. `--confcutdir` bounds the conftests too, and takes precedence. `--rootdir`
+is the conftest bound when no inifile exists (`config/__init__.py:1598-1603`), and its directory is
+a start point for the config search. Not read: `--noconftest`, `-p` plugins and `--pyargs`.
+
+A `--confcutdir` that comes from the inifile's `addopts` (any inifile format, or the `-c` file) or from
+the `PYTEST_ADDOPTS` environment variable is not in the arguments this reads, so the bound it sets
+cannot be known. It is treated as no bound: the conftest walk goes to `/`. Recording more conftests than
+pytest loads only over-invalidates, which is the safe direction. This holds even when the command line
+also gives a `--confcutdir`.
+
+The conftest chain above a collection root follows `_is_in_confcutdir`
+(`config/__init__.py:682`, `:703-704`): a directory is skipped only when it is strictly above
+`confcutdir`. A bound at or below the root therefore loads no ancestor conftest. A worktree
+nested under an outer checkout, run with no arguments and no `testpaths`, thus records no
+outer conftest: its collection root is the worktree, which is also its inifile directory.
+
+Rejected:
+
+- **Bounding the walk at the git root** (the nearest directory holding a `.git`). A
+  submodule under a superproject's `pytest.ini` or `conftest.py` still loads them when the
+  submodule has no inifile of its own, since pytest searches up to `/`. Bounding there
+  dropped inputs a run reads, and a stale proof would read as current.
+- **Bounding the walk at the nearest `pyproject.toml`.** In a monorepo it can sit below a
+  conftest or pytest config that pytest still loads, and bounding there would miss it. Pytest
+  itself skips a `pyproject.toml` with no pytest table while a real inifile exists above.
+- **Recording only the files that exist, with no bound.** It removes the depth-dependent
+  `absent` keys but still records the outer checkout's `pyproject.toml` and conftests for a
+  nested worktree, as `../../pyproject.toml`, so a worktree never matches. Pytest ignores
+  those files, so they are not inputs.
