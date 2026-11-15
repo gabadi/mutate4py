@@ -105,7 +105,7 @@ Feature: Manifest embed, extract, diff, and the --update-manifest mode
       | definition            | id       | name |
       | def foo               | func/foo | foo  |
       | async def foo         | func/foo | foo  |
-      | class C with method m | func/C.m | m    |
+      | class C with method m | class/C  | C    |
 
   # manifest-4: a decorated def excludes the decorator line from its range
   Scenario: a decorated function records the def line, not the decorator line

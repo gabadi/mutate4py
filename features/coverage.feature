@@ -83,7 +83,7 @@ Feature: Measurement as coverage, the core refusal, removed flags
     Then the output line "Total mutation sites: 3" is printed
     And the output line "Covered mutation sites: 2" is printed
     And the output line "Uncovered mutation sites: 1" is printed
-    And the output line "  line 3 1 -> 0 func/f1" is printed
+    And the output line "sample.py:3 1 -> 0 func/f1" is printed
 
   # coverage-4: the Measurement forces the ctrace core
   Scenario: the tests run under ctrace whatever core the caller asks for
