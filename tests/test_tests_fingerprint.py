@@ -402,3 +402,51 @@ def test_every_file_a_digest_reads_is_a_fingerprint_input(digest_project):
     listed = fingerprint_inputs(str(digest_project.root), "tests")
 
     assert sorted(named - set(listed)) == []
+
+
+def _checkout(parent, name: str, marker_is_file: bool = False) -> str:
+    """The same project under `parent/name`, with a repository marker (`.git`) at its top."""
+    root = parent / name
+    root.mkdir(parents=True)
+    if marker_is_file:
+        (root / ".git").write_text("gitdir: elsewhere\n")
+    else:
+        (root / ".git").mkdir()
+    return _project(root)
+
+
+@pytest.mark.unit
+def test_the_same_project_at_two_depths_gives_the_same_fingerprint(tmp_path):
+    shallow = _checkout(tmp_path / "a", "checkout")
+    deep = _checkout(tmp_path / "b" / "c" / "d" / "e", "checkout")
+    assert fingerprint_inputs(shallow, "tests") == fingerprint_inputs(deep, "tests")
+    assert fingerprint_of(shallow, "tests") == fingerprint_of(deep, "tests")
+
+
+@pytest.mark.unit
+def test_a_worktree_marker_file_bounds_the_walk_like_a_git_directory(tmp_path):
+    shallow = _checkout(tmp_path / "a", "checkout", marker_is_file=True)
+    deep = _checkout(tmp_path / "b" / "c", "checkout", marker_is_file=True)
+    assert fingerprint_of(shallow, "tests") == fingerprint_of(deep, "tests")
+
+
+@pytest.mark.unit
+def test_a_conftest_above_the_project_root_does_not_change_it(tmp_path):
+    root = _checkout(tmp_path / "a", "checkout")
+    before = fingerprint_of(root, "tests")
+    (tmp_path / "a" / "conftest.py").write_text("OUTSIDE = 1\n")
+    (tmp_path / "a" / "pytest.ini").write_text("[pytest]\nx = 1\n")
+    (tmp_path / "a" / "pyproject.toml").write_text("[tool.pytest]\nx = 1\n")
+    assert fingerprint_of(root, "tests") == before
+
+
+@pytest.mark.unit
+def test_a_conftest_at_the_project_root_still_changes_a_subdirectory_run(tmp_path):
+    _checkout(tmp_path, "checkout")
+    package = tmp_path / "checkout" / "pkg"
+    package.mkdir()
+    conftest = tmp_path / "checkout" / "conftest.py"
+    conftest.write_text("SHARED = 1\n")
+    before = fingerprint_of(str(package), "")
+    conftest.write_text("SHARED = 2\n")
+    assert fingerprint_of(str(package), "") != before

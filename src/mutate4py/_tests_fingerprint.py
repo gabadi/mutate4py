@@ -1,8 +1,9 @@
 """Pytest-run fingerprint and the no-change skip predicate (design 89 §5b).
 
 `tests_fingerprint` hashes every input a Measurement and every tests-digest can
-read: the Python files under the collection roots, the conftests above them,
-the pytest configuration, the lockfile, the --pytest-args string, the Python
+read: the Python files under the collection roots, the conftests above them
+and the pytest configuration above them, both up to the project root (the nearest
+`.git`, so the key is the same in every checkout of a commit), the lockfile, the --pytest-args string, the Python
 version and the mutate4py version. Equal fingerprints therefore prove the
 digests would come out the same.
 
@@ -110,21 +111,41 @@ def _root_inputs(root: str, base: str) -> list[tuple[str, str]]:
     return [_file_input(root, base)]
 
 
-def _ancestors(path: str) -> list[str]:
-    """`path` and every directory above it, up to the filesystem root."""
+def _project_root(path: str) -> str | None:
+    """The nearest directory at or above `path` that holds a `.git` (a directory, or a worktree's file).
+
+    None when there is none. The git root is the same directory in every checkout of a commit.
+    """
+    current = os.path.abspath(path)
+    while True:
+        if os.path.exists(os.path.join(current, ".git")):
+            return current
+        parent = os.path.dirname(current)
+        if parent == current:
+            return None
+        current = parent
+
+
+def _ancestors(path: str, project_root: str | None) -> list[str]:
+    """`path` and every directory above it, up to the project root (the filesystem root when there is none).
+
+    Bounding the walk at the project root keeps the keys of the ancestor config files the same
+    in every checkout of a commit, at any depth. A `path` outside the project root walks on to
+    the filesystem root.
+    """
     found: list[str] = []
     current = os.path.abspath(path)
     while True:
         found.append(current)
         parent = os.path.dirname(current)
-        if parent == current:
+        if parent == current or current == project_root:
             return found
         current = parent
 
 
 def _conftest_inputs(root: str, base: str) -> list[tuple[str, str]]:
-    """conftest.py in every directory above `root`, since pytest loads each one it finds."""
-    directories = _ancestors(os.path.dirname(os.path.abspath(root)))
+    """conftest.py in every directory above `root` up to the project root, since pytest loads each one it finds."""
+    directories = _ancestors(os.path.dirname(os.path.abspath(root)), _project_root(base))
     return [_file_input(os.path.join(directory, "conftest.py"), base) for directory in directories]
 
 
@@ -213,10 +234,11 @@ def _explicit_config_inputs(cwd: str, tokens: list[str]) -> list[tuple[str, str]
 
 
 def _config_dirs(cwd: str, roots: list[str], tokens: list[str]) -> list[str]:
-    """Each start point and every directory above it. Start points: the run directory, each root, each --rootdir."""
+    """Each start point and every directory above it, up to the project root. Start points: the run directory, each root, each --rootdir."""
     rootdirs = [os.path.join(cwd, value) for value in _option_values(tokens, "--rootdir")]
     starts = [cwd, *roots, *rootdirs]
-    return list(dict.fromkeys(directory for start in starts for directory in _ancestors(start)))
+    project_root = _project_root(cwd)
+    return list(dict.fromkeys(directory for start in starts for directory in _ancestors(start, project_root)))
 
 
 def _config_and_lock_inputs(cwd: str, roots: list[str], tokens: list[str]) -> list[tuple[str, str]]:

@@ -145,6 +145,18 @@ Rejected alternatives:
 **Do not "fix" these back.** The fingerprint's inputs and the all-or-nothing batch rule
 are what make a skip safe; narrowing either lets a stale proof read as current.
 
+### 2026-11-15 (issue #119): the ancestor walk stops at the project root
+
+The fingerprint above hashed the conftests and pytest config of every directory up to the
+filesystem root, keyed by relative path (`../../conftest.py`). A checkout at another depth
+produced other keys, so the skip never fired in a fresh worktree. The walk now stops at the
+project root: the nearest directory at or above the run directory holding a `.git`
+(directory or worktree file). The key is then the same in every checkout of a commit, at any
+depth. With no `.git` above the run directory the walk still goes to the filesystem root.
+
+Rejected: the nearest `pyproject.toml` as the bound. In a monorepo it can sit below a
+conftest or pytest config that pytest still loads, and bounding there would miss it.
+
 ## Amendment: spec #115
 
 A default run scores every Unscored function, including one that no covered Site
