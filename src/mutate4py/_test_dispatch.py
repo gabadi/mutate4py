@@ -9,13 +9,16 @@ either caller. See tach.toml before moving it.
 
 import dataclasses
 import logging
+import os
 from collections.abc import Callable
 
 from mutate4py._discovery import Site
+from mutate4py._executor import Executor
 from mutate4py._pytest_argv import POSITIONAL, token_roles
 
 __all__ = [
     "NO_TESTS_HINT",
+    "ControlRuns",
     "MutantPlan",
     "NoTestsCollectedError",
     "PlanInputs",
@@ -23,6 +26,7 @@ __all__ = [
     "_check_execution_status",
     "_log_dispatch_abort",
     "confirm_plan",
+    "control_run",
     "plan_mutant",
     "plan_sites",
 ]
@@ -35,7 +39,9 @@ class NoTestsCollectedError(Exception):
 
 
 # pytest exits 4 (usage error) or 5 (no tests collected) when it runs no test
-# for a Mutant: the argv it was given, not the code under test, is the defect.
+# for a Mutant. Either the argv it was given is the defect, or the Mutant broke
+# the run (a module that raises at import fails the conftest import). `ControlRuns`
+# tells the two apart; only a defect of the argv reaches `_check_execution_status`.
 _ABORT_HINTS = {
     "no-tests-collected": "pytest collected no tests to run (exit 5): a --pytest-args filter "
     "or a node-ID path mismatch deselected everything",
@@ -107,7 +113,8 @@ class MutantPlan:
 class PlanInputs:
     """The per-run inputs every Mutant's plan is built from: the run's pytest args,
     its positional path args (stripped from a narrowed Mutant's argv), its timeout
-    policy, and the selection source that answers for abs_source_path.
+    policy, the selection source that answers for abs_source_path, and the directory
+    pytest runs in (cwd), which the node ids of a narrowed Mutant must resolve from.
     """
 
     pytest_args: list[str]
@@ -115,6 +122,58 @@ class PlanInputs:
     abs_source_path: str
     timeout_policy: TimeoutPolicy
     positionals: tuple[str, ...]
+    cwd: str
+
+
+@dataclasses.dataclass
+class ControlRuns:
+    """The argvs whose control run showed that pytest runs tests on the original code.
+
+    A Mutant whose pytest exits 4 or 5 ran no test, for one of two causes: the argv is
+    the defect, or the Mutant broke the run. Exit codes cannot tell them apart, so the
+    first such Mutant of an argv gets a control run: the same argv on the original code.
+    If tests run there, the Mutant caused the exit, and every later 4 or 5 of that argv
+    needs no further control run. If the control run ends in 4 or 5 again, or times out,
+    the argv stays the suspect and the exit stays, for `_check_execution_status` to abort on.
+    """
+
+    cleared: set[tuple[str, ...]] = dataclasses.field(default_factory=set)
+
+    def settle(self, status: str, args: list[str], control: Callable[[], str]) -> str:
+        """The Classification to tally for a Mutant that ended in `status`.
+
+        Only exit 4 and 5 are settled: other statuses return unchanged and call no `control`.
+        An exit 4 or 5 returns "killed" when the argv is cleared or `control()` (the same argv
+        on the original code) ran tests; otherwise it returns `status` unchanged.
+        """
+        if status not in _ABORT_HINTS:
+            return status
+        key = tuple(args)
+        if key not in self.cleared:
+            if control() not in ("survived", "killed"):
+                return status
+            self.cleared.add(key)
+        return "killed"
+
+
+def control_run(path: str, clean_source: str, executor: Executor, plan: MutantPlan) -> str:
+    """Run `plan` against the original code: restore `clean_source` at `path`, then dispatch.
+
+    The caller's own restore, or its next splice, still follows; this leaves the original at `path`.
+    """
+    with open(path, "w") as f:
+        f.write(clean_source)
+    return executor.run(plan.args, plan.timeout)
+
+
+def _check_node_ids_resolve(node_ids: list[str], cwd: str, where: str) -> None:
+    """Raise NoTestsCollectedError if a node id names a file that does not exist under cwd."""
+    for node_id in node_ids:
+        if not os.path.exists(os.path.join(cwd, node_id.split("::", 1)[0])):
+            raise NoTestsCollectedError(
+                f"{where}: pytest would exit 4 on node id {node_id}: its file is not under {cwd}. "
+                "Node ids are relative to the pytest rootdir: run mutate4py from there"
+            )
 
 
 def plan_mutant(site: Site, inputs: PlanInputs) -> MutantPlan:
@@ -127,11 +186,17 @@ def plan_mutant(site: Site, inputs: PlanInputs) -> MutantPlan:
     full pytest_args because the line executes at import time and no test owns
     it. "uncovered" (a line no test reached) also runs the full pytest_args,
     tallied as "static".
+
+    The Measurement records node ids relative to its pytest rootdir, and pytest resolves
+    them from the directory it runs in. A node id whose file does not exist under
+    `inputs.cwd` is a pytest exit 4 for every Mutant, so it raises NoTestsCollectedError here,
+    before any Mutant runs: left to the Mutants, that exit races the Mutant timeout.
     """
     if inputs.selection_source is None:
         return MutantPlan(list(inputs.pytest_args), inputs.timeout_policy.timeout_for(None), None)
     outcome, node_ids = inputs.selection_source.tests_for_line(inputs.abs_source_path, site.line)
     if outcome == "narrowed":
+        _check_node_ids_resolve(node_ids, inputs.cwd, f"{inputs.abs_source_path}:{site.line}")
         return MutantPlan(
             [*_without_positionals(inputs.pytest_args, inputs.positionals), *node_ids],
             inputs.timeout_policy.timeout_for(frozenset(node_ids)),

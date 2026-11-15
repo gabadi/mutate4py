@@ -84,6 +84,8 @@ def _loop_over_two_sites(tmp_path, selection_source):
     src = "def f(a, b):\n    return a > b\n\n\ndef g(a, b):\n    return a + b\n"
     src_file = tmp_path / "calc.py"
     src_file.write_text(src)
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_calc.py").write_text("")
     return _run_mutation_loop(
         selected_sites=discover_sites(src),
         clean_source=src,
@@ -246,6 +248,103 @@ def test_run_mutation_loop_times_a_timed_out_mutant_into_the_timeouts_bucket(tmp
     assert (ctx.timing.mutants_count, ctx.timing.mutants_seconds) == (0, 0.0)
 
 
+# ── _run_mutation_loop: a Mutant that ends in pytest exit 4 or 5 ─────────────────
+
+
+class _ScriptedExecutor(_FakeExecutor):
+    """Answers each run with the next scripted status; records the source on disk when each run starts."""
+
+    def __init__(self, path, statuses):
+        super().__init__()
+        self._path = path
+        self._statuses = iter(statuses)
+        self.seen_sources = []
+
+    def run(self, args, timeout):
+        with open(self._path) as f:
+            self.seen_sources.append(f.read())
+        super().run(args, timeout)
+        return next(self._statuses)
+
+
+_ONE_SITE = "def f(a, b):\n    return a > b\n"
+
+
+def _loop_ctx(tmp_path, statuses, source=_ONE_SITE, **extra):
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(source)
+    executor = _ScriptedExecutor(str(src_file), statuses)
+    ctx = MutantExecCtx(
+        path=str(src_file),
+        cwd=str(tmp_path),
+        pytest_args=["-q"],
+        executor=executor,
+        timeout_policy=_policy(5.0),
+        abs_source_path=str(src_file),
+        **extra,
+    )
+    return ctx, executor
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("status", ["usage-error", "no-tests-collected"])
+def test_run_mutation_loop_kills_a_mutant_that_breaks_the_run_when_the_original_code_runs_tests(
+    tmp_path, monkeypatch, status
+):
+    """A Mutant that breaks the module at import fails the conftest import, so pytest exits 4 before
+    any test. The same argv on the original code runs tests: the Mutant caused the exit, and it is killed."""
+    import mutate4py._execution as execution_mod
+
+    # Two readings for the one Mutant. A timed control run would need two more and end the clock.
+    monkeypatch.setattr(execution_mod, "time", _StepClock([10.0, 11.5]))
+    ctx, executor = _loop_ctx(tmp_path, [status, "survived"])
+    site = discover_sites(_ONE_SITE)[0]
+
+    counts, survivors, _ = _run_mutation_loop(selected_sites=[site], clean_source=_ONE_SITE, ctx=ctx)
+
+    assert counts == {"killed": 1, "timeout": 0, "survived": 0}
+    assert survivors == []
+    assert executor.calls == [(["-q"], 5.0), (["-q"], 5.0)]
+    assert executor.seen_sources == [apply_mutant(_ONE_SITE, site), _ONE_SITE]
+    assert (ctx.timing.mutants_count, ctx.timing.mutants_seconds) == (1, 1.5)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("control", ["usage-error", "no-tests-collected", "timeout"])
+def test_run_mutation_loop_aborts_when_the_control_run_on_the_original_code_runs_no_test(tmp_path, control):
+    """The original code gives the same exit, or no answer: the argv may be the defect, so the run aborts."""
+    ctx, _ = _loop_ctx(tmp_path, ["usage-error", control])
+
+    with pytest.raises(NoTestsCollectedError, match="usage error before collecting any test"):
+        _run_mutation_loop(selected_sites=discover_sites(_ONE_SITE), clean_source=_ONE_SITE, ctx=ctx)
+
+
+@pytest.mark.unit
+def test_run_mutation_loop_runs_one_control_for_every_mutant_that_runs_the_same_argv(tmp_path):
+    two_sites = "def f(a, b):\n    return a > b\n\n\ndef g(a, b):\n    return a + b\n"
+    ctx, executor = _loop_ctx(tmp_path, ["no-tests-collected", "survived", "usage-error"], source=two_sites)
+
+    counts, _, _ = _run_mutation_loop(selected_sites=discover_sites(two_sites), clean_source=two_sites, ctx=ctx)
+
+    assert counts["killed"] == 2
+    assert len(executor.calls) == 3
+
+
+@pytest.mark.unit
+def test_run_mutation_loop_aborts_before_applying_the_mutant_when_a_node_id_file_is_missing(tmp_path):
+    """Pytest exits 4 on a node id whose file is not under the run directory. The plan says so before
+    any Mutant runs, so the result never depends on how the Mutant timeout compares with pytest start-up."""
+    ctx, executor = _loop_ctx(
+        tmp_path, [], selection_source=_FakeSelectionSource("narrowed", ["tests/test_gone.py::t"])
+    )
+
+    with pytest.raises(NoTestsCollectedError, match="tests/test_gone.py::t"):
+        _run_mutation_loop(selected_sites=discover_sites(_ONE_SITE), clean_source=_ONE_SITE, ctx=ctx)
+
+    assert executor.calls == []
+    assert (tmp_path / "calc.py").read_text() == _ONE_SITE
+
+
 # ── _run_parallel_workers passes timeout_policy ───────────────────────────────
 
 
@@ -394,6 +493,31 @@ def test_confirm_survivors_an_accepted_equivalent_survivor_is_not_confirmed(tmp_
 
     assert (still, runs, kills) == ([marked], 1, 1)
     assert executor.seen_sources == [apply_mutant(src, plain)]
+
+
+@pytest.mark.unit
+def test_confirm_survivors_a_full_set_run_that_breaks_pytest_is_a_kill_when_the_original_code_runs_tests(tmp_path):
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(_ONE_SITE)
+    site = discover_sites(_ONE_SITE)[0]
+    executor = _ScriptedExecutor(str(src_file), ["usage-error", "survived"])
+
+    still, runs, kills = _confirm_survivors([site], _ONE_SITE, _confirm_ctx(tmp_path, src_file), executor)
+
+    assert (still, runs, kills) == ([], 1, 1)
+    assert executor.calls == [(FULL_SET, 7.5), (FULL_SET, 7.5)]
+    assert executor.seen_sources == [apply_mutant(_ONE_SITE, site), _ONE_SITE]
+
+
+@pytest.mark.unit
+def test_confirm_survivors_aborts_when_the_control_run_on_the_original_code_runs_no_test(tmp_path):
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(_ONE_SITE)
+    site = discover_sites(_ONE_SITE)[0]
+    executor = _ScriptedExecutor(str(src_file), ["no-tests-collected", "no-tests-collected"])
+
+    with pytest.raises(NoTestsCollectedError, match="collected no tests"):
+        _confirm_survivors([site], _ONE_SITE, _confirm_ctx(tmp_path, src_file), executor)
 
 
 @pytest.mark.unit

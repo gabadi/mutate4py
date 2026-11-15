@@ -12,6 +12,7 @@ __all__ = [
     "write_always_failing_pytest_project",
     "write_always_passing_pytest_project",
     "write_content_check_pytest_project",
+    "write_import_time_lookup_project",
     "write_sleep_if_mutated_pytest_project",
 ]
 
@@ -73,3 +74,28 @@ def write_sleep_if_mutated_pytest_project(
     with open(os.path.join(_tests_dir(cwd), "test_timeout_check.py"), "w") as f:
         f.write(test_body)
     return ["-q", "tests"]
+
+
+IMPORT_TIME_LOOKUP_SOURCE = 'TABLE = {0: "zero"}\nNAME = TABLE[0]\n\n\ndef double(n):\n    return n * 2\n'
+"""Three Sites. The two `0` Sites (lines 1 and 2) make the module raise KeyError when it is imported."""
+
+
+def write_import_time_lookup_project(cwd: str) -> tuple[str, str]:
+    """Write calc.py, a conftest that imports it, and two passing tests into cwd.
+
+    Because the conftest imports calc, a Mutant that raises at import fails the conftest
+    import and pytest exits 4 before any test, as a real project's conftest does.
+    Returns (calc.py path, its source)."""
+    src_path = os.path.join(cwd, "calc.py")
+    with open(src_path, "w") as f:
+        f.write(IMPORT_TIME_LOOKUP_SOURCE)
+    with open(os.path.join(cwd, "conftest.py"), "w") as f:
+        f.write("import calc  # noqa: F401\n")
+    test_body = (
+        "import calc\n\n\n"
+        "def test_name():\n    assert calc.NAME == 'zero'\n\n\n"
+        "def test_double():\n    assert calc.double(2) == 4\n"
+    )
+    with open(os.path.join(_tests_dir(cwd), "test_calc.py"), "w") as f:
+        f.write(test_body)
+    return src_path, IMPORT_TIME_LOOKUP_SOURCE

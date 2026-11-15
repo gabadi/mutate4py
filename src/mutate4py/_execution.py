@@ -15,11 +15,13 @@ from mutate4py._executor import Executor, ExecutorDescription, MutantTiming
 from mutate4py._report import _on_parallel_result, _serial_progress_line
 from mutate4py._subprocess_executor import SubprocessExecutor
 from mutate4py._test_dispatch import (
+    ControlRuns,
     NoTestsCollectedError,
     PlanInputs,
     TimeoutPolicy,
     _check_execution_status,
     confirm_plan,
+    control_run,
     plan_mutant,
 )
 
@@ -67,6 +69,9 @@ def _run_mutation_loop(
     ctx.executor is always primed by the time this loop starts (whichever
     implementation _prepare_executor chose), so this loop never branches on
     which one it has — it only ever calls executor.run(args, timeout).
+
+    A Mutant whose pytest exits 4 or 5 gets a control run on the original code
+    (`ControlRuns`): killed if tests run there, an abort if they do not.
     """
     total_selected = len(selected_sites)
     counts: dict[str, int] = {"killed": 0, "timeout": 0, "survived": 0}
@@ -78,7 +83,9 @@ def _run_mutation_loop(
         abs_source_path=ctx.abs_source_path,
         timeout_policy=ctx.timeout_policy,
         positionals=ctx.positionals,
+        cwd=ctx.cwd,
     )
+    controls = ControlRuns()
     for i, site in enumerate(selected_sites, 1):
         # Planned before the splice so a disagreement aborts with the source untouched.
         plan = plan_mutant(site, plan_inputs)
@@ -90,6 +97,7 @@ def _run_mutation_loop(
         started = time.monotonic()
         status = ctx.executor.run(plan.args, plan.timeout)
         elapsed = time.monotonic() - started
+        status = controls.settle(status, plan.args, lambda: control_run(ctx.path, clean_source, ctx.executor, plan))
         # Raises before tallying: a Mutant pytest never exercised must never
         # reach the tally as `killed` (issue #55). The splice already
         # happened, but the caller's finally block restores the source.
@@ -177,6 +185,7 @@ def _confirm_survivors(
     fold into killed (ADR 0011).
     """
     plan = confirm_plan(ctx.confirm_args, ctx.timeout_policy)
+    controls = ControlRuns()
     still: list[Site] = []
     runs = kills = 0
     for site in survivors:
@@ -188,6 +197,7 @@ def _confirm_survivors(
         started = time.monotonic()
         status = executor.run(plan.args, plan.timeout)
         elapsed = time.monotonic() - started
+        status = controls.settle(status, plan.args, lambda: control_run(ctx.path, clean_source, executor, plan))
         _check_execution_status(status, ctx.abs_source_path, site)
         runs += 1
         ctx.timing.record_confirmation(status, elapsed)

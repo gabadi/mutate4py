@@ -2,18 +2,33 @@
 `_workers.py`'s provisioning and dispatch so each stays small enough to read whole.
 """
 
+import dataclasses
 from collections import defaultdict
 
 from mutate4py._discovery import Site
-from mutate4py._executor import MutantTiming
+from mutate4py._executor import ExecutorDescription, MutantTiming
 
 __all__ = [
+    "ParallelRunResult",
     "_assign_sites_to_workers",
     "_drop_one_result_if_injected",
     "_summarize_results",
     "_summarize_selection",
     "_summarize_timing",
 ]
+
+
+@dataclasses.dataclass
+class ParallelRunResult:
+    """What one parallel dispatch hands back: the tallies, the Survivors in site
+    order, the selection tally (None without a selection source), the Mutants'
+    timing, and the Executor description the Workers gave of themselves."""
+
+    counts: dict[str, int]
+    survivors: list[Site]
+    selection_counts: dict[str, int] | None
+    timing: MutantTiming
+    executor_description: ExecutorDescription
 
 
 def _assign_sites_to_workers(selected_sites: list[Site], n_workers: int) -> dict[int, list[tuple[int, Site, int]]]:

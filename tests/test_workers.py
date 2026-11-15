@@ -658,6 +658,97 @@ def test_run_one_site_no_tests_collected_raises_and_still_restores(tmp_path, mon
     assert worker_file.read_text() == src
 
 
+class _ScriptedExecutor(FakeExecutor):
+    """Answers each run with the next scripted status; records the worker file's text when each run starts."""
+
+    def __init__(self, worker_file, statuses):
+        super().__init__("survived")
+        self._worker_file = worker_file
+        self._statuses = iter(statuses)
+        self.seen_sources = []
+
+    def run(self, args, timeout):
+        self.seen_sources.append(self._worker_file.read_text())
+        super().run(args, timeout)
+        return next(self._statuses)
+
+
+def _assignment(tmp_path, site, worker_file):
+    return SiteAssignment(
+        worker_idx=1,
+        site=site,
+        site_idx=1,
+        total=1,
+        worker_root=str(tmp_path),
+        worker_file_path=str(worker_file),
+        plan=MutantPlan(args=["-q"], timeout=5.0, selection=None),
+    )
+
+
+@pytest.mark.unit
+def test_run_one_site_kills_a_mutant_that_breaks_the_run_when_the_original_code_runs_tests(tmp_path, monkeypatch):
+    """A Mutant that breaks the module at import makes pytest exit 4 before any test. The same argv on the
+    original code runs tests, so the Mutant caused the exit and is killed. The control run is not timed."""
+    import mutate4py._workers as workers_mod
+
+    src = "def f(a, b):\n    return a > b\n"
+    site = discover_sites(src)[0]
+    worker_file = tmp_path / "calc.py"
+    worker_file.write_text(src)
+    monkeypatch.delenv("_MUTATE4PY_TEST_WORKER_WRITE_FAIL", raising=False)
+    monkeypatch.setattr(workers_mod, "time", types.SimpleNamespace(monotonic=iter([10.0, 11.5]).__next__))
+    executor = _ScriptedExecutor(worker_file, ["usage-error", "survived"])
+    reported = []
+
+    result = _run_one_site(
+        _assignment(tmp_path, site, worker_file),
+        executor,
+        WorkerRunSettings(clean_source=src, on_result=reported.append),
+    )
+
+    assert (result["status"], result["seconds"]) == ("killed", 1.5)
+    assert reported == [result]
+    assert executor.calls == [["-q"], ["-q"]]
+    assert executor.seen_sources == [src.replace(">", ">="), src]
+    assert worker_file.read_text() == src
+
+
+@pytest.mark.unit
+def test_run_one_site_runs_one_control_for_every_mutant_that_runs_the_same_argv(tmp_path, monkeypatch):
+    src = "def f(a, b):\n    return a > b\n"
+    site = discover_sites(src)[0]
+    worker_file = tmp_path / "calc.py"
+    worker_file.write_text(src)
+    monkeypatch.delenv("_MUTATE4PY_TEST_WORKER_WRITE_FAIL", raising=False)
+    executor = _ScriptedExecutor(worker_file, ["usage-error", "survived", "no-tests-collected"])
+    settings = WorkerRunSettings(clean_source=src, on_result=noop_on_result)
+
+    first = _run_one_site(_assignment(tmp_path, site, worker_file), executor, settings)
+    second = _run_one_site(_assignment(tmp_path, site, worker_file), executor, settings)
+
+    assert (first["status"], second["status"]) == ("killed", "killed")
+    assert len(executor.calls) == 3
+
+
+@pytest.mark.unit
+def test_run_one_site_aborts_and_still_restores_when_the_control_run_runs_no_test(tmp_path, monkeypatch):
+    src = "def f(a, b):\n    return a > b\n"
+    site = discover_sites(src)[0]
+    worker_file = tmp_path / "calc.py"
+    worker_file.write_text(src)
+    monkeypatch.delenv("_MUTATE4PY_TEST_WORKER_WRITE_FAIL", raising=False)
+    executor = _ScriptedExecutor(worker_file, ["no-tests-collected", "no-tests-collected"])
+
+    with pytest.raises(NoTestsCollectedError, match="collected no tests"):
+        _run_one_site(
+            _assignment(tmp_path, site, worker_file),
+            executor,
+            WorkerRunSettings(clean_source=src, on_result=noop_on_result, abs_source_path=str(worker_file)),
+        )
+
+    assert worker_file.read_text() == src
+
+
 @pytest.mark.unit
 def test_run_one_site_write_fail_env_hook(tmp_path, monkeypatch):
     src = "def f(a, b):\n    return a > b\n"
