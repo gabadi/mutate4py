@@ -145,18 +145,6 @@ Rejected alternatives:
 **Do not "fix" these back.** The fingerprint's inputs and the all-or-nothing batch rule
 are what make a skip safe; narrowing either lets a stale proof read as current.
 
-### 2026-11-15 (issue #119): the ancestor walk stops at the project root
-
-The fingerprint above hashed the conftests and pytest config of every directory up to the
-filesystem root, keyed by relative path (`../../conftest.py`). A checkout at another depth
-produced other keys, so the skip never fired in a fresh worktree. The walk now stops at the
-project root: the nearest directory at or above the run directory holding a `.git`
-(directory or worktree file). The key is then the same in every checkout of a commit, at any
-depth. With no `.git` above the run directory the walk still goes to the filesystem root.
-
-Rejected: the nearest `pyproject.toml` as the bound. In a monorepo it can sit below a
-conftest or pytest config that pytest still loads, and bounding there would miss it.
-
 ## Amendment: spec #115
 
 A default run scores every Unscored function, including one that no covered Site
@@ -170,3 +158,24 @@ unchanged hash and no covered Site is still skipped by the rule above. This amen
 
 `--mutate-all` is removed and refused with exit 2. Its full re-score is now a run with no
 Manifest: that run is full-file and scores every function, an uncovered one with an `uncovered` score.
+
+## Amended (issue #119): the ancestor walk records only files that exist (2026-11-15)
+
+The fingerprint above hashed the conftests and pytest config of every directory up to the
+filesystem root, keyed by relative path (`../../conftest.py`), and an absent file was
+recorded as `absent`. A checkout at another depth produced other keys, so the skip never
+fired in a fresh worktree. The walk still goes to the filesystem root, because pytest's
+rootdir and conftest search does, but only ancestor files that exist are recorded. An
+absent entry carries no information: a file that appears adds an entry and one that
+disappears removes it, so both changes still move the fingerprint. With no config files
+above the repository the keys are the same at any depth. `pytest.toml`, `.pytest.toml` and
+`.pytest.ini` are hashed with the other config files.
+
+Rejected:
+
+- **Bounding the walk at the git root** (the nearest directory holding a `.git`). A
+  submodule under a superproject's `pytest.ini` or `conftest.py` still loads them, since
+  pytest searches up to `/`. Bounding there dropped inputs a run reads, and a stale proof
+  would read as current.
+- **Bounding the walk at the nearest `pyproject.toml`.** In a monorepo it can sit below a
+  conftest or pytest config that pytest still loads, and bounding there would miss it.
