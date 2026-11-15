@@ -66,7 +66,7 @@ def test_a_target_the_orchestrator_imported_still_forks_from_the_fork_server(tmp
         assert executor.run(_ARGS, timeout=30.0) == "survived"
         (tmp_path / "calc.py").write_text("def add(a, b):\n    return a - b\n")
         assert executor.run(_ARGS, timeout=30.0) == "killed"
-        assert executor.describe() == ExecutorDescription(mode="forking", fresh_import=2)
+        assert executor.describe() == ExecutorDescription(mode="forking", fresh_import=2, file_mode="fresh import")
     finally:
         _close(executor)
 
