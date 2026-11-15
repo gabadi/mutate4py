@@ -50,7 +50,7 @@ def test_run_scan_no_coverage(tmp_path, capsys):
 # Gap found via coverage.py arc data: nothing in the suite exercises the
 # non-scan/non-manifest branch of _run_on_file (the code that maps a parsed
 # argparse.Namespace onto run_mutations' kwargs for the directory-mode
-# per-file dispatch path). A mutant dropping mutate_all from the request would
+# per-file dispatch path). A mutant dropping a field from the request would
 # go undetected.
 # run_mutations' own behavior is already covered directly in test_runner.py;
 # this section is only about proving the wiring is correct.
@@ -74,7 +74,6 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
         pytest_args=["-x", "-k", "foo"],
         timeout_factor=7,
         min_timeout=2.5,
-        mutate_all=False,
         warning_threshold=42,
         max_workers=3,
     )
@@ -86,7 +85,6 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
         "pytest_args": ["-x", "-k", "foo"],
         "timeout_factor": 7,
         "min_timeout": 2.5,
-        "mutate_all": False,
         "warning_threshold": 42,
         "allow_survivors": False,
         "max_workers": 3,
@@ -97,26 +95,6 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
         "forking_requested": True,
         "executor": None,
     }
-
-
-@pytest.mark.unit
-def test_run_on_file_mutate_all_wired(monkeypatch):
-    """Pins mutate_all into the request, and the request's measurement stays unset."""
-    from mutate4py._dispatch import _run_on_file
-
-    captured = {}
-    monkeypatch.setattr(
-        "mutate4py._dispatch.run_mutations",
-        lambda request: captured.update(request=request) or 0,
-    )
-
-    args = make_args(mutate_all=True, max_workers=None)
-    _run_on_file(args, "f.py", "x = 1\n", "/cwd")
-
-    request = captured["request"]
-    assert request.mutate_all is True
-    assert request.max_workers == 0  # None -> 0 default, per _run_on_file
-    assert request.measurement is None
 
 
 @pytest.mark.unit

@@ -56,7 +56,7 @@ def test_two_workers_get_distinct_test_databases_with_reuse_db(tmp_path):
 
     result = _run_cli(
         project,
-        ["calc.py", "--mutate-all", "--pytest-args=-q --reuse-db", "--max-workers", "2"],
+        ["calc.py", "--pytest-args=-q --reuse-db", "--max-workers", "2"],
         extra_env={"MUTATE4PY_FIXTURE_DB_DIR": str(shared_db_dir)},
     )
     assert result.returncode == 0, result.stdout + result.stderr

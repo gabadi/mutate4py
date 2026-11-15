@@ -17,7 +17,8 @@ Remove them from scripts and CI.
 - `--test-contexts`: selection reads the run's own Measurement and its Test map; there is no db to pass. No replacement.
 - `--build-test-contexts`: no test-context db is built. No replacement.
 - `--since-last-run`: a default run already re-scores only the changed functions. Drop the flag.
-- `--lines`: edit a function to re-score it, or pass `--mutate-all` for a full re-score.
+- `--lines`: edit a function to re-score it.
+- `--mutate-all`: a run scores every changed or Unscored function itself. A run with no Manifest scores every covered function. Drop the flag.
 
 ### Changed
 
@@ -29,7 +30,7 @@ Remove them from scripts and CI.
   tests. No `--collect-only` pass runs. The overhead hint fires at half of the Measurement's wall.
 - A default run re-scores only changed functions. A function is changed when its Unit hash
   or its tests digest differs, it is Unscored, or it records Survivors and has no digest yet
-  (ADR 0029). `--mutate-all` re-scores every covered function.
+  (ADR 0029). A default run also scores every Unscored function, including one no covered Site reaches (spec #115). A run with no Manifest scores every covered function; `--mutate-all` is removed.
 - Unchanged functions are skipped even when they record Survivors. Those Survivors print under
   `Recorded survivors (function unchanged, not re-run):` and still count toward exit 3 (0 with `--allow-survivors`).
 - Test selection has two outcomes, `narrowed` and `static`, read from the Measurement's Test map

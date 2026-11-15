@@ -35,7 +35,8 @@ Accepted consequences:
   function becomes Unscored and `--check-manifest` passes on hashes, the same skip that
   already applies to changed functions.
 - A 0.1.4 Manifest gains scores only for functions a run fully selects. A default
-  differential run selects nothing unchanged, so one `--mutate-all` run scores the file.
+  differential run selects nothing unchanged, so a run with no Manifest scores the file
+  (`--mutate-all` was removed by spec #115).
 - A module-level survivor exits 3 but is not recorded: it has no function entry, so
   `--check-manifest` cannot see it.
 

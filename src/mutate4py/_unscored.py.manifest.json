@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "tested_at": "2026-11-15T00:30:24Z",
+  "module_hash": "dede58cc932d40eafa97769af00d3b5272f7acc54eca75b84a2866d066437bc5",
+  "source_sha256": "1a876b85f89de47ac559c7a71955572b6d6518418b60455a6c35a54e5b13289f",
+  "functions": [
+    {
+      "id": "func/functions_unscored",
+      "name": "functions_unscored",
+      "line": 10,
+      "end_line": 20,
+      "hash": "68281d216cd3b61293f468ca46cafcca77a8f1a03c96257799358357ae6b2c69"
+    }
+  ]
+}

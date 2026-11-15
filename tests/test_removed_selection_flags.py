@@ -28,17 +28,22 @@ def no_measurement(monkeypatch, tmp_path):
 REMOVED_FLAGS = [
     (
         ["--lines", "1"],
-        "--lines removed in 0.3.0: re-score a function by editing it, or use --mutate-all",
+        "--lines removed in 0.3.0: re-score a function by editing it",
     ),
     (
         ["--since-last-run"],
         "--since-last-run removed in 0.3.0: a default run already re-scores only changed functions",
     ),
+    (
+        ["--mutate-all"],
+        "--mutate-all removed in 0.3.0: a run scores every changed or Unscored function itself",
+    ),
 ]
+REMOVED_IDS = ["lines", "since-last-run", "mutate-all"]
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("flag_args,message", REMOVED_FLAGS, ids=["lines", "since-last-run"])
+@pytest.mark.parametrize("flag_args,message", REMOVED_FLAGS, ids=REMOVED_IDS)
 def test_removed_selection_flag_exits_2_naming_the_flag(tmp_path, monkeypatch, capsys, flag_args, message):
     p = tmp_path / "s.py"
     p.write_text("x = a > b\n")
@@ -51,7 +56,7 @@ def test_removed_selection_flag_exits_2_naming_the_flag(tmp_path, monkeypatch, c
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("flag_args,message", REMOVED_FLAGS, ids=["lines", "since-last-run"])
+@pytest.mark.parametrize("flag_args,message", REMOVED_FLAGS, ids=REMOVED_IDS)
 def test_removed_selection_flag_refused_before_any_measurement(tmp_path, monkeypatch, flag_args, message):
     p = tmp_path / "s.py"
     p.write_text("x = a > b\n")
@@ -70,4 +75,4 @@ def test_removed_selection_flags_are_hidden_from_help(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "--lines" not in out
     assert "--since-last-run" not in out
-    assert "--mutate-all" in out
+    assert "--mutate-all" not in out

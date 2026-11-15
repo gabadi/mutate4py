@@ -19,9 +19,10 @@ Feature: Per-mutant test selection and directory run mode
   #       narrowed  — named tests reached the line: run only those.
   #       static    — only the Empty context reached it (import-time code no
   #                   single test owns): run the full --pytest-args verbatim.
-  #       uncovered — no context reached it: the site is not mutated by
-  #                   default; under --mutate-all it runs the full --pytest-args
-  #                   and is tallied as static.
+  #       uncovered — no context reached it: the site is not mutated; it is
+  #                   tallied as Uncovered. A function no covered Site reaches is
+  #                   still scored by the default run (spec #115): its sites stay
+  #                   Uncovered and are never silently skipped.
   #   report line — the Mutation Report prints "Test selection: narrowed <n>,
   #     static <k>" after the "Uncovered:" line and before any "Survivors:" block.
   #   survivors — each Survivor is confirmed by re-running the full test set,

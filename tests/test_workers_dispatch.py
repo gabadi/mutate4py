@@ -319,25 +319,31 @@ def test_parallel_dogfood_run_scores_the_same_as_the_serial_run(tmp_path):
     """C1: mutate4py mutating its own source must score the same under workers as serially.
     The Worker copy's mutate4py has to be the one imported; an import root on PYTHONPATH
     would resolve to the unmutated original, and every Mutant would survive."""
-    project = tmp_path / "project"
-    project.mkdir()
-    for name in ("pyproject.toml", "uv.lock", ".python-version", "README.md", "LICENSE"):
-        shutil.copy2(os.path.join(REPO_ROOT, name), project / name)
-    for name in ("src", "tests"):
-        shutil.copytree(os.path.join(REPO_ROOT, name), project / name, ignore=shutil.ignore_patterns(*_SKIP_ENTRIES))
     env = {k: v for k, v in os.environ.items() if k not in ("VIRTUAL_ENV", "PYTHONPATH")}
-    subprocess.run(["uv", "sync"], cwd=project, env=env, capture_output=True, text=True, check=True)
+    # Each run gets a fresh copy. A default run after a complete scored run with unchanged inputs
+    # skips its Measurement (spec 5b), so a shared project would leave the parallel run nothing to score.
+    serial_project, parallel_project = tmp_path / "serial", tmp_path / "parallel"
+    for project in (serial_project, parallel_project):
+        project.mkdir()
+        for name in ("pyproject.toml", "uv.lock", ".python-version", "README.md", "LICENSE"):
+            shutil.copy2(os.path.join(REPO_ROOT, name), project / name)
+        for name in ("src", "tests"):
+            shutil.copytree(
+                os.path.join(REPO_ROOT, name), project / name, ignore=shutil.ignore_patterns(*_SKIP_ENTRIES)
+            )
+        subprocess.run(["uv", "sync"], cwd=project, env=env, capture_output=True, text=True, check=True)
     base = [
         "uv",
         "run",
         "mutate4py",
         "src/mutate4py/_cmd.py",
-        "--mutate-all",
         "--pytest-args",
         "tests/test_cmd.py",
     ]
-    serial = subprocess.run(base, cwd=project, env=env, capture_output=True, text=True)
-    parallel = subprocess.run(base + ["--max-workers", "2"], cwd=project, env=env, capture_output=True, text=True)
+    serial = subprocess.run(base, cwd=serial_project, env=env, capture_output=True, text=True)
+    parallel = subprocess.run(
+        base + ["--max-workers", "2"], cwd=parallel_project, env=env, capture_output=True, text=True
+    )
     serial_lines = _outcome_lines(serial.stdout)
     assert any(ln.startswith("Killed:") for ln in serial_lines), serial.stdout + serial.stderr
     assert any(ln.startswith("Survived:") for ln in serial_lines), serial.stdout + serial.stderr

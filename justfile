@@ -314,7 +314,7 @@ gherkin-mutation:
 # mutation scoring is slow. Opt in: `just check mutate-sample`.
 [private]
 mutate-sample:
-    just mutate src/mutate4py/_cmd.py --mutate-all --allow-survivors
+    just mutate src/mutate4py/_cmd.py --allow-survivors
 
 # --- Mutation testing (hardener loop) ---------------------------------------
 #
@@ -361,8 +361,10 @@ mutate path *args:
 
 # --- Perf benchmark ----------------------------------------------------------
 #
-# Times every quality check `check` runs, plus a real, full-src/ mutation run
-# using per-mutant test selection, and prints a duration table with a total.
+# Times every quality check `check` runs, plus a real mutation run over src/
+# (the default scored run: per-mutant test selection, differential once the
+# Manifests exist, so it re-scores only what changed), and prints a duration
+# table with a total.
 # Not a pre-commit gate — dogfoods mutate4py against all of src/, so this
 # takes minutes, not seconds. Run it to benchmark real mutation-testing cost.
 #
@@ -400,7 +402,7 @@ perf:
     _run "check-manifest" uv run mutate4py src/ --check-manifest --manifest-file
     _run "acceptance" bash acceptance/run_acceptance.sh
     _run "mutation (src/)" \
-        just mutate src/ --mutate-all --mutation-warning 100000 --allow-survivors
+        just mutate src/ --mutation-warning 100000 --allow-survivors
 
     name_width=0
     for n in "${names[@]}"; do

@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T16:26:57Z",
-  "module_hash": "804567f7ddd72826fac68f9bf96c8ad39f11fc0029097debf8f286b478b01072",
-  "source_sha256": "15e71ee4f0bc35f9748ee3bb03a58705887dae7b2604ca6c8047113a62c7a115",
+  "tested_at": "2026-11-15T00:30:18Z",
+  "module_hash": "dbc2dd48edf863ae6c52d904b8fad79056915282deced46e4f25a9a9d5fcb2fb",
+  "source_sha256": "70c6d9278d2a17e7e31234b15258452f9b426b6f14c4b4ed7b32575e14055328",
   "functions": [
     {
       "id": "func/ValidationError.__init__",
@@ -14,113 +14,113 @@
     {
       "id": "func/_check_removed_flags",
       "name": "_check_removed_flags",
-      "line": 37,
-      "end_line": 43,
+      "line": 38,
+      "end_line": 44,
       "hash": "462758c0a9cf88ad0d759143ec5421b1eafcf035e8c44363e71ffec9493ccba0"
     },
     {
       "id": "func/_no_run_flag",
       "name": "_no_run_flag",
-      "line": 46,
-      "end_line": 52,
+      "line": 47,
+      "end_line": 53,
       "hash": "59aa486011c3e3158e11848b3f49b3182be927b8b3fc1c89b7b93890a7470ba9"
     },
     {
       "id": "func/_exit_incompatible",
       "name": "_exit_incompatible",
-      "line": 55,
-      "end_line": 56,
+      "line": 56,
+      "end_line": 57,
       "hash": "235efa5765062bda3712911d8fc253b9495c6b6a3ca7520319ce60e3333ed27d"
     },
     {
       "id": "func/_check_no_run_incompatibilities",
       "name": "_check_no_run_incompatibilities",
-      "line": 59,
-      "end_line": 65,
-      "hash": "20b849eded1242c6e9c8bdeb89d71ec4729d831bee07ddc3404e778a81352056"
+      "line": 60,
+      "end_line": 64,
+      "hash": "14d987f3200f7ab9a7bb3ef3855c46d3a17720b464dfafc95b73c47b5fc469e5"
     },
     {
       "id": "func/_check_no_run_survivor_flag",
       "name": "_check_no_run_survivor_flag",
-      "line": 68,
-      "end_line": 71,
+      "line": 67,
+      "end_line": 70,
       "hash": "413b2e208bb4dd6cebcce9f2c6f3e910f58c2209cb3f6ac7b63702b604559d9b"
     },
     {
       "id": "func/_check_scan_only_incompatibilities",
       "name": "_check_scan_only_incompatibilities",
-      "line": 74,
-      "end_line": 81,
+      "line": 73,
+      "end_line": 80,
       "hash": "002627e8daef422a67872a25b140f0dd065a780bdab3856605a0e5106ef26611"
     },
     {
       "id": "func/_check_no_run_mode_specific_incompatibilities",
       "name": "_check_no_run_mode_specific_incompatibilities",
-      "line": 84,
-      "end_line": 87,
+      "line": 83,
+      "end_line": 86,
       "hash": "1243c0236564794479e3c6a2c56b1dfdbd1a2e9cb9764ab5e604ab883fe107af"
     },
     {
       "id": "func/_validate_mutual_exclusions",
       "name": "_validate_mutual_exclusions",
-      "line": 90,
-      "end_line": 103,
+      "line": 89,
+      "end_line": 102,
       "hash": "5129ad83a0a871e534982ccd820fb3673b22ee2e25f157182def22202d6b3abf"
     },
     {
       "id": "func/_nearest_project_root",
       "name": "_nearest_project_root",
-      "line": 106,
-      "end_line": 117,
+      "line": 105,
+      "end_line": 116,
       "hash": "460efc9410e8c7a7cff0733487aaeebc8f461ed5ce012d62837a387c729af0d1"
     },
     {
       "id": "func/_env_mismatch_message",
       "name": "_env_mismatch_message",
-      "line": 120,
-      "end_line": 126,
+      "line": 119,
+      "end_line": 125,
       "hash": "17530e68e443d4add1bff4bc2d88be8e55aca10b4e0818db80fa30d69eeb6dfd"
     },
     {
       "id": "func/_site_packages_dirs",
       "name": "_site_packages_dirs",
-      "line": 129,
-      "end_line": 132,
+      "line": 128,
+      "end_line": 131,
       "hash": "2b435d96c51157aecc75341f42940902a815c00448944d4bbd1bc2f9f14b7e21"
     },
     {
       "id": "func/_pythonpath_entries",
       "name": "_pythonpath_entries",
-      "line": 135,
-      "end_line": 136,
+      "line": 134,
+      "end_line": 135,
       "hash": "d943adbf599a926a756134d1bd66db44bfde7b1c2eccf11d8611f9c457eceeaf"
     },
     {
       "id": "func/_running_identity",
       "name": "_running_identity",
-      "line": 139,
-      "end_line": 146,
+      "line": 138,
+      "end_line": 145,
       "hash": "dac80fa293ebaa8f9674d274b11040c537298fc7d7d8c6bb567896b98895da4d"
     },
     {
       "id": "func/_is_running_env",
       "name": "_is_running_env",
-      "line": 149,
-      "end_line": 152,
+      "line": 148,
+      "end_line": 151,
       "hash": "d5afd218484fbd762cdb714d1a7afc18d881e93db2a6e6982768cd3b6a86d13b"
     },
     {
       "id": "func/check_project_env",
       "name": "check_project_env",
-      "line": 155,
-      "end_line": 174,
+      "line": 154,
+      "end_line": 173,
       "hash": "0c13f843b05d45da3fd3fe150ee50809b1fe4999ee3e530ad9efe7b9ca74c71d"
     },
     {
       "id": "func/check_run_env",
       "name": "check_run_env",
-      "line": 177,
-      "end_line": 189,
+      "line": 176,
+      "end_line": 188,
       "hash": "b2330ec25705f68948c3393e0114349b166d281f2dcc5e3c4e48798505b65c7b"
     }
   ]

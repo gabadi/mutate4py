@@ -12,7 +12,7 @@ Feature: The mutation run loop and report
   #
   # CONTRACT:
   #   command: mutate4py <file> [--pytest-args ARGS] [--timeout-factor N]
-  #            [--mutate-all] [--mutation-warning N]
+  #            [--mutation-warning N]
   #            (no coverage flag: the run measures coverage itself, ADR 0027)
   #   request:
   #     <file> — path, required; a Python source file with discovered mutation sites (F1).
@@ -20,8 +20,8 @@ Feature: The mutation run loop and report
   #       default none; reaches pytest directly (no shell) for the Measurement and
   #       per-mutant runs.
   #     --timeout-factor N — positive int, default 10; mutant timeout = max(1s, N × baseline).
-  #     selection flag (--mutate-all) — already parsed (F5 validates). --lines and
-  #       --since-last-run were removed in 0.3.0 and are refused (exit 2).
+  #     no selection flag. --lines, --since-last-run and --mutate-all were removed in 0.3.0
+  #       and are refused (exit 2); a run scores every changed or Unscored function (spec #115).
   #   run order (observable): strip manifest -> discover -> build+diff manifest ->
   #     Measurement (baseline + coverage, ADR 0027) + partition -> select -> print header ->
   #     [uncovered block] -> save .mutate4py.bak -> per-site apply/test/classify/restore ->
@@ -62,8 +62,8 @@ Feature: The mutation run loop and report
   #   - The per-mutant line has a colon before <functionID>; the uncovered and survivor
   #     lines do not (ADR 0011): per-mutant "<desc>: <functionID>" vs "  line <L> <desc> <functionID>".
   #   - mutant timeout = max(1s, timeout-factor × baseline-duration); the 1s floor is fixed.
-  #   - differential = manifest exists AND not --mutate-all. Differential is the default
-  #     once a manifest exists.
+  #   - differential = manifest exists. A run with no manifest is a full-file run. No flag
+  #     turns differential off (--mutate-all is removed, spec #115).
   #   - The uncovered block prints only when NOT differential.
   #   - Survivors block prints only when survived > 0.
   #   - Killed report total = killed-count + timeout-count.
@@ -189,33 +189,30 @@ Feature: The mutation run loop and report
     And no ".mutate4py.bak" file is left behind
     And no "Mutation Report" is printed
 
-  # run-loop-6: differential selection is the default once a manifest exists
+  # run-loop-6: a manifest makes the run differential; there is no flag that turns it off
+  # (--mutate-all is removed, spec #115)
   Scenario Outline: differential selection decides which covered sites are selected
     Given the file "<hasManifest>" an existing manifest
-    And the flags supplied are "<flags>"
     When I run mutate4py mutating that file
     Then the run "<isDifferential>" differential
     And only "<selected>" sites are selected
 
     Examples:
-      | hasManifest | flags        | isDifferential | selected         |
-      | has         |              | is             | changed-function |
-      | has         | --mutate-all | is not         | all-covered      |
-      | has not     |              | is not         | all-covered      |
+      | hasManifest | isDifferential | selected         |
+      | has         | is             | changed-function |
+      | has not     | is not         | all-covered      |
 
   # run-loop-7: the uncovered block prints only on a non-differential run
   Scenario Outline: the uncovered block visibility follows the differential switch
     Given the file "<hasManifest>" an existing manifest
-    And the flags supplied are "<flags>"
     And there is at least one uncovered site
     When I run mutate4py mutating that file
     Then an "Uncovered mutations:" block "<visibility>" printed
 
     Examples:
-      | hasManifest | flags        | visibility  |
-      | has not     |              | is          |
-      | has         |              | is not      |
-      | has         | --mutate-all | is          |
+      | hasManifest | visibility  |
+      | has not     | is          |
+      | has         | is not      |
 
   # run-loop-8: the header reports the six counts with no workers line
   Scenario: the run header prints the count lines and never a workers line

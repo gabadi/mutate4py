@@ -8,7 +8,7 @@ Navigation and universal invariants for all agents in this project.
 
 ## Local Gates
 - `just check` — all CI gates, same order as `.github/workflows/ci.yml` (log-per-gate in `check.log`, ✓/✗ printed, tail on failure). `just check <gate> [<gate> ...]` runs a subset; `just --list` shows public recipes.
-- `just mutate <path> [<args>]` — scored mutation run with per-mutant progress captured to a log; only the `Mutation Report` summary is printed. Use this instead of raw `uv run mutate4py <path> --mutate-all` (see `.agents/roles/hardender.md`).
+- `just mutate <path> [<args>]` — scored mutation run with per-mutant progress captured to a log; only the `Mutation Report` summary is printed. Use this instead of raw `uv run mutate4py <path>` (see `.agents/roles/hardender.md`).
 - While iterating on a change, run `just check test-unit` (make the behaviour work first); the full `just check` runs once before handing off or committing.
 
 ## Code Review

@@ -31,7 +31,7 @@ STEPS_MAP[tests-digest]="tests_digest_steps"
 # (issue #38 gate 04): an unwired feature file with no entry here is a hard
 # error, not a silent skip.
 declare -A OPT_OUT
-OPT_OUT[ci]="documents external CI/CD infrastructure (GitHub Actions job semantics, tag-triggered release/publish) that this local step-execution harness cannot run or simulate; see the feature's header for the F1 design-intent contract it records. KNOWN STALE: ci-3 claims the crap/mutation gates don't run — CI has since grown a CRAP step and a manifest-check step; the full mutate-all scan is still opt-in only. Kept as historical record, not a live spec."
+OPT_OUT[ci]="documents external CI/CD infrastructure (GitHub Actions job semantics, tag-triggered release/publish) that this local step-execution harness cannot run or simulate; see the feature's header for the F1 design-intent contract it records. KNOWN STALE: ci-3 claims the crap/mutation gates don't run — CI has since grown a CRAP step and a manifest-check step; the full mutation scan is still opt-in only. Kept as historical record, not a live spec."
 
 # A stem in both a steps map and its opt-out list is itself a silent-skip
 # hole: the opt-out branch would win, so a feature with a real steps module

@@ -10,10 +10,12 @@ class ScoredRun:
     """A run's Sites, coverage, selection and survivors, as the Manifest score block needs them.
 
     full_selection is True only for a full-file run (no differential narrowing).
-    Only such a run may score a function with no covered Site: a narrowed run never tested it,
-    so the function's recorded score must stay as it was.
+    Apart from an Unscored function, only such a run may score a function with no covered Site:
+    a narrowed run never tested it, so the function's recorded score must stay as it was.
 
     recorded_survivors holds the (function id, line, desc) survivors the Manifest recorded before this run.
+    unscored_fn_ids holds the Unscored functions (ADR 0029 rule 1): a run scores one even when no covered
+    Site reaches it, since the Manifest holds no score block for it yet.
     """
 
     all_sites: list[Site]
@@ -23,6 +25,7 @@ class ScoredRun:
     markers: dict[int, str] = dataclasses.field(default_factory=dict)
     full_selection: bool = False
     recorded_survivors: frozenset[tuple[str, int, str]] = frozenset()
+    unscored_fn_ids: frozenset[str] = frozenset()
 
     def unaccepted(self) -> list[Site]:
         """Survivors whose line carries no equivalent marker, in survivor order."""
@@ -53,7 +56,7 @@ class ScoredRun:
         """One function's score block, or None when the function is skipped."""
         sites = self._sites_of(fid)
         covered = self._covered(sites)
-        if self._skipped(covered, selected) or self._lost_recorded_survivor(fid):
+        if self._skipped(fid, covered, selected) or self._lost_recorded_survivor(fid):
             return None
         unaccepted = self._unaccepted_of(fid)
         accepted = self._accepted_of(fid)
@@ -68,10 +71,11 @@ class ScoredRun:
             "accepted": [{"line": s.line, "desc": s.desc, "reason": r} for s, r in accepted],
         }
 
-    def _skipped(self, covered: list[Site], selected: set[Site]) -> bool:
-        """Partly selected functions are skipped; so is one with no covered Site outside a full-file run."""
+    def _skipped(self, fid: str, covered: list[Site], selected: set[Site]) -> bool:
+        """Partly selected functions are skipped; so is one with no covered Site, unless the run is
+        a full-file run or the function is Unscored."""
         if not covered:
-            return not self.full_selection
+            return not (self.full_selection or fid in self.unscored_fn_ids)
         return not all(s in selected for s in covered)
 
     def _lost_recorded_survivor(self, fid: str) -> bool:

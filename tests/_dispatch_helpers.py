@@ -9,7 +9,6 @@ def make_args(**kwargs):
         scan=False,
         update_manifest=False,
         check_manifest=False,
-        mutate_all=False,
         max_workers=None,
         timeout_factor=10,
         min_timeout=1.0,

@@ -51,7 +51,6 @@ def _run(
         source=_on_disk(src_path),
         pytest_args=list(pytest_args),
         timeout_factor=10,
-        mutate_all=False,
         warning_threshold=1000,
         cwd=os.path.dirname(src_path),
         executor=executor,

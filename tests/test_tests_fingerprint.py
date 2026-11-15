@@ -26,12 +26,12 @@ def _passing(**overrides: object) -> TargetFacts:
 
 @pytest.mark.unit
 def test_skips_when_every_condition_holds_for_every_target():
-    assert can_skip_measurement([_passing(), _passing()], FRESH, mutate_all=False) is True
+    assert can_skip_measurement([_passing(), _passing()], FRESH) is True
 
 
 @pytest.mark.unit
-def test_mutate_all_never_skips():
-    assert can_skip_measurement([_passing()], FRESH, mutate_all=True) is False
+def test_no_targets_never_skip():
+    assert can_skip_measurement([], FRESH) is False
 
 
 @pytest.mark.unit
@@ -46,18 +46,18 @@ def test_mutate_all_never_skips():
     ],
 )
 def test_each_condition_alone_blocks_the_skip(override):
-    assert can_skip_measurement([_passing(**override)], FRESH, mutate_all=False) is False
+    assert can_skip_measurement([_passing(**override)], FRESH) is False
 
 
 @pytest.mark.unit
 def test_one_failing_target_blocks_the_skip_for_the_whole_run():
     targets = [_passing(), _passing(source_unchanged=False)]
-    assert can_skip_measurement(targets, FRESH, mutate_all=False) is False
+    assert can_skip_measurement(targets, FRESH) is False
 
 
 @pytest.mark.unit
 def test_a_run_with_no_targets_does_not_skip():
-    assert can_skip_measurement([], FRESH, mutate_all=False) is False
+    assert can_skip_measurement([], FRESH) is False
 
 
 def _project(root) -> str:

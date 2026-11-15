@@ -27,6 +27,7 @@ from mutate4py._manifest_storage import (
 )
 from mutate4py._scoring import ScoredRun
 from mutate4py._tests_fingerprint import tests_fingerprint
+from mutate4py._unscored import functions_unscored
 
 _logger = logging.getLogger(__name__)
 
@@ -44,27 +45,33 @@ def _restore_from_backup(path: str, bak_path: str) -> str | None:
         return f.read()
 
 
-def _compute_manifest_diff(source: str, loc: ManifestLocation) -> tuple[str, dict | None, bool, set[str], str]:
+def _compute_manifest_diff(
+    source: str, loc: ManifestLocation
+) -> tuple[str, dict | None, bool, set[str], str, set[str]]:
     """Strip manifest, discover sites, diff.
 
-    Returns (clean_source, existing_manifest, manifest_exists, changed_fn_ids, tested_at).
+    Returns (clean_source, existing_manifest, manifest_exists, changed_fn_ids, tested_at, unscored_fn_ids).
     changed_fn_ids also holds every function with recorded survivors and no tests
     digest: such a function is not current, so the next default run retries it
     even when its hash is unchanged. It also holds every function whose accepted
-    survivor lost its marker. The "Changed mutation sites" count includes those
-    Sites too. Functions whose stored tests digest changed join it later, once the
-    Measurement has run (apply_digest_changes).
+    survivor lost its marker, and every Unscored function (ADR 0029 rule 1), which a
+    default run scores. The "Changed mutation sites" count includes those Sites too.
+    unscored_fn_ids is the Unscored set alone: a run scores such a function even when
+    no covered Site reaches it. Functions whose stored tests digest changed join
+    changed_fn_ids later, once the Measurement has run (apply_digest_changes).
     """
     clean_source = strip_manifest(source)
     existing_manifest, manifest_exists = _read_existing_manifest(source, loc)
     tested_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     current_manifest = build_manifest(clean_source, tested_at=tested_at)
+    unscored_fn_ids = functions_unscored(existing_manifest, current_manifest)
     changed_fn_ids = (
         diff_manifests(existing_manifest, current_manifest)
         | functions_with_survivors(existing_manifest)
         | functions_with_unmarked_acceptances(existing_manifest, current_manifest, marker_lines(clean_source))
+        | unscored_fn_ids
     )
-    return clean_source, existing_manifest, manifest_exists, changed_fn_ids, tested_at
+    return clean_source, existing_manifest, manifest_exists, changed_fn_ids, tested_at, unscored_fn_ids
 
 
 def _finalize_source(  # noqa: PLR0913 - keeps the positional contract tests/test_source_loading.py relies on
@@ -110,6 +117,7 @@ class LoadedSource:
     tested_at: str
     all_sites: list[Site]
     changed_count: int
+    unscored_fn_ids: set[str]
 
 
 def _load_clean_source(bak_path: str, source: str, loc: ManifestLocation) -> LoadedSource:
@@ -123,6 +131,7 @@ def _load_clean_source(bak_path: str, source: str, loc: ManifestLocation) -> Loa
         manifest_exists,
         changed_fn_ids,
         tested_at,
+        unscored_fn_ids,
     ) = _compute_manifest_diff(source, loc)
     all_sites = discover_sites(clean_source)
     return LoadedSource(
@@ -133,6 +142,7 @@ def _load_clean_source(bak_path: str, source: str, loc: ManifestLocation) -> Loa
         tested_at=tested_at,
         all_sites=all_sites,
         changed_count=_changed_site_count(all_sites, changed_fn_ids),
+        unscored_fn_ids=unscored_fn_ids,
     )
 
 

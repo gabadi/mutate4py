@@ -66,7 +66,6 @@ def skipped_manifests(
     cwd: str,
     *,
     manifest_file: bool,
-    mutate_all: bool,
 ) -> list[dict] | None:
     """The stored Manifest of every target when the invocation may skip its Measurement, else None.
 
@@ -79,6 +78,6 @@ def skipped_manifests(
             return None
         readings.append(reading)
     fresh = tests_fingerprint(cwd, shlex.join(pytest_args))
-    if not can_skip_measurement([r.facts for r in readings], fresh, mutate_all=mutate_all):
+    if not can_skip_measurement([r.facts for r in readings], fresh):
         return None
     return [r.manifest for r in readings]

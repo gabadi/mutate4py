@@ -57,18 +57,12 @@ def _target_skippable(facts: TargetFacts, fresh_fingerprint: str) -> bool:
     )
 
 
-def can_skip_measurement(
-    targets: Sequence[TargetFacts],
-    fresh_fingerprint: str,
-    *,
-    mutate_all: bool,
-) -> bool:
+def can_skip_measurement(targets: Sequence[TargetFacts], fresh_fingerprint: str) -> bool:
     """True when the run may skip the Measurement and every Mutant (spec §5b).
 
-    `mutate_all` is keyword-only because it is a bare boolean. A run with no
-    targets never skips: there is nothing to report from stored scores.
+    A run with no targets never skips: there is nothing to report from stored scores.
     """
-    if mutate_all or not targets:
+    if not targets:
         return False
     return all(_target_skippable(facts, fresh_fingerprint) for facts in targets)
 

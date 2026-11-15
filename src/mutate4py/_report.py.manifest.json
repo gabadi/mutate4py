@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T21:35:11Z",
-  "module_hash": "a5866e7936ffcc83492af4f0e43c75f065068f765d5b12e6968f2e45c4870118",
-  "source_sha256": "aa3b723afe9ba9afe92c4280fc4f6544d49dd9f56856e61236354fd0cec01557",
+  "tested_at": "2026-11-15T00:30:19Z",
+  "module_hash": "d41f69d7258dd33dc6c9ad942be319dfb3df469c8402a90e9f221aab3e7bad92",
+  "source_sha256": "c6d9db0191cd9013c0dee19d769cd3026773e6e76ba8450920dc2480f909f48d",
   "functions": [
     {
       "id": "func/_run_header_lines",
@@ -121,7 +121,7 @@
       "name": "_scan_manifest_state",
       "line": 244,
       "end_line": 262,
-      "hash": "8866f3fc9d4c5fd02c6263bdcce7e9fbadceb020feb92a9497515effd0c3a7ab"
+      "hash": "21e7ef5aaab5b490146eb36e7c7d07aeb8c465de31655489cecd60a25d2acdcf"
     },
     {
       "id": "func/scan_report",

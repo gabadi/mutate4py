@@ -95,28 +95,16 @@ def test_should_run_parallel_three_workers():
     assert _should_run_parallel(max_workers=3, n_selected=2) is True
 
 
-# ── _is_differential: a Manifest exists and --mutate-all is not given ────────
+# ── _is_differential: the Manifest alone decides ─────────────────────────────
 
 
 @pytest.mark.unit
-def test_is_differential_manifest_and_not_mutate_all():
-    """A Manifest exists and --mutate-all is off -> a differential rerun."""
-    assert _is_differential(manifest_exists=True, mutate_all=False) is True
+def test_is_differential_with_a_manifest():
+    """A Manifest exists -> a differential rerun."""
+    assert _is_differential(manifest_exists=True) is True
 
 
 @pytest.mark.unit
 def test_is_differential_no_manifest():
-    """No Manifest -> a full-file run, even without --mutate-all."""
-    assert _is_differential(manifest_exists=False, mutate_all=False) is False
-
-
-@pytest.mark.unit
-def test_is_differential_mutate_all_disables():
-    """--mutate-all -> a full-file run, even with a Manifest."""
-    assert _is_differential(manifest_exists=True, mutate_all=True) is False
-
-
-@pytest.mark.unit
-def test_is_differential_no_manifest_and_mutate_all():
-    """Neither condition -> a full-file run."""
-    assert _is_differential(manifest_exists=False, mutate_all=True) is False
+    """No Manifest -> a full-file run."""
+    assert _is_differential(manifest_exists=False) is False

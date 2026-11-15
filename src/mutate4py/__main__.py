@@ -123,12 +123,8 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Floor for the Mutant's own tests' timeout in seconds, before the per-Mutant overhead "
         "is added (default: 5.0)",
     )
-    parser.add_argument(
-        "--mutate-all",
-        action="store_true",
-        dest="mutate_all",
-        help="Mutate all covered sites regardless of manifest",
-    )
+    # Removed in 0.3.0 (spec #115): parsed so that _check_removed_flags can refuse it, hidden from --help.
+    parser.add_argument("--mutate-all", action="store_true", dest="mutate_all", help=argparse.SUPPRESS)
     parser.add_argument(
         "--allow-survivors",
         action="store_true",

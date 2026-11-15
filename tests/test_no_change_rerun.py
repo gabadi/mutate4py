@@ -1,10 +1,12 @@
 """No-change rerun (design #89 §5b): a rerun whose code and tests are unchanged since a scored run
 skips its Measurement and its Mutants, prints the Survivors the stored Manifest records, writes
-nothing, and exits as the scored run did. A changed test file or --mutate-all runs the Mutants again.
+nothing, and exits as the scored run did. A changed test file runs the Mutants again, and a default
+run scores every Unscored function (ADR 0029 rule 1), so a 0.1.4 sidecar is scored once and then skips.
 
 Each test drives the real CLI in a throwaway project, so every run is a real scored or skipped run.
 """
 
+import json
 import os
 import subprocess
 import sys
@@ -22,6 +24,8 @@ _KILLING_TESTS = (
 # `assert f(2, 1)` alone lets `a >= b` and `a != b` survive, so the scored run keeps Survivors.
 _SURVIVING_TESTS = "from calc import f\n\n\ndef test_f():\n    assert f(2, 1)\n"
 _SRC = "def f(a, b):\n    return a > b\n"
+# `h` is never called by the killing tests, so none of its Sites is covered.
+_SRC_WITH_UNREACHED_FUNCTION = _SRC + "\n\ndef h(a, b):\n    return a > b\n"
 
 
 def _run(cwd, *args: str) -> subprocess.CompletedProcess:
@@ -35,14 +39,24 @@ def _run(cwd, *args: str) -> subprocess.CompletedProcess:
     )
 
 
-def _project(root, tests: str):
+def _project(root, tests: str, source: str = _SRC):
     (root / "tests").mkdir(exist_ok=True)
-    (root / "calc.py").write_text(_SRC)
+    (root / "calc.py").write_text(source)
     (root / "tests" / "test_calc.py").write_text(tests)
 
 
 def _scored(root, *extra: str) -> subprocess.CompletedProcess:
     return _run(str(root), "calc.py", "--pytest-args", "-q tests", *extra)
+
+
+def _write_unscored_manifest(root) -> None:
+    """A 0.1.4-style sidecar: the Manifest of a file with no score blocks, as --update-manifest writes it."""
+    assert _run(str(root), "calc.py", "--update-manifest", "--manifest-file").returncode == 0
+
+
+def _sidecar_functions(root) -> dict[str, dict]:
+    with open(root / "calc.py.manifest.json") as handle:
+        return {fn["id"]: fn for fn in json.load(handle)["functions"]}
 
 
 def _recorded_survivor_lines(stdout: str) -> list[str]:
@@ -83,14 +97,35 @@ def test_an_edited_test_file_runs_the_mutants_again(tmp_path):
 
 
 @pytest.mark.integration
-def test_mutate_all_runs_the_mutants_again(tmp_path):
-    _project(tmp_path, _KILLING_TESTS)
-    assert _scored(tmp_path).returncode == 0
+def test_a_default_run_scores_every_unscored_function_of_a_014_sidecar(tmp_path):
+    _project(tmp_path, _KILLING_TESTS, source=_SRC_WITH_UNREACHED_FUNCTION)
+    _write_unscored_manifest(tmp_path)
 
-    rerun = _scored(tmp_path, "--mutate-all")
+    run = _scored(tmp_path, "--manifest-file")
 
-    assert SKIPPED_LINE not in rerun.stdout
-    assert "Mutation Report" in rerun.stdout
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert all("score" in fn for fn in _sidecar_functions(tmp_path).values())
+
+
+@pytest.mark.integration
+def test_a_no_change_rerun_after_that_default_run_skips_the_measurement(tmp_path):
+    _project(tmp_path, _KILLING_TESTS, source=_SRC_WITH_UNREACHED_FUNCTION)
+    _write_unscored_manifest(tmp_path)
+    assert _scored(tmp_path, "--manifest-file").returncode == 0
+
+    rerun = _scored(tmp_path, "--manifest-file")
+
+    assert rerun.returncode == 0, rerun.stdout + rerun.stderr
+    assert SKIPPED_LINE in rerun.stdout
+
+
+@pytest.mark.integration
+def test_an_unscored_function_no_test_reaches_is_scored_uncovered(tmp_path):
+    _project(tmp_path, _KILLING_TESTS, source=_SRC_WITH_UNREACHED_FUNCTION)
+    _write_unscored_manifest(tmp_path)
+    assert _scored(tmp_path, "--manifest-file").returncode == 0
+
+    assert _sidecar_functions(tmp_path)["func/h"]["score"] == {"killed": 0, "survived": 0, "uncovered": 1}
 
 
 @pytest.mark.integration

@@ -121,7 +121,6 @@ def _run_on_file(
             pytest_args=args.pytest_args,
             timeout_factor=args.timeout_factor,
             min_timeout=args.min_timeout,
-            mutate_all=args.mutate_all,
             warning_threshold=args.warning_threshold,
             max_workers=max_workers,
             cwd=cwd,
@@ -150,7 +149,6 @@ def _exit_if_skipped(args: argparse.Namespace, files: list[str]) -> None:
         args.pytest_args,
         cwd,
         manifest_file=args.manifest_file,
-        mutate_all=args.mutate_all,
     )
     if manifests is None:
         return

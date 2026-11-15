@@ -1,77 +1,77 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T16:27:00Z",
-  "module_hash": "62dd6ef8053d44a64d079c82e6aeae5de98ec5df3f81e30e638b2f75a2778f0c",
-  "source_sha256": "7f77f90fbf8da8bdc60054cd06dcc94fccd05deec96e05638b0cad629d75fce4",
+  "tested_at": "2026-11-15T00:30:21Z",
+  "module_hash": "3d7f123c9c8a7ef37346a7275070e0cdba9ac74d672a4476b4a337a343563bb0",
+  "source_sha256": "5ed0f0ca0a937b53b776328a93e5ac1b6d54044702d3885bfcf2240a12b00964",
   "functions": [
     {
       "id": "func/ScoredRun.unaccepted",
       "name": "unaccepted",
-      "line": 27,
-      "end_line": 29,
+      "line": 30,
+      "end_line": 32,
       "hash": "8e66a97a919d44fb68c452424df69053608f9d7de0f7d201ed5f763abc371f23"
     },
     {
       "id": "func/ScoredRun.accepted",
       "name": "accepted",
-      "line": 31,
-      "end_line": 33,
+      "line": 34,
+      "end_line": 36,
       "hash": "1cbc14da7d8305521e5cfbf8b07770c7dace32afdf3552a3f9c985630ae2b496"
     },
     {
       "id": "func/ScoredRun.function_scores",
       "name": "function_scores",
-      "line": 35,
-      "end_line": 50,
+      "line": 38,
+      "end_line": 53,
       "hash": "ee038f279364295fc0bccb8a934de8ca2804ab94b61cb6128c850851dd451b8a"
     },
     {
       "id": "func/ScoredRun._score_block",
       "name": "_score_block",
-      "line": 52,
-      "end_line": 69,
-      "hash": "96e0f9352dd83a813ffe522c4d57b65941d2d4c0c1deca1e975c26bd0a8858f2"
+      "line": 55,
+      "end_line": 72,
+      "hash": "7ad7467fc88968b734968416d1fc58ebc88d378df3ce9368401e294b1b8de5be"
     },
     {
       "id": "func/ScoredRun._skipped",
       "name": "_skipped",
-      "line": 71,
-      "end_line": 75,
-      "hash": "8a34154721e12347002941be46ce57e1cf0eba69c9208791a5394088c8659eb7"
+      "line": 74,
+      "end_line": 79,
+      "hash": "04315648678398fabef052ff0060e9756207ea1e45d38e2e77c76200012fd4d4"
     },
     {
       "id": "func/ScoredRun._lost_recorded_survivor",
       "name": "_lost_recorded_survivor",
-      "line": 77,
-      "end_line": 87,
+      "line": 81,
+      "end_line": 91,
       "hash": "c6d921d70b165913488161ec0b35ea6e1b028398911971807ffb6265f30a4534"
     },
     {
       "id": "func/ScoredRun._sites_of",
       "name": "_sites_of",
-      "line": 89,
-      "end_line": 90,
+      "line": 93,
+      "end_line": 94,
       "hash": "d25c9346b6bdeec67497cc8a6565bc91cd1d829585c35852ebc887d32d69d866"
     },
     {
       "id": "func/ScoredRun._covered",
       "name": "_covered",
-      "line": 92,
-      "end_line": 93,
+      "line": 96,
+      "end_line": 97,
       "hash": "56c0d39edc582a1f8dc901c4e45f181143297b5599013cd59f516760ccfc71f0"
     },
     {
       "id": "func/ScoredRun._unaccepted_of",
       "name": "_unaccepted_of",
-      "line": 95,
-      "end_line": 96,
+      "line": 99,
+      "end_line": 100,
       "hash": "3b08ebc39179a4cffe5d437ddf7f8e940033a82b3e3c6201ecac81d45d7048a2"
     },
     {
       "id": "func/ScoredRun._accepted_of",
       "name": "_accepted_of",
-      "line": 98,
-      "end_line": 99,
+      "line": 102,
+      "end_line": 103,
       "hash": "1caf1b46fed1957366aea36f6e7cd6d994db10f195397dcf2286861a2390e55b"
     }
   ]

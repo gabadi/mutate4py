@@ -79,6 +79,40 @@ def test_function_scores_skips_uncovered_function_on_narrowed_run():
 
 
 @pytest.mark.unit
+def test_function_scores_scores_unscored_uncovered_function_on_narrowed_run():
+    s0 = _site(0, line=2)
+    s1 = _site(1, line=3)
+    run = ScoredRun(
+        all_sites=[s0, s1],
+        covered_lines=set(),
+        selected_sites=[],
+        survivors=[],
+        unscored_fn_ids=frozenset({_F}),
+    )
+
+    assert run.function_scores([_F]) == {
+        _F: {"score": {"killed": 0, "survived": 0, "uncovered": 2}, "survivors": [], "accepted": []}
+    }
+
+
+@pytest.mark.unit
+def test_function_scores_skips_scored_uncovered_function_when_another_is_unscored_on_narrowed_run():
+    s0 = _site(0, line=2)
+    g0 = _site(1, line=7, function_id=_G)
+    run = ScoredRun(
+        all_sites=[s0, g0],
+        covered_lines=set(),
+        selected_sites=[],
+        survivors=[],
+        unscored_fn_ids=frozenset({_G}),
+    )
+
+    assert run.function_scores([_F, _G]) == {
+        _G: {"score": {"killed": 0, "survived": 0, "uncovered": 1}, "survivors": [], "accepted": []}
+    }
+
+
+@pytest.mark.unit
 def test_function_scores_scores_uncovered_function_on_full_run():
     s0 = _site(0, line=2)
     s1 = _site(1, line=3)

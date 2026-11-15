@@ -122,7 +122,7 @@ def test_two_flag_args_nothing_and_flag():
 
 @pytest.mark.unit
 def test_two_flag_args_max_workers_without_scan_gives_a_scored_run():
-    args = two_flag_args("--max-workers 4", "--mutate-all", "s.py")
+    args = two_flag_args("--max-workers 4", "", "s.py")
     assert "--scan" not in args
     assert "--max-workers" in args
     assert "--allow-survivors" in args
@@ -601,13 +601,7 @@ def test_assert_baseline_run_fails_when_marker_absent(tmp_path):
 
 @pytest.mark.unit
 def test_rejected_args_pairs_a_removed_flag_with_a_scored_run():
-    assert rejected_args("--since-last-run --mutate-all", "s.py") == [
-        "s.py",
-        "--pytest-args",
-        "",
-        "--since-last-run",
-        "--mutate-all",
-    ]
+    assert rejected_args("--mutate-all", "s.py") == ["s.py", "--pytest-args", "", "--mutate-all"]
 
 
 @pytest.mark.unit

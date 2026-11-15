@@ -1,56 +1,56 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T21:35:11Z",
-  "module_hash": "e7e3585ebb0407df84fa9413308e134dd4bfa115444b4369fddfc6c47f78866b",
-  "source_sha256": "32f03b1f1af2a0cdefeea94d5b285bbc6900bf063bacf59ef1578bc4feb9cb72",
+  "tested_at": "2026-11-15T00:30:23Z",
+  "module_hash": "dd5d05866f9491ef17afbd745abf3f836ccc16ae6aeaffa46cf1b070e44f4505",
+  "source_sha256": "d94edbd1fa6a9b99ee70fa7746154b91e3cd71ea048d652ef18c9179d78ac43f",
   "functions": [
     {
       "id": "func/_restore_from_backup",
       "name": "_restore_from_backup",
-      "line": 34,
-      "end_line": 44,
+      "line": 35,
+      "end_line": 45,
       "hash": "f7de5a3b9d1c378a67d931daaf798e4a3b3c5fbacc08e5479274fff83b9005e1"
     },
     {
       "id": "func/_compute_manifest_diff",
       "name": "_compute_manifest_diff",
-      "line": 47,
-      "end_line": 67,
-      "hash": "d3df92bef6f52c0a10947012f54761ac2c742e14651b902eb0290bad79ec2512"
+      "line": 48,
+      "end_line": 74,
+      "hash": "57cbb349c67e455e606f4352fda97690c83badebfb17512757cc9d8f8b13c731"
     },
     {
       "id": "func/_finalize_source",
       "name": "_finalize_source",
-      "line": 70,
-      "end_line": 99,
+      "line": 77,
+      "end_line": 106,
       "hash": "5cac02cb8b4fe3500242ce88805fb4c73efdbf582b271ce5b659b0c23570200d"
     },
     {
       "id": "func/_load_clean_source",
       "name": "_load_clean_source",
-      "line": 115,
-      "end_line": 136,
-      "hash": "1990801640bb04722b69de4859035f627dad86fd6e847622218a2dff7558b592"
+      "line": 123,
+      "end_line": 146,
+      "hash": "6c8636cd665ed89e767930c5546bea3a13cab3d8c86ffa1efab0d25537bbb79f"
     },
     {
       "id": "func/_changed_site_count",
       "name": "_changed_site_count",
-      "line": 139,
-      "end_line": 141,
+      "line": 149,
+      "end_line": 151,
       "hash": "37102f5fafbdad405ed1f7e6af8ecc4b4a78eec6b39f18e90ee2a38ab89687d2"
     },
     {
       "id": "func/apply_digest_changes",
       "name": "apply_digest_changes",
-      "line": 144,
-      "end_line": 154,
+      "line": 154,
+      "end_line": 164,
       "hash": "f863c607f2c44412b33cd1a51719692defdcd464157efcd8ef712d90d4481e24"
     },
     {
       "id": "func/_prepare_run_setup",
       "name": "_prepare_run_setup",
-      "line": 167,
-      "end_line": 174,
+      "line": 177,
+      "end_line": 184,
       "hash": "63a1e8e943b7d0589a58cf94232f93551d2a622d0aa0636ac7747d606e1fbf5f"
     }
   ]

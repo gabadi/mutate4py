@@ -20,7 +20,6 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #                            batch, 0 = uv workspace autodiscovery (ADR 0017).
   #     --scan               — no-run mode: count sites (F1 surface).
   #     --update-manifest    — no-run mode: rewrite the footer manifest (F2 surface).
-  #     --mutate-all          — selection: all covered sites despite manifest.
   #     --mutation-warning N  — positive int, default 50.
   #     --timeout-factor N    — positive int, default 10.
   #     --pytest-args ARGS    — one shell-quoted string of extra pytest arguments,
@@ -32,8 +31,10 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #     --build-test-contexts OUT — REMOVED in 0.3.0: each exits 2
   #                             with "<flag> removed in 0.3.0: the run measures coverage
   #                             itself" (refusal scenarios live in coverage.feature).
-  #     --lines L | --since-last-run — REMOVED in 0.3.0: each exits 2 the same way, naming
-  #                             the flag and its replacement (refusal scenarios: cli-surface-5).
+  #     --lines L | --since-last-run | --mutate-all — REMOVED in 0.3.0: each exits 2 the same
+  #                             way, naming the flag and its replacement (refusal scenarios:
+  #                             cli-surface-5). --mutate-all is removed by spec #115: the
+  #                             default run already scores every changed or Unscored function.
   #     --exclude PATTERN     — repeatable; skip files whose walked path matches the
   #                             shared glob dialect (union across patterns) — the
   #                             same dialect <targets> and uv members/exclude use
@@ -56,12 +57,12 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #     an integer >= 1; non-integer or <= 0 is a usage error (parsePositiveInt).
   #   - Mutual exclusion (fail-loud, never silent-precedence; ADR 0008):
   #       * --scan and --update-manifest: exclusive of each other AND of every execution
-  #         option (--mutate-all, non-default --timeout-factor, a non-empty --pytest-args,
+  #         option (non-default --timeout-factor, a non-empty --pytest-args,
   #         --max-workers).
-  #   - The removed selection flags (--lines, --since-last-run) are refused, never ignored
-  #     (cli-surface-5). That refusal is checked before the exclusion check.
-  #   - --max-workers joins ONLY the scan/update-manifest exclusion; it MAY combine with
-  #     --mutate-all (it does not conflict with it).
+  #   - The removed selection flags (--lines, --since-last-run, --mutate-all) are refused,
+  #     never ignored (cli-surface-5). That refusal is checked before the exclusion check.
+  #   - --max-workers joins ONLY the scan/update-manifest exclusion; a default scored run
+  #     takes it.
   #   - A literal target path that does not exist, or a glob pattern matching
   #     nothing, is a usage error. Zero positionals is NOT itself a usage error —
   #     it triggers uv workspace autodiscovery; that only errors (exit 2) if no
@@ -162,12 +163,10 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
     Examples:
       | mode              | other             |
       | --scan            | --update-manifest |
-      | --scan            | --mutate-all      |
       | --scan            | --timeout-factor 5 |
       | --scan            | --pytest-args "-k foo" |
       | --scan            | --max-workers 4   |
       | --update-manifest | --scan            |
-      | --update-manifest | --mutate-all      |
       | --update-manifest | --max-workers 4   |
       | --scan            | --allow-survivors |
       | --update-manifest | --allow-survivors |
@@ -189,9 +188,9 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
       | --timeout-factor 1.5           |
       | --lines 7                      |
       | --scan --max-workers 4         |
-      | --scan --mutate-all            |
       | --update-manifest --lines 7    |
-      | --since-last-run --mutate-all  |
+      | --since-last-run               |
+      | --mutate-all                   |
       | --bogus-flag                   |
       | (a path that does not exist)   |
       | (no source file argument)      |
@@ -210,15 +209,13 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
       | flag             |
       | --lines 7        |
       | --since-last-run |
+      | --mutate-all     |
 
-  # cli-surface-6: --max-workers may combine with --mutate-all (it is not exclusive of it)
-  Scenario Outline: --max-workers is accepted alongside a selection flag
-    When I run mutate4py with "--max-workers 4" and "<selection>"
+  # cli-surface-6: --max-workers is accepted on the default scored run. --mutate-all is
+  # removed (spec #115), so no selection flag remains to combine with --max-workers.
+  Scenario: --max-workers is accepted on the default scored run
+    When I run mutate4py with the accepted flags "--max-workers 4 (a scored run)"
     Then the invocation is accepted
-
-    Examples:
-      | selection    |
-      | --mutate-all |
 
   # cli-surface-7: an unknown flag or a missing source file is a usage error.
   # --test-command is deliberately unrecognized here: it was retired in favor
@@ -247,7 +244,7 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
       | alongside        |
       | (nothing)        |
       | --max-workers 0  |
-      | --scan --mutate-all |
+      | --mutate-all        |
 
   # cli-surface-9: an accepted invocation dispatches to the matching mode
   Scenario Outline: validated options are routed to the right behaviour

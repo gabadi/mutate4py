@@ -39,7 +39,6 @@ def _request(tmp_path, src_path, pytest_args, measurement=None) -> RunMutationsR
         source=SRC,
         pytest_args=pytest_args,
         timeout_factor=10,
-        mutate_all=False,
         warning_threshold=1000,
         cwd=str(tmp_path),
         measurement=measurement,
