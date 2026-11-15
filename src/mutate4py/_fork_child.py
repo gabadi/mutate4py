@@ -84,11 +84,17 @@ def swap_in(source: SwapSource, guarded_path: str, live: Sequence[FunctionType])
 def live_functions_of(guarded_path: str) -> list[FunctionType]:
     """Every live function whose code comes from the guarded file, compared by real path."""
     real = os.path.realpath(guarded_path)
-    return [
-        obj
-        for obj in gc.get_objects()
-        if isinstance(obj, FunctionType) and os.path.realpath(obj.__code__.co_filename) == real
-    ]
+    from_guarded = {guarded_path: True}
+    live: list[FunctionType] = []
+    for obj in gc.get_objects():
+        if not isinstance(obj, FunctionType):
+            continue
+        filename = obj.__code__.co_filename
+        if filename not in from_guarded:
+            from_guarded[filename] = os.path.realpath(filename) == real
+        if from_guarded[filename]:
+            live.append(obj)
+    return live
 
 
 def read_report(read_fd: int) -> bytes:
