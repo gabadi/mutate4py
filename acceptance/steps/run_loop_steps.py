@@ -189,21 +189,6 @@ def given_that_mutant_exits_nonzero(m, params):
     _set_tests(outcome_test_body(SAMPLE_MODULE, {"calc": "kill"}))
 
 
-@step(r'the baseline takes "([^"]*)" to pass')
-def given_baseline_duration(m, params):
-    baseline = params.get("baseline") or m.group(1)
-    ctx.outcome_config["baseline"] = baseline
-    # We don't need to actually wait — the timeout test just checks the computed timeout
-    # We store and verify indirectly via the timeout behavior
-
-
-@step(r'the timeout factor is "([^"]*)"')
-def given_timeout_factor(m, params):
-    factor = params.get("factor") or m.group(1)
-    ctx.extra_cli_args = ["--timeout-factor", factor]
-    ctx.outcome_config["factor"] = factor
-
-
 @step(r"the baseline test command fails")
 def given_baseline_fails(m, params):
     _set_tests(FAILING_TEST_BODY)
@@ -379,18 +364,6 @@ def then_survivors_block_conditional(m, params):
         assert "Survivors:" not in stdout, (
             f"Did not expect 'Survivors:' block in:\n{stdout}"
         )
-
-
-@step(r'the mutant timeout is "([^"]*)"')
-def then_mutant_timeout(m, params):
-    # This scenario is tricky to verify directly. We verify indirectly:
-    # the run completes and timeout-derived behavior is correct.
-    expected_timeout = params.get("timeout") or m.group(1)
-    # The test verifies the run completed without error
-    assert ctx.cli_result is not None
-    # If the timeout was 1s floor (10ms * 10 = 100ms, but floored to 1s),
-    # the run should still complete. If it's 20s, it should complete too.
-    assert ctx.cli_result.returncode == 0 or "baseline failed" in ctx.cli_result.stdout
 
 
 @step(r'the command exits with status "(\d+)"')
