@@ -33,6 +33,7 @@ from mutate4py._manifest import strip_manifest
 from mutate4py._py_tree import walkable_dirs
 from mutate4py._pytest_config import configured_testpaths
 from mutate4py._pytest_inifile import (
+    CONFIG_FILE_OPTIONS,
     CONFIG_FILES,
     ancestors,
     conftest_bounds,
@@ -184,9 +185,9 @@ def _config_inputs(directory: str, base: str) -> list[tuple[str, str]]:
 
 
 def _explicit_config_inputs(cwd: str, tokens: list[str]) -> list[tuple[str, str]]:
-    """The file named by each `-c`, hashed whole, wherever it lives."""
+    """The file named by each `-c` or `--config-file`, hashed whole, wherever it lives."""
     found: list[tuple[str, str]] = []
-    for value in option_values(tokens, "-c"):
+    for value in option_values(tokens, *CONFIG_FILE_OPTIONS):
         key, sha = _file_input(os.path.join(cwd, value), cwd)
         found.append((f"<-c {key}>", sha))
     return found
@@ -207,10 +208,10 @@ def _config_dirs(cwd: str, roots: list[str], tokens: list[str]) -> list[str]:
     """Each directory pytest may read configuration from: from every start point up to its inifile's directory.
 
     Start points: the run directory, pytest's own start, each root, each --rootdir. Above the inifile's
-    directory pytest reads no configuration. With `-c`, pytest searches for none (findpaths.py:306-311),
+    directory pytest reads no configuration. With `-c` or `--config-file`, pytest searches for none (findpaths.py:306-311),
     and the named file is hashed by `_explicit_config_inputs`.
     """
-    if option_values(tokens, "-c"):
+    if option_values(tokens, *CONFIG_FILE_OPTIONS):
         return []
     rootdirs = [os.path.join(cwd, value) for value in option_values(tokens, "--rootdir")]
     starts = [cwd, _pytest_start(cwd, tokens), *roots, *rootdirs]

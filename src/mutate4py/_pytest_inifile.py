@@ -11,6 +11,7 @@ import tomllib
 
 __all__ = [
     "CONFIG_FILES",
+    "CONFIG_FILE_OPTIONS",
     "ancestors",
     "conftest_bounds",
     "explicit_bound",
@@ -116,28 +117,41 @@ def _attached_value(token: str, name: str) -> str | None:
     return token[len(name) :] if token.startswith(name) and len(token) > len(name) else None
 
 
-def option_values(tokens: list[str], name: str) -> list[str]:
-    """Every value given to option `name`, as `name value`, `name=value`, or attached to a short name."""
-    values: list[str] = []
-    for index, token in enumerate(tokens):
+def _value_at(tokens: list[str], index: int, names: tuple[str, ...]) -> str | None:
+    """The value the token at `index` gives to one of `names`: attached to it, or the token after it."""
+    token = tokens[index]
+    for name in names:
         attached = _attached_value(token, name)
         if attached is not None:
-            values.append(attached)
-        elif token == name and index + 1 < len(tokens):
-            values.append(tokens[index + 1])
-    return values
+            return attached
+        if token == name and index + 1 < len(tokens):
+            return tokens[index + 1]
+    return None
 
 
-def last_option_value(tokens: list[str], name: str) -> str | None:
-    """The value of the last `name` option: argparse keeps the last one given."""
-    values = option_values(tokens, name)
+def option_values(tokens: list[str], *names: str) -> list[str]:
+    """Every value given to any of `names`, in argv order, as `name value`, `name=value`, or attached to a short name."""
+    values = (_value_at(tokens, index, names) for index in range(len(tokens)))
+    return [value for value in values if value is not None]
+
+
+def last_option_value(tokens: list[str], *names: str) -> str | None:
+    """The value of the last option among `names`: argparse keeps the last one given."""
+    values = option_values(tokens, *names)
     return values[-1] if values else None
 
 
+# `-c` and `--config-file` are one option for pytest (_pytest/main.py:263-264, dest `inifilename`).
+CONFIG_FILE_OPTIONS = ("-c", "--config-file")
+
+
 def explicit_bound(cwd: str, tokens: list[str]) -> list[str] | None:
-    """The bound an explicit option sets: `--confcutdir`, else the directory of the `-c` file (findpaths.py:307-311)."""
+    """The bound an explicit option sets: `--confcutdir`, else the directory of the `-c`/`--config-file` file.
+
+    pytest takes the inifile's directory as `confcutdir` (config/__init__.py:1598-1603).
+    """
     confcutdir = last_option_value(tokens, "--confcutdir")
-    inifile = last_option_value(tokens, "-c")
+    inifile = last_option_value(tokens, *CONFIG_FILE_OPTIONS)
     if confcutdir:
         return [os.path.abspath(os.path.join(cwd, confcutdir))]
     return [os.path.dirname(os.path.abspath(os.path.join(cwd, inifile)))] if inifile else None

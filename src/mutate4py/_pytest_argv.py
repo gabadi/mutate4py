@@ -25,6 +25,7 @@ VALUE_OPTIONS = frozenset(
         "-p",
         "-o",
         "-c",
+        "--config-file",
         "-W",
         "-r",
         "-n",

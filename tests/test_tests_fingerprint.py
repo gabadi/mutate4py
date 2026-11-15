@@ -2,6 +2,7 @@
 
 import dataclasses
 import importlib.metadata
+import shlex
 import sys
 
 import pytest
@@ -9,7 +10,7 @@ import pytest
 from mutate4py._digest_inputs import digest_inputs_from
 from mutate4py._manifest import embed_manifest
 from mutate4py._tests_fingerprint import TargetFacts, can_skip_measurement, fingerprint_inputs
-from mutate4py._pytest_inifile import option_values
+from mutate4py._pytest_inifile import last_option_value, option_values
 from mutate4py._tests_fingerprint import tests_fingerprint as fingerprint_of
 
 FRESH = "fresh-fingerprint"
@@ -380,6 +381,19 @@ def test_editing_an_explicit_config_file_changes_it(tmp_path):
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("spelling", ["--config-file {custom}", "--config-file={custom}"])
+def test_editing_a_config_file_named_by_config_file_changes_it(tmp_path, spelling):
+    root = _project(tmp_path)
+    custom = tmp_path / "elsewhere" / "custom.ini"
+    custom.parent.mkdir()
+    custom.write_text("[pytest]\n")
+    args = "tests " + spelling.format(custom=custom)
+    before = fingerprint_of(root, args)
+    custom.write_text("[pytest]\naddopts = -q\n")
+    assert fingerprint_of(root, args) != before
+
+
+@pytest.mark.unit
 def test_editing_the_config_under_an_explicit_rootdir_changes_it(tmp_path):
     root = _project(tmp_path)
     (tmp_path / "sub").mkdir()
@@ -627,6 +641,43 @@ def test_an_explicit_config_file_ends_the_walk_at_its_directory(tmp_path):
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("spelling", ["--config-file ../custom.ini", "--config-file=../custom.ini"])
+def test_config_file_ends_the_walk_at_its_directory_like_c(tmp_path, spelling):
+    base = tmp_path / "base"
+    root = _checkout(base, "checkout")
+    (base / "checkout" / "pytest.ini").unlink()
+    (base / "custom.ini").write_text("[pytest]\n")
+    (tmp_path / "conftest.py").write_text("SHARED = 1\n")
+    (base / "pyproject.toml").write_text("[tool.pytest.ini_options]\naddopts = '-q'\n")
+    args = f"{spelling} tests"
+    before = fingerprint_of(root, args)
+    (tmp_path / "conftest.py").write_text("SHARED = 2\n")
+    (base / "pyproject.toml").write_text("[tool.pytest.ini_options]\naddopts = '-x'\n")
+    assert fingerprint_of(root, args) == before
+    (base / "conftest.py").write_text("SHARED = 1\n")
+    assert fingerprint_of(root, args) != before
+
+
+@pytest.mark.unit
+def test_the_last_config_file_option_sets_the_bound_whichever_spelling_it_uses(tmp_path):
+    base = tmp_path / "base"
+    root = _checkout(base, "checkout")
+    (base / "checkout" / "pytest.ini").unlink()
+    (base / "custom.ini").write_text("[pytest]\n")
+    (tmp_path / "other").mkdir()
+    (tmp_path / "other" / "x.ini").write_text("[pytest]\n")
+    args = f"-c {tmp_path}/other/x.ini --config-file=../custom.ini tests"
+    assert option_values(shlex.split(args), "-c", "--config-file")[-1] == "../custom.ini"
+    assert last_option_value(shlex.split(args), "-c", "--config-file") == "../custom.ini"
+    (tmp_path / "conftest.py").write_text("SHARED = 1\n")
+    before = fingerprint_of(root, args)
+    (tmp_path / "conftest.py").write_text("SHARED = 2\n")
+    assert fingerprint_of(root, args) == before
+    (base / "conftest.py").write_text("SHARED = 1\n")
+    assert fingerprint_of(root, args) != before
+
+
+@pytest.mark.unit
 @pytest.mark.parametrize("spelling", ["--confcutdir={base}", "--confcutdir {base}"])
 def test_confcutdir_ends_the_conftest_walk_at_its_directory(tmp_path, spelling):
     base = tmp_path / "base"
@@ -688,3 +739,10 @@ def test_a_pyproject_with_a_pytest_table_ends_the_walk_past_a_nearer_one_without
     assert fingerprint_of(str(package), "") == before
     (checkout / "conftest.py").write_text("SHARED = 2\n")
     assert fingerprint_of(str(package), "") != before
+
+
+@pytest.mark.unit
+def test_option_values_reads_every_name_in_argv_order():
+    tokens = ["-c", "a.ini", "-q", "--config-file=b.ini", "--config-file", "c.ini", "-cd.ini"]
+    assert option_values(tokens, "-c", "--config-file") == ["a.ini", "b.ini", "c.ini", "d.ini"]
+    assert option_values(["--config-file"], "-c", "--config-file") == []
