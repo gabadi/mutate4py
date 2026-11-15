@@ -52,13 +52,13 @@ def _filter(mutate_body, log_text: str, tmp_path) -> str:
     return subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=True, timeout=30).stdout
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_mutate_recipe_stores_the_manifest_as_a_sidecar(mutate_body):
     command = next(text for text in mutate_body if "uv run mutate4py" in text)
     assert "--manifest-file" in command.split()
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_report_filter_shows_a_skipped_run_and_its_recorded_survivors(mutate_body, tmp_path):
     entry = {
         "id": "func/classify_exit_code",
@@ -78,7 +78,7 @@ def test_report_filter_shows_a_skipped_run_and_its_recorded_survivors(mutate_bod
     assert "Time: mutants 0.00s (0)" in shown
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_report_filter_still_starts_a_scored_run_at_its_mutation_report(mutate_body, tmp_path):
     log_text = "[1/2] killed line 3\n[2/2] survived line 4\nMutation Report\n===============\nKilled: 1\n"
     shown = _filter(mutate_body, log_text, tmp_path)

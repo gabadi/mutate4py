@@ -37,8 +37,7 @@ testpaths = ["tests"]
 addopts = "--tb=short --strict-markers --ignore=tests/fixtures"
 markers = [
     "unit: fast, fully isolated test; no real subprocess/fork execution. Runs in the test-unit gate, which is also where the coverage measurement is taken.",
-    "component: exercises mutate4py's own pipeline in-process (real subprocess/fork spawns via an Executor), so it is slow. Since code mutation is unit-only, no scored run's test set includes component tests (ADR 0023, ADR 0027): a Mutant that only a component test kills is a Survivor. Excluded from test-unit's fast gate and from the coverage measurement; runs in test-component.",
-    "integration: work runs inside a spawned interpreter (via _run_cli_path/_run_cli_in), which the Measurement cannot see, so it is coverage-blind and outside code mutation (ADR 0023). Runs in test-integration.",
+    "system: real processes (a fork server, worker servers, nested pytest, a spawned interpreter), so it is slow. The Measurement cannot see this work, so it is outside code mutation and coverage: no scored run's test set includes it (ADR 0023, ADR 0027). Runs in the test-system gate.",
 ]
 
 [tool.coverage.run]

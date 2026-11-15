@@ -1,4 +1,4 @@
-"""Unit/integration tests for _forking_executor (issue #25 forking executor)."""
+"""Unit/system tests for _forking_executor (issue #25 forking executor)."""
 
 import importlib.util
 import itertools
@@ -6,7 +6,6 @@ import os
 import signal
 import sys
 import textwrap
-import time
 import types
 
 import pytest
@@ -166,7 +165,7 @@ _ADD_TEST_BODY = "from {mod} import add\ndef test_add():\n    assert add(2, 2) =
 _ARGS = [*_NO_TACH, "-q", "tests"]
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_prime_succeeds_when_target_not_pre_imported(tmp_path):
     cwd, target = _write_fixture_project(
         tmp_path,
@@ -177,7 +176,7 @@ def test_prime_succeeds_when_target_not_pre_imported(tmp_path):
     executor.prime()  # must not raise
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_prime_and_run_import_from_cwd_without_root_conftest(tmp_path):
     """The console script does not put cwd on sys.path; pytest must still import from it (#82)."""
     n = next(_module_name_counter)
@@ -207,7 +206,7 @@ def test_failed_chdir_does_not_remove_a_preexisting_sys_path_entry(tmp_path, mon
     assert missing in sys.path
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_prime_neutralises_plugins_on_its_own_collect_only_call(tmp_path, monkeypatch):
     """Regression: prime()'s internal collect-only pytest.main() call is
     itself an in-process, pre-fork pytest re-entry, so it must carry the
@@ -237,7 +236,7 @@ def test_prime_neutralises_plugins_on_its_own_collect_only_call(tmp_path, monkey
     assert set(neutralising_args()) <= set(captured_args[0])
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_survives_when_tests_pass(tmp_path):
     cwd, target = _write_fixture_project(
         tmp_path,
@@ -250,7 +249,7 @@ def test_run_survives_when_tests_pass(tmp_path):
     assert status == "survived"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_killed_when_tests_fail(tmp_path):
     cwd, target = _write_fixture_project(
         tmp_path,
@@ -263,7 +262,7 @@ def test_run_killed_when_tests_fail(tmp_path):
     assert status == "killed"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_reports_no_tests_collected_when_filter_deselects_everything(tmp_path):
     """A -k filter matching nothing is pytest exit 5 ("no tests were
     collected") — must not be scored killed (issue #55), same as the
@@ -279,7 +278,7 @@ def test_run_reports_no_tests_collected_when_filter_deselects_everything(tmp_pat
     assert status == "no-tests-collected"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_reports_usage_error_for_a_bad_argument(tmp_path):
     """An unrecognized pytest option is exit 4 (usage error) — must not be
     scored killed either (issue #55)."""
@@ -294,7 +293,7 @@ def test_run_reports_usage_error_for_a_bad_argument(tmp_path):
     assert status == "usage-error"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_picks_up_post_prime_mutation_from_disk(tmp_path):
     """The central correctness property: priming before the file is mutated
     must not leave a stale pre-mutation module cached for the child."""
@@ -326,7 +325,7 @@ def test_run_picks_up_post_prime_mutation_from_disk(tmp_path):
     assert status == "survived"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_reports_timeout_and_kills_child(tmp_path):
     cwd, target = _write_fixture_project(
         tmp_path,
@@ -354,7 +353,7 @@ def test_describe_before_any_run_reports_no_fresh_import():
     assert executor.describe().render() == "forking (fresh import 0, swap 0, fresh interpreter 0)"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_describe_counts_each_mutant_run_as_a_fresh_import(tmp_path):
     cwd, target = _write_fixture_project(
         tmp_path,
@@ -368,7 +367,7 @@ def test_describe_counts_each_mutant_run_as_a_fresh_import(tmp_path):
     assert executor.describe().render() == "forking (fresh import 2, swap 0, fresh interpreter 0)"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_does_not_leak_child_stdout(tmp_path, capsys):
     cwd, target = _write_fixture_project(
         tmp_path,
@@ -385,9 +384,9 @@ def test_run_does_not_leak_child_stdout(tmp_path, capsys):
     assert "SHOULD_NOT_APPEAR" not in captured.err
 
 
-@pytest.mark.component
+@pytest.mark.system
 @pytest.mark.skipif(importlib.util.find_spec("tach") is None, reason="needs tach, a fork-unsafe plugin, installed")
-def test_prime_refuses_a_session_that_registers_a_fork_unsafe_plugin(tmp_path):
+def test_prime_refuses_a_session_that_registers_a_fork_unsafe_plugin(tmp_path, nested_pytest_loads_tach):
     cwd, target = _write_fixture_project(
         tmp_path,
         target_body="def add(a, b):\n    return a + b\n",
@@ -398,7 +397,7 @@ def test_prime_refuses_a_session_that_registers_a_fork_unsafe_plugin(tmp_path):
         executor.prime()
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_a_target_the_conftest_imports_is_swapped_into_its_live_function(tmp_path):
     cwd, target = _write_fixture_project(
         tmp_path,
@@ -415,7 +414,7 @@ def test_a_target_the_conftest_imports_is_swapped_into_its_live_function(tmp_pat
     assert executor.describe().render() == "forking (fresh import 0, swap 2, fresh interpreter 0)"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_a_swap_the_import_time_check_refuses_runs_in_a_fresh_interpreter(tmp_path):
     cwd, target = _write_fixture_project(
         tmp_path,
@@ -514,26 +513,29 @@ def test_run_pytest_output_suppressed_restores_cwd_sys_path_and_fds_when_main_ra
 
 # --- _wait_for_child ---------------------------------------------------------
 
+_FAKE_CHILD = 424242  # waitpid and kill are stubbed in every test below: no child is forked or signalled
+
+
+def _deadline_clock(monkeypatch) -> list:
+    """Fake the executor's clock: the deadline is 1.0s after the first read, and the first check lands on it.
+    Returns the list the fake sleep appends to, so a test can see whether the executor polled again."""
+    clock = iter([0.0, 1.0] + [2.0] * 100)
+    sleeps: list = []
+    fake_time = types.SimpleNamespace(monotonic=lambda: next(clock), sleep=sleeps.append)
+    monkeypatch.setattr(mutate4py._forking_executor, "time", fake_time)
+    return sleeps
+
 
 @pytest.mark.unit
-def test_wait_for_child_reports_killed_when_child_dies_by_signal():
+def test_wait_for_child_reports_killed_when_child_dies_by_signal(monkeypatch):
     """A child that dies from an external signal (not its own os._exit, e.g. a
     mutant that crashes the interpreter) must still resolve to "killed", not
     misread WEXITSTATUS on a status word that WIFSIGNALED, not WIFEXITED.
 
-    Not @pytest.mark.integration: the fork()ed child is test scaffolding
-    (sleep+exit), not code under test. _wait_for_child, the function this
-    test exercises, runs entirely parent-side and is fully visible to
-    --cov-context=test.
-    """
-    pid = os.fork()
-    if pid == 0:
-        time.sleep(5)
-        os._exit(0)  # pragma: no cover - only reached if the signal below fails
-    time.sleep(0.05)
-    os.kill(pid, signal.SIGTERM)
-    status = _wait_for_child(pid, timeout=5.0)
-    assert status == "killed"
+    The status word is the one waitpid reports for a child killed by SIGTERM. The real
+    fork path stays covered by the system-marked tests in this file."""
+    monkeypatch.setattr(os, "waitpid", lambda pid, flags: (pid, int(signal.SIGTERM)))
+    assert _wait_for_child(_FAKE_CHILD, timeout=5.0) == "killed"
 
 
 @pytest.mark.unit
@@ -541,22 +543,20 @@ def test_wait_for_child_reports_killed_when_child_dies_by_signal():
     ("exit_code", "status"),
     [(0, "survived"), (1, "killed"), (4, "usage-error"), (5, "no-tests-collected")],
 )
-def test_wait_for_child_classifies_the_exit_code_the_child_leaves(exit_code, status):
-    pid = os.fork()
-    if pid == 0:
-        os._exit(exit_code)  # pragma: no cover - runs only in the forked child
-    assert _wait_for_child(pid, timeout=5.0) == status
+def test_wait_for_child_classifies_the_exit_code_the_child_leaves(monkeypatch, exit_code, status):
+    monkeypatch.setattr(os, "waitpid", lambda pid, flags: (pid, exit_code << 8))
+    assert _wait_for_child(_FAKE_CHILD, timeout=5.0) == status
 
 
 @pytest.mark.unit
 def test_wait_for_child_waits_for_a_slow_child_inside_the_timeout_without_killing_it(monkeypatch):
     kills = []
+    polls = iter([(0, 0), (0, 0), (_FAKE_CHILD, 0)])  # still running for two polls, exits 0 on the third
+    monkeypatch.setattr(os, "waitpid", lambda pid, flags: next(polls))
     monkeypatch.setattr(os, "kill", lambda pid, sig: kills.append((pid, sig)))
-    pid = os.fork()
-    if pid == 0:
-        time.sleep(0.2)
-        os._exit(0)  # pragma: no cover - runs only in the forked child
-    assert _wait_for_child(pid, timeout=5.0) == "survived"
+    still_inside = types.SimpleNamespace(monotonic=lambda: 0.0, sleep=lambda seconds: None)
+    monkeypatch.setattr(mutate4py._forking_executor, "time", still_inside)
+    assert _wait_for_child(_FAKE_CHILD, timeout=5.0) == "survived"
     assert kills == []
 
 
@@ -564,33 +564,27 @@ def test_wait_for_child_waits_for_a_slow_child_inside_the_timeout_without_killin
 def test_wait_for_child_times_out_at_exactly_the_deadline_without_another_poll(monkeypatch):
     """The deadline is inclusive: a clock reading equal to it is a timeout at once, not one more poll
     later. The clock is faked so the first check lands exactly on the deadline; later reads are past it."""
-    clock = iter([0.0, 1.0] + [2.0] * 100)  # deadline = 0.0 + 1.0; first check at 1.0; then past it
-    sleeps = []
-    fake_time = types.SimpleNamespace(monotonic=lambda: next(clock), sleep=sleeps.append)
-    monkeypatch.setattr(mutate4py._forking_executor, "time", fake_time)
-    pid = os.fork()
-    if pid == 0:
-        time.sleep(30)
-        os._exit(0)  # pragma: no cover - only reached if the SIGKILL below fails
-    assert _wait_for_child(pid, timeout=1.0) == "timeout"
+    sleeps = _deadline_clock(monkeypatch)
+    kills = []
+    monkeypatch.setattr(os, "waitpid", lambda pid, flags: (0, 0))  # never exits
+    monkeypatch.setattr(os, "kill", lambda pid, sig: kills.append((pid, sig)))
+    assert _wait_for_child(_FAKE_CHILD, timeout=1.0) == "timeout"
     assert sleeps == []
+    assert kills == [(_FAKE_CHILD, signal.SIGKILL)]
 
 
 @pytest.mark.unit
 def test_wait_for_child_timeout_sigkills_the_child_and_reaps_it(monkeypatch):
+    _deadline_clock(monkeypatch)
     kills = []
-    real_kill = os.kill
+    waits = []
 
-    def spy_kill(pid, sig):
-        kills.append((pid, sig))
-        real_kill(pid, sig)
+    def fake_waitpid(pid, flags):
+        waits.append((pid, flags))
+        return (0, 0)  # never exits
 
-    monkeypatch.setattr(os, "kill", spy_kill)
-    pid = os.fork()
-    if pid == 0:
-        time.sleep(30)
-        os._exit(0)  # pragma: no cover - only reached if the SIGKILL below fails
-    assert _wait_for_child(pid, timeout=0.05) == "timeout"
-    assert kills == [(pid, signal.SIGKILL)]
-    with pytest.raises(ChildProcessError):
-        os.waitpid(pid, os.WNOHANG)  # already reaped: no child left to wait on
+    monkeypatch.setattr(os, "waitpid", fake_waitpid)
+    monkeypatch.setattr(os, "kill", lambda pid, sig: kills.append((pid, sig)))
+    assert _wait_for_child(_FAKE_CHILD, timeout=1.0) == "timeout"
+    assert kills == [(_FAKE_CHILD, signal.SIGKILL)]
+    assert waits[-1] == (_FAKE_CHILD, 0)  # the blocking reap after SIGKILL

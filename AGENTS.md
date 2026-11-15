@@ -11,8 +11,13 @@ Navigation and universal invariants for all agents in this project.
 - `just mutate <path> [<args>]` — scored mutation run with per-mutant progress captured to a log; only the `Mutation Report` summary is printed. Use this instead of raw `uv run mutate4py <path>` (see `.agents/roles/hardender.md`).
 - While iterating on a change, run `just check test-unit` (make the behaviour work first); the full `just check` runs once before handing off or committing.
 
+## Test Levels
+- Three levels (ADR 0030): `unit` (in-process; the only tests code mutation scores, and the only ones coverage measures), `system` (real processes: fork server, worker servers, nested pytest, spawned interpreter; no coverage), and acceptance (Gherkin features).
+- Gates: `just check test-unit` (unit; writes `lcov.info`), `just check test-system` (`-m system -n auto -p no:tach --no-cov`), `just check acceptance`.
+- Each test carries exactly one of `@pytest.mark.unit` or `@pytest.mark.system` as its own decorator; `tests/conftest.py` enforces it.
+
 ## Code Review
-- Use `/mattpocock-skills:code-review`, never bare `/code-review` (different, heavier skill).
+- Use `/gabadi-matt:code-review`, never bare `/code-review` (different, heavier skill).
 
 ## Tool Paths (Local Machine)
 - `crap4py`: installed from local sibling `~/workspace/addi/crap4py` via `uv tool install ~/workspace/addi/crap4py` (not PyPI, not GitHub URL)

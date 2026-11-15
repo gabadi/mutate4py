@@ -24,7 +24,7 @@ from mutate4py._runner import (
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
-# ── run_mutations integration ─────────────────────────────────────────────────
+# ── run_mutations system ──────────────────────────────────────────────────────
 
 
 def _measured(src_path: str, covered: list[int]) -> Measurement:
@@ -32,7 +32,7 @@ def _measured(src_path: str, covered: list[int]) -> Measurement:
     return measurement_for(os.path.abspath(src_path), {"": covered}, wall=0.01)
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_mutations_killed_mutant(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "calc.py")
@@ -66,7 +66,7 @@ def test_run_mutations_killed_mutant(tmp_path):
     assert "Survived: 0" in output
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_mutations_survived_mutant(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "calc.py")
@@ -102,7 +102,7 @@ def test_run_mutations_survived_mutant(tmp_path):
     assert f"[1/{n_sites}]" in output
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_mutations_survives_project_addopts_that_enable_coverage(tmp_path):
     """A project whose own pytest.ini enables pytest-cov via addopts must
     still run to completion: --no-cov (issue 06's neutralisation) overrides
@@ -143,7 +143,7 @@ def test_run_mutations_survives_project_addopts_that_enable_coverage(tmp_path):
     assert "Survived: 1" in output
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_mutations_sidecar_writes_manifest_file_and_footer_free_source(tmp_path):
     import json
 
@@ -187,7 +187,7 @@ def test_run_mutations_sidecar_writes_manifest_file_and_footer_free_source(tmp_p
     assert sidecar["functions"][0]["id"] == "func/f"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_mutations_restores_source_after_run(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "calc.py")
@@ -222,7 +222,7 @@ def test_run_mutations_restores_source_after_run(tmp_path):
     assert not os.path.exists(src_path + ".bak")
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_mutations_crash_safety_restores_bak(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "calc.py")
@@ -258,7 +258,7 @@ def test_run_mutations_crash_safety_restores_bak(tmp_path):
     assert "Restored source from backup" in output
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_mutations_refreshes_tested_at_on_scored_run_over_unscored_manifest(tmp_path):
     """A scored run over an unscored manifest (a 0.1.4 manifest)
     records the score blocks, so the manifest content changes and tested_at is
@@ -305,7 +305,7 @@ def test_run_mutations_refreshes_tested_at_on_scored_run_over_unscored_manifest(
     assert result_manifest["functions"][0]["survivors"] == [{"line": 2, "desc": "a > b -> a >= b"}]
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_mutations_header_counts(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "calc.py")
@@ -343,7 +343,7 @@ def test_run_mutations_header_counts(tmp_path):
     assert "Mutation workers:" not in output
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_mutations_prints_uncovered_block_for_uncovered_sites(tmp_path):
     """Pins the exact "Uncovered mutations:" block text through run_mutations —
     gate 14 turned its production (_uncovered_lines_if_needed) from a print into
@@ -380,7 +380,7 @@ def test_run_mutations_prints_uncovered_block_for_uncovered_sites(tmp_path):
     assert f"  line {sites[1].line} {sites[1].desc} {sites[1].function_id}" in output
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_mutations_timeout_counts_as_killed(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "calc.py")

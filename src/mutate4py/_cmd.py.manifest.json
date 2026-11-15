@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T19:03:36Z",
+  "tested_at": "2026-11-15T06:04:19Z",
   "module_hash": "82607a996155ffed0c789b54281f4b3690a3c6256d9aa13c1e548f08cb479e09",
   "source_sha256": "75ead3c72f36de7a8610f4ef8b53f54ebef7cbc0e3995368afca7896a6d3cf1a",
   "functions": [
@@ -17,7 +17,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0d23743478150477d7a1e62919d4de95375f98b24964526accdf8ad89a557172"
+      "tests_digest": "c04a1e8edeaa4c6d865ba7d786a52f3c1d14f6bb64e30915c0efee2fa2c6b07b"
     },
     {
       "id": "func/run_argv",
@@ -32,7 +32,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a2ad4f0d0cf9a24f0d16e4ff5c7c01548175c2422cbf0b62d1b30d72bedb2dc2"
+      "tests_digest": "339ec37945b05ce02fc97c78e33ed8deac15e31d9940c19fad5e6112927da5c7"
     }
-  ]
+  ],
+  "tests_fingerprint": "c8c12c63fac38391b40ed3d4d9a9a1f33c764dcc6898074d404686b25a803ca0"
 }

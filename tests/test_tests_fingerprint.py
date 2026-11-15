@@ -315,7 +315,7 @@ def test_an_unclassified_flag_may_take_the_next_token_so_the_walk_widens(tmp_pat
 @pytest.mark.parametrize(
     "args",
     [
-        pytest.param("-p no:cacheprovider -m 'not integration'", id="plugin-and-marker"),
+        pytest.param("-p no:cacheprovider -m 'not system'", id="plugin-and-marker"),
         pytest.param("-k src", id="keyword-value-named-like-a-path"),
     ],
 )

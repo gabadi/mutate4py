@@ -117,7 +117,7 @@ def test_a_test_file_whose_tests_were_all_deselected_is_not_a_support_module():
     """A `-m`-deselected test module is a test file, not a helper (#110).
 
     pytest imports it to collect it, but none of its tests runs, so it must not
-    enter every function's digest: editing a component-only test file would
+    enter every function's digest: editing a system-only test file would
     otherwise re-score every function under unit-only scoring.
     """
     facts = _session(

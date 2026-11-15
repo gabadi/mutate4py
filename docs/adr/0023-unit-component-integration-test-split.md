@@ -241,3 +241,19 @@ coverage roles are unchanged: `test-unit` alone is measured and gated, and
   Tried first, then rejected: it let any test added later to an already-migrated
   file inherit that file's default category without anyone deciding it,
   defeating the entire point of a mandatory, per-test, human/model-made call.
+
+## Amended: three test levels (2026-11-15)
+
+Issue #122 (section 1 of #120) replaces the `component` and `integration` markers
+with one `system` marker, and the `test-component` and `test-integration` gates with
+one `test-system` gate. The decision and its rejected alternatives are in ADR 0030.
+Where this section and the sections above disagree, this section wins:
+
+- `unit` and `system` are the only category markers. Every test carries exactly one
+  of them as its own decorator.
+- Code mutation selects `-m unit`. `test-unit` is the only gate that writes coverage
+  data, and the append chain is gone.
+- `test-system` runs `-m system` under `-n auto` with `--no-cov`.
+
+The historical sections above keep the names they were written with. They record why
+the split was made; read them for the reasoning, not for current marker or gate names.

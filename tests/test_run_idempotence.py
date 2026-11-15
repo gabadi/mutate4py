@@ -36,7 +36,7 @@ def _tested_at(content: str) -> str:
     return json.loads(manifest_line[2:])["tested_at"]
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_scored_rerun_with_identical_results_leaves_manifest_unchanged(tmp_path):
     """The mutant `a > b -> a >= b` survives the always-passing tests, so the
     function keeps a recorded survivor and is rescored on every run. The
