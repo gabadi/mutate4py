@@ -4,7 +4,7 @@ Split out of test_runner.py by testing concern (issue #38 gate 16): warning
 threshold handling, F6 serial-vs-parallel worker dispatch, and
 test-selection end-to-end behavior are all "run_mutations under a different
 execution mode or config" — a coherent concern distinct from the core serial
-integration tests that stayed in test_runner.py.
+system tests that stayed in test_runner.py.
 """
 
 import os
@@ -36,7 +36,7 @@ def _write_test_calc(tmp_path) -> None:
 # ── run_mutations: warning threshold ───────────────────────
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_mutations_warning_threshold_exceeded(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_path = str(tmp_path / "calc.py")
@@ -114,7 +114,7 @@ def _stub_provision_with_interpreter(monkeypatch):
     monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_serial_path_no_workers_header(tmp_path):
     """max_workers=0 -> no 'Mutation workers:' line."""
     src = _make_multi_site_source(3)
@@ -125,7 +125,7 @@ def test_serial_path_no_workers_header(tmp_path):
     assert "Mutation workers:" not in output
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_serial_path_workers_header_max_workers_1(tmp_path):
     """max_workers=1 (serial path, 3 sites) -> prints 'Mutation workers: 1', no worker-k in progress."""
     src = _make_multi_site_source(3)
@@ -139,7 +139,7 @@ def test_serial_path_workers_header_max_workers_1(tmp_path):
             assert "worker-" not in line, f"Serial path has worker token: {line}"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_serial_switch_one_site(tmp_path):
     """max_workers=4, only 1 site -> serial path (no worker-k token)."""
     src = "def f(a, b):\n    return a > b\n"
@@ -152,7 +152,7 @@ def test_serial_switch_one_site(tmp_path):
             assert "worker-" not in line, f"Expected serial progress: {line}"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_parallel_path_workers_header_clamped(tmp_path, monkeypatch):
     """max_workers=8, 3 sites -> 'Mutation workers: 3' (clamped); provisioning skipped."""
     import mutate4py._workers as workers_mod
@@ -168,7 +168,7 @@ def test_parallel_path_workers_header_clamped(tmp_path, monkeypatch):
     assert "Mutation workers: 3" in output
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_parallel_path_worker_token_in_progress(tmp_path, monkeypatch):
     """Parallel path (max_workers=4, 4 sites) -> worker-k appears in progress lines."""
     _stub_provision_with_interpreter(monkeypatch)
@@ -184,7 +184,7 @@ def test_parallel_path_worker_token_in_progress(tmp_path, monkeypatch):
         assert "worker-" in line, f"Parallel progress line missing worker token: {line}"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_parallel_path_report_present(tmp_path, monkeypatch):
     """Parallel run produces a Mutation Report."""
     _stub_provision_with_interpreter(monkeypatch)
@@ -198,7 +198,7 @@ def test_parallel_path_report_present(tmp_path, monkeypatch):
     assert "Mutation Report" in output
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_parallel_path_target_outside_cwd_error(tmp_path, monkeypatch):
     """Target file outside cwd -> error, no worker root created."""
     import tempfile
@@ -239,7 +239,7 @@ def test_parallel_path_target_outside_cwd_error(tmp_path, monkeypatch):
         assert not os.path.exists(workers_dir)
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_parallel_path_worker_root_cleaned_up(tmp_path, monkeypatch):
     """After parallel run, worker root is removed."""
     _stub_provision_with_interpreter(monkeypatch)
@@ -255,7 +255,7 @@ def test_parallel_path_worker_root_cleaned_up(tmp_path, monkeypatch):
         assert os.listdir(workers_dir) == []
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_parallel_path_original_file_restored(tmp_path, monkeypatch):
     """After parallel run, original source has no mutant; manifest footer present."""
     from mutate4py._manifest import strip_manifest
@@ -300,7 +300,7 @@ def _run_selected(tmp_path, reached_by):
     return rc, src_path, src
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_report_counts_narrowed_selections(tmp_path, capsys):
     # The node id must exist: this run uses the real executor, and a node id pytest
     # can't find is the exit-4 usage-error abort issue #55 added, not a narrowed count.
@@ -309,7 +309,7 @@ def test_report_counts_narrowed_selections(tmp_path, capsys):
     assert "Test selection: narrowed 3, static 0" in capsys.readouterr().out
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_report_counts_static_selections(tmp_path, capsys):
     rc, _, _ = _run_selected(tmp_path, "")
     assert rc == 3
@@ -318,7 +318,7 @@ def test_report_counts_static_selections(tmp_path, capsys):
     assert "degraded" not in out
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_test_selection_line_sits_after_uncovered_in_the_report(tmp_path, capsys):
     _run_selected(tmp_path, "")
     lines = capsys.readouterr().out.splitlines()

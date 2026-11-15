@@ -36,7 +36,7 @@ Nothing has to be generated first. Each scored run takes its own **Measurement**
 before any Mutant runs: one pytest session under coverage.py, which gives the unmutated
 pass requirement, the coverage gate and the test map (ADR 0027). If your suite has slow
 tests that mutation should not run, select the rest with `--pytest-args`; this
-repository's own selection is `-m 'not integration and not component'` (ADR 0023).
+repository's own selection is `-m unit` (ADR 0023).
 
 See `mutate4py --help` for the full flag set, and the flags table below for the ones
 that shape a scored run.

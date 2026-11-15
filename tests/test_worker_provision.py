@@ -23,7 +23,7 @@ def _fake_worker_python(worker_root, distributions):
     os.chmod(script, 0o755)
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_worker_distributions_missing_a_required_one_raises_naming_it(tmp_path):
     _fake_worker_python(tmp_path, ["pytest"])
     with pytest.raises(WorkerProcessError, match="lacks pytest-cov") as exc:
@@ -31,7 +31,7 @@ def test_worker_distributions_missing_a_required_one_raises_naming_it(tmp_path):
     assert "dev dependency group" in str(exc.value)
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_worker_distributions_with_every_required_one_present_passes(tmp_path):
     _fake_worker_python(tmp_path, ["pytest", "pytest-cov", "coverage"])
     check_worker_distributions(str(tmp_path), frozenset({"pytest", "pytest-cov"}))
@@ -46,7 +46,7 @@ def test_worker_distributions_with_nothing_required_runs_no_probe(tmp_path, monk
     check_worker_distributions(str(tmp_path), frozenset())
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_worker_distributions_probe_that_cannot_run_raises_a_worker_process_error(tmp_path):
     with pytest.raises(WorkerProcessError, match="could not list its distributions"):
         check_worker_distributions(str(tmp_path), frozenset({"pytest"}))
@@ -104,7 +104,7 @@ def test_required_distributions_are_the_project_environment_without_mutate4py(tm
 
 @pytest.mark.unit
 def test_check_worker_distributions_branches_without_a_process(monkeypatch):
-    """Unit-tier twin of the component tests: the probe is stubbed, so lcov (test-unit only,
+    """Unit-tier twin of the system tests: the probe is stubbed, so lcov (test-unit only,
     read by `crap`) covers every branch of check_worker_distributions."""
     calls = []
 

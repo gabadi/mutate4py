@@ -3,7 +3,7 @@
 
 Two layers. The unit section below covers the protocol's pure pieces — argv,
 request encoding, response decoding, shutdown — against fakes. Everything
-after it is component-level: real subprocesses, real pytest, no fakes.
+after it is system-level: real subprocesses, real pytest, no fakes.
 Companion to the fake-executor unit tests in test_workers.py, which cover the
 same dispatch logic without paying for a real subprocess spawn.
 """
@@ -345,7 +345,7 @@ def test_close_before_prime_is_a_no_op():
 
 
 def _provision_test_worker(tmp_path) -> None:
-    """Component-test stand-in for `uv venv` + `uv sync`. The Worker's own
+    """System-test stand-in for `uv venv` + `uv sync`. The Worker's own
     interpreter is this test process's venv, linked in as <root>/.venv so
     <root>/.venv/bin/python resolves the same site-packages (pytest and the
     editable mutate4py included)."""
@@ -369,7 +369,7 @@ def _write_add_sub_project(tmp_path):
 # --- WorkerProcessExecutor/_worker_server round trip --------------------------
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_worker_process_executor_round_trip(tmp_path):
     """Formalizes the manual verification from the session that fixed the
     stdout-flush leak: one primed Worker subprocess serves multiple, distinct
@@ -391,7 +391,7 @@ def test_worker_process_executor_round_trip(tmp_path):
         executor.close()
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_worker_process_executor_subprocess_forced(tmp_path):
     """Same round trip with forking_requested=False: the Worker's own
     _prepare_executor call must fall back to the subprocess executor and
@@ -412,7 +412,7 @@ def test_worker_process_executor_subprocess_forced(tmp_path):
         executor.close()
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_worker_process_executor_describes_the_subprocess_executor_its_worker_runs(tmp_path):
     """A Worker told not to fork describes the subprocess executor it chose, and
     the reason, over the same line protocol that carries its statuses."""
@@ -450,7 +450,7 @@ def _write_workerinput_probe_project(tmp_path):
     return target
 
 
-@pytest.mark.component
+@pytest.mark.system
 @pytest.mark.parametrize("forking_requested", [True, False])
 def test_worker_process_executor_supplies_worker_id(tmp_path, forking_requested):
     """A Worker constructed with worker_id="gw3" makes config.workerinput
@@ -472,7 +472,7 @@ def test_worker_process_executor_supplies_worker_id(tmp_path, forking_requested)
         executor.close()
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_worker_process_executor_without_worker_id_leaves_workerinput_unset(tmp_path):
     (tmp_path / "conftest.py").write_text("")
     target = tmp_path / "calc.py"
@@ -502,7 +502,7 @@ def test_worker_process_executor_without_worker_id_leaves_workerinput_unset(tmp_
 # --- forking vs. subprocess parity within a Worker -----------------------------
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_worker_forking_and_subprocess_parity(tmp_path):
     """Two real Worker subprocesses, one forced to the subprocess executor,
     must classify an identical mutant identically."""
@@ -563,7 +563,7 @@ def restore_import_state(tmp_path):
             del sys.modules[name]
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_worker_server_runs_an_already_imported_target_in_a_fresh_interpreter(
     tmp_path, monkeypatch, capfd, restore_import_state
 ):

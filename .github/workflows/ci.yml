@@ -34,16 +34,14 @@ jobs:
         run: just format-check
       # Coverage is measured on test-unit alone: it writes lcov.info and
       # applies the threshold, so the CRAP step below scores unit-only data.
-      # test-component appends to .coverage without touching lcov.info, and
-      # test-integration adds no coverage data at all (measured; see the
-      # justfile). Both stay here as test gates in their own right. These steps share one working directory by necessity: test-unit
-      # cannot move to a separate job from CRAP without merging coverage first.
+      # test-system passes --no-cov and writes no coverage data (see the
+      # justfile). These steps share one working directory by necessity:
+      # test-unit cannot move to a separate job from CRAP without merging
+      # coverage first.
       - name: Tests (unit)
         run: just test-unit
-      - name: Tests (component)
-        run: just test-component
-      - name: Tests (integration)
-        run: just test-integration
+      - name: Tests (system)
+        run: just test-system
       - name: CRAP
         run: just crap
       - name: Install tools

@@ -287,7 +287,7 @@ def test_unknown_flag_is_usage_error():
     assert result.returncode != 0
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_no_positional_file_is_usage_error():
     result = subprocess.run(
         [sys.executable, "-m", "mutate4py"],
@@ -364,7 +364,7 @@ def _run_cli_path(path: str, *args: str) -> subprocess.CompletedProcess:
     )
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_check_manifest_missing_exits_1(tmp_path):
     p = tmp_path / "mod.py"
     p.write_text("def f(a, b):\n    return a > b\n")
@@ -373,7 +373,7 @@ def test_check_manifest_missing_exits_1(tmp_path):
     assert "Manifest missing:" in result.stdout
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_check_manifest_current_exits_0(tmp_path):
     p = tmp_path / "mod.py"
     p.write_text("def f(a, b):\n    return a > b\n")
@@ -393,7 +393,7 @@ def test_check_manifest_in_help():
 # ── --manifest-file: single file end-to-end ────────────────────────────────────
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_manifest_file_update_writes_sidecar_and_footer_free_source(tmp_path):
     import json
 
@@ -411,7 +411,7 @@ def test_manifest_file_update_writes_sidecar_and_footer_free_source(tmp_path):
     assert "mutate4py-manifest-begin" not in p.read_text()
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_manifest_file_check_reads_sidecar(tmp_path):
     p = tmp_path / "mod.py"
     p.write_text("def f(a, b):\n    return a > b\n")
@@ -423,7 +423,7 @@ def test_manifest_file_check_reads_sidecar(tmp_path):
     assert "Manifest current:" in result.stdout
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_manifest_file_check_missing_sidecar_reports_missing(tmp_path):
     p = tmp_path / "mod.py"
     p.write_text("def f(a, b):\n    return a > b\n")

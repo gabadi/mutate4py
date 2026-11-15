@@ -314,7 +314,7 @@ def _outcome_lines(stdout: str) -> list[str]:
     return [ln.strip() for ln in stdout.splitlines() if ln.strip().startswith(("Killed:", "Survived:"))]
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_parallel_dogfood_run_scores_the_same_as_the_serial_run(tmp_path):
     """C1: mutate4py mutating its own source must score the same under workers as serially.
     The Worker copy's mutate4py has to be the one imported; an import root on PYTHONPATH

@@ -77,12 +77,12 @@ def _assignment(dump, name):
     return dump["assignments"][name]["value"]
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_mutate_recipe_has_no_dependency_so_no_db_is_built_first(dump):
     assert _dependencies(dump, "mutate") == []
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_mutate_command_passes_no_lcov_or_test_context_flag(dump):
     body = _body(dump, "mutate")
     assert 'uv run mutate4py {{path}} --pytest-args "{{MUTATE_PYTEST_ARGS}}" {{args}}' in body
@@ -91,26 +91,26 @@ def test_mutate_command_passes_no_lcov_or_test_context_flag(dump):
     assert "TEST_CONTEXT_DB" not in body
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_mutate_pytest_args_select_unit_tests_only(dump):
-    assert _assignment(dump, "MUTATE_PYTEST_ARGS") == "-p no:tach -m 'not integration and not component'"
+    assert _assignment(dump, "MUTATE_PYTEST_ARGS") == "-p no:tach -m unit"
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_test_context_db_recipe_and_variable_are_gone(dump):
     for name in REMOVED_GATE_RECIPES:
         assert name not in dump["recipes"], name
     assert "TEST_CONTEXT_DB" not in dump["assignments"]
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_check_gate_list_names_no_removed_gate(dump):
     body = _body(dump, "check")
     assert "context-deselection" not in body
     assert "test-context-db" not in body
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_check_rejects_a_removed_gate_name_before_running_anything():
     just = shutil.which("just")
     if just is None:
@@ -132,13 +132,13 @@ def test_check_rejects_a_removed_gate_name_before_running_anything():
         assert name not in gates_line.split(), name
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_mutate_sample_recipe_has_no_dependency_and_no_lcov(dump):
     assert _dependencies(dump, "mutate-sample") == []
     assert "lcov" not in _body(dump, "mutate-sample")
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_check_guard_for_lcov_readers_no_longer_names_mutate_sample(dump):
     # `mutate-sample` shells out to `mutate`, which reads no lcov.info now, so
     # the guard that required `test-unit` before it must be gone. `crap` is the
@@ -148,19 +148,19 @@ def test_check_guard_for_lcov_readers_no_longer_names_mutate_sample(dump):
     assert match.group(1).split() == ["crap"]
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_test_unit_still_writes_the_lcov_file_for_the_crap_gate(dump):
     assert "--cov-report=lcov:lcov.info" in _body(dump, "test-unit")
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_perf_runs_no_test_context_db_step_and_no_test_contexts_flag(dump):
     body = _body(dump, "perf")
     assert "test-context-db" not in body
     assert "--test-contexts" not in body
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_no_recipe_passes_a_removed_flag_to_mutate4py(dump):
     offenders = [
         (name, flag)

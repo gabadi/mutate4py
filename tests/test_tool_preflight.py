@@ -49,7 +49,7 @@ def _just(just_bin, env, *args):
     return result, time.monotonic() - started
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_check_names_missing_drywall_and_install_recipe_before_the_gate_runs(just_bin, bare_env):
     result, elapsed = _just(just_bin, bare_env, "check", "dry")
 
@@ -60,7 +60,7 @@ def test_check_names_missing_drywall_and_install_recipe_before_the_gate_runs(jus
     assert elapsed < _FAST_ENOUGH_SECONDS
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_check_names_missing_gherkin_parser_and_install_recipe(just_bin, bare_env):
     result, elapsed = _just(just_bin, bare_env, "check", "acceptance")
 
@@ -71,7 +71,7 @@ def test_check_names_missing_gherkin_parser_and_install_recipe(just_bin, bare_en
     assert elapsed < _FAST_ENOUGH_SECONDS
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_full_check_reports_both_missing_tools_and_runs_no_gate(just_bin, bare_env):
     result, elapsed = _just(just_bin, bare_env, "check")
 
@@ -84,7 +84,7 @@ def test_full_check_reports_both_missing_tools_and_runs_no_gate(just_bin, bare_e
     assert elapsed < _FAST_ENOUGH_SECONDS
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_check_runs_the_gate_once_its_tool_is_present(just_bin, bare_env, tmp_path):
     fake_drywall = Path(bare_env["PATH"].split(":")[0]) / "drywall"
     fake_drywall.write_text("#!/bin/sh\nexit 0\n")
@@ -96,7 +96,7 @@ def test_check_runs_the_gate_once_its_tool_is_present(just_bin, bare_env, tmp_pa
     assert "✓ dry" in result.stdout
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_gates_that_need_no_tool_pass_the_preflight(just_bin, bare_env):
     result, _ = _just(just_bin, bare_env, "require-tools", "lint", "format-check", "test-unit")
 

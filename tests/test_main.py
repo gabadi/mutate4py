@@ -77,7 +77,7 @@ def test_scan_warning_above_threshold():
     assert result.returncode == 0
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_missing_file_exits_nonzero():
     result = subprocess.run(
         [sys.executable, "-m", "mutate4py", "/nonexistent/path.py", "--scan"],
@@ -90,7 +90,7 @@ def test_missing_file_exits_nonzero():
     assert result.stdout == ""
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_missing_file_error_on_stderr():
     result = subprocess.run(
         [sys.executable, "-m", "mutate4py", "/nonexistent/path.py", "--scan"],

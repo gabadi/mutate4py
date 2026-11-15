@@ -1,4 +1,4 @@
-"""Integration tests for issue 05: per-Worker Django test databases.
+"""System tests for issue 05: per-Worker Django test databases.
 
 Real mutate4py CLI subprocess, real Django, real pytest-django, no fakes —
 against the reduced fixture project at tests/fixtures/django_project
@@ -44,7 +44,7 @@ def _run_cli(cwd: str, extra_args: list[str], *, extra_env: dict | None = None) 
 #    verified in the same run as --reuse-db (checklist items 1-3) ────────────
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_two_workers_get_distinct_test_databases_with_reuse_db(tmp_path):
     # Premise: a narrowed calc.py Mutant runs only the tests covering its line.
     # tests/test_polls.py::test_calc_thresholds_hold_alongside_a_database_write
@@ -79,7 +79,7 @@ def test_two_workers_get_distinct_test_databases_with_reuse_db(tmp_path):
 _PYTEST_ARGS = "--pytest-args=-p no:tach -q"
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_app_loaded_module_swaps_its_method_body_and_runs_its_class_body_site_in_a_fresh_interpreter(tmp_path):
     project = _copy_fixture(tmp_path)
     # The whole file is mutated (no selection flag). Line 11 (votes default) survives: no test pins it,
@@ -99,7 +99,7 @@ def test_app_loaded_module_swaps_its_method_body_and_runs_its_class_body_site_in
 #    (checklist item 6) ───────────────────────────────────────────────────────
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_non_app_loaded_module_keeps_warm_path(tmp_path):
     project = _copy_fixture(tmp_path)
     result = _run_cli(project, ["calc.py", _PYTEST_ARGS])
@@ -138,7 +138,7 @@ print("PRIME_HELD_NO_DB_CONNECTION")
 """
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_primed_parent_never_holds_live_db_connection(tmp_path):
     """Drives ForkingExecutor.prime() directly, in a real subprocess (so
     django.setup() only ever runs once, in a process this test controls) —
