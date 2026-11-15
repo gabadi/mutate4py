@@ -5,7 +5,7 @@ import dataclasses
 import functools
 import re
 
-from mutate4py._ids import function_unit_id
+from mutate4py._ids import class_body_unit_id, function_unit_id
 
 
 @dataclasses.dataclass(frozen=True)
@@ -66,6 +66,7 @@ def _format_function_id(ancestors: list[ast.AST]) -> str:
 
     Nested def/lambda fold into the outermost enclosing named function unit.
     Method attribution uses the class of that outermost function.
+    A Site in a class body outside every method takes its innermost class's id.
     Returns empty string for module-level code.
     """
     outermost_fn = None
@@ -77,7 +78,7 @@ def _format_function_id(ancestors: list[ast.AST]) -> str:
                 outermost_idx = i
 
     if outermost_fn is None:
-        return ""
+        return class_body_unit_id(ancestors)
 
     parent = ancestors[outermost_idx - 1] if outermost_idx > 0 else None
     return function_unit_id(outermost_fn, parent)

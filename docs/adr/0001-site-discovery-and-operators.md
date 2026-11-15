@@ -5,7 +5,15 @@
 A site is attributed to its enclosing **named** function unit by line range. Nested
 `def` and `lambda` are **not** separate units — their sites fold into the enclosing
 named unit. Decorators do not create a unit; the decorated `def` is the unit. Sites
-outside any function keep an empty FunctionID and are still mutated.
+outside any function and any class keep an empty FunctionID and are still mutated.
+
+**Amendment (0.3.3): a class is a unit for its own body.** A Site in a class body,
+outside every method, takes the id `class/<Name>` of its innermost class. The Manifest
+holds an entry for each class outside a function, so a Survivor there is recorded
+(ADR 0026). The entry's hash covers the class header, its decorators and its
+statements that are not a `def` or a nested class, so an edit to a method leaves the
+class entry alone. A class inside a function folds into that function, as a nested
+`def` does.
 
 ## Divergence from crap4py ADR 0003 — deliberate
 

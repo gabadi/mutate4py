@@ -32,9 +32,15 @@ The granularity the Manifest tracks and differential reruns scope by — a top-l
 named unit rather than forming their own.
 _Avoid_: function, scope, block
 
+**Class unit**:
+A class outside any function, tracked by the Manifest for the Sites of its own body: the
+statements, decorators and bases that are not a method or a nested class. Its Manifest
+entry has the same `score` block as a Function unit's.
+
 **FunctionID**:
-The Function unit id attributed to a Site by line range. Empty for module-level
-Sites, which are still mutated.
+The Function unit id attributed to a Site by line range (`func/<Name>`), or the Class
+unit id for a Site in a class body (`class/<Name>`). Empty for module-level Sites,
+which are still mutated.
 
 ### Manifest
 

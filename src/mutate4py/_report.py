@@ -216,6 +216,21 @@ def _accepted_block_lines(accepted: list[tuple[Site, str]]) -> list[str]:
     return lines
 
 
+def _module_level_block_lines(path: str, survivors: list[Site]) -> list[str]:
+    module_level = [s for s in survivors if not s.function_id]
+    if not module_level:
+        return []
+    return [
+        "",
+        "Module-level survivors (not recorded in the Manifest):",
+        *[f"  {path}:{s.line} {s.desc}" for s in module_level],
+    ]
+
+
+def _closing_block_lines(path: str, unaccepted: list[Site], accepted: list[tuple[Site, str]]) -> list[str]:
+    return _accepted_block_lines(accepted) + _module_level_block_lines(path, unaccepted)
+
+
 def _recorded_block_lines(recorded: list[tuple[str, dict]]) -> list[str]:
     """The survivors a skipped function kept from the Manifest, apart from this run's Survivors (#106).
 

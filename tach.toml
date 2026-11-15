@@ -127,9 +127,14 @@ layer = "domain"
 depends_on = []
 
 [[modules]]
-path = "mutate4py._manifest"
+path = "mutate4py._unit_extraction"
 layer = "domain"
 depends_on = []
+
+[[modules]]
+path = "mutate4py._manifest"
+layer = "domain"
+depends_on = ["mutate4py._unit_extraction"]
 
 # The functions whose stored tests digest a run's fresh digests change (#106). Split from
 # `_manifest`, which sits at its size cap (tests/test_module_size_guard.py).

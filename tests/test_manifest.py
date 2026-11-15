@@ -294,8 +294,54 @@ def test_build_manifest_records_async_def():
 def test_build_manifest_method_id():
     src = "class C:\n    def m(self):\n        return 1\n"
     m = build_manifest(src, tested_at="2026-01-01T00:00:00Z")
-    assert m["functions"][0]["id"] == "func/C.m"
-    assert m["functions"][0]["name"] == "m"
+    assert m["functions"][1]["id"] == "func/C.m"
+    assert m["functions"][1]["name"] == "m"
+
+
+def _entries(src):
+    return {fn["id"]: fn for fn in build_manifest(src, tested_at="2026-01-01T00:00:00Z")["functions"]}
+
+
+@pytest.mark.unit
+def test_build_manifest_records_a_class_as_its_own_unit_beside_its_methods():
+    entries = _entries("class C:\n    LIMIT = 2\n\n    def m(self):\n        return 1\n")
+    assert list(entries) == ["class/C", "func/C.m"]
+    assert (entries["class/C"]["name"], entries["class/C"]["line"], entries["class/C"]["end_line"]) == ("C", 1, 5)
+
+
+@pytest.mark.unit
+def test_build_manifest_records_a_class_nested_in_a_class_but_not_one_inside_a_function():
+    entries = _entries("class A:\n    class B:\n        X = 1\n\n\ndef f():\n    class C:\n        X = 1\n")
+    assert list(entries) == ["class/A", "class/B", "func/f"]
+
+
+@pytest.mark.unit
+def test_a_class_hash_ignores_an_edit_to_a_method_body():
+    before = _entries("class C:\n    LIMIT = 2\n\n    def m(self):\n        return 1\n")
+    after = _entries("class C:\n    LIMIT = 2\n\n    def m(self):\n        return 2\n")
+    assert before["class/C"]["hash"] == after["class/C"]["hash"]
+    assert before["func/C.m"]["hash"] != after["func/C.m"]["hash"]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "edited",
+    [
+        "class C:\n    LIMIT = 3\n",
+        "@wrap\nclass C:\n    LIMIT = 2\n",
+        "class C(Base):\n    LIMIT = 2\n",
+    ],
+)
+def test_a_class_hash_changes_with_its_body_decorators_or_bases(edited):
+    assert _entries("class C:\n    LIMIT = 2\n")["class/C"]["hash"] != _entries(edited)["class/C"]["hash"]
+
+
+@pytest.mark.unit
+def test_an_outer_class_hash_ignores_an_edit_to_a_nested_class():
+    before = _entries("class A:\n    X = 1\n\n    class B:\n        Y = 1\n")
+    after = _entries("class A:\n    X = 1\n\n    class B:\n        Y = 2\n")
+    assert before["class/A"]["hash"] == after["class/A"]["hash"]
+    assert before["class/B"]["hash"] != after["class/B"]["hash"]
 
 
 @pytest.mark.unit

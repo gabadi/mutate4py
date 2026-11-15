@@ -214,10 +214,6 @@ class ControlRuns:
 
 
 def _rebased_node_ids(node_ids: list[str], rootdir: str, cwd: str, where: str) -> list[str]:
-    """Each node id with its file path re-expressed from `rootdir` to `cwd`.
-
-    Raises NoTestsCollectedError if a node id names a file that does not exist.
-    """
     real_rootdir, real_cwd = os.path.realpath(rootdir), os.path.realpath(cwd)
     rebased = []
     for node_id in node_ids:

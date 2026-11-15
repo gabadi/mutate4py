@@ -5,6 +5,7 @@ from mutate4py._executor import ExecutorDescription, MutantTiming
 from mutate4py._report import (
     OverheadInfo,
     _accepted_block_lines,
+    _closing_block_lines,
     RunStats,
     SelectionTally,
     _mutation_report_lines,
@@ -410,6 +411,37 @@ def test_accepted_block_lines_format():
 @pytest.mark.unit
 def test_accepted_block_lines_empty():
     assert _accepted_block_lines([]) == []
+
+
+# ── _closing_block_lines ──────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_closing_block_lines_name_each_module_level_survivor_by_file_and_line():
+    unaccepted = [_make_site(0, 4, "func/f"), _make_site(1, 9, ""), _make_site(2, 12, "class/C"), _make_site(3, 15, "")]
+    assert _closing_block_lines("pkg/mod.py", unaccepted, []) == [
+        "",
+        "Module-level survivors (not recorded in the Manifest):",
+        "  pkg/mod.py:9 > -> >=",
+        "  pkg/mod.py:15 > -> >=",
+    ]
+
+
+@pytest.mark.unit
+def test_closing_block_lines_are_empty_when_no_survivor_is_module_level():
+    assert _closing_block_lines("pkg/mod.py", [_make_site(0, 4, "func/f"), _make_site(1, 5, "class/C")], []) == []
+
+
+@pytest.mark.unit
+def test_closing_block_lines_put_the_accepted_equivalents_before_the_module_level_survivors():
+    accepted = [(_make_site(0, 4, "func/f"), "same for all inputs")]
+    lines = _closing_block_lines("pkg/mod.py", [_make_site(1, 9, "")], accepted)
+    assert lines == [
+        *_accepted_block_lines(accepted),
+        "",
+        "Module-level survivors (not recorded in the Manifest):",
+        "  pkg/mod.py:9 > -> >=",
+    ]
 
 
 # ── executor_block_lines ──────────────────────────────────────────────────────

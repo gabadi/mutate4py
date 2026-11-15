@@ -297,3 +297,19 @@ def test_function_scores_scores_changed_uncovered_function_on_narrowed_run():
     assert run.function_scores([_F]) == {
         _F: {"score": {"killed": 0, "survived": 0, "uncovered": 1}, "survivors": [], "accepted": []}
     }
+
+
+@pytest.mark.unit
+def test_function_scores_records_a_class_body_survivor_under_the_class_id():
+    class_site = _site(0, line=4, function_id="class/Box")
+    method_site = _site(1, line=7, function_id="func/Box.m")
+    run = ScoredRun(
+        all_sites=[class_site, method_site],
+        covered_lines={4, 7},
+        selected_sites=[class_site, method_site],
+        survivors=[class_site],
+        full_selection=True,
+    )
+    scores = run.function_scores(["class/Box", "func/Box.m"])
+    assert scores["class/Box"]["survivors"] == [{"line": 4, "desc": "d0"}]
+    assert scores["func/Box.m"]["survivors"] == []

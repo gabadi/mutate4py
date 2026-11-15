@@ -30,7 +30,7 @@ from mutate4py._manifest_modes import check_manifest, update_manifest
 from mutate4py._measurement import ALL, CoverageCoreRefused, Measurement, MeasurementFailed, measure_in_scratch
 from mutate4py._plugin_neutralisation import neutralising_args
 from mutate4py._report import (
-    _accepted_block_lines,
+    _closing_block_lines,
     RunStats,
     SelectionTally,
     _mutation_report_lines,
@@ -394,6 +394,6 @@ def _report_run(
         request.timing_sink.merge(result.timing)
     if measured_here and outcome.measurement is not None:
         _print_lines(measurement_lines(outcome.measurement))
-    _print_lines(_accepted_block_lines(scored_run.accepted()))
+    _print_lines(_closing_block_lines(request.path, scored_run.unaccepted(), scored_run.accepted()))
     survived = len(scored_run.unaccepted()) + len(recorded)
     return scored_run_exit_code(survived, allow_survivors=request.allow_survivors)

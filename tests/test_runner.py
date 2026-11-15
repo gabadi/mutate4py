@@ -305,6 +305,55 @@ def test_run_mutations_refreshes_tested_at_on_scored_run_over_unscored_manifest(
     assert result_manifest["functions"][0]["survivors"] == [{"line": 2, "desc": "a > b -> a >= b"}]
 
 
+def _survivor_run(tmp_path, src):
+    import io
+    from contextlib import redirect_stdout
+
+    src_path = str(tmp_path / "calc.py")
+    (tmp_path / "calc.py").write_text(src)
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        rc = run_mutations(
+            RunMutationsRequest(
+                path=src_path,
+                source=src,
+                measurement=_measured(src_path, [s.line for s in discover_sites(src)]),
+                pytest_args=write_always_passing_pytest_project(str(tmp_path)),
+                timeout_factor=10,
+                warning_threshold=1000,
+                cwd=str(tmp_path),
+            )
+        )
+    return src_path, rc, buf.getvalue()
+
+
+@pytest.mark.system
+def test_a_class_body_survivor_is_recorded_under_the_class_and_check_manifest_fails_on_it(tmp_path):
+    src = "class Box:\n    LIMIT = 2 > 1\n\n\ndef f(a, b):\n    return a > b\n"
+
+    src_path, rc, output = _survivor_run(tmp_path, src)
+
+    entries = {fn["id"]: fn for fn in extract_manifest((tmp_path / "calc.py").read_text())[0]["functions"]}
+    assert rc == 3
+    assert {s["line"] for s in entries["class/Box"]["survivors"]} == {2}
+    assert [s["line"] for s in entries["func/f"]["survivors"]] == [6]
+    assert check_manifest(path=src_path, source=(tmp_path / "calc.py").read_text()) == 1
+    assert "Module-level survivors" not in output
+
+
+@pytest.mark.system
+def test_a_module_level_survivor_is_reported_by_file_and_line_and_is_not_recorded(tmp_path):
+    src = "LIMIT = 2 > 1\n\n\ndef f(a, b):\n    return a > b\n"
+
+    src_path, rc, output = _survivor_run(tmp_path, src)
+
+    entries = {fn["id"]: fn for fn in extract_manifest((tmp_path / "calc.py").read_text())[0]["functions"]}
+    assert rc == 3
+    assert "Module-level survivors (not recorded in the Manifest):" in output
+    assert f"  {src_path}:1 2 > 1 -> 2 >= 1" in output
+    assert list(entries) == ["func/f"]
+
+
 @pytest.mark.system
 def test_run_mutations_header_counts(tmp_path):
     src = "def f(a, b):\n    return a > b\n"

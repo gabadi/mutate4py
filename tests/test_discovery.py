@@ -119,6 +119,35 @@ def test_nested_constructs_fold_into_outer(src):
     assert all(s.function_id == "func/outer" for s in sites)
 
 
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "src,expected_id",
+    [
+        ("class C:\n    LIMIT = 2 > 1\n", "class/C"),
+        ("@wrap(1 > 0)\nclass C:\n    pass\n", "class/C"),
+        ("class Outer:\n    class Inner:\n        LIMIT = 2 > 1\n", "class/Inner"),
+        ("class Outer:\n    class Inner:\n        pass\n    LIMIT = 2 > 1\n", "class/Outer"),
+    ],
+)
+def test_a_site_in_a_class_body_belongs_to_that_class(src, expected_id):
+    assert scan(src)[-1].function_id == expected_id
+
+
+@pytest.mark.unit
+def test_a_site_in_a_method_still_belongs_to_the_method_not_its_class():
+    sites = scan("class C:\n    LIMIT = 2 > 1\n    def m(self):\n        return 3 > 2\n")
+    assert {s.line: s.function_id for s in sites if s.desc.startswith("2 >") or s.desc.startswith("3 >")} == {
+        2: "class/C",
+        4: "func/C.m",
+    }
+
+
+@pytest.mark.unit
+def test_a_class_inside_a_function_folds_into_the_function():
+    sites = scan("def f():\n    class C:\n        LIMIT = 2 > 1\n")
+    assert {s.function_id for s in sites} == {"func/f"}
+
+
 # ── Large integer literals are excluded ───────────────────────────────────────
 
 

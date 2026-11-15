@@ -46,8 +46,11 @@ Accepted consequences:
   differential run selects nothing unchanged, so one `--mutate-all` run scores the file.~~
   **Superseded by #115:** a default run scores every Unscored function, so a 0.1.4
   Manifest gains its scores from one ordinary run (see ADR 0029's amendment for spec #115).
-- A module-level survivor exits 3 but is not recorded: it has no function entry, so
-  `--check-manifest` cannot see it.
+- A module-level survivor, one outside every function and class, exits 3 but is not
+  recorded: it has no entry, so `--check-manifest` cannot see it. The report prints each
+  one as `file:line` under "Module-level survivors (not recorded in the Manifest):". A
+  class-body survivor is recorded under the class's own entry (`class/<Name>`, since
+  0.3.3), so `--check-manifest` sees it.
 
 **Do not "fix" these back.** The gate is on by default, because a gate that is off
 gates nothing. Survivors stay in the Manifest so `--check-manifest` sees them without a

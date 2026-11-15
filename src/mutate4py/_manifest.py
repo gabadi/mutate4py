@@ -6,8 +6,8 @@ import json
 import re
 from collections import Counter
 
-from mutate4py._ids import function_unit_id
 from mutate4py._sidecar_io import parse_json_text
+from mutate4py._unit_extraction import ast_sha256, extract_units
 
 _BEGIN = "# mutate4py-manifest-begin"
 _END = "# mutate4py-manifest-end"
@@ -73,10 +73,6 @@ def extract_manifest(source: str) -> tuple[dict | None, bool]:
         return None, False
     parts = [p for line in block.splitlines() if (p := _uncomment_line(line))]
     return parse_json_text(" ".join(parts))
-
-
-def _sha256_ast(node: ast.AST) -> str:
-    return hashlib.sha256(ast.unparse(node).encode()).hexdigest()
 
 
 def source_sha256(source: str) -> str:
@@ -298,8 +294,8 @@ def build_manifest(source: str, *, tested_at: str) -> dict:
     fast path; not part of manifests_structurally_equal.
     """
     tree = ast.parse(source)
-    module_hash = _sha256_ast(tree)
-    functions = _extract_functions(tree)
+    module_hash = ast_sha256(tree)
+    functions = extract_units(tree)
 
     return {
         "version": 1,
@@ -308,36 +304,6 @@ def build_manifest(source: str, *, tested_at: str) -> dict:
         "source_sha256": source_sha256(source),
         "functions": functions,
     }
-
-
-def _extract_functions(tree: ast.Module) -> list[dict]:
-    """Extract outermost named function units with their id, name, line, end_line, hash."""
-    results = []
-    stack: list[tuple[ast.AST, ast.AST | None, bool]] = [(tree, None, False)]
-    while stack:
-        node, parent, inside_fn = stack.pop()
-
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            if not inside_fn:
-                fid = function_unit_id(node, parent)
-                results.append(
-                    {
-                        "id": fid,
-                        "name": node.name,
-                        "line": node.lineno,
-                        "end_line": node.end_lineno,
-                        "hash": _sha256_ast(node),
-                    }
-                )
-            for child in ast.iter_child_nodes(node):
-                stack.append((child, node, True))
-        else:
-            for child in ast.iter_child_nodes(node):
-                stack.append((child, node, inside_fn))
-
-    # Sort by line for determinism
-    results.sort(key=lambda f: f["line"])
-    return results
 
 
 def diff_manifests(previous: dict | None, current: dict) -> set[str]:
