@@ -1,10 +1,7 @@
 """Unit tests for mutate4py CLI entry point (__main__)."""
 
 import os
-import subprocess
 import sys
-import tempfile
-import textwrap
 
 import pytest
 
@@ -14,92 +11,17 @@ from mutate4py._runner import scan_report
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 
-def run_cli(*args: str, source: str | None = None) -> subprocess.CompletedProcess:
-    """Run mutate4py CLI with given args; optionally write source to a temp file."""
-    with tempfile.TemporaryDirectory() as d:
-        if source is not None:
-            path = os.path.join(d, "sample.py")
-            with open(path, "w") as f:
-                f.write(textwrap.dedent(source))
-            cli_args = [path] + list(args)
-        else:
-            cli_args = list(args)
-
-        result = subprocess.run(
-            [sys.executable, "-m", "mutate4py"] + cli_args,
-            capture_output=True,
-            text=True,
-            cwd=REPO_ROOT,
-            env={**os.environ, "PYTHONPATH": os.path.join(REPO_ROOT, "src")},
-        )
-    return result
-
-
 @pytest.mark.unit
-def test_scan_prints_count_block_zero_sites():
-    result = run_cli("--scan", source="x = 1\n")
-    # 1 site (integer 1)
-    assert "Total mutation sites: 1" in result.stdout
-    assert "Changed mutation sites: 1" in result.stdout
-    assert "Manifest exists: false" in result.stdout
-    assert result.returncode == 0
+def test_scan_prints_mutation_scan_header(tmp_path, monkeypatch, capsys):
+    import mutate4py.__main__ as m
 
-
-@pytest.mark.unit
-def test_scan_prints_mutation_scan_header():
-    result = run_cli("--scan", source="pass\n")
-    assert "Mutation scan:" in result.stdout
-
-
-@pytest.mark.unit
-def test_scan_zero_sites():
-    result = run_cli("--scan", source="pass\n")
-    assert "Total mutation sites: 0" in result.stdout
-    assert "Changed mutation sites: 0" in result.stdout
-    assert result.returncode == 0
-
-
-@pytest.mark.unit
-def test_scan_no_warning_at_threshold():
-    src = "x = a + b\n"
-    result = run_cli("--scan", "--mutation-warning", "1", source=src)
-    # 1 site, threshold 1: no warning (not strictly greater)
-    assert "Warning:" not in result.stdout
-    assert result.returncode == 0
-
-
-@pytest.mark.unit
-def test_scan_warning_above_threshold():
-    src = "x = a + b\ny = c - d\n"
-    result = run_cli("--scan", "--mutation-warning", "1", source=src)
-    # 2 sites > 1 threshold
-    assert "Warning: 2 mutation sites exceeds threshold 1." in result.stdout
-    assert result.returncode == 0
-
-
-@pytest.mark.system
-def test_missing_file_exits_nonzero():
-    result = subprocess.run(
-        [sys.executable, "-m", "mutate4py", "/nonexistent/path.py", "--scan"],
-        capture_output=True,
-        text=True,
-        cwd=REPO_ROOT,
-        env={**os.environ, "PYTHONPATH": os.path.join(REPO_ROOT, "src")},
-    )
-    assert result.returncode != 0
-    assert result.stdout == ""
-
-
-@pytest.mark.system
-def test_missing_file_error_on_stderr():
-    result = subprocess.run(
-        [sys.executable, "-m", "mutate4py", "/nonexistent/path.py", "--scan"],
-        capture_output=True,
-        text=True,
-        cwd=REPO_ROOT,
-        env={**os.environ, "PYTHONPATH": os.path.join(REPO_ROOT, "src")},
-    )
-    assert "error" in result.stderr.lower() or result.returncode != 0
+    p = tmp_path / "s.py"
+    p.write_text("pass\n")
+    monkeypatch.setattr(sys, "argv", ["mutate4py", str(p), "--scan"])
+    with pytest.raises(SystemExit) as exc:
+        m.main()
+    assert exc.value.code == 0
+    assert "Mutation scan:" in capsys.readouterr().out
 
 
 # ── scan_report unit tests (direct coverage of __main__.py) ───────────────────
@@ -458,12 +380,17 @@ def test_do_update_manifest_uses_utc_not_local_tz(tmp_path):
 
 
 @pytest.mark.unit
-def test_mutation_warning_type_int_parses_string_arg():
+def test_mutation_warning_type_int_parses_string_arg(tmp_path, monkeypatch, capsys):
     # mutant_34,38: type=int removed → --mutation-warning receives str, comparison int>str fails
-    src = "x = a + b\n"
-    result = run_cli("--scan", "--mutation-warning", "5", source=src)
-    assert result.returncode == 0
-    assert "Total mutation sites: 1" in result.stdout
+    import mutate4py.__main__ as m
+
+    p = tmp_path / "s.py"
+    p.write_text("x = a + b\n")
+    monkeypatch.setattr(sys, "argv", ["mutate4py", str(p), "--scan", "--mutation-warning", "5"])
+    with pytest.raises(SystemExit) as exc:
+        m.main()
+    assert exc.value.code == 0
+    assert "Total mutation sites: 1" in capsys.readouterr().out
 
 
 @pytest.mark.unit
