@@ -2,7 +2,8 @@
 
 Why each plugin gets its own kill switch (`--no-cov`) and never `-p no:<name>`,
 why every flag is gated on the plugin being importable (and `--no-cov` also on the
-child loading pytest-cov), and why no other plugin is touched: `docs/adr/0020-single-execution-model-and-plugin-neutralisation.md`.
+child loading pytest-cov), and why no other plugin is touched:
+`docs/adr/0020-single-execution-model-and-plugin-neutralisation.md`.
 Read it before adding, removing, or unguarding an entry in `_KNOWN_PLUGINS`.
 """
 

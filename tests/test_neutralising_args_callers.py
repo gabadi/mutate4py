@@ -5,7 +5,9 @@ flags can decide. So each caller asks about the args of the session it is buildi
 spawn and the prime are replaced by recorders.
 """
 
+import os
 import subprocess
+from types import SimpleNamespace
 
 import pytest
 
@@ -24,12 +26,14 @@ def test_the_measurement_session_argv_ends_with_the_flags_chosen_for_its_own_pyt
         asked_with.append(tuple(pytest_args))
         return ["--fake-flag"]
 
-    def fake_run(argv, **_kwargs):
-        spawned.append(argv)
+    def fake_run(argv, **kwargs):
+        spawned.append((argv, kwargs))
         return subprocess.CompletedProcess(argv, 0, b"", b"")
 
+    clock = iter([10.0, 12.5])
     monkeypatch.setattr(measurement_mod, "neutralising_args", fake_neutralising_args)
     monkeypatch.setattr(measurement_mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(measurement_mod, "time", SimpleNamespace(monotonic=lambda: next(clock)))
     request = MeasureRequest(
         cwd=str(tmp_path),
         pytest_args=("-q", "-p", "pytest_cov"),
@@ -39,10 +43,14 @@ def test_the_measurement_session_argv_ends_with_the_flags_chosen_for_its_own_pyt
 
     files = {name: str(tmp_path / name) for name in ("config_file", "data_file", "record_file")}
 
-    measurement_mod._run_session(request, files)
+    _result, elapsed = measurement_mod._run_session(request, files)
 
     assert asked_with == [("-q", "-p", "pytest_cov")]
-    assert spawned[0][-4:] == ["-q", "-p", "pytest_cov", "--fake-flag"]
+    argv, kwargs = spawned[0]
+    assert argv[-4:] == ["-q", "-p", "pytest_cov", "--fake-flag"]
+    assert kwargs["capture_output"] is True
+    assert kwargs["cwd"] == str(tmp_path)
+    assert elapsed == 2.5
 
 
 @pytest.mark.unit
@@ -61,6 +69,9 @@ def test_the_forking_executors_prime_asks_for_the_flags_of_its_own_prime_args(tm
     monkeypatch.setattr(forking_mod, "neutralising_args", fake_neutralising_args)
     monkeypatch.setattr(forking_mod, "_run_pytest_output_suppressed", stop_after_the_prime_call)
     executor = ForkingExecutor(cwd=str(tmp_path), guarded_path=str(tmp_path / "calc.py"), prime_args=("-p", "no:tach"))
+
+    # a second prime in the same project finds its scratch directory already there
+    os.makedirs(tmp_path / ".mutate4py" / "forkserver")
 
     with pytest.raises(RuntimeError, match="stop"):
         executor.prime()

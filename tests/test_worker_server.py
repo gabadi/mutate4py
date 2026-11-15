@@ -7,7 +7,6 @@ test_worker_protocol.py.
 import io
 import json
 
-from mutate4py import _worker_server
 from mutate4py._executor import ExecutorDescription
 from mutate4py._worker_server import _serve, _worker_plugin_args, parse_worker_argv, worker_environ_updates
 import pytest

@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T12:51:08Z",
-  "module_hash": "a2ac8860346e21c86d4ea282df52a7cad8ff74f771cb1a7d7d9d4d3521501447",
-  "source_sha256": "6b81048a0f3bc0f0f41ecc6d146edfa29e01e2a8aff51982213366e639a71cc5",
+  "tested_at": "2026-11-15T12:52:46Z",
+  "module_hash": "a2c5514315bf4ee2ba227408c815384e9e4bd31aae1e96f21c204c43d0c32cc8",
+  "source_sha256": "bf7a54a39c064580d5d408173fea014b3341e92340d7bbf2a943fe9be96afc08",
   "functions": [
     {
       "id": "func/neutralising_args",
       "name": "neutralising_args",
-      "line": 26,
-      "end_line": 43,
+      "line": 27,
+      "end_line": 44,
       "hash": "de36577d638ed0e111e1715c85bd1f0a0015f006a05fffb677f1a30c3de19871",
       "score": {
         "killed": 5,
@@ -22,8 +22,8 @@
     {
       "id": "func/_loads_pytest_cov",
       "name": "_loads_pytest_cov",
-      "line": 46,
-      "end_line": 55,
+      "line": 47,
+      "end_line": 56,
       "hash": "b9b342ab72b2f97cb0d99bff25079dc191150bb2c6f5d87be70b595400e0fb36",
       "score": {
         "killed": 5,
@@ -37,8 +37,8 @@
     {
       "id": "func/_plugin_names",
       "name": "_plugin_names",
-      "line": 58,
-      "end_line": 67,
+      "line": 59,
+      "end_line": 68,
       "hash": "c238dc83a72a69542475b475585a5c78ef330cdb7f00050ac1a9ba2f99b4d16f",
       "score": {
         "killed": 1,
@@ -52,8 +52,8 @@
     {
       "id": "func/disabled_plugin_args",
       "name": "disabled_plugin_args",
-      "line": 70,
-      "end_line": 76,
+      "line": 71,
+      "end_line": 77,
       "hash": "9ddf49e0344e1550f5d3bb329c814fd7f4f2587134f632b77463639245268d0a",
       "score": {
         "killed": 0,
@@ -65,5 +65,5 @@
       "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     }
   ],
-  "tests_fingerprint": "82fe2a3294a8a9507ae5ace30005338771018de7fb8316726041eb25b7c1a3f4"
+  "tests_fingerprint": "06640e7d117162dc73f64921173c926e91139af3e060577786967bee6924f115"
 }

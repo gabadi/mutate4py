@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T11:46:10Z",
-  "module_hash": "5abdaab8f3cc9e9b10d54b59dd8251bf949326dc4938e46f9e918a5dcf15a2d2",
-  "source_sha256": "ade276179d92c1e770cd58869e373c8fd90d7c1b926ceadcc995c8e0a92dcfd8",
+  "tested_at": "2026-11-15T12:56:42Z",
+  "module_hash": "e5be7d94e99fd7fa5daa508bd7a2b795829e560ee8b0e09b5314aade442ed97c",
+  "source_sha256": "5eb5f1a0a8a8550266a35e489bab913c8699991a9751ff216044a4597a307ddb",
   "functions": [
     {
       "id": "func/ForkingExecutorUnavailable.reason",
@@ -152,7 +152,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "b52a138846da1a6005c4c3f7668f46c52f1aff004c26b8ac6ea4daecae656e25"
+      "tests_digest": "0879afdb6f265d69e9df386d1e1661c6dfe0bcc783dbb36c98465b24a36c8256"
     },
     {
       "id": "func/ForkingExecutor.describe",
@@ -174,15 +174,15 @@
       "name": "prime",
       "line": 180,
       "end_line": 212,
-      "hash": "a2a29ef205131f4eccb5b5157c5927e05639a1da347dfcfb18e64aa5fdeb491d",
+      "hash": "7edf0e3bcb6b546db0335b1bca46438a5ae587c562c8c04c544064b75c2698c4",
       "score": {
-        "killed": 0,
+        "killed": 1,
         "survived": 0,
-        "uncovered": 1
+        "uncovered": 0
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
+      "tests_digest": "e9a5eac5820483df3c68e8c23955deb68237b6b6f49161bdf9b08e2540104d7e"
     },
     {
       "id": "func/ForkingExecutor._fork_and_wait",
@@ -335,5 +335,5 @@
       "tests_digest": "6a6338494daabf02dcdb285d0e2b8162def87870add171c2316b4f9ff3c8e886"
     }
   ],
-  "tests_fingerprint": "af64abda1fbfd47dd58bd7d2999f8924072729b045afbc1eab051062434d2228"
+  "tests_fingerprint": "2eac7fe1d93861bdc95573e129db844ea6809c28791e871756c335b216f6c74a"
 }
