@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T04:34:56Z",
-  "module_hash": "d1960366579fe2a713a6887494f2f5cae9e8011d5336b29d13f325622b8ff285",
-  "source_sha256": "ec09c128f352cc3eac28db02590eff61d0c7da39cc37e477734848973e5fbc8b",
+  "tested_at": "2026-11-15T04:59:09Z",
+  "module_hash": "d38ad28b0180336d881989d128aec69be1f876a70fdcfde448518b52b72aa299",
+  "source_sha256": "17f261c167d609e8263f5f140f69ba6ba2344c469eca962b3099fda516ab9696",
   "functions": [
     {
       "id": "func/ancestors",
@@ -17,7 +17,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "3b037c8dabb4923d9fbdbf32965f63c28b135e1b902ba539d443d0587d56760e"
+      "tests_digest": "ece229641e9f3aa7a362a225209a3b4bab43bd7511191e5e425978a0930ad667"
     },
     {
       "id": "func/_has_ini_section",
@@ -32,7 +32,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "7c0dec5beb07b3001b9de4535d53c328366cd97696b95613020533af948ac69b"
+      "tests_digest": "b5cf183b07be46f9abd7f9dfef153c92085f91f0b473ff3833861e6d185b7ae8"
     },
     {
       "id": "func/_pyproject_configures_pytest",
@@ -47,7 +47,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "c146eebd4b8c964e45b4973b66e4bd1aa844c657360404b4fde4cbce5ee59aaa"
+      "tests_digest": "c7aeb05dd9889f8524220ce0b4da7998ded155956f8bd96f0df1587db5cc6c49"
     },
     {
       "id": "func/_is_inifile",
@@ -62,7 +62,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "c146eebd4b8c964e45b4973b66e4bd1aa844c657360404b4fde4cbce5ee59aaa"
+      "tests_digest": "c7aeb05dd9889f8524220ce0b4da7998ded155956f8bd96f0df1587db5cc6c49"
     },
     {
       "id": "func/_holds_inifile",
@@ -77,7 +77,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "3b037c8dabb4923d9fbdbf32965f63c28b135e1b902ba539d443d0587d56760e"
+      "tests_digest": "ece229641e9f3aa7a362a225209a3b4bab43bd7511191e5e425978a0930ad667"
     },
     {
       "id": "func/inifile_dir",
@@ -92,7 +92,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "3b037c8dabb4923d9fbdbf32965f63c28b135e1b902ba539d443d0587d56760e"
+      "tests_digest": "ece229641e9f3aa7a362a225209a3b4bab43bd7511191e5e425978a0930ad667"
     },
     {
       "id": "func/up_to",
@@ -107,7 +107,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "3b037c8dabb4923d9fbdbf32965f63c28b135e1b902ba539d443d0587d56760e"
+      "tests_digest": "75b62fe2b12c776142569a690c1aafe911f0a0635d3c7f450bc77257d064f871"
     },
     {
       "id": "func/_attached_value",
@@ -122,7 +122,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "413194e7a93ee2036b00845e38197116edc7e91518d56f1e63dda1653e2ff0d7"
+      "tests_digest": "6bdf564032e79c8b8d42018de8f2911d076d51b226f8498ebf1501950e1b5931"
     },
     {
       "id": "func/_value_at",
@@ -137,7 +137,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "413194e7a93ee2036b00845e38197116edc7e91518d56f1e63dda1653e2ff0d7"
+      "tests_digest": "6bdf564032e79c8b8d42018de8f2911d076d51b226f8498ebf1501950e1b5931"
     },
     {
       "id": "func/option_values",
@@ -152,7 +152,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "3b037c8dabb4923d9fbdbf32965f63c28b135e1b902ba539d443d0587d56760e"
+      "tests_digest": "ece229641e9f3aa7a362a225209a3b4bab43bd7511191e5e425978a0930ad667"
     },
     {
       "id": "func/last_option_value",
@@ -167,13 +167,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "3b037c8dabb4923d9fbdbf32965f63c28b135e1b902ba539d443d0587d56760e"
+      "tests_digest": "ece229641e9f3aa7a362a225209a3b4bab43bd7511191e5e425978a0930ad667"
     },
     {
       "id": "func/explicit_bound",
       "name": "explicit_bound",
-      "line": 148,
-      "end_line": 157,
+      "line": 150,
+      "end_line": 159,
       "hash": "93f792f12115f8a6925104212a889dc9edd86c24d37df8dad2c11cf713bc2aff",
       "score": {
         "killed": 0,
@@ -187,8 +187,8 @@
     {
       "id": "func/_rootdir_option",
       "name": "_rootdir_option",
-      "line": 160,
-      "end_line": 163,
+      "line": 162,
+      "end_line": 165,
       "hash": "6bd960a4a48fb07070316d4ff5189c9641a2cc5e8fff25ff1c4b1fe967cf3035",
       "score": {
         "killed": 0,
@@ -200,11 +200,11 @@
       "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     },
     {
-      "id": "func/conftest_bounds",
-      "name": "conftest_bounds",
-      "line": 166,
-      "end_line": 184,
-      "hash": "d891982773da746a19f369cdbc16d71d705c0625ccd67fa78d75c9689c17164d",
+      "id": "func/_toml_addopts",
+      "name": "_toml_addopts",
+      "line": 168,
+      "end_line": 178,
+      "hash": "37275db7abb04665587f96a082c00c2666a8135118a55f8dd3fdc3b1c2301013",
       "score": {
         "killed": 2,
         "survived": 0,
@@ -212,8 +212,68 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "3b037c8dabb4923d9fbdbf32965f63c28b135e1b902ba539d443d0587d56760e"
+      "tests_digest": "c7aeb05dd9889f8524220ce0b4da7998ded155956f8bd96f0df1587db5cc6c49"
+    },
+    {
+      "id": "func/_addopts_of",
+      "name": "_addopts_of",
+      "line": 181,
+      "end_line": 198,
+      "hash": "bb0b9128d25e4400d1f58f2372029ff5da9b031b83f37bd2b1dc7b19c77a1aea",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+    },
+    {
+      "id": "func/_searched_config_files",
+      "name": "_searched_config_files",
+      "line": 201,
+      "end_line": 204,
+      "hash": "6f03a78830ae877dc35a17b67cb690d1d455a022129da0d38057d6364add5ac9",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+    },
+    {
+      "id": "func/_addopts_set_confcutdir",
+      "name": "_addopts_set_confcutdir",
+      "line": 207,
+      "end_line": 218,
+      "hash": "9445b71ed0d383a09866c15a80fc66015b10bd115bc738bf20f3effdb9115c46",
+      "score": {
+        "killed": 4,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ece229641e9f3aa7a362a225209a3b4bab43bd7511191e5e425978a0930ad667"
+    },
+    {
+      "id": "func/conftest_bounds",
+      "name": "conftest_bounds",
+      "line": 221,
+      "end_line": 242,
+      "hash": "3b53c6ee407d5b539ec6a464a1a6a5e541df2f013d7320763af1c5e5af93870a",
+      "score": {
+        "killed": 2,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ece229641e9f3aa7a362a225209a3b4bab43bd7511191e5e425978a0930ad667"
     }
   ],
-  "tests_fingerprint": "8245e43ae960c1685617f28f55ca788229b0108a9a1d20894ca1bba39b3daa5b"
+  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
 }
