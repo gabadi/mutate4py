@@ -96,6 +96,13 @@ path = "mutate4py._pytest_config"
 layer = "primitives"
 depends_on = []
 
+# Where pytest finds its inifile (findpaths.py `locate_config`). Split from `_tests_fingerprint`
+# for its size cap. Stdlib-only, so it lives in `primitives`.
+[[modules]]
+path = "mutate4py._pytest_inifile"
+layer = "primitives"
+depends_on = []
+
 [[modules]]
 path = "mutate4py._sidecar_io"
 layer = "primitives"

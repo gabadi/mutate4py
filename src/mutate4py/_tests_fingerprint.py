@@ -2,8 +2,9 @@
 
 `tests_fingerprint` hashes every input a Measurement and every tests-digest can
 read: the Python files under the collection roots, the conftests above them and
-the pytest configuration above them (both up to the filesystem root, recording
-only the files that exist), the lockfile, the --pytest-args string, the Python
+the pytest configuration above them (both up to the directory holding pytest's
+inifile, else up to the filesystem root, recording only the files that exist),
+the lockfile, the --pytest-args string, the Python
 version and the mutate4py version. Equal fingerprints therefore prove the
 digests would come out the same.
 
@@ -16,6 +17,7 @@ import is `strip_manifest`, which removes the footer text and reads no stored
 value. Its other imports are `primitives` (`_py_tree`, `_pytest_argv`, `_pytest_config`).
 """
 
+import configparser
 import dataclasses
 import hashlib
 import importlib.metadata
@@ -31,6 +33,7 @@ from collections.abc import Sequence
 from mutate4py._manifest import strip_manifest
 from mutate4py._py_tree import walkable_dirs
 from mutate4py._pytest_config import configured_testpaths
+from mutate4py._pytest_inifile import CONFIG_FILES, ancestors, inifile_dir, last_option_value, option_values, up_to
 from mutate4py._pytest_argv import VALUE_OPTIONS, flag_tokens, positional_tokens
 
 
@@ -111,21 +114,6 @@ def _root_inputs(root: str, base: str) -> list[tuple[str, str]]:
     return [_file_input(root, base)]
 
 
-def _ancestors(path: str) -> list[str]:
-    """`path` and every directory above it, up to the filesystem root.
-
-    Pytest's rootdir and conftest search walks that far, so the inputs it loads can sit anywhere above.
-    """
-    found: list[str] = []
-    current = os.path.abspath(path)
-    while True:
-        found.append(current)
-        parent = os.path.dirname(current)
-        if parent == current:
-            return found
-        current = parent
-
-
 def _existing_file_input(path: str, base: str) -> list[tuple[str, str]]:
     """The file's (base-relative path, content sha), or nothing when it does not exist.
 
@@ -136,36 +124,9 @@ def _existing_file_input(path: str, base: str) -> list[tuple[str, str]]:
     return [(os.path.relpath(path, base), _file_sha(path))] if os.path.isfile(path) else []
 
 
-def _conftest_inputs(root: str, base: str) -> list[tuple[str, str]]:
-    """Each conftest.py in every directory above `root`, since pytest loads each one it finds."""
-    found: list[tuple[str, str]] = []
-    for directory in _ancestors(os.path.dirname(os.path.abspath(root))):
-        found.extend(_existing_file_input(os.path.join(directory, "conftest.py"), base))
-    return found
-
-
 # A flag that carries everything it needs: a bare switch, a value attached with `=`, or a value attached directly.
 # A flag outside this set and outside VALUE_OPTIONS may consume the next token, so the walk widens instead.
 _SELF_CONTAINED_FLAG = re.compile(r"-[vqsxl]+|--(lf|ff|pdb|trace|strict-markers|no-header)|--[\w-]+=.+|-[a-zA-Z].+")
-
-
-def _attached_value(token: str, name: str) -> str | None:
-    """The value `token` carries for option `name`: `--name=value`, or `-Nvalue` for a one-letter option."""
-    if name.startswith("--"):
-        return token[len(name) + 1 :] if token.startswith(name + "=") else None
-    return token[len(name) :] if token.startswith(name) and len(token) > len(name) else None
-
-
-def _option_values(tokens: list[str], name: str) -> list[str]:
-    """Every value given to option `name`, as `name value`, `name=value`, or attached to a short name."""
-    values: list[str] = []
-    for index, token in enumerate(tokens):
-        attached = _attached_value(token, name)
-        if attached is not None:
-            values.append(attached)
-        elif token == name and index + 1 < len(tokens):
-            values.append(tokens[index + 1])
-    return values
 
 
 def _positional_roots(cwd: str, tokens: list[str]) -> list[str]:
@@ -189,9 +150,6 @@ def _collection_roots(cwd: str, tokens: list[str]) -> list[str]:
     return _positional_roots(cwd, tokens) or configured_testpaths(cwd) or [cwd]
 
 
-_CONFIG_FILES = ("pytest.ini", ".pytest.ini", "pytest.toml", ".pytest.toml", "tox.ini", "setup.cfg")
-
-
 def _pyproject_pytest_table(path: str) -> str:
     """The `[tool.pytest]` table of the pyproject.toml at `path` as canonical JSON.
 
@@ -211,7 +169,7 @@ def _config_inputs(directory: str, base: str) -> list[tuple[str, str]]:
     Hashing every candidate only over-invalidates, which is the safe direction.
     """
     found: list[tuple[str, str]] = []
-    for name in _CONFIG_FILES:
+    for name in CONFIG_FILES:
         found.extend(_existing_file_input(os.path.join(directory, name), base))
     pyproject = os.path.join(directory, "pyproject.toml")
     if os.path.isfile(pyproject):
@@ -222,20 +180,76 @@ def _config_inputs(directory: str, base: str) -> list[tuple[str, str]]:
 def _explicit_config_inputs(cwd: str, tokens: list[str]) -> list[tuple[str, str]]:
     """The file named by each `-c`, hashed whole, wherever it lives."""
     found: list[tuple[str, str]] = []
-    for value in _option_values(tokens, "-c"):
+    for value in option_values(tokens, "-c"):
         key, sha = _file_input(os.path.join(cwd, value), cwd)
         found.append((f"<-c {key}>", sha))
     return found
 
 
-def _config_dirs(cwd: str, roots: list[str], tokens: list[str]) -> list[str]:
-    """Each start point and every directory above it, up to the filesystem root.
+def _pytest_start(cwd: str, tokens: list[str]) -> str:
+    """Where pytest starts its inifile search: the common ancestor of the existing positional paths, else `cwd`.
 
-    Start points: the run directory, each root, each --rootdir.
+    `determine_setup` (findpaths.py:313) takes `get_common_ancestor` of the argument directories (:205-228,
+    :231-250), which is the invocation directory when no argument names an existing path.
     """
-    rootdirs = [os.path.join(cwd, value) for value in _option_values(tokens, "--rootdir")]
-    starts = [cwd, *roots, *rootdirs]
-    return list(dict.fromkeys(directory for start in starts for directory in _ancestors(start)))
+    paths = [path for path in _positional_roots(cwd, tokens) if os.path.exists(path)]
+    directories = [path if os.path.isdir(path) else os.path.dirname(path) for path in paths]
+    return os.path.commonpath(directories) if directories else cwd
+
+
+def _config_dirs(cwd: str, roots: list[str], tokens: list[str]) -> list[str]:
+    """Each directory pytest may read configuration from: from every start point up to its inifile's directory.
+
+    Start points: the run directory, pytest's own start, each root, each --rootdir. Above the inifile's
+    directory pytest reads no configuration. With `-c`, pytest searches for none (findpaths.py:306-311),
+    and the named file is hashed by `_explicit_config_inputs`.
+    """
+    if option_values(tokens, "-c"):
+        return []
+    rootdirs = [os.path.join(cwd, value) for value in option_values(tokens, "--rootdir")]
+    starts = [cwd, _pytest_start(cwd, tokens), *roots, *rootdirs]
+    return list(dict.fromkeys(directory for start in starts for directory in up_to(ancestors(start), inifile_dir(start))))
+
+
+def _conftest_bounds(cwd: str, tokens: list[str]) -> list[str] | None:
+    """The directories where conftest loading ends, or None when it reaches the filesystem root.
+
+    pytest loads a conftest from every directory that is not strictly above `confcutdir`
+    (config/__init__.py:669-682, :703-704). Its default is the inifile's directory, else the rootdir
+    (config/__init__.py:1598-1603). So, in order:
+    - `--confcutdir`;
+    - the directory of the `-c` file (findpaths.py:307-311);
+    - the inifile's directory, for the run directory and pytest's start;
+    - with no inifile, `--rootdir`;
+    - with neither, no bound: the walk goes to `/`.
+
+    Left out: `--noconftest`, `-p` plugins and `conftest.py` files found by `--pyargs` stay hashed or
+    unhashed as before.
+    """
+    confcutdir = last_option_value(tokens, "--confcutdir")
+    if confcutdir:
+        return [os.path.abspath(os.path.join(cwd, confcutdir))]
+    inifile = last_option_value(tokens, "-c")
+    if inifile:
+        return [os.path.dirname(os.path.abspath(os.path.join(cwd, inifile)))]
+    rootdir = last_option_value(tokens, "--rootdir")
+    fallback = os.path.abspath(os.path.join(cwd, os.path.expandvars(rootdir))) if rootdir else None
+    bounds = [inifile_dir(start) or fallback for start in dict.fromkeys([cwd, _pytest_start(cwd, tokens)])]
+    return None if None in bounds else [bound for bound in bounds if bound is not None]
+
+
+def _conftest_inputs(root: str, base: str, bounds: list[str] | None) -> list[tuple[str, str]]:
+    """Each conftest.py pytest loads for `root`: in every directory above it, up to the highest bound among `bounds`.
+
+    A bound that is not above `root` bounds nothing (config/__init__.py:682), so the walk then goes to `/`.
+    """
+    directories = ancestors(os.path.dirname(os.path.abspath(root)))
+    reached = [directories.index(bound) for bound in bounds or [] if bound in directories]
+    bounded = bool(bounds) and len(reached) == len(bounds)
+    found: list[tuple[str, str]] = []
+    for directory in directories[: max(reached) + 1] if bounded else directories:
+        found.extend(_existing_file_input(os.path.join(directory, "conftest.py"), base))
+    return found
 
 
 def _config_and_lock_inputs(cwd: str, roots: list[str], tokens: list[str]) -> list[tuple[str, str]]:
@@ -259,10 +273,11 @@ def fingerprint_inputs(cwd: str, pytest_args: str) -> dict[str, str]:
     """
     tokens = shlex.split(pytest_args)
     roots = _collection_roots(cwd, tokens)
+    bounds = _conftest_bounds(cwd, tokens)
     entries: dict[str, str] = {}
     for root in roots:
         entries.update(_root_inputs(root, cwd))
-        entries.update(_conftest_inputs(root, cwd))
+        entries.update(_conftest_inputs(root, cwd, bounds))
     entries.update(_config_and_lock_inputs(cwd, roots, tokens))
     entries["<pytest-args>"] = pytest_args
     entries["<python-version>"] = sys.version
