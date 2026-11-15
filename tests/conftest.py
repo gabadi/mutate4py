@@ -17,6 +17,8 @@ from pathlib import Path
 
 import pytest
 
+from acceptance.steps.nested_pytest_helpers import ADDOPTS, AUTOLOAD_SWITCH, nested_pytest_env
+
 from ._digest_project import digest_project  # noqa: F401  (pytest fixture, shared by the digest tests)
 
 _CATEGORY_MARKERS = ("unit", "system")
@@ -24,22 +26,22 @@ _SYSTEM_THRESHOLD_SECONDS = 0.5
 
 # A system test's nested pytest runs (mutate4py's measurement and executors) load
 # only the plugins they name, not every pytest11 entry point in the environment.
-# `--no-cov` (neutralising_args) is only valid with pytest-cov loaded, so it is
-# named here. Every child reads this variable, worker venvs included, so the
-# fixture projects pin pytest-cov in their dependency groups, and a test that
-# needs another plugin names it through its own fixture (issue #124, step 6). Set
-# per test, so it reaches only the children a system test spawns, never the outer
-# run or the unit suite.
-_NESTED_PLUGINS = "-p pytest_cov.plugin"
+# The environment is built by the same helper acceptance uses, so the flags are
+# spelt once (`-p pytest_cov`) and a PYTEST_ADDOPTS that names the plugin already
+# is not given it twice. Every child reads this variable, worker venvs included,
+# so the fixture projects pin pytest-cov in their dependency groups, and a test
+# that needs another plugin names it through its own fixture (issue #124, step 6).
+# Set per test, so it reaches only the children a system test spawns, never the
+# outer run or the unit suite.
 
 
 @pytest.fixture(autouse=True)
 def _nested_pytest_loads_only_named_plugins(request, monkeypatch):
     if request.node.get_closest_marker("system") is None:
         return
-    monkeypatch.setenv("PYTEST_DISABLE_PLUGIN_AUTOLOAD", "1")
-    existing = os.environ.get("PYTEST_ADDOPTS", "")
-    monkeypatch.setenv("PYTEST_ADDOPTS", f"{existing} {_NESTED_PLUGINS}".strip())
+    env = nested_pytest_env(os.environ)
+    monkeypatch.setenv(AUTOLOAD_SWITCH, env[AUTOLOAD_SWITCH])
+    monkeypatch.setenv(ADDOPTS, env[ADDOPTS])
 
 
 @pytest.fixture
