@@ -523,8 +523,6 @@ def test_worker_process_executor_describes_the_subprocess_executor_its_worker_ru
 
 @pytest.mark.system
 def test_worker_process_executor_runs_a_fresh_interpreter_request_outside_its_forking_counts(tmp_path):
-    """A fresh interpreter run is the Worker's own `python -m pytest`, not a forked child, so the Executor line
-    does not count it."""
     target = _write_add_sub_project(tmp_path)
     _provision_test_worker(tmp_path)
     executor = WorkerProcessExecutor(

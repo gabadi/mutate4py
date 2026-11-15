@@ -212,8 +212,6 @@ def test_confirm_plan_timeout_adds_the_per_mutant_overhead_to_the_full_set_budge
 
 @pytest.mark.unit
 def test_plan_narrowed_aborts_when_a_node_id_names_a_file_that_does_not_exist_under_the_rootdir(project):
-    """pytest exits 4 on a file that is not there, so the plan aborts before the Site's Mutant,
-    not by a race with the Mutant timeout."""
     source = _FakeSelectionSource("narrowed", ["member/tests/test_calc.py::test_gt"], rootdir=project)
     with pytest.raises(NoTestsCollectedError) as excinfo:
         _plan(project, source)
@@ -225,8 +223,6 @@ def test_plan_narrowed_aborts_when_a_node_id_names_a_file_that_does_not_exist_un
 
 @pytest.mark.unit
 def test_plan_narrowed_from_a_directory_below_the_rootdir_rebases_the_node_ids_to_that_directory(tmp_path):
-    """The Measurement records node ids relative to its rootdir; pytest resolves them from the directory
-    it runs in. A run from `member` below the rootdir names the same test file as `tests/...`."""
     member = tmp_path / "member"
     (member / "tests").mkdir(parents=True)
     (member / "tests" / "test_calc.py").write_text("def test_gt():\n    assert True\n")

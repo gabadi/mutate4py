@@ -104,8 +104,6 @@ class ParallelRunRequest:
     forking_requested: bool = True
     positionals: tuple[str, ...] = ()
     ran_at_import: frozenset[int] = frozenset()  # the guarded file's, for swap mode
-    # Set to have each Worker re-run its own Survivors with the full set on its fresh interpreter, in its
-    # own clone, before the clone is removed; None leaves every Survivor to the caller.
     confirmation: SurvivorConfirmation | None = None
     # Test-injection seam: when set, every Worker shares this one
     # Executor instead of provisioning a real WorkerProcessExecutor — makes
@@ -239,7 +237,6 @@ def _provision_workers(run_root: str, n_workers: int, real_cwd: str) -> list[str
 def _confirm_worker_survivors(
     worker_results: list[dict], executor: Executor, worker_file_path: str, settings: WorkerRunSettings
 ) -> tuple[ConfirmationResult, MutantTiming]:
-    """Re-run this Worker's own Survivors with the full set on its fresh interpreter, in its own clone."""
     survivors = [r["site"] for r in worker_results if r["status"] == "survived"]
     if not survivors:
         return ConfirmationResult([], 0, 0), MutantTiming()

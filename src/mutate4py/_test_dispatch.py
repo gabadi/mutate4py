@@ -278,16 +278,12 @@ def confirm_plan(pytest_args: list[str], timeout_policy: TimeoutPolicy) -> Mutan
 
 @dataclasses.dataclass(frozen=True)
 class SurvivorConfirmation:
-    """How a Survivor is confirmed: the full-set plan to run, and the equivalent-marker lines never re-run."""
-
     plan: MutantPlan
     markers: Mapping[int, str]
 
 
 @dataclasses.dataclass(frozen=True)
 class ConfirmationResult:
-    """What confirming a list of Survivors gave: those still surviving, the runs made and the kills among them."""
-
     still: list[Site]
     runs: int
     kills: int

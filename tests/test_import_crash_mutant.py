@@ -95,8 +95,6 @@ def test_a_pytest_argv_that_runs_no_test_on_the_original_code_still_aborts_the_r
 def test_a_node_id_from_a_rootdir_above_the_run_directory_is_rebased_and_the_run_goes_on(
     tmp_path, monkeypatch, capsys, forking_requested
 ):
-    """Node ids are relative to pytest's rootdir. A run started in a member directory below it names the
-    test file from there, so the narrowed Mutant runs its test and is killed."""
     monkeypatch.setenv("PYTHONDONTWRITEBYTECODE", "1")
     member = tmp_path / "member"
     member.mkdir()

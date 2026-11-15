@@ -219,7 +219,6 @@ def test_parallel_path_report_present(parallel_three_site_run):
 
 @pytest.mark.system
 def test_parallel_path_confirms_each_survivor_once(parallel_three_site_run):
-    """Three Survivors, each re-run once with the full set, whichever process confirms them."""
     _, output, _, _ = parallel_three_site_run
     assert "(3 run, 0 kills)" in output
 

@@ -40,9 +40,6 @@ class ParallelRunResult:
 
 @dataclasses.dataclass
 class WorkerGroupOutcome:
-    """What one Worker's share of a parallel run gave: its Mutants' results, how its executor described itself,
-    and, when it confirmed its own Survivors, that confirmation and the time it took."""
-
     results: list[dict]
     description: ExecutorDescription
     confirmation: ConfirmationResult | None = None
@@ -81,7 +78,6 @@ def _summarize_timing(results: list[dict], confirmations: Sequence[MutantTiming]
 
 
 def _summarize_confirmation(groups: list[WorkerGroupOutcome]) -> ConfirmationResult | None:
-    """The Workers' confirmations as one, its Survivors in site order; None when no Worker confirmed."""
     confirmed = [g.confirmation for g in groups if g.confirmation is not None]
     if not confirmed:
         return None

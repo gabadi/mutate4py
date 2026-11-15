@@ -256,9 +256,6 @@ class WorkerProcessExecutor:
 
 
 class FreshInterpreterRuns:
-    """The Worker's own fresh interpreter, reached over its pipe: each run asks the Worker server to start a
-    `python -m pytest` under the Worker's interpreter, tree and environment, bypassing its forked children."""
-
     def __init__(self, worker: WorkerProcessExecutor) -> None:
         self._worker = worker
 

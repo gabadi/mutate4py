@@ -1,7 +1,3 @@
-"""The failures of a parallel run and the lifecycle calls a Worker's executor gets from it: prime, describe and
-close, with a protocol failure restated as the Worker failure the run loop reports.
-"""
-
 from mutate4py._executor import Executor, ExecutorDescription
 from mutate4py._worker_protocol import WorkerProcessError
 

@@ -45,7 +45,6 @@ class MutantExecCtx:
     timeout_policy: TimeoutPolicy
     max_workers: int = 0
     use_parallel: bool = False
-    # The executor the Workers of a parallel run all share, a test seam; None gives each Worker its own.
     worker_executor: Executor | None = None
     abs_source_path: str = ""
     selection_source: object = None  # the Measurement; None selects nothing

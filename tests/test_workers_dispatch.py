@@ -393,8 +393,6 @@ _TWO_FUNCTIONS = "def f(a, b):\n    return a > b\ndef g(a, b):\n    return a < b
 
 
 class _FreshInterpreterFake(FakeExecutor):
-    """A Worker whose Mutant runs survive and whose fresh interpreter answers `fresh_status`."""
-
     def __init__(self, fresh_status: str) -> None:
         super().__init__("survived")
         self.fresh = FakeExecutor(fresh_status)
