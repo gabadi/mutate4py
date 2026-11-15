@@ -1,15 +1,30 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T05:20:52Z",
-  "module_hash": "132b6a5b994f08aa796de81966723057d978832c22a613516f6c50165576bdb6",
-  "source_sha256": "948fc0e94a8800e1af82f392e98b86085848c0c78ee6e30f1a97bc8eeef056f5",
+  "tested_at": "2026-11-15T21:43:31Z",
+  "module_hash": "df2ef28e7ef717926f4c929df0e38ffb81be1360c9dcb8d46b0b8fe2996be87d",
+  "source_sha256": "8a633d944613da4e39e8cf705483504defd282c1deb663fb696b86743512a445",
   "functions": [
+    {
+      "id": "class/ForkingOptions",
+      "name": "ForkingOptions",
+      "line": 26,
+      "end_line": 32,
+      "hash": "babfffa4bfd53dccee2f685b337ffcbe881891e8e5bad75d027ed16c3507f145",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ea6c954ad1305ee70f2015b6d6a2305e9ef6215aa904313d6f59c846775db6c4"
+    },
     {
       "id": "func/select_executor",
       "name": "select_executor",
       "line": 35,
       "end_line": 56,
-      "hash": "2a8a0e479b9c5be5ebe411b1a07c3583d6b0f130aadd9d735763aa17d2517cbc",
+      "hash": "fd4cd4d7febfbbeb3cea42df4fa1cc8780094836f50d88dcafe8bb9e6761369e",
       "score": {
         "killed": 4,
         "survived": 0,
@@ -17,7 +32,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "3ac2517f43eae68d682026c6e823bfecabc2eee6f44763c4781777a6dd915224"
+      "tests_digest": "45d77405531180bb9f5f101aae592d11e5cd1b763cf03db718fc86a53e296e31"
     },
     {
       "id": "func/_can_fork",
@@ -32,7 +47,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/_primed_fork_server",
@@ -47,7 +62,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/_prepare_executor",
@@ -62,8 +77,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "81f42a721d98b42eed9c80b3aaf478152d6aa57dac1966981b7fd19d39e0b03b"
+      "tests_digest": "1b69e67505301586f4a66be5b402081392e8edffd14c9725173aa52a3e47ebaf"
     }
   ],
-  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
+  "tests_fingerprint": "cbf5e43b095b8d37a686182df6e665c038f959cfad322098fafde582c58f5ead"
 }

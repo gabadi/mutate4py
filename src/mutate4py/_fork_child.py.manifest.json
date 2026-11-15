@@ -1,9 +1,24 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T11:45:58Z",
+  "tested_at": "2026-11-15T21:51:15Z",
   "module_hash": "e05fdf31bed991fdd38b878bb2c0827d6313040637142511d2d2d9f0b6466729",
   "source_sha256": "4e05ebbbe0ca0ae22b9536fe57375a33083f4adf054c34799633fd0d1c2293ff",
   "functions": [
+    {
+      "id": "class/SwapSource",
+      "name": "SwapSource",
+      "line": 38,
+      "end_line": 45,
+      "hash": "13e33871b5ec139344bb843c9d7b148383f6620552ddd6002b79af7c85e39010",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ea6c954ad1305ee70f2015b6d6a2305e9ef6215aa904313d6f59c846775db6c4"
+    },
     {
       "id": "func/swap_side",
       "name": "swap_side",
@@ -17,7 +32,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "3b671e8240f06dcec25b953e750ba655d0daf08c117c8bbbb5a6e0a97b288428"
+      "tests_digest": "116435c04037fe824d5e3d7845cd3ea4eb1670ff1a19e3161359201158a89ebe"
     },
     {
       "id": "func/child_mode",
@@ -32,7 +47,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "3b671e8240f06dcec25b953e750ba655d0daf08c117c8bbbb5a6e0a97b288428"
+      "tests_digest": "116435c04037fe824d5e3d7845cd3ea4eb1670ff1a19e3161359201158a89ebe"
     },
     {
       "id": "func/swap_in",
@@ -47,7 +62,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "3b671e8240f06dcec25b953e750ba655d0daf08c117c8bbbb5a6e0a97b288428"
+      "tests_digest": "116435c04037fe824d5e3d7845cd3ea4eb1670ff1a19e3161359201158a89ebe"
     },
     {
       "id": "func/live_functions_of",
@@ -62,7 +77,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "3b671e8240f06dcec25b953e750ba655d0daf08c117c8bbbb5a6e0a97b288428"
+      "tests_digest": "116435c04037fe824d5e3d7845cd3ea4eb1670ff1a19e3161359201158a89ebe"
     },
     {
       "id": "func/read_report",
@@ -77,7 +92,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "3b671e8240f06dcec25b953e750ba655d0daf08c117c8bbbb5a6e0a97b288428"
+      "tests_digest": "116435c04037fe824d5e3d7845cd3ea4eb1670ff1a19e3161359201158a89ebe"
     },
     {
       "id": "func/report_mode",
@@ -92,7 +107,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/reported_mode",
@@ -107,8 +122,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "3b671e8240f06dcec25b953e750ba655d0daf08c117c8bbbb5a6e0a97b288428"
+      "tests_digest": "89f3d6a24cc9f347a0b51e4d50f0e1ab669f1adbec6fdb2b4af330914e758420"
     }
   ],
-  "tests_fingerprint": "af64abda1fbfd47dd58bd7d2999f8924072729b045afbc1eab051062434d2228"
+  "tests_fingerprint": "cbf5e43b095b8d37a686182df6e665c038f959cfad322098fafde582c58f5ead"
 }

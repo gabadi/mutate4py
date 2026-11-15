@@ -1,9 +1,24 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T13:33:01Z",
-  "module_hash": "721196909ede749372b203022a09f6aefdeab4c976f6ca60cf27a25d1be91c91",
-  "source_sha256": "6fce785b702919758ece46382b5bf3bef06bcee37285c650b47190589c19118d",
+  "tested_at": "2026-11-15T21:46:07Z",
+  "module_hash": "942216da558dc2bdeb2a12d6fff06be694beceeaa5faa07bc329002d199b43c2",
+  "source_sha256": "bedd7aa5d53562cea44b3b70824cc12d2002f57bb89978e0b01b202c370ccc10",
   "functions": [
+    {
+      "id": "class/WorkerServerArgs",
+      "name": "WorkerServerArgs",
+      "line": 40,
+      "end_line": 48,
+      "hash": "293e60348ffaff381677b24ca0d09a2828ceecf07de2a559b7583d736e506978",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ea6c954ad1305ee70f2015b6d6a2305e9ef6215aa904313d6f59c846775db6c4"
+    },
     {
       "id": "func/parse_worker_argv",
       "name": "parse_worker_argv",
@@ -17,7 +32,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "73076f230f293fd835e4c9b99557dbb9510b93df6475078fee810bf0cf5d82ff"
+      "tests_digest": "39e4ff9130baf7fa6a6c7083cbe179190752906e9315cd26799b2b89ae181fa2"
     },
     {
       "id": "func/_decode_lines",
@@ -32,7 +47,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "d00c757fde26178e92946eb4873e2a4b094ca1853ba8a72fb4efc9bc67adafce"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/worker_environ_updates",
@@ -47,7 +62,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "acd0849562ef60f3e5fff2945fa5579d6c117bd688cf2c71e538b8e78a1028de"
+      "tests_digest": "627463685b3293394c4d74c451b40ec31d9d25534c458ff56f5ef03afb9bb44d"
     },
     {
       "id": "func/_worker_plugin_args",
@@ -62,14 +77,14 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "acd0849562ef60f3e5fff2945fa5579d6c117bd688cf2c71e538b8e78a1028de"
+      "tests_digest": "627463685b3293394c4d74c451b40ec31d9d25534c458ff56f5ef03afb9bb44d"
     },
     {
       "id": "func/_serve",
       "name": "_serve",
       "line": 88,
-      "end_line": 113,
-      "hash": "e2b684bcd4b93f98637159301e7a8c35a0f389c20c25a4b5443aea28737e8591",
+      "end_line": 114,
+      "hash": "603e03c3a505e8acf8c7771793f4dcc76f7bc2984623abecbfe402b8c868fc9b",
       "score": {
         "killed": 5,
         "survived": 0,
@@ -77,13 +92,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "acd0849562ef60f3e5fff2945fa5579d6c117bd688cf2c71e538b8e78a1028de"
+      "tests_digest": "627463685b3293394c4d74c451b40ec31d9d25534c458ff56f5ef03afb9bb44d"
     },
     {
       "id": "func/main",
       "name": "main",
-      "line": 116,
-      "end_line": 139,
+      "line": 117,
+      "end_line": 140,
       "hash": "0dcd3f017ce5f60e5f8d2a1a26238f58aafc7de199c51304cc2d05f37ac3b844",
       "score": {
         "killed": 2,
@@ -92,8 +107,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "acd0849562ef60f3e5fff2945fa5579d6c117bd688cf2c71e538b8e78a1028de"
+      "tests_digest": "627463685b3293394c4d74c451b40ec31d9d25534c458ff56f5ef03afb9bb44d"
     }
   ],
-  "tests_fingerprint": "a54b3ba14d8d34ded6b1b64cc09893fd1f1c6147f93c2a4f030431ff5d81c27c"
+  "tests_fingerprint": "cbf5e43b095b8d37a686182df6e665c038f959cfad322098fafde582c58f5ead"
 }

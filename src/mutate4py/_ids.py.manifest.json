@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T05:21:57Z",
-  "module_hash": "8e3a6461a8b8c2a37dbdac33268650bc3c74ff2db0949641b3e97a94d6b310c8",
-  "source_sha256": "6e5d876f3f072dba98656b479128577f990b9a8d4d4d39994536cb33c6a6bcfe",
+  "tested_at": "2026-11-15T21:51:27Z",
+  "module_hash": "3a4cb2d0ac85aa827ad460d3046d968460811de52639b3c25b25d7707b58793a",
+  "source_sha256": "121d2706eccd43caae46724fa040c91a40690b982ea43c811b8326cfa17fd3b8",
   "functions": [
     {
       "id": "func/function_unit_id",
@@ -17,8 +17,38 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+    },
+    {
+      "id": "func/class_unit_id",
+      "name": "class_unit_id",
+      "line": 19,
+      "end_line": 20,
+      "hash": "aac8f79a2b6126550fb3e14f74e50ad3d7212aec1f32da8126389bce5f536dbb",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+    },
+    {
+      "id": "func/class_body_unit_id",
+      "name": "class_body_unit_id",
+      "line": 23,
+      "end_line": 27,
+      "hash": "27e940b21c44974826092edc1e79b64dffe6f2368a85651f0bad442d5388e510",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     }
   ],
-  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
+  "tests_fingerprint": "cbf5e43b095b8d37a686182df6e665c038f959cfad322098fafde582c58f5ead"
 }

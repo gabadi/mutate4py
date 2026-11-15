@@ -1,9 +1,24 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T05:20:32Z",
+  "tested_at": "2026-11-15T21:50:31Z",
   "module_hash": "0bf1ed3552b6d46483a6fee741714a5d6132e0ea092e503da4533a00fd4fa244",
   "source_sha256": "0fe0d8e8c0882318812f9971c4b35e0ce4a3a923a9eb1f306a12eef6057eed95",
   "functions": [
+    {
+      "id": "class/EquivalentMarkerError",
+      "name": "EquivalentMarkerError",
+      "line": 10,
+      "end_line": 11,
+      "hash": "19a8a5969a8ef81d03298066acc6c37883115e96696992b11f3751dd3a74cc38",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+    },
     {
       "id": "func/marker_lines",
       "name": "marker_lines",
@@ -17,7 +32,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "8582aee484c5c5a54881262506533caae84bff0aa47ad010c059df3b0c802d83"
+      "tests_digest": "217f67283a77159647a10585f5b0be3043f41f7fb87ec211f628df33cda1338f"
     },
     {
       "id": "func/equivalent_markers",
@@ -32,8 +47,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "ad13b0796c421bef0fc668266160cb9ee32ea2fa9750852d1573266a28cbbcb5"
+      "tests_digest": "e2ae43b3ebf611e43161f0a6c2c7a85f35174d391c83802971147a2449c4b532"
     }
   ],
-  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
+  "tests_fingerprint": "cbf5e43b095b8d37a686182df6e665c038f959cfad322098fafde582c58f5ead"
 }

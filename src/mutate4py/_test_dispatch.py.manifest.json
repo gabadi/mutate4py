@@ -1,14 +1,29 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T12:54:26Z",
-  "module_hash": "c2058eb96ac74d48ea28ff4d8f12e7a6cc8326a9f321a51be6bcf669f7166b5f",
-  "source_sha256": "b7131d56035fed2638e942c8523c9d4581c5260620519951ecaf71c91f74b608",
+  "tested_at": "2026-11-15T22:01:22Z",
+  "module_hash": "c4745fa654c78ec01d8b0e9e5623ba62bb217bc176625fbb2070a651756f3386",
+  "source_sha256": "f6ce189b056e3eda224337060ec2ef2cde517b9e4d68371c288f00bcf9c1a13c",
   "functions": [
+    {
+      "id": "class/NoTestsCollectedError",
+      "name": "NoTestsCollectedError",
+      "line": 44,
+      "end_line": 45,
+      "hash": "b3e5f2173fc42d67169afb0416fa562657de16a46750ec722659d3d26855197e",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+    },
     {
       "id": "func/_log_dispatch_abort",
       "name": "_log_dispatch_abort",
-      "line": 71,
-      "end_line": 74,
+      "line": 75,
+      "end_line": 78,
       "hash": "14b52054fc7968d7c6dc1b2b9653028bde158aa6f078fc9287fcc7e995c02719",
       "score": {
         "killed": 0,
@@ -17,13 +32,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "d00c757fde26178e92946eb4873e2a4b094ca1853ba8a72fb4efc9bc67adafce"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/_without_positionals",
       "name": "_without_positionals",
-      "line": 77,
-      "end_line": 91,
+      "line": 81,
+      "end_line": 95,
       "hash": "7be248afc359c4df3d356a857840cf586c3f24b16dfce8fe20f750e0cfdcad20",
       "score": {
         "killed": 3,
@@ -32,13 +47,28 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "2c905737353f63d888dacb5f9afb6e0c8a7007c03ac135d26f5424b5d69ad4c9"
+      "tests_digest": "75d93939c79bde62a167be352027016ab95260c31af5de2ffa8b257b7b003418"
+    },
+    {
+      "id": "class/TimeoutPolicy",
+      "name": "TimeoutPolicy",
+      "line": 99,
+      "end_line": 114,
+      "hash": "f268a0dd141e784e056a0ab642dfbfb332986ff7c0943a9a63a6e579727cbf83",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ea6c954ad1305ee70f2015b6d6a2305e9ef6215aa904313d6f59c846775db6c4"
     },
     {
       "id": "func/TimeoutPolicy.timeout_for",
       "name": "timeout_for",
-      "line": 109,
-      "end_line": 110,
+      "line": 113,
+      "end_line": 114,
       "hash": "3b66c19b5889cc277438a2a480e384afcf791d9ea52a52f3188eb9e7c3293805",
       "score": {
         "killed": 2,
@@ -47,13 +77,58 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a593cfb0f66ef2642fcc4700d89dcfb9142a9ef6b88f506c9bbd865ee5f648e2"
+      "tests_digest": "3fecfa5866149435663bb0183b8cdc5ca4df1a9d7b8846326ccda43d81f3e161"
+    },
+    {
+      "id": "class/MutantPlan",
+      "name": "MutantPlan",
+      "line": 118,
+      "end_line": 123,
+      "hash": "c2077196c57dd31b92eff5d5eb167dd17a192a6952437dd0b4fe933229c1022b",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ea6c954ad1305ee70f2015b6d6a2305e9ef6215aa904313d6f59c846775db6c4"
+    },
+    {
+      "id": "class/PlanInputs",
+      "name": "PlanInputs",
+      "line": 127,
+      "end_line": 139,
+      "hash": "c988e616cda92e36b08c0a69270e0c640ec850a3eb9f36842faa7cc773d007ff",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ea6c954ad1305ee70f2015b6d6a2305e9ef6215aa904313d6f59c846775db6c4"
+    },
+    {
+      "id": "class/ControlTarget",
+      "name": "ControlTarget",
+      "line": 143,
+      "end_line": 150,
+      "hash": "ad6d1a84fcddbf9a0455498d04f98e55c7bc0a3fb9984ddb9865900be7c3d8ae",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ea6c954ad1305ee70f2015b6d6a2305e9ef6215aa904313d6f59c846775db6c4"
     },
     {
       "id": "func/_control_run",
       "name": "_control_run",
-      "line": 149,
-      "end_line": 157,
+      "line": 153,
+      "end_line": 161,
       "hash": "58d5b8166ecb899b315f7a22c847eb7d62895f6cc560fe15cb0c0237de1b9405",
       "score": {
         "killed": 1,
@@ -62,13 +137,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "8c26ef2436db93c046a6ca86bc50aa442bc808ac3dbe85cc3630e409ed819508"
+      "tests_digest": "5d24ecdbb4905812d3a58576f498f3816badc71c3aa1821964258ffc2bac5e36"
     },
     {
       "id": "func/_control_abort",
       "name": "_control_abort",
-      "line": 160,
-      "end_line": 171,
+      "line": 164,
+      "end_line": 175,
       "hash": "1eb2c5f348a2a60a7d5208561e71ccd62783c796157eea7d8ec179888df81199",
       "score": {
         "killed": 1,
@@ -77,13 +152,28 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "8c26ef2436db93c046a6ca86bc50aa442bc808ac3dbe85cc3630e409ed819508"
+      "tests_digest": "5d24ecdbb4905812d3a58576f498f3816badc71c3aa1821964258ffc2bac5e36"
+    },
+    {
+      "id": "class/ControlRuns",
+      "name": "ControlRuns",
+      "line": 179,
+      "end_line": 213,
+      "hash": "547d587f40d8679357306b05225dd4acc12a737e8d1646fa7d5909cb1f0d4d85",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/ControlRuns.settle",
       "name": "settle",
-      "line": 189,
-      "end_line": 209,
+      "line": 193,
+      "end_line": 213,
       "hash": "0de63280e8eff402e15d78d46a9d9423fe6a1a2b3bfca902d71961222eb73d2a",
       "score": {
         "killed": 4,
@@ -92,29 +182,29 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a3ea665410b027dd11ba00219dd75466b99737d12e7927d6e81391adb7c7330f"
+      "tests_digest": "0ac93113d7d7227b2c9d9701fd014383ec60db8e82c2637315ebc702a2007534"
     },
     {
-      "id": "func/_check_node_ids_resolve",
-      "name": "_check_node_ids_resolve",
-      "line": 212,
-      "end_line": 219,
-      "hash": "a8e8bb4a5eddaeb8e64aa6b00043ef7ba582f8a58c9b2f7a4da74135feded045",
+      "id": "func/_rebased_node_ids",
+      "name": "_rebased_node_ids",
+      "line": 216,
+      "end_line": 227,
+      "hash": "74a89aff700dc2365ec531ca31d93c36da4a4b5655cf297a504e495421c08277",
       "score": {
-        "killed": 3,
+        "killed": 1,
         "survived": 0,
         "uncovered": 0
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "d278e2f09399d449cc2dd86d67d6fd1e3274426de6a2a0521638db12e1c02ed3"
+      "tests_digest": "75d93939c79bde62a167be352027016ab95260c31af5de2ffa8b257b7b003418"
     },
     {
       "id": "func/plan_mutant",
       "name": "plan_mutant",
-      "line": 222,
-      "end_line": 254,
-      "hash": "300e191c5f6924271a80e95d5c4ca3318e1af18c635332bedf7c864bc61dc4fa",
+      "line": 230,
+      "end_line": 265,
+      "hash": "14a2243838aa2c0bf635e61c4a606fb1628e4c01357855c8739291e48a1d878d",
       "score": {
         "killed": 3,
         "survived": 0,
@@ -122,13 +212,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "9341fbbdef1a1dc50a036b9054d24d103abe762f72f2cddd6ef24fc062798e31"
+      "tests_digest": "d6689208e16c67bb3aaeeb47534bab99ed28e2f410cef0b6e6f60efecda58667"
     },
     {
       "id": "func/confirm_plan",
       "name": "confirm_plan",
-      "line": 257,
-      "end_line": 265,
+      "line": 268,
+      "end_line": 276,
       "hash": "f8ac202262e292b3482f9dc0c0b8b453b90d551e427ffaa6711440dc5b582eca",
       "score": {
         "killed": 0,
@@ -137,13 +227,58 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "d00c757fde26178e92946eb4873e2a4b094ca1853ba8a72fb4efc9bc67adafce"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+    },
+    {
+      "id": "class/SurvivorConfirmation",
+      "name": "SurvivorConfirmation",
+      "line": 280,
+      "end_line": 282,
+      "hash": "c281efcd1c1ca34a41df238d942a360bc533ab22df55f5365ed4d108fc0b80e2",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ea6c954ad1305ee70f2015b6d6a2305e9ef6215aa904313d6f59c846775db6c4"
+    },
+    {
+      "id": "class/ConfirmationResult",
+      "name": "ConfirmationResult",
+      "line": 286,
+      "end_line": 289,
+      "hash": "6399c0daf0ddedccabee252e8d8902ae26afd44b1bf41a501ba21a32f327217f",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ea6c954ad1305ee70f2015b6d6a2305e9ef6215aa904313d6f59c846775db6c4"
+    },
+    {
+      "id": "func/confirm_survivors",
+      "name": "confirm_survivors",
+      "line": 292,
+      "end_line": 323,
+      "hash": "76387527352be4f37b56ae3094884ebcb5b57253377abeb2edfdd7dcf7cc7b61",
+      "score": {
+        "killed": 6,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "8d3ef78f5c5454d8dcfeb24a5e76049066fadda3936350f7fef28c79e8a60b97"
     },
     {
       "id": "func/plan_sites",
       "name": "plan_sites",
-      "line": 268,
-      "end_line": 270,
+      "line": 326,
+      "end_line": 328,
       "hash": "8f8da030eab9cdd7f6d40ce61cdead4253acc94b90f4619702411c3bea3d6f36",
       "score": {
         "killed": 0,
@@ -152,8 +287,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "d00c757fde26178e92946eb4873e2a4b094ca1853ba8a72fb4efc9bc67adafce"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     }
   ],
-  "tests_fingerprint": "25ae60bbb800f9d6710a8e13285b1dcacf8cf632ef0d5b1e6e12cbba25d7a607"
+  "tests_fingerprint": "cbf5e43b095b8d37a686182df6e665c038f959cfad322098fafde582c58f5ead"
 }

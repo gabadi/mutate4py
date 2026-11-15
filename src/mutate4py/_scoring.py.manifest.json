@@ -1,9 +1,24 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T05:27:05Z",
+  "tested_at": "2026-11-15T22:00:06Z",
   "module_hash": "7c350eb763a5126b8e0d0e4422fa0f647e1c4063a5e81be0d758022c3ed342bd",
   "source_sha256": "ac6d1e8926e318575a00d6d248d6e6064cb0603ce5a30038cd7f1d848e080b19",
   "functions": [
+    {
+      "id": "class/ScoredRun",
+      "name": "ScoredRun",
+      "line": 9,
+      "end_line": 105,
+      "hash": "d73160d516483ead6eb37e618bd822a3c95047f59505836537f37ffa4da1f543",
+      "score": {
+        "killed": 2,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ea6c954ad1305ee70f2015b6d6a2305e9ef6215aa904313d6f59c846775db6c4"
+    },
     {
       "id": "func/ScoredRun.unaccepted",
       "name": "unaccepted",
@@ -17,7 +32,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0a85addcf3bb45cf72aa176c055e350883db0b65f59bf33e00779a1937f30530"
+      "tests_digest": "a49a6b492d7f0cb11d6db9f9b382820574ddd02814a273af6402e86fe64e4d7e"
     },
     {
       "id": "func/ScoredRun.accepted",
@@ -32,7 +47,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0a85addcf3bb45cf72aa176c055e350883db0b65f59bf33e00779a1937f30530"
+      "tests_digest": "a49a6b492d7f0cb11d6db9f9b382820574ddd02814a273af6402e86fe64e4d7e"
     },
     {
       "id": "func/ScoredRun.function_scores",
@@ -47,7 +62,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0a85addcf3bb45cf72aa176c055e350883db0b65f59bf33e00779a1937f30530"
+      "tests_digest": "a49a6b492d7f0cb11d6db9f9b382820574ddd02814a273af6402e86fe64e4d7e"
     },
     {
       "id": "func/ScoredRun._score_block",
@@ -62,7 +77,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0a85addcf3bb45cf72aa176c055e350883db0b65f59bf33e00779a1937f30530"
+      "tests_digest": "a49a6b492d7f0cb11d6db9f9b382820574ddd02814a273af6402e86fe64e4d7e"
     },
     {
       "id": "func/ScoredRun._skipped",
@@ -77,7 +92,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0a85addcf3bb45cf72aa176c055e350883db0b65f59bf33e00779a1937f30530"
+      "tests_digest": "a49a6b492d7f0cb11d6db9f9b382820574ddd02814a273af6402e86fe64e4d7e"
     },
     {
       "id": "func/ScoredRun._lost_recorded_survivor",
@@ -92,7 +107,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0a85addcf3bb45cf72aa176c055e350883db0b65f59bf33e00779a1937f30530"
+      "tests_digest": "a49a6b492d7f0cb11d6db9f9b382820574ddd02814a273af6402e86fe64e4d7e"
     },
     {
       "id": "func/ScoredRun._sites_of",
@@ -107,7 +122,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0a85addcf3bb45cf72aa176c055e350883db0b65f59bf33e00779a1937f30530"
+      "tests_digest": "a49a6b492d7f0cb11d6db9f9b382820574ddd02814a273af6402e86fe64e4d7e"
     },
     {
       "id": "func/ScoredRun._covered",
@@ -122,7 +137,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0a85addcf3bb45cf72aa176c055e350883db0b65f59bf33e00779a1937f30530"
+      "tests_digest": "a49a6b492d7f0cb11d6db9f9b382820574ddd02814a273af6402e86fe64e4d7e"
     },
     {
       "id": "func/ScoredRun._unaccepted_of",
@@ -137,7 +152,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0a85addcf3bb45cf72aa176c055e350883db0b65f59bf33e00779a1937f30530"
+      "tests_digest": "a49a6b492d7f0cb11d6db9f9b382820574ddd02814a273af6402e86fe64e4d7e"
     },
     {
       "id": "func/ScoredRun._accepted_of",
@@ -152,8 +167,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0a85addcf3bb45cf72aa176c055e350883db0b65f59bf33e00779a1937f30530"
+      "tests_digest": "a49a6b492d7f0cb11d6db9f9b382820574ddd02814a273af6402e86fe64e4d7e"
     }
   ],
-  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
+  "tests_fingerprint": "cbf5e43b095b8d37a686182df6e665c038f959cfad322098fafde582c58f5ead"
 }

@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T05:27:17Z",
-  "module_hash": "826850e82dff1fc432d36e337bd5cdf517c6377d748e694a37aca41971c065ba",
-  "source_sha256": "3566ea4243abe4de8479ebefcfa7ef457387717428a571f46d6d14db6f14db31",
+  "tested_at": "2026-11-15T22:00:55Z",
+  "module_hash": "9c5b50bae3cf51b8f588a41960b200d09f676469b11b54719e4f70a12bbe795b",
+  "source_sha256": "4821095ed9a02f9bee50df745593f27c48bcceb988c95b0f03e40e66d8a56323",
   "functions": [
     {
       "id": "func/_restore_from_backup",
@@ -17,7 +17,22 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "01e33147a2aa9ee278fee0864756ee8a3c39dca6001f895863e56e474646099b"
+      "tests_digest": "87724dc35eab8c8b34baa486ee9f44292c6e3e72f557e13bc70a382aeb8161ee"
+    },
+    {
+      "id": "class/ManifestDiff",
+      "name": "ManifestDiff",
+      "line": 49,
+      "end_line": 56,
+      "hash": "01c13f5d922fbe9cdadcdea7441a2113734939ab3811fe6f8346073322d54657",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/_compute_manifest_diff",
@@ -32,28 +47,43 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/_finalize_source",
       "name": "_finalize_source",
       "line": 84,
-      "end_line": 113,
-      "hash": "5cac02cb8b4fe3500242ce88805fb4c73efdbf582b271ce5b659b0c23570200d",
+      "end_line": 116,
+      "hash": "493afd1eb5e4465154a43850f3eccc239bfc54a566fee449108e5a5071b82dfc",
       "score": {
-        "killed": 2,
+        "killed": 3,
         "survived": 0,
         "uncovered": 0
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "97284056d5f79040cfc37e3fd48003d3a3c1c868810d2447d6c88cfe98653648"
+      "tests_digest": "ea6c954ad1305ee70f2015b6d6a2305e9ef6215aa904313d6f59c846775db6c4"
+    },
+    {
+      "id": "class/LoadedSource",
+      "name": "LoadedSource",
+      "line": 120,
+      "end_line": 129,
+      "hash": "a798ce8b14e5b5fec17b5ed50df70ea2df7ca0b399a5025862294e6c9203616f",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/_load_clean_source",
       "name": "_load_clean_source",
-      "line": 129,
-      "end_line": 144,
+      "line": 132,
+      "end_line": 147,
       "hash": "b7e70854b06dd4ad7d70903a7c7c508dd0a912fdaa4dffe19a4ca1b0c91807fb",
       "score": {
         "killed": 1,
@@ -62,13 +92,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "01e33147a2aa9ee278fee0864756ee8a3c39dca6001f895863e56e474646099b"
+      "tests_digest": "87724dc35eab8c8b34baa486ee9f44292c6e3e72f557e13bc70a382aeb8161ee"
     },
     {
       "id": "func/_changed_site_count",
       "name": "_changed_site_count",
-      "line": 147,
-      "end_line": 149,
+      "line": 150,
+      "end_line": 152,
       "hash": "37102f5fafbdad405ed1f7e6af8ecc4b4a78eec6b39f18e90ee2a38ab89687d2",
       "score": {
         "killed": 1,
@@ -77,13 +107,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0c39a0da0c238699f75fdfb8182d22159fc09b693c6faa19960a8018457e4cd4"
+      "tests_digest": "3a7e0e75c843c5542a2840cd31f984d2d7deb0ecaf49df85d155829077a1ad3c"
     },
     {
       "id": "func/apply_digest_changes",
       "name": "apply_digest_changes",
-      "line": 152,
-      "end_line": 162,
+      "line": 155,
+      "end_line": 165,
       "hash": "f863c607f2c44412b33cd1a51719692defdcd464157efcd8ef712d90d4481e24",
       "score": {
         "killed": 1,
@@ -92,13 +122,28 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "6dc738cae88968cca16eb717785fea5e46aa953f5ba95865d386bf5dfcebc120"
+      "tests_digest": "a298db4721bbb1cc4dccb4184febac369388a476884cf696c2b4d3d2ea9e5115"
+    },
+    {
+      "id": "class/RunSetup",
+      "name": "RunSetup",
+      "line": 169,
+      "end_line": 175,
+      "hash": "d78c4418a9108afff81da114a55881f587327e63e64801b672daa36e8d286160",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/_prepare_run_setup",
       "name": "_prepare_run_setup",
-      "line": 175,
-      "end_line": 182,
+      "line": 178,
+      "end_line": 185,
       "hash": "63a1e8e943b7d0589a58cf94232f93551d2a622d0aa0636ac7747d606e1fbf5f",
       "score": {
         "killed": 1,
@@ -107,8 +152,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "01e33147a2aa9ee278fee0864756ee8a3c39dca6001f895863e56e474646099b"
+      "tests_digest": "87724dc35eab8c8b34baa486ee9f44292c6e3e72f557e13bc70a382aeb8161ee"
     }
   ],
-  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
+  "tests_fingerprint": "cbf5e43b095b8d37a686182df6e665c038f959cfad322098fafde582c58f5ead"
 }

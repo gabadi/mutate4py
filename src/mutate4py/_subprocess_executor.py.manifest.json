@@ -1,9 +1,24 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T12:58:44Z",
-  "module_hash": "3f23d006fc7784beeab4183e175689a4bd232ab8a199ad4a10d543471207890a",
-  "source_sha256": "a6ae071c8f7eb59881d6f73df32af151b1ecf0caeeb09906027486ccf8815b07",
+  "tested_at": "2026-11-15T22:01:11Z",
+  "module_hash": "97a2e4432c2d8be6c1e9c7d0dc984df4a9a3c776cb703167c8b5ef558e3c7c3a",
+  "source_sha256": "c887e035d1aa09bcc6046e0596dac831740901930c45a49abba9e0993edd6040",
   "functions": [
+    {
+      "id": "class/SubprocessExecutor",
+      "name": "SubprocessExecutor",
+      "line": 21,
+      "end_line": 46,
+      "hash": "77f9d46c018db734364d3543389c8b17cc0ce766e35490eb69e16b60b89c77ef",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+    },
     {
       "id": "func/SubprocessExecutor.__init__",
       "name": "__init__",
@@ -17,7 +32,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "d00c757fde26178e92946eb4873e2a4b094ca1853ba8a72fb4efc9bc67adafce"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/SubprocessExecutor.prime",
@@ -32,7 +47,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "d00c757fde26178e92946eb4873e2a4b094ca1853ba8a72fb4efc9bc67adafce"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/SubprocessExecutor.describe",
@@ -47,13 +62,28 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "d00c757fde26178e92946eb4873e2a4b094ca1853ba8a72fb4efc9bc67adafce"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+    },
+    {
+      "id": "func/SubprocessExecutor.fresh_interpreter",
+      "name": "fresh_interpreter",
+      "line": 33,
+      "end_line": 34,
+      "hash": "e6febf19db251d77cc709a61ae757f5c989547646766b64357cb2a6fddd30574",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/SubprocessExecutor.run",
       "name": "run",
-      "line": 33,
-      "end_line": 43,
+      "line": 36,
+      "end_line": 46,
       "hash": "e740280857c5ef9870e87e554028be932b76fa4a34db9a41d497ffe7cd2ec1fc",
       "score": {
         "killed": 0,
@@ -63,13 +93,13 @@
       "survivors": [],
       "accepted": [
         {
-          "line": 38,
+          "line": 41,
           "desc": "False -> True",
           "reason": "this executor counts nothing, so it never reads the flag"
         }
       ],
-      "tests_digest": "24526e13938548b118eeb7014e875127f3229db4e6f60a88aaa96bc6753652c1"
+      "tests_digest": "1b69e67505301586f4a66be5b402081392e8edffd14c9725173aa52a3e47ebaf"
     }
   ],
-  "tests_fingerprint": "25ae60bbb800f9d6710a8e13285b1dcacf8cf632ef0d5b1e6e12cbba25d7a607"
+  "tests_fingerprint": "cbf5e43b095b8d37a686182df6e665c038f959cfad322098fafde582c58f5ead"
 }

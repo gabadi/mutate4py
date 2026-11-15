@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T05:27:05Z",
-  "module_hash": "08f2d8c40f3a979bfdfa0260efbd8f2b77a5a14a9d6e59e43c6fe1fa34ea0512",
-  "source_sha256": "45d0ba0f2c28d297ba77b5f1687f74f524e2bcbf7d76ef4b8b1b4d2df780290f",
+  "tested_at": "2026-11-15T22:00:36Z",
+  "module_hash": "0f2ba432f52cbe6e2965a32031d9e79a943e26c36e52378fa4e7e93777d23e00",
+  "source_sha256": "b008816d44c6f99b1049bbebafe7649ec8a09709baa786652d44b329e431ce30",
   "functions": [
     {
       "id": "func/serialize_json_sidecar",
@@ -17,7 +17,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "e59947d71d9dc1c2a67cd41228cd866392cb7ea13b2881f43f0bfb78bd561f65"
+      "tests_digest": "7df1a0e65c2c5dd9e1968675b48126f7153c79460339023693e34137a220f7ec"
     },
     {
       "id": "func/parse_json_text",
@@ -32,7 +32,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "f2a5f0ef2463bb52dd6e2aedeced96a268a03a96a2dbe7d08b194bec1015adaf"
+      "tests_digest": "0b321ccd7af741a5a5241c5bb45ee14131e7503465180e7c381f90a5141d9f22"
     },
     {
       "id": "func/read_json_sidecar",
@@ -47,14 +47,14 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "ac5a65dd7284ce336fa60dd6dd64787b0b1deadf1f2c63afe32896a9bb0163d1"
+      "tests_digest": "72413f3794743e33e45a0dfe48e45edc445f2be5f6e4458c06a2695ebdea5814"
     },
     {
       "id": "func/write_json_sidecar",
       "name": "write_json_sidecar",
       "line": 44,
-      "end_line": 47,
-      "hash": "470307af4424bad506c22b68ecd73afd2a049e851350ea8c9b649e67985a94bc",
+      "end_line": 55,
+      "hash": "dd804d0eeeacbd00b4fcef09edc4e38cccb71d2b3cb067129c5d3107c913ba4d",
       "score": {
         "killed": 0,
         "survived": 0,
@@ -62,8 +62,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     }
   ],
-  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
+  "tests_fingerprint": "cbf5e43b095b8d37a686182df6e665c038f959cfad322098fafde582c58f5ead"
 }
