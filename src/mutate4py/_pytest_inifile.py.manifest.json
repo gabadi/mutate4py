@@ -1,0 +1,204 @@
+{
+  "version": 1,
+  "tested_at": "2026-11-15T04:12:15Z",
+  "module_hash": "af53f13e8ae9b6f5730518fafbadbc545d794ab7100b7d74c511621693318be9",
+  "source_sha256": "3c44f5588acfabc128f5cbfc9580799e87b19bbee168a5b1599b6e598b71538d",
+  "functions": [
+    {
+      "id": "func/ancestors",
+      "name": "ancestors",
+      "line": 24,
+      "end_line": 36,
+      "hash": "4b329cbe03f8c3f8b54f9003b351a1ee91ebe597ee292ea6c6eb639a1aaddce7",
+      "score": {
+        "killed": 2,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "58122080be1cbead121c6410a5fbd59b243daab27b7fc0e355a69c908a0f0e30"
+    },
+    {
+      "id": "func/_has_ini_section",
+      "name": "_has_ini_section",
+      "line": 43,
+      "end_line": 50,
+      "hash": "5ca43818e25aa481d5f9d664179f86fdd3bb207e110654bef4cfb225832632c6",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "6d39c47aa1cb49d05b11335deab5d000401f8cd712106a8ee16f250f81948764"
+    },
+    {
+      "id": "func/_pyproject_configures_pytest",
+      "name": "_pyproject_configures_pytest",
+      "line": 53,
+      "end_line": 65,
+      "hash": "542974bffd19eb9525b26fa3d2134edcd18ce9285332d0565578d26a4e2dc6de",
+      "score": {
+        "killed": 5,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "c1cc570cc9eb45489b872a2247d0374056c457dadab5ceeb2c23c21a66195822"
+    },
+    {
+      "id": "func/_is_inifile",
+      "name": "_is_inifile",
+      "line": 68,
+      "end_line": 86,
+      "hash": "8f126172c399cc947bf071f27b86db0f70593a40ce80c076e9738856d8f47de2",
+      "score": {
+        "killed": 6,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "c1cc570cc9eb45489b872a2247d0374056c457dadab5ceeb2c23c21a66195822"
+    },
+    {
+      "id": "func/_holds_inifile",
+      "name": "_holds_inifile",
+      "line": 89,
+      "end_line": 92,
+      "hash": "430c132423e64e2aea5a77f2d8a2c59f2e5d88d1c0fbedaeb431877f55c5b74e",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "58122080be1cbead121c6410a5fbd59b243daab27b7fc0e355a69c908a0f0e30"
+    },
+    {
+      "id": "func/inifile_dir",
+      "name": "inifile_dir",
+      "line": 95,
+      "end_line": 104,
+      "hash": "f62d5c193ea71f29bf62ebfc24e4eca89dfa68558f3134a4744944791edc0d0d",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "58122080be1cbead121c6410a5fbd59b243daab27b7fc0e355a69c908a0f0e30"
+    },
+    {
+      "id": "func/up_to",
+      "name": "up_to",
+      "line": 107,
+      "end_line": 109,
+      "hash": "9e21713f7fe73d7fa9a329474798c722467ec23c2b53180c5cd961ae918448f8",
+      "score": {
+        "killed": 3,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "58122080be1cbead121c6410a5fbd59b243daab27b7fc0e355a69c908a0f0e30"
+    },
+    {
+      "id": "func/_attached_value",
+      "name": "_attached_value",
+      "line": 112,
+      "end_line": 116,
+      "hash": "cea18e29917c613976f7303058d7cb732b14053ead4860aee84d7cd941269518",
+      "score": {
+        "killed": 5,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "edc5a7c34bf7ff79a4bf201f057fc314c5a85ffcc00e87d33c4664a1ddeba135"
+    },
+    {
+      "id": "func/option_values",
+      "name": "option_values",
+      "line": 119,
+      "end_line": 128,
+      "hash": "44a42990d4726fd60f219983e402207465a866bab037303df36823ac95167f6a",
+      "score": {
+        "killed": 8,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "edc5a7c34bf7ff79a4bf201f057fc314c5a85ffcc00e87d33c4664a1ddeba135"
+    },
+    {
+      "id": "func/last_option_value",
+      "name": "last_option_value",
+      "line": 131,
+      "end_line": 134,
+      "hash": "b125a424c8046fbd255748dc5fe243da0e6a39d0c5e24d3341831260d0c4b358",
+      "score": {
+        "killed": 2,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "58122080be1cbead121c6410a5fbd59b243daab27b7fc0e355a69c908a0f0e30"
+    },
+    {
+      "id": "func/explicit_bound",
+      "name": "explicit_bound",
+      "line": 137,
+      "end_line": 143,
+      "hash": "0c6ad5dd08ddc3def993005f6d4ed599c3f41236b98e48295ac2ce0ba1c94103",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+    },
+    {
+      "id": "func/_rootdir_option",
+      "name": "_rootdir_option",
+      "line": 146,
+      "end_line": 149,
+      "hash": "6bd960a4a48fb07070316d4ff5189c9641a2cc5e8fff25ff1c4b1fe967cf3035",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+    },
+    {
+      "id": "func/conftest_bounds",
+      "name": "conftest_bounds",
+      "line": 152,
+      "end_line": 170,
+      "hash": "d891982773da746a19f369cdbc16d71d705c0625ccd67fa78d75c9689c17164d",
+      "score": {
+        "killed": 2,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "58122080be1cbead121c6410a5fbd59b243daab27b7fc0e355a69c908a0f0e30"
+    }
+  ],
+  "tests_fingerprint": "4fafc05f832d0c515fef810c7deebe418ae078fc3a64b1b940fe056391b007d5"
+}
