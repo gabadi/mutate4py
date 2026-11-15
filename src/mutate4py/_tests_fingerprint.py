@@ -234,7 +234,10 @@ def _explicit_config_inputs(cwd: str, tokens: list[str]) -> list[tuple[str, str]
 
 
 def _config_dirs(cwd: str, roots: list[str], tokens: list[str]) -> list[str]:
-    """Each start point and every directory above it, up to the project root. Start points: the run directory, each root, each --rootdir."""
+    """Each start point and every directory above it, up to the project root.
+
+    Start points: the run directory, each root, each --rootdir.
+    """
     rootdirs = [os.path.join(cwd, value) for value in _option_values(tokens, "--rootdir")]
     starts = [cwd, *roots, *rootdirs]
     project_root = _project_root(cwd)

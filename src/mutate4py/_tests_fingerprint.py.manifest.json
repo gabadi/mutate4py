@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T03:13:20Z",
-  "module_hash": "ceb2eedafd01e69ac15e44810177e782ae6029f6af83e8e34388bf2990db324b",
-  "source_sha256": "a7bb3501f1f12f254fb38a41008979ff80a3c650819696f485a89c2daa352371",
+  "tested_at": "2026-11-15T03:14:11Z",
+  "module_hash": "3d32e8078b2a1a64ac9562002267355c4f0ca549aefed748262c27c88ae3a2fc",
+  "source_sha256": "c9277e8905b9dce28af06c5ea72a52b564b3b7af645b12616fd231ac142afdb7",
   "functions": [
     {
       "id": "func/_target_skippable",
@@ -17,7 +17,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "ac7ec2fa5d8285c368eb99f1f2b801d10d3631285d0c2fb7acaca917323c38ce"
+      "tests_digest": "e5c52491aea18083a418be9cb9f106c4218c2c4244cab742939d09a5a617cae8"
     },
     {
       "id": "func/can_skip_measurement",
@@ -32,7 +32,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "ac7ec2fa5d8285c368eb99f1f2b801d10d3631285d0c2fb7acaca917323c38ce"
+      "tests_digest": "e5c52491aea18083a418be9cb9f106c4218c2c4244cab742939d09a5a617cae8"
     },
     {
       "id": "func/_hashable",
@@ -47,7 +47,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "f562cf4a5abe04fecf2e634d57b3a47e3dd8642d1fc21a6b6ed6b3685aeb91ab"
+      "tests_digest": "206734ba2c0851cce0e544d6b9679b7b860e72a89e9ea5240a10876442f9d6ac"
     },
     {
       "id": "func/_file_sha",
@@ -122,7 +122,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "f562cf4a5abe04fecf2e634d57b3a47e3dd8642d1fc21a6b6ed6b3685aeb91ab"
+      "tests_digest": "206734ba2c0851cce0e544d6b9679b7b860e72a89e9ea5240a10876442f9d6ac"
     },
     {
       "id": "func/_ancestors",
@@ -137,7 +137,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "f562cf4a5abe04fecf2e634d57b3a47e3dd8642d1fc21a6b6ed6b3685aeb91ab"
+      "tests_digest": "206734ba2c0851cce0e544d6b9679b7b860e72a89e9ea5240a10876442f9d6ac"
     },
     {
       "id": "func/_conftest_inputs",
@@ -167,7 +167,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "5577c205a0155c2b26ad38052b4f99997c332921ed6aadb58e23474d64be2ec4"
+      "tests_digest": "12196af652a7a5a712e37a71243b85bfbee02a616b6765dbf0b54bec0c2ed7ee"
     },
     {
       "id": "func/_option_values",
@@ -182,7 +182,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "5577c205a0155c2b26ad38052b4f99997c332921ed6aadb58e23474d64be2ec4"
+      "tests_digest": "12196af652a7a5a712e37a71243b85bfbee02a616b6765dbf0b54bec0c2ed7ee"
     },
     {
       "id": "func/_positional_roots",
@@ -197,7 +197,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "f562cf4a5abe04fecf2e634d57b3a47e3dd8642d1fc21a6b6ed6b3685aeb91ab"
+      "tests_digest": "206734ba2c0851cce0e544d6b9679b7b860e72a89e9ea5240a10876442f9d6ac"
     },
     {
       "id": "func/_is_classified_flag",
@@ -212,7 +212,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "cda2aa0c2f1a1378c7ff18bdd0c230db0edb0a5eed76e1adb67dfc9f92e397a3"
+      "tests_digest": "0a28a2b0cebe5f206ed1b40c51255a66028ca13ced130c4aaf7f802c51fa0e07"
     },
     {
       "id": "func/_collection_roots",
@@ -227,7 +227,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "f562cf4a5abe04fecf2e634d57b3a47e3dd8642d1fc21a6b6ed6b3685aeb91ab"
+      "tests_digest": "206734ba2c0851cce0e544d6b9679b7b860e72a89e9ea5240a10876442f9d6ac"
     },
     {
       "id": "func/_pyproject_pytest_table",
@@ -242,7 +242,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "f562cf4a5abe04fecf2e634d57b3a47e3dd8642d1fc21a6b6ed6b3685aeb91ab"
+      "tests_digest": "206734ba2c0851cce0e544d6b9679b7b860e72a89e9ea5240a10876442f9d6ac"
     },
     {
       "id": "func/_config_inputs",
@@ -278,8 +278,8 @@
       "id": "func/_config_dirs",
       "name": "_config_dirs",
       "line": 236,
-      "end_line": 241,
-      "hash": "78552f1ced1151667b6c29c1616e48576fcc5d96da5b7d62cd776cb8cfef1936",
+      "end_line": 244,
+      "hash": "763204d31cfedd0a6a6262379ac00b88fc8a266fbe1eb3f82237f4451898771c",
       "score": {
         "killed": 0,
         "survived": 0,
@@ -292,8 +292,8 @@
     {
       "id": "func/_config_and_lock_inputs",
       "name": "_config_and_lock_inputs",
-      "line": 244,
-      "end_line": 248,
+      "line": 247,
+      "end_line": 251,
       "hash": "3f094753e6cfa60dc58d435fd5614dc03f30781170a320faddcc1a57f276d875",
       "score": {
         "killed": 0,
@@ -307,8 +307,8 @@
     {
       "id": "func/_mutate4py_version",
       "name": "_mutate4py_version",
-      "line": 251,
-      "end_line": 255,
+      "line": 254,
+      "end_line": 258,
       "hash": "0168d19e257f113e9fdce63f932aa617509a36fa8dc24b2f6534bb7dc3ddc69e",
       "score": {
         "killed": 0,
@@ -322,8 +322,8 @@
     {
       "id": "func/fingerprint_inputs",
       "name": "fingerprint_inputs",
-      "line": 258,
-      "end_line": 273,
+      "line": 261,
+      "end_line": 276,
       "hash": "04c9e51190f4581fa8477c288460d07ea3901095f86ddbf50c0fc07c00e25abd",
       "score": {
         "killed": 0,
@@ -337,8 +337,8 @@
     {
       "id": "func/_digest",
       "name": "_digest",
-      "line": 276,
-      "end_line": 277,
+      "line": 279,
+      "end_line": 280,
       "hash": "5563ce180ffeb9f233104413337d374bf5970da6342bbf01c8c2570040d63f5c",
       "score": {
         "killed": 0,
@@ -352,8 +352,8 @@
     {
       "id": "func/tests_fingerprint",
       "name": "tests_fingerprint",
-      "line": 280,
-      "end_line": 289,
+      "line": 283,
+      "end_line": 292,
       "hash": "5929ee3dc3f75e42cf6d8fcb9e31cae3b90d8f2af1a5ba107a4dcd10fa7d2cf2",
       "score": {
         "killed": 0,
@@ -365,5 +365,5 @@
       "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     }
   ],
-  "tests_fingerprint": "cf2a732bbaf01111bd8d04da80e318138c7a27a5d2f9908537aa83509c6daeac"
+  "tests_fingerprint": "d96a23df81fca7e096056b4c8b563d25aeda96497897a3c540cea923c37740ae"
 }

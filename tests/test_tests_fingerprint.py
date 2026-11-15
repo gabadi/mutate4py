@@ -421,7 +421,7 @@ def test_every_file_a_digest_reads_is_a_fingerprint_input(digest_project):
     assert sorted(named - set(listed)) == []
 
 
-def _checkout(parent, name: str, marker_is_file: bool = False) -> str:
+def _checkout(parent, name: str, *, marker_is_file: bool = False) -> str:
     """The same project under `parent/name`, with a repository marker (`.git`) at its top."""
     root = parent / name
     root.mkdir(parents=True)
