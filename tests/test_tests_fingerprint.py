@@ -9,6 +9,7 @@ import pytest
 from mutate4py._digest_inputs import digest_inputs_from
 from mutate4py._manifest import embed_manifest
 from mutate4py._tests_fingerprint import TargetFacts, can_skip_measurement, fingerprint_inputs
+from mutate4py._tests_fingerprint import _option_values
 from mutate4py._tests_fingerprint import tests_fingerprint as fingerprint_of
 
 FRESH = "fresh-fingerprint"
@@ -231,6 +232,22 @@ def test_only_the_pytest_table_of_pyproject_counts(tmp_path):
     assert fingerprint_of(root, "") == before
     (tmp_path / "pyproject.toml").write_text(pyproject.format(version="2.0", opts="-x"))
     assert fingerprint_of(root, "") != before
+
+
+@pytest.mark.unit
+def test_the_order_of_keys_in_the_pytest_table_does_not_count(tmp_path):
+    root = _project(tmp_path)
+    (tmp_path / "pytest.ini").unlink()
+    (tmp_path / "pyproject.toml").write_text('[tool.pytest.ini_options]\naddopts = "-q"\nmarkers = ["a"]\n')
+    before = fingerprint_of(root, "")
+    (tmp_path / "pyproject.toml").write_text('[tool.pytest.ini_options]\nmarkers = ["a"]\naddopts = "-q"\n')
+    assert fingerprint_of(root, "") == before
+
+
+@pytest.mark.unit
+def test_an_option_value_is_the_token_after_its_name_and_nothing_before_it():
+    assert _option_values(["-q", "-c", "conf.ini"], "-c") == ["conf.ini"]
+    assert _option_values(["-c"], "-c") == []
 
 
 @pytest.mark.unit
