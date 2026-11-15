@@ -130,7 +130,7 @@ def _value_at(tokens: list[str], index: int, names: tuple[str, ...]) -> str | No
 
 
 def option_values(tokens: list[str], *names: str) -> list[str]:
-    """Every value given to any of `names`, in argv order, as `name value`, `name=value`, or attached to a short name."""
+    """Every value given to any of `names`, in argv order: `name value`, `name=value`, or attached to a short name."""
     values = (_value_at(tokens, index, names) for index in range(len(tokens)))
     return [value for value in values if value is not None]
 

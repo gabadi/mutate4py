@@ -208,8 +208,8 @@ def _config_dirs(cwd: str, roots: list[str], tokens: list[str]) -> list[str]:
     """Each directory pytest may read configuration from: from every start point up to its inifile's directory.
 
     Start points: the run directory, pytest's own start, each root, each --rootdir. Above the inifile's
-    directory pytest reads no configuration. With `-c` or `--config-file`, pytest searches for none (findpaths.py:306-311),
-    and the named file is hashed by `_explicit_config_inputs`.
+    directory pytest reads no configuration. With `-c` or `--config-file`, pytest searches for none
+    (findpaths.py:306-311), and the named file is hashed by `_explicit_config_inputs`.
     """
     if option_values(tokens, *CONFIG_FILE_OPTIONS):
         return []
