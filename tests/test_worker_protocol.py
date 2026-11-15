@@ -272,6 +272,11 @@ def test_prime_keeps_the_import_root_off_the_worker_pythonpath(monkeypatch, call
     assert argv[0] == os.path.join(os.path.abspath("/w"), ".venv", "bin", "python")
     assert kwargs["cwd"] == "/w"
     assert kwargs["env"].get("PYTHONPATH") == caller_pythonpath
+    # The handshake and the requests are text lines, flushed per line.
+    assert kwargs["text"] is True
+    assert kwargs["bufsize"] == 1
+    assert kwargs["stdin"] == subprocess.PIPE
+    assert kwargs["stdout"] == subprocess.PIPE
 
 
 @pytest.mark.unit
@@ -314,6 +319,7 @@ def test_check_worker_pytest_passes_when_the_worker_venv_imports_pytest(monkeypa
     argv, kwargs = calls[0]
     assert argv == [worker_python(str(tmp_path)), "-c", "import pytest"]
     assert kwargs["cwd"] == str(tmp_path)
+    assert kwargs["capture_output"] is True
 
 
 @pytest.mark.unit
