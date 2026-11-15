@@ -81,6 +81,21 @@ def _compute_manifest_diff(source: str, loc: ManifestLocation) -> ManifestDiff:
     return ManifestDiff(clean_source, existing_manifest, manifest_exists, changed_fn_ids, tested_at)
 
 
+def _write_final_source(
+    clean_source: str,
+    manifest: dict | None,
+    loc: ManifestLocation,
+    *,
+    write_manifest: bool,
+    original_source: str | None,
+) -> None:
+    if write_manifest or loc.manifest_file or original_source is None:
+        _write_manifest_output(clean_source, manifest, loc, write_manifest=write_manifest)
+        return
+    with open(loc.path, "w") as f:
+        f.write(original_source)
+
+
 def _finalize_source(  # noqa: PLR0913 - keeps the positional contract tests/test_source_loading.py relies on
     clean_source: str,
     tested_at: str,
@@ -92,6 +107,7 @@ def _finalize_source(  # noqa: PLR0913 - keeps the positional contract tests/tes
     fresh_digests: dict[str, str] | None = None,
     fingerprint: str | None = None,
     write_manifest: bool = True,
+    original_source: str | None = None,
 ) -> dict | None:
     # Unlike update_manifest, the write can't be skipped outright: a run with
     # selected sites leaves the last-tested mutant on disk (the per-site loop
@@ -110,7 +126,9 @@ def _finalize_source(  # noqa: PLR0913 - keeps the positional contract tests/tes
         manifest_to_embed = reconcile_manifest(
             existing_manifest, candidate_manifest, scores, fresh_digests=fresh_digests, fingerprint=recorded
         )
-    _write_manifest_output(clean_source, manifest_to_embed, loc, write_manifest=write_manifest)
+    _write_final_source(
+        clean_source, manifest_to_embed, loc, write_manifest=write_manifest, original_source=original_source
+    )
     if os.path.isfile(bak_path):
         os.remove(bak_path)
     return manifest_to_embed
@@ -120,6 +138,7 @@ def _finalize_source(  # noqa: PLR0913 - keeps the positional contract tests/tes
 class LoadedSource:
     """The stripped source plus everything diffed against its prior manifest."""
 
+    source: str
     clean_source: str
     existing_manifest: dict | None
     manifest_exists: bool
@@ -137,6 +156,7 @@ def _load_clean_source(bak_path: str, source: str, loc: ManifestLocation) -> Loa
     diff = _compute_manifest_diff(source, loc)
     all_sites = discover_sites(diff.clean_source)
     return LoadedSource(
+        source=source,
         clean_source=diff.clean_source,
         existing_manifest=diff.existing_manifest,
         manifest_exists=diff.manifest_exists,

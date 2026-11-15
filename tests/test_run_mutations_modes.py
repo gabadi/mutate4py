@@ -695,6 +695,26 @@ def test_aborted_embed_run_adds_no_footer_to_a_file_that_had_none(tmp_path):
     assert (tmp_path / "calc.py").read_text() == src
 
 
+_BAD_FOOTERS = {
+    "unparsable": "# mutate4py-manifest-begin\n# {not json\n# mutate4py-manifest-end\n",
+    "multi-line": (
+        '# mutate4py-manifest-begin\n# {\n#   "version": 1,\n#   "functions": []\n# }\n# mutate4py-manifest-end\n'
+    ),
+}
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("footer", _BAD_FOOTERS.values(), ids=_BAD_FOOTERS.keys())
+def test_aborted_embed_run_leaves_a_footer_it_cannot_use_byte_for_byte(tmp_path, footer):
+    src = _make_multi_site_source(1)
+    on_disk = src + footer
+    (tmp_path / "calc.py").write_text(on_disk)
+
+    assert _run_embedded(tmp_path, on_disk, "no-tests-collected") == 2
+
+    assert (tmp_path / "calc.py").read_text() == on_disk
+
+
 @pytest.mark.unit
 def test_a_parallel_worker_failure_leaves_the_footer_as_the_last_completed_run_wrote_it(tmp_path, monkeypatch):
     import mutate4py._runner as runner_mod

@@ -348,6 +348,7 @@ def _run_loop(request: RunMutationsRequest) -> int:
             fresh_digests=outcome.fresh_digests,
             fingerprint=setup.fingerprint,
             write_manifest=scored_run is not None,
+            original_source=setup.loaded.source,
         )
     if result.error_msg is not None:
         # .info, not .error: this has always gone to stdout, like the cov_error branch above.
