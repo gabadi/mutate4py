@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T21:53:26Z",
-  "module_hash": "98c517f047eb3a5625c3b731e499b7c915da6671616b4b0808d4f23e36705dae",
-  "source_sha256": "316c44f39376a020ea64a7d5a8f207ba3fe4310e9598a5feb2adfab06c15e427",
+  "tested_at": "2026-11-15T23:10:13Z",
+  "module_hash": "372a5a1264aa9c5fa1c6923391e29aa3310bb032e3279e218d525b68c2b1486c",
+  "source_sha256": "cbb1804ccba99259d26967ee02e44cd9b93706d11c1e399eb3ee2cda92f445a1",
   "functions": [
     {
       "id": "class/ManifestLocation",
@@ -17,14 +17,14 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "ea6c954ad1305ee70f2015b6d6a2305e9ef6215aa904313d6f59c846775db6c4"
+      "tests_digest": "f792a9f9440219c9e54ea560cab55f555dcb1db8100fb7a0acab77fe25f9caf5"
     },
     {
       "id": "func/_sidecar_path",
       "name": "_sidecar_path",
       "line": 29,
       "end_line": 31,
-      "hash": "af8f8cfc5561f9534e283daa8fd83073dbdf8b269beef3956138b50c81197dfd",
+      "hash": "37150c1557f09d1c7bbcf1ec83947749bfcf6207b2a2bac90b869910f57c44de",
       "score": {
         "killed": 1,
         "survived": 0,
@@ -32,7 +32,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "5d1f588bd34c8bc64ddc4f3f1fa1eb273fe7d919894abcbb77ea3b1a18e78f1f"
+      "tests_digest": "8f91d8e4d542a5311d83b13c2dfd9d7cd270df99d27102a3938fad6e60370271"
     },
     {
       "id": "func/read_sidecar_manifest",
@@ -47,7 +47,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/write_sidecar_manifest",
@@ -62,7 +62,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_read_existing_manifest",
@@ -77,7 +77,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_write_manifest_output",
@@ -92,8 +92,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "ea6c954ad1305ee70f2015b6d6a2305e9ef6215aa904313d6f59c846775db6c4"
+      "tests_digest": "f792a9f9440219c9e54ea560cab55f555dcb1db8100fb7a0acab77fe25f9caf5"
     }
   ],
-  "tests_fingerprint": "cbf5e43b095b8d37a686182df6e665c038f959cfad322098fafde582c58f5ead"
+  "tests_fingerprint": "0dc944fad9ed4dce3bf7b4ef6fe1b1c474d5c8db9375840fe1c6977a6aa4caef"
 }

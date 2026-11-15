@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T22:11:49Z",
-  "module_hash": "7c8c5f7c5eb4e9d0e997dbe0dd8276fa35ed4db4ee40fcc5077f4fdefc03c94d",
-  "source_sha256": "0b5e14d5baa92e00bcfc4879a3466e598afc75a5fa3f3043358bda671ba9b736",
+  "tested_at": "2026-11-15T23:13:49Z",
+  "module_hash": "c5178958148644853aecc32a1fc4edb7e7588cf6e6f0256f46f6b7144c92bb85",
+  "source_sha256": "a3aed2f1373bcd3ced91f5436655a89235269a18188a0b4fadf833eab6895023",
   "functions": [
     {
       "id": "class/ParallelRunResult",
@@ -17,7 +17,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "class/WorkerGroupOutcome",
@@ -32,7 +32,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_assign_sites_to_workers",
@@ -47,7 +47,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "f303039df40f5f864e6828b2f4ec16f90c8a55da1a4b235bc42760a199edfbb5"
+      "tests_digest": "d51cbad53b4c4a4cf8334649ff2ec538add26ce1139481ec8cca28ff87bbeb1f"
     },
     {
       "id": "func/_summarize_results",
@@ -62,7 +62,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "ea7ab8938cf10d829c58f333ee7f0e731a0c6c6695ad3bee16cd0048cb85c6b0"
+      "tests_digest": "d327d7654651ea3dc4c2b5bfd93b4cf3861194b13c9f069d7710470e38a0a0fc"
     },
     {
       "id": "func/_summarize_timing",
@@ -77,7 +77,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_summarize_confirmation",
@@ -92,7 +92,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "e469e7387e7cde7cf9a33bb7e1556579bdbc83f3fa830a526c188c61ac979fb4"
+      "tests_digest": "636acae035d13fa6bac272ee31d6bd9787b27bc7c029bf663cdc748739182032"
     },
     {
       "id": "func/_merge_confirmations",
@@ -107,7 +107,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_summarize_selection",
@@ -122,14 +122,14 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "e469e7387e7cde7cf9a33bb7e1556579bdbc83f3fa830a526c188c61ac979fb4"
+      "tests_digest": "636acae035d13fa6bac272ee31d6bd9787b27bc7c029bf663cdc748739182032"
     },
     {
       "id": "func/_build_result",
       "name": "_build_result",
       "line": 101,
-      "end_line": 111,
-      "hash": "306674b2495ef0babfd04431ad6ce3afb32e84970b55d7c2759b05aba75fde6c",
+      "end_line": 110,
+      "hash": "dae0ecfc48ab3b3bd1920042288580f6ef92a02a4369e067585b2a7c35032295",
       "score": {
         "killed": 0,
         "survived": 0,
@@ -137,13 +137,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_drop_one_result_if_injected",
       "name": "_drop_one_result_if_injected",
-      "line": 114,
-      "end_line": 120,
+      "line": 113,
+      "end_line": 119,
       "hash": "e310a4623b2b76858fad0129f12afe9fd9be0a1f187ed3984b18dca8358370f2",
       "score": {
         "killed": 3,
@@ -152,8 +152,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "ea7ab8938cf10d829c58f333ee7f0e731a0c6c6695ad3bee16cd0048cb85c6b0"
+      "tests_digest": "d327d7654651ea3dc4c2b5bfd93b4cf3861194b13c9f069d7710470e38a0a0fc"
     }
   ],
-  "tests_fingerprint": "0a3bfb8df87dfc1e017a591c3f46d5756510142fbecd60a5659587b2ab0eaaef"
+  "tests_fingerprint": "0dc944fad9ed4dce3bf7b4ef6fe1b1c474d5c8db9375840fe1c6977a6aa4caef"
 }

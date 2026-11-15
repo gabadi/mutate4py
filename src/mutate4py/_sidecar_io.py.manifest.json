@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T22:00:36Z",
-  "module_hash": "0f2ba432f52cbe6e2965a32031d9e79a943e26c36e52378fa4e7e93777d23e00",
-  "source_sha256": "b008816d44c6f99b1049bbebafe7649ec8a09709baa786652d44b329e431ce30",
+  "tested_at": "2026-11-15T23:12:24Z",
+  "module_hash": "f89514511d806a6ed4a5a4c30c001c595b016157f79967ef795bb02d265d54ba",
+  "source_sha256": "f15923cbae89c00ccd56e08033caf9349313276fd3b1a3d740d89edeb0d84eeb",
   "functions": [
     {
       "id": "func/serialize_json_sidecar",
       "name": "serialize_json_sidecar",
-      "line": 16,
-      "end_line": 18,
+      "line": 18,
+      "end_line": 20,
       "hash": "6abd316e5c2380d6e8122edfb37d8a5f1346c5e4aa04787171f368ddac250f38",
       "score": {
         "killed": 1,
@@ -17,13 +17,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "7df1a0e65c2c5dd9e1968675b48126f7153c79460339023693e34137a220f7ec"
+      "tests_digest": "2a4c6204806c695e784889dea16e94c6884c66b81f131c07e7ca260ccf08abe9"
     },
     {
       "id": "func/parse_json_text",
       "name": "parse_json_text",
-      "line": 21,
-      "end_line": 26,
+      "line": 23,
+      "end_line": 28,
       "hash": "1a7d9b4db2a4ee840940f80716b165584f7193268a0a55eaa933979b632fc3e3",
       "score": {
         "killed": 2,
@@ -32,13 +32,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0b321ccd7af741a5a5241c5bb45ee14131e7503465180e7c381f90a5141d9f22"
+      "tests_digest": "2fb7f3b59e4b1f92ca7b46c2ba05994158837e39e204fcb76cc22bbfc089685a"
     },
     {
       "id": "func/read_json_sidecar",
       "name": "read_json_sidecar",
-      "line": 29,
-      "end_line": 41,
+      "line": 31,
+      "end_line": 43,
       "hash": "822a22cb524f805211ab749175f146ce0abce85e2cdf9bcca5725419bba9f82c",
       "score": {
         "killed": 5,
@@ -47,13 +47,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "72413f3794743e33e45a0dfe48e45edc445f2be5f6e4458c06a2695ebdea5814"
+      "tests_digest": "922f4ba94977f0eb7ce2f81d34f6f14ad3983086794b549f203d66ff44abab9e"
     },
     {
       "id": "func/write_json_sidecar",
       "name": "write_json_sidecar",
-      "line": 44,
-      "end_line": 55,
+      "line": 46,
+      "end_line": 57,
       "hash": "dd804d0eeeacbd00b4fcef09edc4e38cccb71d2b3cb067129c5d3107c913ba4d",
       "score": {
         "killed": 0,
@@ -62,8 +62,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     }
   ],
-  "tests_fingerprint": "cbf5e43b095b8d37a686182df6e665c038f959cfad322098fafde582c58f5ead"
+  "tests_fingerprint": "0dc944fad9ed4dce3bf7b4ef6fe1b1c474d5c8db9375840fe1c6977a6aa4caef"
 }

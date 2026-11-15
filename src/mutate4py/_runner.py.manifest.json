@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T21:59:18Z",
-  "module_hash": "8604b530d020377ba4f1859c2dc7c5366e7b3e0e89de709f62b5a5fa6d524f91",
-  "source_sha256": "99b27e8e685022e552823f6690eee8468943dd4f0ed3af4d5b8223c2ca1d4c5b",
+  "tested_at": "2026-11-15T23:11:10Z",
+  "module_hash": "c60f3465894ee736ccac0ae5f0b689e59518af63517c98391b15927e8d834612",
+  "source_sha256": "9081a0364064f1eefc72c0e49860cebe309c4f635a8d400813f802ea7a898b22",
   "functions": [
     {
       "id": "func/_print_lines",
@@ -17,7 +17,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/run_scan",
@@ -32,7 +32,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "ea6c954ad1305ee70f2015b6d6a2305e9ef6215aa904313d6f59c846775db6c4"
+      "tests_digest": "f792a9f9440219c9e54ea560cab55f555dcb1db8100fb7a0acab77fe25f9caf5"
     },
     {
       "id": "class/SelectionOutcome",
@@ -47,7 +47,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "ea6c954ad1305ee70f2015b6d6a2305e9ef6215aa904313d6f59c846775db6c4"
+      "tests_digest": "f792a9f9440219c9e54ea560cab55f555dcb1db8100fb7a0acab77fe25f9caf5"
     },
     {
       "id": "class/_BaselinePrep",
@@ -62,7 +62,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_run_measurement",
@@ -77,7 +77,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "b88329f466bf3ed34469d3835f54675ac23586c246c26fb1f1263066e202ebc5"
+      "tests_digest": "17ea4593729320a505959bbce0ec44388ab4df636b30f29cd161b1ef5376be8c"
     },
     {
       "id": "func/_prepare_baseline_and_executor",
@@ -92,7 +92,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "ddc1a793cf73eb9a7e41388a365a364c5cbdc649540fb26d80eea379fd1be056"
+      "tests_digest": "9bcd24ef74a3dec99d451b49c477988423646523901c882528547a6d299e5411"
     },
     {
       "id": "func/_select_and_prepare",
@@ -107,7 +107,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a298db4721bbb1cc4dccb4184febac369388a476884cf696c2b4d3d2ea9e5115"
+      "tests_digest": "f59d11651bada364a61cbe7fd8b9a993d174761bdbbdf692b194d1750f60ecdb"
     },
     {
       "id": "func/_recorded_survivor_keys",
@@ -122,7 +122,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a298db4721bbb1cc4dccb4184febac369388a476884cf696c2b4d3d2ea9e5115"
+      "tests_digest": "f59d11651bada364a61cbe7fd8b9a993d174761bdbbdf692b194d1750f60ecdb"
     },
     {
       "id": "func/_scored_run_for",
@@ -137,7 +137,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a298db4721bbb1cc4dccb4184febac369388a476884cf696c2b4d3d2ea9e5115"
+      "tests_digest": "f59d11651bada364a61cbe7fd8b9a993d174761bdbbdf692b194d1750f60ecdb"
     },
     {
       "id": "func/_mutant_exec_ctx",
@@ -152,7 +152,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "ddc1a793cf73eb9a7e41388a365a364c5cbdc649540fb26d80eea379fd1be056"
+      "tests_digest": "9bcd24ef74a3dec99d451b49c477988423646523901c882528547a6d299e5411"
     },
     {
       "id": "func/_close_executor",
@@ -167,7 +167,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "2a4e2614016d7f1b6149e8ab46e28a2396100652ca12cda015acf500696e5041"
+      "tests_digest": "14ea2d2066aa3386918d83c29af0cd8bd81a440d7e84ce6035743e4ce4b92fce"
     },
     {
       "id": "func/run_mutations",
@@ -182,14 +182,14 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_run_loop",
       "name": "_run_loop",
       "line": 315,
-      "end_line": 357,
-      "hash": "b5d2b301285dd66369f758126b601c227a13bd7fdb95273c45a21523b7d43268",
+      "end_line": 358,
+      "hash": "550fce86c7a96f147521776c6b5e17e24f99638693004caa91bd7a4306ae3e05",
       "score": {
         "killed": 5,
         "survived": 0,
@@ -197,13 +197,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "b88329f466bf3ed34469d3835f54675ac23586c246c26fb1f1263066e202ebc5"
+      "tests_digest": "17ea4593729320a505959bbce0ec44388ab4df636b30f29cd161b1ef5376be8c"
     },
     {
       "id": "func/_report_run",
       "name": "_report_run",
-      "line": 360,
-      "end_line": 396,
+      "line": 361,
+      "end_line": 397,
       "hash": "90b8964d7b740f25aa4d90aa9aa0b486d2dff269e3bcb66a733ab7078e489bea",
       "score": {
         "killed": 7,
@@ -212,8 +212,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "ddc1a793cf73eb9a7e41388a365a364c5cbdc649540fb26d80eea379fd1be056"
+      "tests_digest": "9bcd24ef74a3dec99d451b49c477988423646523901c882528547a6d299e5411"
     }
   ],
-  "tests_fingerprint": "cbf5e43b095b8d37a686182df6e665c038f959cfad322098fafde582c58f5ead"
+  "tests_fingerprint": "0dc944fad9ed4dce3bf7b4ef6fe1b1c474d5c8db9375840fe1c6977a6aa4caef"
 }

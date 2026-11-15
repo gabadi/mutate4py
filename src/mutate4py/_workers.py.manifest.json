@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T22:12:12Z",
-  "module_hash": "dfed4d25ef187f961997000560aa9c3a51bbb9a6dbedfafc5865a51d0b5525b5",
-  "source_sha256": "6982e551fe88b24ee79015c98cba7dd483a1960900d6d3f275d0e8faae9b7cea",
+  "tested_at": "2026-11-15T23:14:15Z",
+  "module_hash": "473a514686f132ed843d12d0d1fb4749b22d53cc5190cb94974a40a4b4705563",
+  "source_sha256": "5a9846ce3e44a819c6013d92a85d827b62cf0a361f9416b0f76812c06ecba46f",
   "functions": [
     {
       "id": "class/SiteAssignment",
@@ -17,7 +17,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "class/WorkerRunSettings",
@@ -32,7 +32,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "class/ParallelRunRequest",
@@ -47,7 +47,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "95fe5274db86e0d2d3a532ab27818c0e8b21a9076b6548dcf8e40fca17052ef9"
+      "tests_digest": "f792a9f9440219c9e54ea560cab55f555dcb1db8100fb7a0acab77fe25f9caf5"
     },
     {
       "id": "class/_WorkerDispatchPlan",
@@ -62,7 +62,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_provision_worker",
@@ -77,7 +77,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_provision_worker_executors",
@@ -92,7 +92,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "ea7ab8938cf10d829c58f333ee7f0e731a0c6c6695ad3bee16cd0048cb85c6b0"
+      "tests_digest": "d327d7654651ea3dc4c2b5bfd93b4cf3861194b13c9f069d7710470e38a0a0fc"
     },
     {
       "id": "func/_run_one_site",
@@ -107,7 +107,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "ea7ab8938cf10d829c58f333ee7f0e731a0c6c6695ad3bee16cd0048cb85c6b0"
+      "tests_digest": "d327d7654651ea3dc4c2b5bfd93b4cf3861194b13c9f069d7710470e38a0a0fc"
     },
     {
       "id": "func/_provision_workers",
@@ -122,7 +122,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "ea7ab8938cf10d829c58f333ee7f0e731a0c6c6695ad3bee16cd0048cb85c6b0"
+      "tests_digest": "d327d7654651ea3dc4c2b5bfd93b4cf3861194b13c9f069d7710470e38a0a0fc"
     },
     {
       "id": "func/_confirm_worker_survivors",
@@ -137,7 +137,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "e469e7387e7cde7cf9a33bb7e1556579bdbc83f3fa830a526c188c61ac979fb4"
+      "tests_digest": "636acae035d13fa6bac272ee31d6bd9787b27bc7c029bf663cdc748739182032"
     },
     {
       "id": "func/_dispatch_worker_groups",
@@ -152,7 +152,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "e469e7387e7cde7cf9a33bb7e1556579bdbc83f3fa830a526c188c61ac979fb4"
+      "tests_digest": "636acae035d13fa6bac272ee31d6bd9787b27bc7c029bf663cdc748739182032"
     },
     {
       "id": "func/_plan_inputs",
@@ -167,7 +167,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_run_settings",
@@ -182,14 +182,14 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_locate_source",
       "name": "_locate_source",
       "line": 323,
-      "end_line": 329,
-      "hash": "9392a83981da1ca2ff9ed416a80b08ef24e2251b30d6853a9f4ba6d1aa217599",
+      "end_line": 328,
+      "hash": "add83831b30cd7a8ca3ae43319e51e56e3f78a62fcac8b6d72ba6c1d52d93f38",
       "score": {
         "killed": 2,
         "survived": 0,
@@ -197,14 +197,14 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "e469e7387e7cde7cf9a33bb7e1556579bdbc83f3fa830a526c188c61ac979fb4"
+      "tests_digest": "636acae035d13fa6bac272ee31d6bd9787b27bc7c029bf663cdc748739182032"
     },
     {
       "id": "func/_collected_results",
       "name": "_collected_results",
-      "line": 332,
-      "end_line": 337,
-      "hash": "30beca94a5f4be29ee16f8d2a6a30a8cf9fc0f5760b7c40e400b48246c3c072c",
+      "line": 331,
+      "end_line": 335,
+      "hash": "1a60a68b3054b8df3b72f30d2a523a4fc1d30c61d1a78c0f8c731cb3951faf6d",
       "score": {
         "killed": 1,
         "survived": 0,
@@ -212,13 +212,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "e469e7387e7cde7cf9a33bb7e1556579bdbc83f3fa830a526c188c61ac979fb4"
+      "tests_digest": "636acae035d13fa6bac272ee31d6bd9787b27bc7c029bf663cdc748739182032"
     },
     {
       "id": "func/run_parallel",
       "name": "run_parallel",
-      "line": 340,
-      "end_line": 393,
+      "line": 338,
+      "end_line": 391,
       "hash": "090cd7c6735a465a4fca457859edd11037319db483280d6110cf8230c92946ad",
       "score": {
         "killed": 2,
@@ -227,8 +227,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "e469e7387e7cde7cf9a33bb7e1556579bdbc83f3fa830a526c188c61ac979fb4"
+      "tests_digest": "636acae035d13fa6bac272ee31d6bd9787b27bc7c029bf663cdc748739182032"
     }
   ],
-  "tests_fingerprint": "0a3bfb8df87dfc1e017a591c3f46d5756510142fbecd60a5659587b2ab0eaaef"
+  "tests_fingerprint": "0dc944fad9ed4dce3bf7b4ef6fe1b1c474d5c8db9375840fe1c6977a6aa4caef"
 }
