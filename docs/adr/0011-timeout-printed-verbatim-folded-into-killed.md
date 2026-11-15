@@ -11,6 +11,24 @@ complete within `timeout-factor × baseline` didn't survive.
 **A change that either hides the per-mutant `timeout` token or adds a `Timeout:`
 report line breaks this contract.**
 
+**Amendment (issue #96): the bound is no longer `timeout-factor × baseline`.** A
+Mutant's timeout is `max(--min-timeout, --timeout-factor × budget) + Per-Mutant
+overhead`. The budget is the summed measured duration of the tests the Mutant
+runs, plus the largest fixture setup among their files: a narrowed Mutant budgets
+its own covering tests, and a static Mutant budgets the full test set. The
+Per-Mutant overhead, the wall time spent outside the tests, is added so a narrowed
+Mutant with few tests is not timed out by fixed cost. The contract above is
+unchanged: the `timeout` token stays visible and no `Timeout:` line is added.
+
+**Amendment (issue #97): timeout time is visible on the `Time:` line.** A timed-out
+Mutant's seconds are summed apart from the other Mutants' on `Time: mutants .. (n),
+timeouts .. (n), confirmation .. (n run, k killed)`, so a run dominated by hangs shows
+as such. That is time and a count of Mutants on a line of its own; it is not a
+`Timeout:` line in the Mutation Report, and `Killed` still includes timeouts. A
+Survivor re-run under the full-set timeout that times out is a confirmation kill and
+folds into `killed` the same way. A directory run closes with the `Time:` line summed
+over its files and a `Wall:` line.
+
 ## The colon asymmetry is intentional
 
 The per-mutant progress line puts a colon before the function id:

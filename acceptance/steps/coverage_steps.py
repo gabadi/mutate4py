@@ -1,4 +1,4 @@
-"""Step handlers for features/coverage.feature (F3 coverage-gate)."""
+"""Step handlers for features/coverage.feature (F3: Measurement as coverage, the core refusal, removed flags)."""
 
 import os
 import subprocess
@@ -8,46 +8,73 @@ import tempfile
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 from acceptance.steps.coverage_helpers import (
-    assert_cmd_ran_n_times,
-    assert_exit_nonzero,
+    HALF_TAKEN_BRANCH_SOURCE,
+    HALF_TAKEN_BRANCH_TEST,
+    IMPORT_TIME_SOURCE,
+    IMPORTING_CONFTEST,
+    PASSING_TEST,
+    assert_exit_status,
+    assert_no_backup_beside,
+    assert_no_partition_counts,
+    assert_output_contains,
     assert_stdout_contains,
-    make_lcov,
-    make_lcov_brda_only,
-    make_lcov_da_zero,
-    make_lcov_single_da,
-    make_source_with_sites_on_lines,
-    resolve_sf_path,
+    called_names,
+    core_recording_test,
+    first_recorded_core,
+    removed_flag_refusal,
+    removed_flag_tokens,
     step_param,
-    substitute_cmd_placeholders,
-    write_counter_script,
+)
+from acceptance.steps.run_loop_helpers import (
+    ROOT_CONFTEST,
+    SAMPLE_MODULE,
+    compare_source,
+    reaching_test_body,
 )
 from acceptance.steps.step_lib import make_registry
 
 STEP_HANDLERS, step, run_step = make_registry()
 
 
-def _run_mutate4py_in_dir(cwd: str, *args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["uv", "run", "mutate4py"] + list(args),
-        capture_output=True,
-        text=True,
-        cwd=cwd,
-    )
-
-
 class Context:
     def __init__(self):
         self.tmpdir: str | None = None
         self.source_path: str | None = None
-        self.source_content: str | None = None
-        self.cov_script_path: str | None = None
+        self.source_bytes: bytes | None = None
         self.cli_result: subprocess.CompletedProcess | None = None
-        self.cov_cmd_str: str | None = None
+        self.core_record: str | None = None
+        self.env: dict[str, str] = {}
 
-    def ensure_tmpdir(self) -> str:
-        if self.tmpdir is None:
-            self.tmpdir = tempfile.mkdtemp()
+    def reset(self) -> str:
+        self.tmpdir = tempfile.mkdtemp()
+        self.source_path = os.path.join(self.tmpdir, f"{SAMPLE_MODULE}.py")
+        self.source_bytes = None
+        self.cli_result = None
+        self.core_record = None
+        self.env = {}
         return self.tmpdir
+
+    def root(self) -> str:
+        assert self.tmpdir is not None, "no project written"
+        return self.tmpdir
+
+    def write(self, relative: str, text: str) -> None:
+        path = os.path.join(self.root(), relative)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            f.write(text)
+        if relative == f"{SAMPLE_MODULE}.py":
+            self.source_bytes = text.encode()
+
+    def run(self, *args: str) -> None:
+        env = {**os.environ, **self.env}
+        self.cli_result = subprocess.run(
+            ["uv", "run", "mutate4py", *args],
+            capture_output=True,
+            text=True,
+            cwd=self.root(),
+            env=env,
+        )
 
 
 ctx = Context()
@@ -56,109 +83,70 @@ ctx = Context()
 # ── Background ────────────────────────────────────────────────────────────────
 
 
-@step(r'a Python source file with mutation sites on lines "([^"]*)"')
-def given_source_with_sites(m, params):
-    lines_str = step_param(m, params, "lines")
-    ctx.tmpdir = None
-    ctx.source_path = None
-    ctx.source_content = None
-    ctx.cov_script_path = None
-    ctx.cli_result = None
-    ctx.cov_cmd_str = None
-    d = ctx.ensure_tmpdir()
-    src = make_source_with_sites_on_lines(lines_str)
-    ctx.source_path = os.path.join(d, "sample.py")
-    ctx.source_content = src
-    with open(ctx.source_path, "w") as f:
-        f.write(src)
+@step(r"a pytest project whose module has three comparison sites in functions f1, f2 and f3")
+def given_three_site_project(m, params):
+    ctx.reset()
+    source, _ = compare_source(3)
+    ctx.write(f"{SAMPLE_MODULE}.py", source)
+    # An empty conftest.py puts the project root on sys.path for the tests.
+    ctx.write("conftest.py", ROOT_CONFTEST)
+    ctx.write("tests/test_qa.py", PASSING_TEST)
 
 
 # ── Given steps ───────────────────────────────────────────────────────────────
 
 
-@step(r'an LCOV file covering lines "([^"]*)" for that source')
-def given_lcov_covering_lines(m, params):
-    d = ctx.ensure_tmpdir()
-    covered = {
-        int(n.strip()) for n in step_param(m, params, "covered").split(",") if n.strip()
-    }
-    with open(os.path.join(d, "cov.info"), "w") as f:
-        f.write(make_lcov(ctx.source_path, covered))
+@step(r'the tests call "([^"]*)"')
+def given_tests_call(m, params):
+    names = called_names(step_param(m, params, "called"))
+    ctx.write("tests/test_qa.py", reaching_test_body(SAMPLE_MODULE, names) if names else PASSING_TEST)
 
 
-@step(r'an LCOV file with the single record "DA:5,0" for that source')
-def given_lcov_da_zero(m, params):
-    d = ctx.ensure_tmpdir()
-    with open(os.path.join(d, "cov.info"), "w") as f:
-        f.write(make_lcov_da_zero(ctx.source_path, 5))
+@step(r"a module whose only site is a module-level line that no test calls")
+def given_import_time_module(m, params):
+    ctx.write(f"{SAMPLE_MODULE}.py", IMPORT_TIME_SOURCE)
+    ctx.write("tests/test_qa.py", PASSING_TEST)
 
 
-@step(r'an LCOV file whose only record for line 5 is branch data "BRDA:5,0,0,1"')
-def given_lcov_only_brda(m, params):
-    d = ctx.ensure_tmpdir()
-    with open(os.path.join(d, "cov.info"), "w") as f:
-        f.write(make_lcov_brda_only(ctx.source_path, 5))
+@step(r"a conftest that imports the module while pytest loads it")
+def given_importing_conftest(m, params):
+    ctx.write("conftest.py", IMPORTING_CONFTEST)
 
 
-@step(r'an LCOV file covering line 5 under the SF path "([^"]+)" for that source')
-def given_lcov_sf_path(m, params):
-    sf_key = step_param(m, params, "sfPath")
-    d = ctx.ensure_tmpdir()
-    sf = (
-        resolve_sf_path(sf_key, ctx.source_path)
-        if sf_key != "unrelated-file"
-        else "/some/unrelated/other.py"
-    )
-    with open(os.path.join(d, "cov.info"), "w") as f:
-        f.write(make_lcov_single_da(sf, 5))
+@step(r"a function whose comparison sits in a branch that the tests take only one way")
+def given_half_taken_branch(m, params):
+    ctx.write(f"{SAMPLE_MODULE}.py", HALF_TAKEN_BRANCH_SOURCE)
+    ctx.write("tests/test_qa.py", HALF_TAKEN_BRANCH_TEST)
 
 
-@step(r"a coverage command that emits an LCOV file covering line 5")
-def given_cov_cmd_covering_line5(m, params):
-    d = ctx.ensure_tmpdir()
-    script_path = os.path.join(d, "run_cov.sh")
-    write_counter_script(
-        script_path,
-        os.path.join(d, "cov_runs.log"),
-        os.path.join(d, "coverage.lcov"),
-        make_lcov_single_da(ctx.source_path, 5),
-    )
-    ctx.cov_script_path = script_path
-    ctx.cov_cmd_str = script_path
+@step(r"a test that records the coverage core it ran under")
+def given_core_recording_test(m, params):
+    ctx.core_record = os.path.join(ctx.root(), "cores.txt")
+    ctx.write("tests/test_qa.py", core_recording_test(ctx.core_record))
 
 
-@step(
-    r'an LCOV file at the default path "coverage.lcov" covering lines "([^"]*)" for that source'
-)
-def given_default_lcov(m, params):
-    d = ctx.ensure_tmpdir()
-    covered = {
-        int(n.strip()) for n in step_param(m, params, "lines").split(",") if n.strip()
-    }
-    with open(os.path.join(d, "coverage.lcov"), "w") as f:
-        f.write(make_lcov(ctx.source_path, covered))
-
-
-@step(r'there is no readable LCOV at "([^"]+)"')
-def given_no_lcov_at(m, params):
-    d = ctx.ensure_tmpdir()
-    path = os.path.join(d, step_param(m, params, "missing"))
-    if os.path.exists(path):
-        os.remove(path)
+@step(r'the caller\'s environment asks for the "([^"]*)" core')
+def given_caller_core(m, params):
+    ctx.env["COVERAGE_CORE"] = step_param(m, params, "core")
 
 
 # ── When steps ────────────────────────────────────────────────────────────────
 
 
-@step(r'I run mutate4py scanning with coverage "([^"]+)"')
-def when_scan_with_coverage(m, params):
-    import shlex
+@step(r"I run mutate4py on that source with its tests")
+def when_run_with_tests(m, params):
+    ctx.run(ctx.source_path, "--pytest-args", "tests", "--allow-survivors")
 
-    d = ctx.ensure_tmpdir()
-    flags_str = step_param(m, params, "flags")
-    flags_str = substitute_cmd_placeholders(flags_str, d, ctx.cov_cmd_str)
-    extra_args = shlex.split(flags_str)
-    ctx.cli_result = _run_mutate4py_in_dir(d, ctx.source_path, "--scan", *extra_args)
+
+@step(r'I run mutate4py on that source with the removed flag "([^"]*)"')
+def when_run_with_removed_flag(m, params):
+    flag = step_param(m, params, "flag")
+    ctx.run(ctx.source_path, "--pytest-args", "tests", *removed_flag_tokens(flag))
+
+
+@step(r"I scan that source")
+def when_scan(m, params):
+    ctx.run(ctx.source_path, "--scan")
 
 
 # ── Then steps ────────────────────────────────────────────────────────────────
@@ -169,38 +157,34 @@ def then_output_line(m, params):
     assert_stdout_contains(ctx.cli_result, step_param(m, params, "output_line"))
 
 
-@step(r"the coverage command runs exactly once")
-def then_cmd_ran_once(m, params):
-    assert_cmd_ran_n_times(ctx.ensure_tmpdir(), 1)
+@step(r'the command exits with status "(\d+)"')
+def then_exit_status(m, params):
+    assert_exit_status(ctx.cli_result, int(step_param(m, params, "exit")))
 
 
-@step(r"the coverage command runs exactly (\d+) times?")
-def then_cmd_ran_n(m, params):
-    assert_cmd_ran_n_times(ctx.ensure_tmpdir(), int(step_param(m, params, "count")))
-
-
-@step(r"the command exits with a non-zero status")
-def then_nonzero_exit(m, params):
-    assert_exit_nonzero(ctx.cli_result)
+@step(r'the output names the refusal of "([^"]*)"')
+def then_names_refusal(m, params):
+    assert_output_contains(ctx.cli_result, removed_flag_refusal(step_param(m, params, "flag")))
 
 
 @step(r"no partition counts are printed")
 def then_no_partition_counts(m, params):
-    assert "Covered mutation sites:" not in ctx.cli_result.stdout
-    assert "Uncovered mutation sites:" not in ctx.cli_result.stdout
+    assert_no_partition_counts(ctx.cli_result)
+
+
+@step(r'the first run of the tests saw the "([^"]*)" core')
+def then_first_core(m, params):
+    expected = step_param(m, params, "core")
+    assert ctx.core_record is not None, "no core-recording test was written"
+    assert first_recorded_core(ctx.core_record) == expected
 
 
 @step(r"the source file is byte-for-byte unchanged")
 def then_source_unchanged(m, params):
-    with open(ctx.source_path) as f:
-        current = f.read()
-    assert current == ctx.source_content
+    with open(ctx.source_path, "rb") as f:
+        assert f.read() == ctx.source_bytes
 
 
 @step(r'no "\.mutate4py\.bak" file is left behind')
 def then_no_bak_file(m, params):
-    d = ctx.ensure_tmpdir()
-    bak = ctx.source_path + ".mutate4py.bak" if ctx.source_path else ""
-    assert not os.path.exists(bak)
-    for fname in os.listdir(d):
-        assert not fname.endswith(".mutate4py.bak")
+    assert_no_backup_beside(ctx.source_path)

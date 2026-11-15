@@ -4,6 +4,7 @@ the failure taxonomy; this module only copies, provisions the venv, and links
 the import root.
 """
 
+import importlib.metadata
 import json
 import os
 import shutil
@@ -124,3 +125,13 @@ def _provision_venv(worker_root: str, required: frozenset[str]) -> None:
         subprocess.run(cmd, cwd=worker_root, capture_output=True, text=True, check=True)
     check_worker_python(worker_root)
     check_worker_distributions(worker_root, required)
+
+
+def _required_worker_distributions(real_cwd: str) -> frozenset[str]:
+    """The distributions every Worker venv must hold (ADR 0015): the project environment's
+    when the orchestrator runs under that `.venv`, else none (mutate4py's own venv, as in
+    the parallel-workers-15 acceptance scenario). mutate4py itself is never required."""
+    if os.path.realpath(sys.prefix) != os.path.realpath(os.path.join(real_cwd, ".venv")):
+        return frozenset()
+    names = {d.metadata["Name"].lower().replace("_", "-") for d in importlib.metadata.distributions()}
+    return frozenset(names - {"mutate4py"})

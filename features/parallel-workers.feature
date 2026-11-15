@@ -13,7 +13,7 @@ Feature: Parallel worker execution for --max-workers
   #           shouldSkipCopy :527, sortResults :457, printHeader :614, per-mutant :425).
   #
   # CONTRACT:
-  #   command: mutate4py <file> --max-workers <n> <coverage flag> [--pytest-args ARGS]
+  #   command: mutate4py <file> --max-workers <n> [--pytest-args ARGS]
   #            [selection flags] [--timeout-factor N] [--mutation-warning N]
   #   request:
   #     <file> — path, required; a Python source file with selected mutation sites (F1).
@@ -90,7 +90,7 @@ Feature: Parallel worker execution for --max-workers
   #   - Does NOT: parse or validate --max-workers (F5); it consumes the parsed count.
   #   - Does NOT: change the serial run loop (F4); the serial path is byte-identical to
   #     F4 except for the conditional "Mutation workers:" header line.
-  #   - Does NOT: re-implement site discovery (F1), manifest (F2), the LCOV gate (F3),
+  #   - Does NOT: re-implement site discovery (F1), manifest (F2), the coverage gate (F3),
   #     the report format (F4), or the splice/restore primitive (F1, reused per worker).
   #   - Does NOT: parallelize across files — only across the selected sites of the one
   #     target file (upstream mutates one file per invocation).
@@ -211,24 +211,28 @@ Feature: Parallel worker execution for --max-workers
       | exceed timeout | timeout  | Killed   |
       | exit zero      | survived | Survived |
 
-  # parallel-workers-7: per-mutant lines print in arrival order, the report is index-sorted
-  Scenario: progress prints in arrival order but the report is deterministic
-    Given the file has "3" selected mutation sites at indexes "1", "2", "3"
-    And the workers finish the mutants in order "3", "1", "2"
-    And the flag supplied is "--max-workers 3"
-    When I run mutate4py mutating that file
-    Then the per-mutant lines appear in arrival order "3", "1", "2"
-    And the "Survivors:" block lists sites sorted by stable index
-    And the "Mutation Report" tallies are independent of finish order
+  # parallel-workers-7: the report is deterministic whatever order the workers finish in
+  Scenario: the same report and survivor set come out of repeated parallel runs
+    Given the file has "4" selected mutation sites
+    And "1" of the mutants survive and the rest are killed
+    And the flag supplied is "--max-workers 4"
+    When I run mutate4py mutating that file twice
+    Then both runs print "Killed: 3"
+    And both runs print "Survived: 1"
+    And both runs list the same site under "Survivors:"
 
-  # parallel-workers-8: each worker mutates and restores only its own copy
+  # parallel-workers-8: each worker mutates and restores only its own copy. The tests
+  # record where they run: the Measurement runs in the original directory, every mutated
+  # run in a worker copy, and the original source never holds a Mutant while they do.
   Scenario: a worker mutates its own copy and the original file is never spliced
     Given the file has "4" selected mutation sites
+    And the tests record where they run
     And the flag supplied is "--max-workers 4"
     When I run mutate4py mutating that file
-    Then each worker has its own copy under ".mutate4py/workers/"
-    And each worker copy is restored to the original after its mutant
-    And the original source file is never spliced with a mutant during the run
+    Then the Measurement ran in the original directory
+    And every mutated test run ran under a worker copy in ".mutate4py/workers/"
+    And the original source never held a mutant while the tests ran
+    And after the run the original source has no mutant spliced in
     And no per-worker ".mutate4py.bak" file is created
 
   # parallel-workers-9: the worker copy skips VCS, caches, and the worker dir itself
@@ -251,9 +255,10 @@ Feature: Parallel worker execution for --max-workers
   # parallel-workers-10: the worker root is created during and removed after the run
   Scenario: the worker run root is cleaned up when the run ends
     Given the file has "4" selected mutation sites
+    And the tests record where they run
     And the flag supplied is "--max-workers 4"
     When I run mutate4py mutating that file
-    Then a worker run root existed under ".mutate4py/workers/" during the run
+    Then every mutated test run saw a worker tree under ".mutate4py/workers/"
     And no worker run root remains under ".mutate4py/workers/" after the run
 
   # parallel-workers-11: a worker failure aborts the whole run with no report

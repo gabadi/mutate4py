@@ -13,23 +13,27 @@ programmatically. The one exception is `NoFilesToProcessError` from
 """
 
 import argparse
+import dataclasses
 import logging
 import os
 import shlex
 import sys
+import time
 
 from mutate4py._cli_validation import check_run_env
+from mutate4py._executor import MutantTiming
 from mutate4py._exit_codes import EXIT_USAGE, worse_exit_code
+from mutate4py._measurement import CoverageCoreRefused, Measurement, MeasurementFailed, measure_in_scratch
+from mutate4py._report import batch_summary_lines, measurement_failure
 from mutate4py._runner import (
-    CoverageError,
-    CoverageSource,
     RunMutationsRequest,
     check_manifest,
-    run_baseline,
     run_mutations,
     run_scan,
     update_manifest,
 )
+from mutate4py._skip_facts import skipped_manifests
+from mutate4py._skipped_run import skipped_run_report
 from mutate4py._target_resolution import (
     NoFilesToProcessError,
     _collect_py_files,
@@ -37,10 +41,6 @@ from mutate4py._target_resolution import (
     _expand_roots,
     _is_excluded,
 )
-from mutate4py._executor_selection import _prepare_executor
-from mutate4py._forking_executor import ForkingExecutor, isolated_coverage_session_safe
-from mutate4py._test_context_build import IsolatedSessionRunner
-from mutate4py._test_context_orchestration import build_test_contexts
 from mutate4py._workspace import _discover_workspace_roots, _workspace_exclude_dirs
 
 _logger = logging.getLogger(__name__)
@@ -67,27 +67,6 @@ def _report_parse_error(path: str, exc: SyntaxError) -> None:
     _logger.error(f"error: cannot parse {path}: {_syntax_error_reason(exc)}")
 
 
-def _parse_line_token(token: str) -> int:
-    """Parse a single --lines token into a positive int; exit on error."""
-    try:
-        n = int(token)
-    except ValueError:
-        _logger.error(f"error: --lines value {token!r} is not a valid integer.")
-        sys.exit(2)
-    if n < 1:
-        _logger.error(f"error: --lines value {token!r} must be a positive integer (>= 1).")
-        sys.exit(2)
-    return n
-
-
-def _parse_lines(lines_str: str | None) -> set[int] | None:
-    """Parse --lines argument into a set of positive ints, or None if not given."""
-    if lines_str is None:
-        return None
-    parts = [p.strip() for p in lines_str.split(",") if p.strip()]
-    return {_parse_line_token(p) for p in parts}
-
-
 def _parse_pytest_args(raw: str | None) -> list[str]:
     """Parse --pytest-args into a token list; exit on malformed quoting."""
     if not raw:
@@ -99,24 +78,23 @@ def _parse_pytest_args(raw: str | None) -> list[str]:
         sys.exit(2)
 
 
-def _run_scan(args: argparse.Namespace, path: str, source: str, cwd: str) -> None:
-    """Execute --scan logic; exits with code 2 on CoverageError."""
-    try:
-        run_scan(
-            path=path,
-            source=source,
-            warning_threshold=args.warning_threshold,
-            coverage=CoverageSource(
-                cov_cmd=args.cov_cmd,
-                lcov_path=args.lcov,
-                reuse_coverage=args.reuse_coverage,
-                cwd=cwd,
-            ),
-            manifest_file=args.manifest_file,
-        )
-    except CoverageError as exc:
-        _logger.error(f"error: {exc}")
-        sys.exit(2)
+def _run_scan(args: argparse.Namespace, path: str, source: str) -> None:
+    """Execute --scan logic: count the sites; coverage-free, so no Measurement runs."""
+    run_scan(
+        path=path,
+        source=source,
+        warning_threshold=args.warning_threshold,
+        manifest_file=args.manifest_file,
+    )
+
+
+@dataclasses.dataclass
+class BatchShare:
+    """What a directory run's files share: the one Measurement (None when no file runs Mutants)
+    and the Time total each file's run adds its own timing to (None for a lone file)."""
+
+    measurement: Measurement | None
+    timing: MutantTiming | None
 
 
 def _run_on_file(
@@ -124,36 +102,30 @@ def _run_on_file(
     py_file: str,
     source: str,
     cwd: str,
-    baseline_duration: float | None = None,
+    batch: BatchShare | None = None,
 ) -> int:
+    batch = batch or BatchShare(None, None)
     if args.check_manifest:
         return check_manifest(path=py_file, source=source, manifest_file=args.manifest_file)
     if args.update_manifest:
         update_manifest(path=py_file, source=source, manifest_file=args.manifest_file)
         return 0
     if args.scan:
-        _run_scan(args, py_file, source, cwd)
+        _run_scan(args, py_file, source)
         return 0
-    lines_filter = _parse_lines(args.lines)
     max_workers = args.max_workers if args.max_workers is not None else 0
     return run_mutations(
         RunMutationsRequest(
             path=py_file,
             source=source,
-            cov_cmd=args.cov_cmd,
-            lcov_path=args.lcov,
-            reuse_coverage=args.reuse_coverage,
             pytest_args=args.pytest_args,
             timeout_factor=args.timeout_factor,
             min_timeout=args.min_timeout,
-            lines_filter=lines_filter,
-            since_last_run=args.since_last_run,
-            mutate_all=args.mutate_all,
             warning_threshold=args.warning_threshold,
             max_workers=max_workers,
             cwd=cwd,
-            baseline_duration=baseline_duration,
-            test_contexts_path=args.test_contexts,
+            measurement=batch.measurement,
+            timing_sink=batch.timing,
             manifest_file=args.manifest_file,
             forking_requested=not args.no_fork,
             allow_survivors=args.allow_survivors,
@@ -161,66 +133,45 @@ def _run_on_file(
     )
 
 
-def _build_isolated_session_runner(*, no_fork: bool, cwd: str) -> IsolatedSessionRunner | None:
-    """Executor for --build-test-contexts' per-test isolated coverage
-    sessions: the forking path when eligible, else None (build_test_context_db
-    falls back to its own cold `coverage run` subprocess per test).
-
-    guarded_path=cwd (a directory, not a mutated file): nothing is ever
-    mutated on disk during this build, so assert_source_clean's module-leak
-    check — which exists to protect a forked child from reading a just-
-    mutated file's stale pre-fork import — has no freshness hazard to guard
-    here. A directory's realpath can never equal an imported module's
-    __file__ realpath, so the check is a structural no-op, which is correct
-    rather than a workaround. This still reuses select_executor's existing
-    fallback logic verbatim — no separate eligibility mechanism.
-
-    That module-leak check being a no-op here also means it can no longer
-    coincidentally protect against the fork-after-prime plugin deadlock the
-    way it does for ordinary Mutant execution (see
-    isolated_coverage_session_safe's docstring) — so that hazard needs this
-    explicit, separate precheck instead.
-    """
-    executor = _prepare_executor(requested=not no_fork, cwd=cwd, guarded_path=cwd)
-    if not isinstance(executor, ForkingExecutor) or not isolated_coverage_session_safe():
-        return None
-
-    def run_isolated_session(node_id: str, data_file: str, pytest_args: list[str]) -> str:
-        return executor.run_isolated_coverage_session(
-            node_id, data_file=data_file, pytest_args=pytest_args, timeout=float("inf")
-        )
-
-    return run_isolated_session
-
-
-def _needs_directory_baseline(files: list[str], args: argparse.Namespace) -> bool:
-    """A shared baseline is only needed when the run will actually execute mutants."""
+def _needs_measurement(files: list[str], args: argparse.Namespace) -> bool:
+    """A shared Measurement is only needed when the run will actually execute mutants."""
     return bool(files) and not (args.scan or args.update_manifest or args.check_manifest)
 
 
-def _prepare_directory_baseline(args: argparse.Namespace, files: list[str], cwd: str) -> float:
-    """Acquire coverage once and time the baseline for a directory run.
+def _exit_if_skipped(args: argparse.Namespace, files: list[str]) -> None:
+    """Exit with the skipped-run report when every target's stored Manifest lets this run skip
+    its Measurement (design #89 §5b); return otherwise, so the run goes on as usual."""
+    if not _needs_measurement(files, args):
+        return
+    cwd = os.getcwd()
+    manifests = skipped_manifests(
+        files,
+        args.pytest_args,
+        cwd,
+        manifest_file=args.manifest_file,
+    )
+    if manifests is None:
+        return
+    lines, code = skipped_run_report(list(zip(files, manifests)), cwd=cwd, allow_survivors=args.allow_survivors)
+    _logger.info("\n".join(lines))
+    sys.exit(code)
+
+
+def _prepare_directory_measurement(args: argparse.Namespace, files: list[str], cwd: str) -> Measurement:
+    """Take the one Measurement a directory run shares across all its files.
 
     Exits the process on failure, matching the single-file dispatch behavior.
     """
-    from mutate4py._coverage import acquire_coverage
-
     try:
-        acquire_coverage(
-            cov_cmd=args.cov_cmd,
-            lcov_path=args.lcov,
-            reuse=args.reuse_coverage,
+        return measure_in_scratch(
             cwd=cwd,
-            source_path=os.path.abspath(files[0]),
+            pytest_args=args.pytest_args,
+            target_files=tuple(os.path.abspath(path) for path in files),
         )
-    except CoverageError as exc:
-        _logger.error(f"error: {exc}")
-        sys.exit(1)
-    baseline_duration, baseline_error = run_baseline(args.pytest_args, cwd)
-    if baseline_error is not None:
-        _logger.error(f"baseline failed: {baseline_error}")
-        sys.exit(1)
-    return baseline_duration
+    except (MeasurementFailed, CoverageCoreRefused) as exc:
+        code, message = measurement_failure(exc)
+        _logger.error(message)
+        sys.exit(code)
 
 
 def _report_excluded(excluded: list[str]) -> None:
@@ -247,35 +198,49 @@ def _collect_union_files(args: argparse.Namespace, roots: list[str]) -> list[str
     return kept
 
 
+def _run_each_file(
+    args: argparse.Namespace,
+    files: list[str],
+    cwd: str,
+    batch: BatchShare,
+) -> tuple[int, int]:
+    """Run the configured mode over every file; return (worst code, parse failures).
+
+    A failing file never stops the batch, including a file that fails to parse:
+    it contributes code 2 and is counted in the parse-failure total."""
+    exit_code = 0
+    parse_failures = 0
+    for py_file in files:
+        try:
+            exit_code = worse_exit_code(exit_code, _run_on_file(args, py_file, _load_source(py_file), cwd, batch))
+        except SyntaxError as exc:
+            _report_parse_error(py_file, exc)
+            exit_code = worse_exit_code(exit_code, EXIT_USAGE)
+            parse_failures += 1
+    return exit_code, parse_failures
+
+
 def _run_files_and_exit(args: argparse.Namespace, files: list[str]) -> None:
     """Run the configured mode over every file; exit with the most severe
     per-file code, 2 > 1 > 3 > 0, so a survivor never masks a parse or usage
     error. A failing file never stops the batch — including a file that fails
     to parse, which contributes code 2 and is tallied into the trailing
     parse-failure summary line."""
+    started = time.monotonic()
     cwd = os.getcwd()
-    baseline_duration = None
-    if _needs_directory_baseline(files, args):
-        baseline_duration = _prepare_directory_baseline(args, files, cwd)
-    exit_code = 0
-    parse_failures = 0
-    for py_file in files:
-        try:
-            exit_code = worse_exit_code(
-                exit_code,
-                _run_on_file(args, py_file, _load_source(py_file), cwd, baseline_duration),
-            )
-        except SyntaxError as exc:
-            _report_parse_error(py_file, exc)
-            exit_code = worse_exit_code(exit_code, EXIT_USAGE)
-            parse_failures += 1
+    _exit_if_skipped(args, files)
+    measurement = _prepare_directory_measurement(args, files, cwd) if _needs_measurement(files, args) else None
+    timing = MutantTiming()
+    exit_code, parse_failures = _run_each_file(args, files, cwd, BatchShare(measurement, timing))
+    if measurement is not None:
+        _logger.info("\n".join(batch_summary_lines(measurement, timing, time.monotonic() - started)))
     if parse_failures:
         _logger.error(f"error: {parse_failures} files could not be parsed")
     sys.exit(exit_code)
 
 
 def _dispatch_batch(args: argparse.Namespace, roots: list[str]) -> None:
-    """One or more resolved roots: one shared baseline, and one exit code — the
+    """One or more resolved roots: one shared Measurement, and one exit code — the
     worst per-file code across the batch."""
     _run_files_and_exit(args, _collect_union_files(args, roots))
 
@@ -318,21 +283,6 @@ def _dispatch(args: argparse.Namespace) -> None:
     byte-for-byte framing, so it's called out here rather than silently.
     """
     args.pytest_args = _parse_pytest_args(args.pytest_args)
-    if args.build_test_contexts is not None:
-        # No file roots to resolve: the db covers whatever pytest collects
-        # (scoped by --pytest-args), not a mutation target — validated to
-        # exclude positional PATHs in _cli_validation, so workspace
-        # autodiscovery below would never apply to this mode anyway.
-        cwd = os.getcwd()
-        check_run_env(args, [], cwd)
-        sys.exit(
-            build_test_contexts(
-                output_db_path=args.build_test_contexts,
-                cwd=cwd,
-                pytest_args=args.pytest_args,
-                isolated_session_runner=_build_isolated_session_runner(no_fork=args.no_fork, cwd=cwd),
-            )
-        )
     roots, args.prune_dirs = _resolve_roots(args)
     check_run_env(args, roots, os.getcwd())
     if len(roots) > 1:
@@ -347,6 +297,7 @@ def _dispatch(args: argparse.Namespace) -> None:
         return
     source = _load_source(args.file)  # a bad path must report itself, not "excluded"
     _raise_if_target_excluded(args)
+    _exit_if_skipped(args, [args.file])
     try:
         sys.exit(_run_on_file(args, args.file, source, os.getcwd()))
     except SyntaxError as exc:

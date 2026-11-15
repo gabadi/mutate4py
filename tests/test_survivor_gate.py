@@ -1,16 +1,20 @@
 """Survivor gate (#76): a scored run with an unaccepted survivor exits 3.
 
 Component tests drive run_mutations in-process with real pytest subprocesses.
+Each run is handed the Measurement the test states (see `_measurement_helpers`),
+so a test controls which lines the suite reached without a coverage file.
 Unit tests cover the --allow-survivors flag, its rejection in no-run modes,
 and its wiring from the CLI namespace into the run request.
 """
 
 import io
+import json
 import os
 from contextlib import redirect_stdout
 
 import pytest
 
+from ._measurement_helpers import measurement_for
 from ._pytest_project_helpers import (
     write_always_passing_pytest_project,
     write_content_check_pytest_project,
@@ -23,77 +27,81 @@ _SRC = "def f(a, b):\n    return a > b\n"
 _TWO_FUNCTIONS = "def f(a, b):\n    return a > b\n\n\ndef g(a, b):\n    return a > b\n"
 
 
-def _write_source_and_lcov(tmp_path, source=_SRC):
+def _write_source(tmp_path, source=_SRC):
     src_path = str(tmp_path / "calc.py")
     with open(src_path, "w") as f:
         f.write(source)
-    sites = discover_sites(source)
-    lcov_path = str(tmp_path / "cov.lcov")
-    da_lines = "\n".join(f"DA:{s.line},1" for s in sites)
-    with open(lcov_path, "w") as f:
-        f.write(f"SF:{src_path}\n{da_lines}\nend_of_record\n")
-    return src_path, lcov_path, sites
+    return src_path, discover_sites(source)
 
 
-def _request(tmp_path, src_path, lcov_path, pytest_args, **extra):
+def _covering(src_path, lines):
+    """A Measurement in which the suite reached `lines` at import time (Empty context)."""
+    return measurement_for(os.path.abspath(src_path), {"": lines}, wall=0.01)
+
+
+def _covering_all(src_path, sites):
+    return _covering(src_path, [s.line for s in sites])
+
+
+def _request(tmp_path, src_path, measurement, pytest_args, **extra):
     return RunMutationsRequest(
         path=src_path,
         source=extra.pop("source", _SRC),
-        cov_cmd=None,
-        lcov_path=lcov_path,
-        reuse_coverage=False,
+        measurement=measurement,
         pytest_args=pytest_args,
         timeout_factor=extra.pop("timeout_factor", 10),
-        min_timeout=extra.pop("min_timeout", 1.0),
-        lines_filter=None,
-        since_last_run=False,
-        mutate_all=extra.pop("mutate_all", False),
+        # A fake Measurement carries no test durations, so the timeout is this floor alone.
+        # The full-set confirmation runs a real pytest subprocess (about 1s), so the floor
+        # must clear its startup or the confirmation times out and reads as a kill.
+        min_timeout=extra.pop("min_timeout", 5.0),
         warning_threshold=1000,
         cwd=str(tmp_path),
         **extra,
     )
 
 
-def _run(tmp_path, src_path, lcov_path, pytest_args, **extra):
-    request = _request(tmp_path, src_path, lcov_path, pytest_args, **extra)
+def _run(tmp_path, src_path, measurement, pytest_args, **extra):
+    request = _request(tmp_path, src_path, measurement, pytest_args, **extra)
     with redirect_stdout(io.StringIO()):
         return run_mutations(request)
 
 
 @pytest.mark.component
 def test_run_mutations_returns_3_when_a_mutant_survives(tmp_path):
-    src_path, lcov_path, _ = _write_source_and_lcov(tmp_path)
+    src_path, sites = _write_source(tmp_path)
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
-    assert _run(tmp_path, src_path, lcov_path, pytest_args) == 3
+    assert _run(tmp_path, src_path, _covering_all(src_path, sites), pytest_args) == 3
 
 
 @pytest.mark.component
 def test_run_mutations_returns_0_when_survivors_allowed(tmp_path):
-    src_path, lcov_path, _ = _write_source_and_lcov(tmp_path)
+    src_path, sites = _write_source(tmp_path)
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
-    assert _run(tmp_path, src_path, lcov_path, pytest_args, allow_survivors=True) == 0
+    assert _run(tmp_path, src_path, _covering_all(src_path, sites), pytest_args, allow_survivors=True) == 0
 
 
 @pytest.mark.component
 def test_run_mutations_timeout_is_not_a_survivor(tmp_path):
     # A mutant that exceeds the timeout is Killed, so the run exits 0.
     # A fast pass would be a survivor and exit 3, so 0 proves the timeout path.
-    src_path, lcov_path, sites = _write_source_and_lcov(tmp_path)
+    src_path, sites = _write_source(tmp_path)
     pytest_args = write_sleep_if_mutated_pytest_project(str(tmp_path), src_path, sites[0].mutant_text, 5)
 
-    assert _run(tmp_path, src_path, lcov_path, pytest_args, timeout_factor=1, min_timeout=0.1) == 0
+    measurement = _covering_all(src_path, sites)
+    assert _run(tmp_path, src_path, measurement, pytest_args, timeout_factor=1, min_timeout=0.1) == 0
 
 
 @pytest.mark.component
 def test_run_mutations_exits_0_when_every_survivor_is_accepted(tmp_path):
     # The marker accepts the survivor, so the run does not exit 3 and the reason is recorded.
     marked = "def f(a, b):\n    return a > b  # mutate4py: equivalent same for all inputs\n"
-    src_path, lcov_path, _ = _write_source_and_lcov(tmp_path, marked)
+    src_path, sites = _write_source(tmp_path, marked)
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
-    assert _run(tmp_path, src_path, lcov_path, pytest_args, source=marked, manifest_file=True) == 0
+    code = _run(tmp_path, src_path, _covering_all(src_path, sites), pytest_args, source=marked, manifest_file=True)
+    assert code == 0
 
     fn = _recorded_function(src_path)
     assert fn["survivors"] == []
@@ -104,9 +112,9 @@ def test_run_mutations_exits_0_when_every_survivor_is_accepted(tmp_path):
 def test_empty_marker_reason_returns_2_before_baseline(tmp_path):
     # An empty reason is a usage error, raised before any .bak is written or the source is touched.
     bare = "def f(a, b):\n    return a > b  # mutate4py: equivalent\n"
-    src_path, lcov_path, _ = _write_source_and_lcov(tmp_path, bare)
+    src_path, sites = _write_source(tmp_path, bare)
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
-    request = _request(tmp_path, src_path, lcov_path, pytest_args, source=bare)
+    request = _request(tmp_path, src_path, _covering_all(src_path, sites), pytest_args, source=bare)
 
     out = io.StringIO()
     with redirect_stdout(out):
@@ -173,10 +181,10 @@ def _recorded_function(src_path, function_id=_SURVIVOR_FN):
 
 @pytest.mark.component
 def test_scored_run_records_survivor_in_sidecar(tmp_path):
-    src_path, lcov_path, sites = _write_source_and_lcov(tmp_path)
+    src_path, sites = _write_source(tmp_path)
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
 
-    assert _run(tmp_path, src_path, lcov_path, pytest_args, manifest_file=True) == 3
+    assert _run(tmp_path, src_path, _covering_all(src_path, sites), pytest_args, manifest_file=True) == 3
 
     fn = _recorded_function(src_path)
     assert fn["score"] == {"killed": 0, "survived": 1, "uncovered": 0}
@@ -184,38 +192,36 @@ def test_scored_run_records_survivor_in_sidecar(tmp_path):
 
 
 @pytest.mark.component
-def test_default_rerun_retries_survivor_function_and_clears_it(tmp_path):
-    src_path, lcov_path, sites = _write_source_and_lcov(tmp_path)
-    pytest_args = write_always_passing_pytest_project(str(tmp_path))
-    assert _run(tmp_path, src_path, lcov_path, pytest_args, manifest_file=True) == 3
+def test_default_rerun_retries_survivor_function_once_its_tests_change_and_clears_it(tmp_path):
+    src_path, sites = _write_source(tmp_path)
+    # The Measurement names the content-check test as reaching the function, so the digest
+    # reads that file. Its content is the only thing that changes between the two runs.
+    context = "tests/test_content_check.py::test_not_mutated"
+    measurement = measurement_for(os.path.abspath(src_path), {context: [s.line for s in sites]}, wall=0.01)
+    pytest_args = write_content_check_pytest_project(str(tmp_path), src_path, "NEVER_PRESENT_IN_THE_SOURCE")
+    assert _run(tmp_path, src_path, measurement, pytest_args, manifest_file=True) == 3
     assert _recorded_function(src_path)["survivors"] == [{"line": sites[0].line, "desc": sites[0].desc}]
 
     # The suite now kills the survivor: it fails only when the mutated text is on disk.
-    # A default rerun (no --mutate-all) must retry the survivor's function.
+    # The edit moves the stored tests digest, so the function is re-scored and the survivor clears.
     pytest_args = write_content_check_pytest_project(str(tmp_path), src_path, sites[0].mutant_text)
-    assert _run(tmp_path, src_path, lcov_path, pytest_args, manifest_file=True) == 0
+    assert _run(tmp_path, src_path, measurement, pytest_args, manifest_file=True) == 0
 
     fn = _recorded_function(src_path)
     assert fn["survivors"] == []
     assert fn["score"]["survived"] == 0
 
 
-def _write_lcov_for_lines(lcov_path: str, src_path: str, lines: list[int]) -> None:
-    da_lines = "\n".join(f"DA:{ln},1" for ln in lines)
-    with open(lcov_path, "w") as f:
-        f.write(f"SF:{src_path}\n{da_lines}\nend_of_record\n")
-
-
 @pytest.mark.component
 def test_default_run_without_coverage_keeps_recorded_survivor(tmp_path):
     # A default run that selects no Site (its coverage misses the survivor's line) must not
-    # clear the survivor it never retested.
-    src_path, lcov_path, sites = _write_source_and_lcov(tmp_path)
+    # clear the survivor it never retested. The skipped function's recorded survivor still
+    # counts toward the exit code (spec 89 §5), so the run exits 3.
+    src_path, sites = _write_source(tmp_path)
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
-    assert _run(tmp_path, src_path, lcov_path, pytest_args, manifest_file=True) == 3
+    assert _run(tmp_path, src_path, _covering_all(src_path, sites), pytest_args, manifest_file=True) == 3
 
-    _write_lcov_for_lines(lcov_path, src_path, [])
-    assert _run(tmp_path, src_path, lcov_path, pytest_args, manifest_file=True) == 0
+    assert _run(tmp_path, src_path, _covering(src_path, []), pytest_args, manifest_file=True) == 3
 
     assert _recorded_function(src_path)["survivors"] == [{"line": sites[0].line, "desc": sites[0].desc}]
     with open(src_path) as f:
@@ -229,53 +235,37 @@ _TWO_SITES_IN_F = "def f(a, b):\n    x = a > b\n    return x < b\n"
 def test_default_run_keeps_survivor_whose_line_lost_coverage(tmp_path):
     # The function stays partly covered (its second line is still covered), yet the first line's
     # survivor was never retested. The rerun must not replace the function's recorded survivors.
-    src_path, lcov_path, sites = _write_source_and_lcov(tmp_path, _TWO_SITES_IN_F)
+    src_path, sites = _write_source(tmp_path, _TWO_SITES_IN_F)
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
-    assert _run(tmp_path, src_path, lcov_path, pytest_args, source=_TWO_SITES_IN_F, manifest_file=True) == 3
+    run = dict(source=_TWO_SITES_IN_F, manifest_file=True)
+    assert _run(tmp_path, src_path, _covering_all(src_path, sites), pytest_args, **run) == 3
     lost, kept = sites[0], sites[-1]
 
-    _write_lcov_for_lines(lcov_path, src_path, [kept.line])
-    assert _run(tmp_path, src_path, lcov_path, pytest_args, source=_TWO_SITES_IN_F, manifest_file=True) == 3
+    assert _run(tmp_path, src_path, _covering(src_path, [kept.line]), pytest_args, **run) == 3
 
     assert {"line": lost.line, "desc": lost.desc} in _recorded_function(src_path)["survivors"]
 
 
 @pytest.mark.component
-def test_mutate_all_scores_uncovered_function(tmp_path):
-    src_path, lcov_path, sites = _write_source_and_lcov(tmp_path, _TWO_FUNCTIONS)
-    pytest_args = write_always_passing_pytest_project(str(tmp_path))
-    assert _run(tmp_path, src_path, lcov_path, pytest_args, source=_TWO_FUNCTIONS, manifest_file=True) == 3
-    assert _recorded_function(src_path, "func/g")["survivors"] != []
-
-    f_line = next(s.line for s in sites if s.function_id == "func/f")
-    _write_lcov_for_lines(lcov_path, src_path, [f_line])
-    assert (
-        _run(tmp_path, src_path, lcov_path, pytest_args, source=_TWO_FUNCTIONS, manifest_file=True, mutate_all=True)
-        == 3
-    )
-
-    fn = _recorded_function(src_path, "func/g")
-    assert fn["score"] == {"killed": 0, "survived": 0, "uncovered": 1}
-    assert fn["survivors"] == []
-
-
-@pytest.mark.component
-def test_noop_default_run_leaves_014_sidecar_bytes(tmp_path):
-    # A 0.1.4 sidecar (no score blocks) must not gain them on a default run that selects nothing.
+def test_default_run_scores_every_function_of_a_014_sidecar(tmp_path):
+    # A 0.1.4 sidecar carries no score blocks, so every function is Unscored and a default run scores
+    # all of them (ADR 0029 rule 1). g's Site is not covered, yet g is scored uncovered, not skipped:
+    # a skipped Unscored function would keep the Manifest from ever taking the no-change skip.
     src_path = str(tmp_path / "calc.py")
     with open(src_path, "w") as f:
         f.write(_TWO_FUNCTIONS)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov_for_lines(lcov_path, src_path, [2])
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
     assert update_manifest(path=src_path, source=_TWO_FUNCTIONS, manifest_file=True) == 0
-    with open(src_path + ".manifest.json") as f:
-        before = f.read()
 
-    assert _run(tmp_path, src_path, lcov_path, pytest_args, source=_TWO_FUNCTIONS, manifest_file=True) == 0
+    measurement = _covering(src_path, [2])
+    assert _run(tmp_path, src_path, measurement, pytest_args, source=_TWO_FUNCTIONS, manifest_file=True) == 3
 
     with open(src_path + ".manifest.json") as f:
-        assert f.read() == before
+        after = json.load(f)
+    assert all("score" in fn for fn in after["functions"])
+    assert _recorded_function(src_path)["score"] == {"killed": 0, "survived": 1, "uncovered": 0}
+    assert _recorded_function(src_path, "func/g")["score"] == {"killed": 0, "survived": 0, "uncovered": 1}
+    assert after.get("tests_fingerprint") is not None
 
 
 @pytest.mark.unit
@@ -293,9 +283,41 @@ def test_compute_manifest_diff_includes_functions_with_survivors(tmp_path):
     )
     write_sidecar_manifest(src_path, manifest)
 
-    changed = _compute_manifest_diff(_SRC, ManifestLocation(path=src_path, manifest_file=True))[3]
+    changed = _compute_manifest_diff(_SRC, ManifestLocation(path=src_path, manifest_file=True)).changed_fn_ids
 
     assert changed == {_SURVIVOR_FN}
+
+
+@pytest.mark.unit
+def test_compute_manifest_diff_includes_functions_without_a_score_block(tmp_path):
+    # Source and tests are unchanged, but the stored entry carries no score block: the function is Unscored
+    # and a default run selects it (ADR 0029 rule 1).
+    from mutate4py._manifest import build_manifest
+    from mutate4py._manifest_storage import ManifestLocation, write_sidecar_manifest
+    from mutate4py._source_loading import _compute_manifest_diff
+
+    src_path = str(tmp_path / "calc.py")
+    write_sidecar_manifest(src_path, build_manifest(_SRC, tested_at="2026-01-01T00:00:00Z"))
+
+    changed = _compute_manifest_diff(_SRC, ManifestLocation(path=src_path, manifest_file=True)).changed_fn_ids
+
+    assert changed == {_SURVIVOR_FN}
+
+
+@pytest.mark.unit
+def test_compute_manifest_diff_leaves_out_a_scored_function_without_survivors(tmp_path):
+    from mutate4py._manifest import build_manifest
+    from mutate4py._manifest_storage import ManifestLocation, write_sidecar_manifest
+    from mutate4py._source_loading import _compute_manifest_diff
+
+    src_path = str(tmp_path / "calc.py")
+    manifest = build_manifest(_SRC, tested_at="2026-01-01T00:00:00Z")
+    manifest["functions"][0].update(score={"killed": 1, "survived": 0, "uncovered": 0}, survivors=[], accepted=[])
+    write_sidecar_manifest(src_path, manifest)
+
+    changed = _compute_manifest_diff(_SRC, ManifestLocation(path=src_path, manifest_file=True)).changed_fn_ids
+
+    assert changed == set()
 
 
 @pytest.mark.unit
@@ -333,15 +355,60 @@ _UNMARKED = "def f(a, b):\n    return a > b\n"
 
 @pytest.mark.component
 def test_default_rerun_retests_function_whose_marker_was_removed(tmp_path):
-    src_path, lcov_path, sites = _write_source_and_lcov(tmp_path, _MARKED)
+    src_path, sites = _write_source(tmp_path, _MARKED)
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
-    assert _run(tmp_path, src_path, lcov_path, pytest_args, source=_MARKED, manifest_file=True) == 0
+    assert (
+        _run(tmp_path, src_path, _covering_all(src_path, sites), pytest_args, source=_MARKED, manifest_file=True) == 0
+    )
     assert _recorded_function(src_path)["accepted"] == [
         {"line": sites[0].line, "desc": sites[0].desc, "reason": "same for all inputs"}
     ]
 
     # The reviewer rejects the claim: the developer deletes the marker and nothing else changes.
-    src_path, lcov_path, _ = _write_source_and_lcov(tmp_path, _UNMARKED)
-    assert _run(tmp_path, src_path, lcov_path, pytest_args, source=_UNMARKED, manifest_file=True) == 3
+    src_path, sites = _write_source(tmp_path, _UNMARKED)
+    assert (
+        _run(tmp_path, src_path, _covering_all(src_path, sites), pytest_args, source=_UNMARKED, manifest_file=True) == 3
+    )
 
     assert _recorded_function(src_path)["accepted"] == []
+
+
+# --- Survivor confirmation (#97) ---------------------------------------------
+
+# A memoised body: test_a's call runs the body and caches the result, so test_b reads the
+# cache and never reaches the body. The Measurement therefore names test_a alone for the
+# body's lines: a narrowed run of a body Mutant passes, and only the full set (test_b, reading
+# the cache the Mutant wrote) kills it. f(2) is 7, so no body Mutant matches the expected value.
+_MEMOISED = "_cache = {}\n\n\ndef f(a):\n    if a not in _cache:\n        _cache[a] = a * 3 + 1\n    return _cache[a]\n"
+
+
+def _write_memoised_project(tmp_path) -> list[str]:
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir(exist_ok=True)
+    (tests_dir / "test_a_first_call.py").write_text(
+        "from calc import f\n\n\ndef test_first_call_is_positive():\n    assert f(2) > 0\n"
+    )
+    (tests_dir / "test_b_cached_call.py").write_text(
+        "from calc import f\n\n\ndef test_cached_call_is_seven():\n    assert f(2) == 7\n"
+    )
+    return ["-q", "tests"]
+
+
+@pytest.mark.component
+def test_memoised_body_survivor_is_confirmed_killed_by_the_full_set(tmp_path):
+    # The narrowed run of a body Mutant names test_a alone and passes. The full set kills it,
+    # so the Mutant is a confirmation kill and the run has no unaccepted Survivor.
+    src_path, _ = _write_source(tmp_path, _MEMOISED)
+    pytest_args = _write_memoised_project(tmp_path)
+    body_lines = [5, 6, 7]
+    measurement = measurement_for(
+        os.path.abspath(src_path),
+        {"tests/test_a_first_call.py::test_first_call_is_positive": body_lines},
+        wall=0.01,
+    )
+
+    assert _run(tmp_path, src_path, measurement, pytest_args, source=_MEMOISED, manifest_file=True) == 0
+
+    fn = _recorded_function(src_path)
+    assert fn["survivors"] == []
+    assert fn["score"]["survived"] == 0

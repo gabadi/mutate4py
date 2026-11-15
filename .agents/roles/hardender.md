@@ -4,25 +4,24 @@
 This project (mutate4py) is self-hosted — it generates and checks its own mutation manifests. Use `uv run mutate4py` (not `uvx mutate4py`; uvx isolates the env and breaks self-referential scanning).
 
 Key commands:
-- `uv run mutate4py src/ --check-manifest` — verify all manifests are current (CI gate; exits 0 if current, 1 if missing/stale)
+- `uv run mutate4py src/ --check-manifest --manifest-file` — verify the manifests are current: unit hashes, recorded Survivors and equivalent markers. It runs no test, so it does not check tests digests. CI gate; exits 0 if current, 1 if a manifest is missing, stale, or records an unaccepted Survivor.
 - `uv run mutate4py <file> --scan` — scan a single file and print surviving mutants
 - `uv run mutate4py <file> --update-manifest` — regenerate and embed a file's manifest
 
 `--scan`, `--update-manifest`, and `--check-manifest` are mutually exclusive. `--scan` and `--update-manifest` accept exactly ONE file; for multi-file operations loop over files or use a directory with `--check-manifest`.
 
-## Running a Scored Mutation Pass (use `just mutate`, never raw `mutate4py --mutate-all`)
-`_runner.py` prints one `[i/total] <status> line N ...` line per mutation site unconditionally on a scored run — for the ~346-site full-src/ surface that's ~20k chars an agent's Bash tool would otherwise capture in full, every hardening iteration.
+## Running a Scored Mutation Pass (use `just mutate`, never raw `mutate4py`)
+`_runner.py` prints one `[i/total] <status> line N ...` line per mutation site unconditionally on a scored run. On a full-src/ run that is many thousands of characters an agent's Bash tool would otherwise capture in full, every hardening iteration.
 
-Invoke scored runs through the justfile instead of calling `mutate4py --mutate-all` directly:
+Invoke scored runs through the justfile instead of calling `mutate4py` directly:
 ```
-just check test-unit test-integration   # once per verification pass, refreshes lcov.info
-just mutate <path>        # e.g. just mutate src/mutate4py/_runner.py --mutate-all
+just mutate <path>                      # e.g. just mutate src/mutate4py/_runner.py
 ```
-`just mutate` is `justfile`'s wrapper: it redirects the run to a temp log, then prints only the `Mutation Report` block (Killed/Survived/Uncovered counts + every Survivor's `line N desc` — still fully actionable) via `awk '/^Mutation Report$/,0'`. On a non-zero exit other than 3 it also tails the last 20 log lines, so an infra failure that happens before the summary prints is still visible. This is the same shape `perf.sh`'s (now `just perf`) `_run` helper already used — see `justfile`'s header comment.
+`just mutate` is `justfile`'s wrapper: it redirects the run to a temp log, then prints only the `Mutation Report` block (Killed/Survived/Uncovered counts + every Survivor's `line N desc` — still fully actionable) via `awk '/^Mutation Report$/,0'`. On a non-zero exit other than 3 it also tails the last 20 log lines, so an infra failure that happens before the summary prints is still visible.
 
-Exit 3 means unaccepted survivors: kill them, or mark a recognized equivalent with `# mutate4py: equivalent <category>` on the Site's line (ADR 0026).
+Exit 3 means unaccepted Survivors: kill them with a unit test (ADR 0023: code mutation is unit-only, so a Mutant that only a component test kills stays a Survivor), or mark a recognized equivalent with `# mutate4py: equivalent <category>` on the Site's line (ADR 0026). A Survivor recorded on a function whose Unit hash and tests digest are unchanged is skipped by later runs and still exits 3 (ADR 0029). It is not retried, so it has to be killed or accepted rather than waited out.
 
-`just mutate` narrows against `contexts.db`, an isolated-session test-context db (docs/adr/0021) it builds/refreshes itself every run via its `test-context-db` dependency — no separate step needed. A cache (mutate4py's own, keyed on the project tree) makes a rerun on an unchanged tree ~4 seconds; a first build, or one after a source/test edit, costs ~16 minutes on this project's full non-integration suite. That first cost is not a hang — let it run.
+The loop: a scored run re-scores the changed functions only. A changed function is one whose Unit hash or Tests digest moved since its Manifest entry was written, one that is Unscored, or one that records Survivors but has no digest yet. Each run takes one Measurement first (the unit tests, once, under coverage) and narrows each Mutant to the tests that reached its line, so there is no setup step to run before `just mutate`. An unchanged function is skipped, its recorded Survivors included, and they still fail the run. There is no flag for a full re-score: `--mutate-all` is removed (spec #115). A run with no Manifest scores every function (an uncovered one gets an `uncovered` score), so a deliberate full re-score needs a file with no sidecar Manifest.
 
 `just check` (no args) runs the full CI-equivalent gate list the same way — one ✓/✗ line per gate, full output in `check.log`, tailed only on failure.
 

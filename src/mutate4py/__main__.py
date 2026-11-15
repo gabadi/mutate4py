@@ -6,8 +6,7 @@ import sys
 
 from mutate4py._cli_validation import (
     ValidationError,
-    _check_coverage_flags,
-    _check_test_contexts_file,
+    _check_removed_flags,
     _validate_mutual_exclusions,
 )
 from mutate4py._dispatch import _dispatch
@@ -67,7 +66,8 @@ def _build_parser() -> argparse.ArgumentParser:
         "--check-manifest",
         action="store_true",
         dest="check_manifest",
-        help="Verify the manifest footer is up to date; exit 1 if missing or stale; no test run",
+        help="Verify the manifest footer is up to date; exit 1 if missing or stale; "
+        "checks hashes, recorded Survivors and equivalent markers, not tests digests; no test run",
     )
     parser.add_argument(
         "--manifest-file",
@@ -84,19 +84,21 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Skip files whose path matches PATTERN "
         "('*' matches one path segment, '**' matches zero or more; repeatable)",
     )
-    parser.add_argument(
-        "--cov-cmd",
-        dest="cov_cmd",
-        default=None,
-        help="Shell command to run once to generate LCOV coverage",
-    )
-    parser.add_argument("--lcov", dest="lcov", default=None, help="Path to a pre-generated LCOV file")
+    # Removed in 0.3.0: parsed so that _check_removed_flags can refuse them
+    # with a message naming the flag, and hidden from --help.
+    parser.add_argument("--cov-cmd", dest="cov_cmd", default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--lcov", dest="lcov", default=None, help=argparse.SUPPRESS)
     parser.add_argument(
         "--reuse-coverage",
         action="store_true",
         dest="reuse_coverage",
-        help="Read LCOV from coverage.lcov (default path)",
+        help=argparse.SUPPRESS,
     )
+    parser.add_argument("--test-contexts", dest="test_contexts", default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--build-test-contexts", dest="build_test_contexts", default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--lines", dest="lines", default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--since-last-run", action="store_true", dest="since_last_run", help=argparse.SUPPRESS)
+    parser.add_argument("--mutate-all", action="store_true", dest="mutate_all", help=argparse.SUPPRESS)
     parser.add_argument(
         "--pytest-args",
         dest="pytest_args",
@@ -111,32 +113,16 @@ def _build_parser() -> argparse.ArgumentParser:
         type=_positive_int,
         default=10,
         dest="timeout_factor",
-        help="Mutant timeout = max(--min-timeout, factor × baseline duration) (default: 10)",
+        help="Mutant timeout = max(--min-timeout, factor × the budget of the Mutant's own tests) "
+        "+ the per-Mutant overhead (default: 10)",
     )
     parser.add_argument(
         "--min-timeout",
         type=float,
-        default=1.0,
+        default=5.0,
         dest="min_timeout",
-        help="Floor for mutant timeout in seconds (default: 1.0)",
-    )
-    parser.add_argument(
-        "--lines",
-        dest="lines",
-        default=None,
-        help="Comma-separated line numbers to mutate",
-    )
-    parser.add_argument(
-        "--since-last-run",
-        action="store_true",
-        dest="since_last_run",
-        help="Only mutate sites in changed functions",
-    )
-    parser.add_argument(
-        "--mutate-all",
-        action="store_true",
-        dest="mutate_all",
-        help="Mutate all covered sites regardless of manifest",
+        help="Floor for the Mutant's own tests' timeout in seconds, before the per-Mutant overhead "
+        "is added (default: 5.0)",
     )
     parser.add_argument(
         "--allow-survivors",
@@ -157,24 +143,6 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         dest="verbose",
         help="Report additional detail, e.g. which files --exclude skipped",
-    )
-    parser.add_argument(
-        "--test-contexts",
-        dest="test_contexts",
-        default=None,
-        help="Path to a .coverage SQLite db (build one with --build-test-contexts); enables per-mutant "
-        "test selection. A db built by a single shared `pytest --cov-context=test` session cannot be "
-        "trusted to narrow (issue #69) and degrades to the full test set instead",
-    )
-    parser.add_argument(
-        "--build-test-contexts",
-        dest="build_test_contexts",
-        default=None,
-        metavar="OUTPUT_PATH",
-        help="Build a test-context db and write it to OUTPUT_PATH: one "
-        "isolated coverage.py session per test pytest would collect (scoped "
-        "by --pytest-args), then combined (see --test-contexts); no "
-        "mutation run occurs, and no positional PATH target is accepted",
     )
     parser.add_argument(
         "--no-fork",
@@ -202,9 +170,8 @@ def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
     try:
-        _check_coverage_flags(args)
+        _check_removed_flags(args)
         _validate_mutual_exclusions(args)
-        _check_test_contexts_file(args)
         _dispatch(args)
     except (ValidationError, TargetResolutionError) as exc:
         _logger.error(f"error: {exc}")

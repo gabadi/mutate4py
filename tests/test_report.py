@@ -1,10 +1,12 @@
 """Unit tests for the report module (_report.py)."""
 
 from mutate4py._discovery import Site
+from mutate4py._executor import ExecutorDescription, MutantTiming
 from mutate4py._report import (
     OverheadInfo,
     _accepted_block_lines,
     RunStats,
+    SelectionTally,
     _mutation_report_lines,
     _on_parallel_result,
     _overhead_report_lines,
@@ -13,6 +15,7 @@ from mutate4py._report import (
     _serial_progress_line,
     _uncovered_block_lines,
     _workers_header_lines,
+    executor_block_lines,
     overhead_info,
 )
 import pytest
@@ -189,44 +192,15 @@ def test_mutation_report_lines_selection_counts_included():
         {"killed": 1, "timeout": 0, "survived": 0},
         [],
         uncovered_count=0,
-        selection_counts={"narrowed": 3, "static": 1},
+        selection=SelectionTally({"narrowed": 3, "static": 1}),
     )
-    assert "Test selection: narrowed 3, static 1, degraded 0" in lines
+    assert "Test selection: narrowed 3, static 1" in lines
 
 
 @pytest.mark.unit
-def test_mutation_report_lines_omits_selection_line_without_a_context_db():
+def test_mutation_report_lines_omits_selection_line_without_a_selection():
     lines = _mutation_report_lines({"killed": 1, "timeout": 0, "survived": 0}, [], uncovered_count=0)
     assert not any(ln.startswith("Test selection:") for ln in lines)
-
-
-@pytest.mark.unit
-def test_mutation_report_lines_degraded_sites_reported_not_silent():
-    """issue #69: a run with degraded Sites must not print a summary
-    indistinguishable from a fully-narrowed run -- static must stop reading 0
-    while Sites were actually rejected, and the reason must be named."""
-    lines = _mutation_report_lines(
-        {"killed": 1, "timeout": 0, "survived": 0},
-        [],
-        uncovered_count=0,
-        selection_counts={"narrowed": 0, "static": 0, "degraded": 5},
-    )
-    assert "Test selection: narrowed 0, static 0, degraded 5" in lines
-    warning = next(ln for ln in lines if ln.startswith("Warning:"))
-    assert "5 Site(s)" in warning
-    assert "--cov-context=test" in warning
-    assert "--build-test-contexts" in warning
-
-
-@pytest.mark.unit
-def test_mutation_report_lines_no_degraded_warning_when_zero():
-    lines = _mutation_report_lines(
-        {"killed": 1, "timeout": 0, "survived": 0},
-        [],
-        uncovered_count=0,
-        selection_counts={"narrowed": 3, "static": 1, "degraded": 0},
-    )
-    assert not any("rejected as incomplete" in ln for ln in lines)
 
 
 # ── overhead_info (issue 06) ──────────────────────────────────────────────────
@@ -437,3 +411,48 @@ def test_accepted_block_lines_format():
 @pytest.mark.unit
 def test_accepted_block_lines_empty():
     assert _accepted_block_lines([]) == []
+
+
+# ── executor_block_lines ──────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_executor_block_lines_names_the_serial_subprocess_executor_and_its_reason():
+    lines = executor_block_lines(ExecutorDescription(mode="subprocess", reason="--no-fork"), MutantTiming())
+    assert lines == [
+        "",
+        "Time: mutants 0.00s (0), timeouts 0.00s (0), confirmation 0.00s (0 run, 0 kills)",
+        "Executor: subprocess (--no-fork)",
+    ]
+
+
+@pytest.mark.unit
+def test_executor_block_lines_names_the_forking_executor_and_its_mode_counts():
+    lines = executor_block_lines(
+        ExecutorDescription(mode="forking", fresh_import=3, fresh_interpreter=1), MutantTiming()
+    )
+    assert lines[-1] == "Executor: forking (fresh import 3, swap 0, fresh interpreter 1)"
+
+
+@pytest.mark.unit
+def test_executor_block_lines_time_line_splits_mutants_timeouts_and_confirmation():
+    timing = MutantTiming()
+    timing.record("killed", 1.0)
+    timing.record("survived", 0.5)
+    timing.record("timeout", 0.25)
+    timing.record_confirmation("killed", 0.75)
+    timing.record_confirmation("survived", 0.25)
+    lines = executor_block_lines(ExecutorDescription(mode="subprocess", reason="--no-fork"), timing)
+    assert lines == [
+        "",
+        "Time: mutants 1.50s (2), timeouts 0.25s (1), confirmation 1.00s (2 run, 1 kills)",
+        "Executor: subprocess (--no-fork)",
+    ]
+
+
+@pytest.mark.unit
+def test_executor_block_lines_counts_a_confirmation_timeout_as_a_kill():
+    timing = MutantTiming()
+    timing.record_confirmation("timeout", 2.0)
+    lines = executor_block_lines(ExecutorDescription(mode="subprocess", reason="--no-fork"), timing)
+    assert lines[1] == "Time: mutants 0.00s (0), timeouts 0.00s (0), confirmation 2.00s (1 run, 1 kills)"

@@ -12,13 +12,15 @@ from pathlib import Path
 
 import pytest
 
+from ._digest_project import digest_project  # noqa: F401  (pytest fixture, shared by the digest tests)
+
 _CATEGORY_MARKERS = ("unit", "component", "integration")
 _COMPONENT_THRESHOLD_SECONDS = 0.5
 
 # tests/fixtures/** are sample projects other tests spawn as isolated pytest
-# subprocesses (e.g. _test_context_build.py building a context db from
-# tests/fixtures/overlapping_coverage/test_a.py) -- they are fixture data, not
-# part of this suite, and were never meant to carry a category marker.
+# subprocesses (e.g. the django_project that test_django_workers_integration.py
+# runs) -- they are fixture data, not part of this suite, and were never meant
+# to carry a category marker.
 _FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 

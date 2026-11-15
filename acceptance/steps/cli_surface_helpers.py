@@ -8,7 +8,7 @@ import sys
 _SCAN_INCOMPATIBLE_FLAGS = {"--timeout-factor", "--pytest-args", "--max-workers"}
 
 _SURVIVOR_FLAG = "--allow-survivors"
-_NO_RUN_FLAGS = frozenset({"--scan", "--update-manifest", "--check-manifest", "--build-test-contexts"})
+_NO_RUN_FLAGS = frozenset({"--scan", "--update-manifest", "--check-manifest"})
 
 _FAKE_PYTEST_ARGS = "-q tests"
 
@@ -28,8 +28,10 @@ def default_source() -> str:
     """)
 
 
-def lcov_content(src_path: str) -> str:
-    return f"SF:{src_path}\nDA:2,1\nend_of_record\n"
+# The run measures coverage itself (ADR 0027), so a scored run needs a real
+# project: tests that import the source module and reach its site. An empty
+# conftest.py puts the project root on sys.path.
+REACHING_TEST = "import sample\n\n\ndef test_ok():\n    sample.calc(2, 1)\n"
 
 
 def split_flags(flags_str: str) -> list[str]:
@@ -48,41 +50,41 @@ def survivor_flag(tokens: list[str]) -> list[str]:
     return [_SURVIVOR_FLAG]
 
 
-def single_flag_args(flag_str: str, src: str, lcov: str) -> list[str]:
+def single_flag_args(flag_str: str, src: str) -> list[str]:
     """Return CLI args for a single-flag invocation."""
     if flag_str == "(none)":
         return [src, "--scan"]
     flags = split_flags(flag_str)
     flag_name = flags[0] if flags else ""
     if flag_name == "--pytest-args":
-        return [src, "--lcov", lcov, "--pytest-args", _FAKE_PYTEST_ARGS, *survivor_flag(flags)]
+        return [src, "--pytest-args", _FAKE_PYTEST_ARGS, *survivor_flag(flags)]
     if flag_name in _SCAN_INCOMPATIBLE_FLAGS:
-        return [src, "--lcov", lcov, "--pytest-args", _FAKE_PYTEST_ARGS] + flags + survivor_flag(flags)
+        return [src, "--pytest-args", _FAKE_PYTEST_ARGS] + flags + survivor_flag(flags)
     return [src, "--scan"] + flags
 
 
-def two_flag_args(flag1: str, flag2: str, src: str, lcov: str) -> list[str]:
+def two_flag_args(flag1: str, flag2: str, src: str) -> list[str]:
     """Return CLI args for a two-flag invocation."""
     flags1 = split_flags(flag1) if flag1 != "(nothing)" else []
     flags2 = split_flags(flag2) if flag2 else []
     all_flags = flags1 + flags2
     flag_names = {f for f in all_flags if f.startswith("--")}
     if "--max-workers" in flag_names and not any(f in flag_names for f in ("--scan", "--update-manifest")):
-        return [src, "--lcov", lcov, "--pytest-args", _FAKE_PYTEST_ARGS] + all_flags + survivor_flag(all_flags)
+        return [src, "--pytest-args", _FAKE_PYTEST_ARGS] + all_flags + survivor_flag(all_flags)
     return [src] + all_flags
 
 
-def accepted_flags_args(flags_str: str, src: str, lcov: str) -> tuple[list[str], str, int | None]:
+def accepted_flags_args(flags_str: str, src: str) -> tuple[list[str], str, int | None]:
     """Return (cli_args, dispatch_target, dispatch_max_workers) for an accepted-flags invocation."""
     if flags_str == "--scan":
         return [src, "--scan"], "scan surface", None
     if flags_str == "--update-manifest":
         return [src, "--update-manifest"], "manifest write", None
-    if flags_str == "(a coverage flag)":
-        return [src, "--lcov", lcov, "--pytest-args", _FAKE_PYTEST_ARGS, _SURVIVOR_FLAG], "run loop", None
-    if flags_str == "--max-workers 4 (a coverage flag)":
+    if flags_str == "(a scored run)":
+        return [src, "--pytest-args", _FAKE_PYTEST_ARGS, _SURVIVOR_FLAG], "run loop", None
+    if flags_str == "--max-workers 4 (a scored run)":
         return (
-            [src, "--lcov", lcov, "--max-workers", "4", "--pytest-args", _FAKE_PYTEST_ARGS, _SURVIVOR_FLAG],
+            [src, "--max-workers", "4", "--pytest-args", _FAKE_PYTEST_ARGS, _SURVIVOR_FLAG],
             "run loop",
             4,
         )
@@ -163,46 +165,6 @@ def assert_usage_lists_max_workers(stdout: str) -> None:
 def assert_worker_count(dispatch_max_workers: int | None, count: str, returncode: int, stderr: str) -> None:
     assert returncode == 0, f"Expected accepted run with --max-workers {count}:\n{stderr}"
     assert dispatch_max_workers == int(count), f"Expected dispatch_max_workers={count}, got {dispatch_max_workers}"
-
-
-def source_file_run_args(flag_str: str, src: str) -> list[str]:
-    """Return CLI args: the background source file plus a flag string."""
-    return [src, *split_flags(flag_str)]
-
-
-def overlapping_coverage_fixture_dir(repo_root: str) -> str:
-    """Absolute path to the checked-in overlapping_coverage fixture."""
-    return os.path.join(repo_root, "tests", "fixtures", "overlapping_coverage")
-
-
-def build_test_contexts_fixture_args(db_path: str) -> list[str]:
-    """Args for a --build-test-contexts run scoped to the checked-in
-    overlapping_coverage fixture (two tests sharing one covered line).
-
-    Must run with cwd=<fixture dir> (not the repo root): this project's own
-    pyproject.toml restricts `[tool.coverage.run] source = ["mutate4py"]`,
-    which — if honoured, as it would be were cwd the repo root — silently
-    drops every file under tests/fixtures from coverage, leaving the built
-    db's `file` table empty. Running from the fixture dir means coverage.py's
-    config discovery finds the fixture's own unrestricted `.coveragerc`
-    instead, and node IDs collect correctly relative to that same cwd.
-    """
-    return ["--build-test-contexts", db_path]
-
-
-def assert_db_narrows_shared_line(db_path: str, fixture_dir: str) -> None:
-    """Assert the built db narrows the fixture's shared line to both covering
-    tests (the isolated-session build's whole point; see ADR 0021)."""
-    from mutate4py._test_selection import TestContextDB
-
-    shared_py = os.path.join(fixture_dir, "shared.py")
-    db = TestContextDB(db_path)
-    try:
-        outcome, node_ids = db.tests_for_line(shared_py, 2)
-        assert outcome == "narrowed", f"expected narrowed, got {outcome!r}"
-        assert len(node_ids) == 2, f"expected both covering tests, got {node_ids}"
-    finally:
-        db.close()
 
 
 def exclude_run_args(mode_flag: str, pattern: str, directory: str) -> list[str]:
@@ -323,25 +285,44 @@ def run_with_running_interpreter(args: list[str], cwd: str) -> subprocess.Comple
     )
 
 
-def resolve_literal(cmd_str: str, src: str, lcov: str | None, fake: str | None, tmpdir: str) -> list[str]:
-    """Resolve a literal "mutate4py ..." feature string to CLI args (no 'mutate4py').
-    `<file>`, `cov.info` and `<fake>` stand for the source file, the LCOV fixture
-    and the fake pytest command; `cov.info` falls back to a file under tmpdir."""
-    parts = cmd_str.split()
-    if parts and parts[0] == "mutate4py":
-        parts = parts[1:]
-    resolved = []
-    for part in parts:
-        if part == "<file>":
-            resolved.append(src)
-        elif part == "cov.info":
-            resolved.append(lcov or os.path.join(tmpdir, "cov.info"))
-        elif part == "<fake>":
-            resolved.append(fake or "")
-        else:
-            resolved.append(part)
-    return resolved
-
-
 def assert_baseline_run(marker_path: str) -> None:
     assert os.path.exists(marker_path), f"Baseline pytest did not run: marker {marker_path} is missing"
+
+
+def rejected_args(description: str, src: str) -> list[str]:
+    """CLI args for a rejected invocation described by its feature row."""
+    fixed = {
+        "--mutation-warning 0": [src, "--scan", "--mutation-warning", "0"],
+        "--max-workers -1": [src, "--scan", "--max-workers", "-1"],
+        "--timeout-factor 1.5": [src, "--scan", "--timeout-factor", "1.5"],
+        # The removed-flag refusal runs before any pytest run, so the empty pytest args are never exercised.
+        "--lines 7": [src, "--pytest-args", "", "--lines", "7"],
+        "--scan --max-workers 4": [src, "--scan", "--max-workers", "4"],
+        "--mutate-all": [src, "--pytest-args", "", "--mutate-all"],
+        "--update-manifest --lines 7": [src, "--update-manifest", "--lines", "7"],
+        "--since-last-run": [src, "--pytest-args", "", "--since-last-run"],
+        "--bogus-flag": [src, "--bogus-flag"],
+        "(a path that does not exist)": ["/nonexistent/no_such_file_qa.py", "--scan"],
+        "(no source file argument)": ["--scan"],
+        "--max-workers (with no value)": [src, "--scan", "--max-workers"],
+    }
+    if description not in fixed:
+        raise NotImplementedError(f"Unknown invocation description: {description!r}")
+    return fixed[description]
+
+
+def assert_error_printed(output: str) -> None:
+    lowered = output.lower()
+    assert "error" in lowered or "invalid" in lowered or "cannot" in lowered, (
+        f"Expected an error message naming the offending flag or combination:\n{output}"
+    )
+
+
+def assert_bytes_unchanged(before: bytes | None, after: bytes) -> None:
+    assert before is not None, "No source bytes were recorded before the run"
+    assert after == before, f"Source file changed!\nBefore: {before!r}\nAfter:  {after!r}"
+
+
+def assert_no_backup(src_path: str) -> None:
+    bak = src_path + ".bak"
+    assert not os.path.exists(bak), f"Unexpected .mutate4py.bak file at: {bak}"

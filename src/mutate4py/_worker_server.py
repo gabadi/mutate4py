@@ -27,7 +27,7 @@ from collections.abc import Sequence
 from typing import TextIO
 
 from mutate4py._executor import Executor
-from mutate4py._executor_selection import _prepare_executor
+from mutate4py._executor_selection import ForkingOptions, _prepare_executor
 from mutate4py._plugin_neutralisation import neutralising_args
 
 __all__ = ["WorkerServerArgs", "main", "parse_worker_argv", "worker_environ_updates"]
@@ -43,6 +43,8 @@ class WorkerServerArgs:
     guarded_path: str
     forking_requested: bool
     worker_id: str | None
+    prime_args: tuple[str, ...] = ()
+    ran_at_import: frozenset[int] = frozenset()
 
 
 def parse_worker_argv(argv: list[str]) -> WorkerServerArgs:
@@ -50,13 +52,21 @@ def parse_worker_argv(argv: list[str]) -> WorkerServerArgs:
 
     The worker_id slot is optional and may be present but empty (that is how
     the encoder spells "this Worker has no id"); both spellings decode to None.
+    The ran-at-import slot is likewise optional, empty meaning no lines.
+    Everything after it is the prime args.
     """
     return WorkerServerArgs(
         cwd=argv[0],
         guarded_path=argv[1],
         forking_requested=argv[2] == "1",
         worker_id=argv[3] if len(argv) > 3 and argv[3] else None,
+        prime_args=tuple(argv[5:]),
+        ran_at_import=_decode_lines(argv[4] if len(argv) > 4 else ""),
     )
+
+
+def _decode_lines(slot: str) -> frozenset[int]:
+    return frozenset(int(line) for line in slot.split(",") if line)
 
 
 def worker_environ_updates(worker_id: str | None) -> dict[str, str]:
@@ -77,15 +87,19 @@ def _worker_plugin_args(worker_id: str | None) -> list[str]:
 
 
 def _serve(executor: Executor, instream: TextIO, outstream: TextIO, *, plugin_args: Sequence[str]) -> None:
-    """Answer one run() request per non-empty line until instream closes."""
+    """Answer one request per non-empty line until instream closes: a describe
+    request with the executor's description, anything else with a run() status."""
     for line in instream:
         line = line.strip()
         if not line:
             continue
         request = json.loads(line)
-        args = [*request["args"], *plugin_args]
-        status = executor.run(args, request["timeout"])
-        outstream.write(json.dumps({"status": status}) + "\n")
+        if "describe" in request:
+            outstream.write(json.dumps({"description": dataclasses.asdict(executor.describe())}) + "\n")
+        else:
+            args = [*request["args"], *plugin_args]
+            status = executor.run(args, request["timeout"])
+            outstream.write(json.dumps({"status": status}) + "\n")
         outstream.flush()
 
 
@@ -98,7 +112,12 @@ def main(argv: list[str]) -> None:
     logging.getLogger("mutate4py").setLevel(logging.WARNING)
     args = parse_worker_argv(argv)
     os.environ.update(worker_environ_updates(args.worker_id))
-    executor = _prepare_executor(requested=args.forking_requested, cwd=args.cwd, guarded_path=args.guarded_path)
+    executor = _prepare_executor(
+        requested=args.forking_requested,
+        cwd=args.cwd,
+        guarded_path=args.guarded_path,
+        forking=ForkingOptions(prime_args=args.prime_args, ran_at_import=args.ran_at_import),
+    )
     sys.stdout.write(json.dumps({"ready": True}) + "\n")
     sys.stdout.flush()
     _serve(executor, sys.stdin, sys.stdout, plugin_args=_worker_plugin_args(args.worker_id))

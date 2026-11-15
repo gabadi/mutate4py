@@ -18,13 +18,17 @@ import types
 
 import pytest
 
+from mutate4py._executor import ExecutorDescription
 from mutate4py._worker_protocol import (
     WorkerProcessError,
+    ServerLaunch,
     WorkerProcessExecutor,
+    _decode_description,
     _decode_ready,
     _decode_status,
     _shutdown_process,
     check_worker_pytest,
+    encode_describe,
     encode_request,
     worker_python,
     worker_server_argv,
@@ -46,22 +50,53 @@ def test_worker_python_resolves_a_relative_root_to_an_absolute_path():
 
 @pytest.mark.unit
 def test_worker_server_argv_runs_under_the_worker_venv_not_the_orchestrator():
-    argv = worker_server_argv(worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, worker_id="gw1")
+    argv = worker_server_argv(
+        worker_root="/w", guarded_path="/w/calc.py", launch=ServerLaunch(forking_requested=True, worker_id="gw1")
+    )
     assert argv[0] == os.path.join(os.path.abspath("/w"), ".venv", "bin", "python")
     assert argv[0] != sys.executable
-    assert argv[1:] == ["-m", "mutate4py._worker_server", "/w", "/w/calc.py", "1", "gw1"]
+    assert argv[1:] == ["-m", "mutate4py._worker_server", "/w", "/w/calc.py", "1", "gw1", ""]
 
 
 @pytest.mark.unit
 def test_worker_server_argv_encodes_a_declined_fork_request_as_zero():
-    argv = worker_server_argv(worker_root="/w", guarded_path="/w/calc.py", forking_requested=False, worker_id="gw1")
+    argv = worker_server_argv(
+        worker_root="/w", guarded_path="/w/calc.py", launch=ServerLaunch(forking_requested=False, worker_id="gw1")
+    )
     assert argv[5] == "0"
 
 
 @pytest.mark.unit
 def test_worker_server_argv_encodes_an_absent_worker_id_as_an_empty_string():
-    argv = worker_server_argv(worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, worker_id=None)
+    argv = worker_server_argv(worker_root="/w", guarded_path="/w/calc.py", launch=ServerLaunch(forking_requested=True))
     assert argv[6] == ""
+
+
+@pytest.mark.unit
+def test_worker_server_argv_round_trips_the_prime_args_and_an_interpreter_override():
+    from mutate4py._worker_server import parse_worker_argv
+
+    argv = worker_server_argv(
+        worker_root="/w",
+        guarded_path="/w/calc.py",
+        launch=ServerLaunch(forking_requested=True, prime_args=("-p", "no:tach"), python="/project/.venv/bin/python"),
+    )
+    assert argv[:3] == ["/project/.venv/bin/python", "-m", "mutate4py._worker_server"]
+    assert parse_worker_argv(argv[3:]).prime_args == ("-p", "no:tach")
+
+
+@pytest.mark.unit
+def test_worker_server_argv_round_trips_the_lines_that_ran_at_import():
+    from mutate4py._worker_server import parse_worker_argv
+
+    argv = worker_server_argv(
+        worker_root="/w",
+        guarded_path="/w/calc.py",
+        launch=ServerLaunch(ran_at_import=frozenset({12, 3}), prime_args=("-p", "no:tach")),
+    )
+    assert argv[7] == "3,12"
+    parsed = parse_worker_argv(argv[3:])
+    assert (parsed.ran_at_import, parsed.prime_args) == (frozenset({3, 12}), ("-p", "no:tach"))
 
 
 @pytest.mark.unit
@@ -69,6 +104,13 @@ def test_encode_request_is_one_newline_terminated_json_line():
     line = encode_request(["-q", "tests"], 30.0)
     assert line.endswith("\n")
     assert json.loads(line) == {"args": ["-q", "tests"], "timeout": 30.0}
+
+
+@pytest.mark.unit
+def test_encode_describe_is_one_newline_terminated_describe_request():
+    line = encode_describe()
+    assert line.endswith("\n")
+    assert json.loads(line) == {"describe": True}
 
 
 # ── response decoding ─────────────────────────────────────────────────────
@@ -94,6 +136,21 @@ def test_decode_status_returns_the_classification():
 def test_decode_status_raises_when_the_pipe_closed_mid_run():
     with pytest.raises(WorkerProcessError, match="closed its output unexpectedly"):
         _decode_status("", worker_root="/w")
+
+
+@pytest.mark.unit
+def test_decode_description_returns_the_executor_description_the_worker_reported():
+    description = {"mode": "forking", "reason": "", "fresh_import": 2, "swap": 1, "fresh_interpreter": 3}
+    line = json.dumps({"description": description}) + "\n"
+    assert _decode_description(line, worker_root="/w") == ExecutorDescription(
+        mode="forking", fresh_import=2, swap=1, fresh_interpreter=3
+    )
+
+
+@pytest.mark.unit
+def test_decode_description_raises_when_the_pipe_closed_before_answering():
+    with pytest.raises(WorkerProcessError, match="closed its output unexpectedly"):
+        _decode_description("", worker_root="/w")
 
 
 # ── shutdown ──────────────────────────────────────────────────────────────
@@ -145,10 +202,39 @@ def test_shutdown_process_kills_a_worker_that_outstays_the_grace_period():
 @pytest.mark.unit
 def test_run_before_prime_is_rejected():
     executor = WorkerProcessExecutor(
-        worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, source_root="/src"
+        worker_root="/w", guarded_path="/w/calc.py", source_root="/src", launch=ServerLaunch(forking_requested=True)
     )
     with pytest.raises(WorkerProcessError, match="prime\\(\\) must succeed before run\\(\\)"):
         executor.run(["-q"], timeout=1.0)
+
+
+@pytest.mark.unit
+def test_describe_before_prime_is_rejected():
+    executor = WorkerProcessExecutor(
+        worker_root="/w", guarded_path="/w/calc.py", source_root="/src", launch=ServerLaunch(forking_requested=True)
+    )
+    with pytest.raises(WorkerProcessError, match="prime\\(\\) must succeed before describe\\(\\)"):
+        executor.describe()
+
+
+@pytest.mark.unit
+def test_describe_asks_the_worker_and_returns_the_description_it_reports(monkeypatch):
+    stdin = io.StringIO()
+    stdout = io.StringIO(
+        json.dumps({"ready": True})
+        + "\n"
+        + json.dumps({"description": {"mode": "subprocess", "reason": "--no-fork", "fresh_import": 0}})
+        + "\n"
+    )
+    monkeypatch.setattr(subprocess, "Popen", lambda argv, **kwargs: types.SimpleNamespace(stdin=stdin, stdout=stdout))
+    monkeypatch.setattr("mutate4py._worker_protocol.check_worker_pytest", lambda root: None)
+    executor = WorkerProcessExecutor(
+        worker_root="/w", guarded_path="/w/calc.py", source_root="/src", launch=ServerLaunch(forking_requested=False)
+    )
+    executor.prime()
+
+    assert executor.describe() == ExecutorDescription(mode="subprocess", reason="--no-fork")
+    assert stdin.getvalue() == encode_describe()
 
 
 def _fake_popen(monkeypatch, *, raises: Exception | None = None) -> list:
@@ -179,7 +265,7 @@ def test_prime_keeps_the_import_root_off_the_worker_pythonpath(monkeypatch, call
         monkeypatch.setenv("PYTHONPATH", caller_pythonpath)
     launches = _fake_popen(monkeypatch)
     executor = WorkerProcessExecutor(
-        worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, source_root="/src"
+        worker_root="/w", guarded_path="/w/calc.py", source_root="/src", launch=ServerLaunch(forking_requested=True)
     )
     executor.prime()
     argv, kwargs = launches[0]
@@ -197,7 +283,7 @@ def test_prime_rebases_a_caller_pythonpath_entry_inside_the_project_onto_the_wor
     monkeypatch.setenv("PYTHONPATH", os.pathsep.join([os.path.join(project, "src"), "/existing"]))
     launches = _fake_popen(monkeypatch)
     executor = WorkerProcessExecutor(
-        worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, source_root=project
+        worker_root="/w", guarded_path="/w/calc.py", source_root=project, launch=ServerLaunch(forking_requested=True)
     )
     executor.prime()
     _, kwargs = launches[0]
@@ -208,7 +294,7 @@ def test_prime_rebases_a_caller_pythonpath_entry_inside_the_project_onto_the_wor
 def test_prime_reports_an_unstartable_worker_interpreter_as_a_protocol_failure(monkeypatch):
     _fake_popen(monkeypatch, raises=FileNotFoundError(2, "No such file or directory"))
     executor = WorkerProcessExecutor(
-        worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, source_root="/src"
+        worker_root="/w", guarded_path="/w/calc.py", source_root="/src", launch=ServerLaunch(forking_requested=True)
     )
     with pytest.raises(WorkerProcessError, match="could not be started") as exc:
         executor.prime()
@@ -253,7 +339,7 @@ def test_check_worker_pytest_reports_an_unstartable_worker_interpreter(monkeypat
 @pytest.mark.unit
 def test_close_before_prime_is_a_no_op():
     executor = WorkerProcessExecutor(
-        worker_root="/w", guarded_path="/w/calc.py", forking_requested=True, source_root="/src"
+        worker_root="/w", guarded_path="/w/calc.py", source_root="/src", launch=ServerLaunch(forking_requested=True)
     )
     executor.close()
 
@@ -293,8 +379,8 @@ def test_worker_process_executor_round_trip(tmp_path):
     executor = WorkerProcessExecutor(
         worker_root=str(tmp_path),
         guarded_path=str(target),
-        forking_requested=True,
         source_root=str(tmp_path),
+        launch=ServerLaunch(forking_requested=True),
     )
     executor.prime()
     try:
@@ -315,13 +401,33 @@ def test_worker_process_executor_subprocess_forced(tmp_path):
     executor = WorkerProcessExecutor(
         worker_root=str(tmp_path),
         guarded_path=str(target),
-        forking_requested=False,
         source_root=str(tmp_path),
+        launch=ServerLaunch(forking_requested=False),
     )
     executor.prime()
     try:
         assert executor.run(["-q", "tests/test_calc.py::test_add"], timeout=30.0) == "survived"
         assert executor.run(["-q", "tests/test_calc.py::test_sub_wrong"], timeout=30.0) == "killed"
+    finally:
+        executor.close()
+
+
+@pytest.mark.component
+def test_worker_process_executor_describes_the_subprocess_executor_its_worker_runs(tmp_path):
+    """A Worker told not to fork describes the subprocess executor it chose, and
+    the reason, over the same line protocol that carries its statuses."""
+    target = _write_add_sub_project(tmp_path)
+    _provision_test_worker(tmp_path)
+    executor = WorkerProcessExecutor(
+        worker_root=str(tmp_path),
+        guarded_path=str(target),
+        source_root=str(tmp_path),
+        launch=ServerLaunch(forking_requested=False),
+    )
+    executor.prime()
+    try:
+        assert executor.describe() == ExecutorDescription(mode="subprocess", reason="--no-fork")
+        assert executor.run(["-q", "tests/test_calc.py::test_add"], timeout=30.0) == "survived"
     finally:
         executor.close()
 
@@ -356,9 +462,8 @@ def test_worker_process_executor_supplies_worker_id(tmp_path, forking_requested)
     executor = WorkerProcessExecutor(
         worker_root=str(tmp_path),
         guarded_path=str(target),
-        forking_requested=forking_requested,
-        worker_id="gw3",
         source_root=str(tmp_path),
+        launch=ServerLaunch(forking_requested=forking_requested, worker_id="gw3"),
     )
     executor.prime()
     try:
@@ -384,8 +489,8 @@ def test_worker_process_executor_without_worker_id_leaves_workerinput_unset(tmp_
     executor = WorkerProcessExecutor(
         worker_root=str(tmp_path),
         guarded_path=str(target),
-        forking_requested=True,
         source_root=str(tmp_path),
+        launch=ServerLaunch(forking_requested=True),
     )
     executor.prime()
     try:
@@ -407,14 +512,21 @@ def test_worker_forking_and_subprocess_parity(tmp_path):
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
     (tests_dir / "test_calc.py").write_text("from calc import add\ndef test_add():\n    assert add(2, 2) == 4\n")
-    args = ["-q", "tests"]
+    # This repo's environment has tach, a fork-unsafe plugin: block it, or both Workers run subprocess.
+    args = ["-p", "no:tach", "-q", "tests"]
 
     _provision_test_worker(tmp_path)
     forking_worker = WorkerProcessExecutor(
-        worker_root=str(tmp_path), guarded_path=str(target), forking_requested=True, source_root=str(tmp_path)
+        worker_root=str(tmp_path),
+        guarded_path=str(target),
+        source_root=str(tmp_path),
+        launch=ServerLaunch(forking_requested=True, prime_args=("-p", "no:tach")),
     )
     subprocess_worker = WorkerProcessExecutor(
-        worker_root=str(tmp_path), guarded_path=str(target), forking_requested=False, source_root=str(tmp_path)
+        worker_root=str(tmp_path),
+        guarded_path=str(target),
+        source_root=str(tmp_path),
+        launch=ServerLaunch(forking_requested=False),
     )
     forking_worker.prime()
     subprocess_worker.prime()
@@ -425,12 +537,13 @@ def test_worker_forking_and_subprocess_parity(tmp_path):
         target.write_text("def add(a, b):\n    return a - b\n")
         assert forking_worker.run(args, timeout=30.0) == "killed"
         assert subprocess_worker.run(args, timeout=30.0) == "killed"
+        assert forking_worker.describe().mode == "forking"
     finally:
         forking_worker.close()
         subprocess_worker.close()
 
 
-# --- a leaked target inside a Worker degrades to the subprocess executor ------
+# --- a target the Worker already imported runs in a fresh interpreter --------
 
 
 @pytest.fixture
@@ -451,12 +564,16 @@ def restore_import_state(tmp_path):
 
 
 @pytest.mark.component
-def test_worker_server_degrades_to_subprocess_on_leaked_target(tmp_path, monkeypatch, capfd, restore_import_state):
-    """A module-leak has to happen in the Worker subprocess's own
-    sys.modules; a real subprocess boundary can't be seeded from outside, so
-    this drives `_worker_server.main` directly in-process instead — the same
-    code a real Worker subprocess runs, with a pre-seeded fake leaked module
-    standing in for the leak.
+def test_worker_server_runs_an_already_imported_target_in_a_fresh_interpreter(
+    tmp_path, monkeypatch, capfd, restore_import_state
+):
+    """The target has to be in the Worker subprocess's own sys.modules before
+    prime; a real subprocess boundary can't be seeded from outside, so this
+    drives `_worker_server.main` directly in-process instead — the same code a
+    real Worker subprocess runs, with a pre-seeded fake module standing in for
+    one of the Worker's own (harness) modules. No whole-run fallback: the
+    forking executor runs the Mutant in a fresh interpreter, whose output must
+    not reach the protocol's stdout either.
 
     Captures the real OS fd 1 with a raw pipe inside `capfd.disabled()`:
     `_run_pytest_output_suppressed`'s flush-before-dup2 fix operates on the
@@ -497,7 +614,8 @@ def test_worker_server_degrades_to_subprocess_on_leaked_target(tmp_path, monkeyp
     monkeypatch.setattr(forking_mod, "ForkingExecutor", _TrackingForkingExecutor)
     monkeypatch.setattr(subprocess_mod, "SubprocessExecutor", _TrackingSubprocessExecutor)
 
-    stdin = io.StringIO(json.dumps({"args": ["-q", "tests"], "timeout": 30.0}) + "\n")
+    run = {"args": ["-p", "no:tach", "-q", "tests"], "timeout": 30.0}
+    stdin = io.StringIO(json.dumps(run) + "\n" + json.dumps({"describe": True}) + "\n")
     monkeypatch.setattr(sys, "stdin", stdin)
 
     with capfd.disabled():
@@ -506,7 +624,8 @@ def test_worker_server_degrades_to_subprocess_on_leaked_target(tmp_path, monkeyp
         os.dup2(write_fd, 1)
         os.close(write_fd)
         try:
-            worker_server_mod.main([str(tmp_path), str(target), "1"])
+            # This repo's environment has tach, a fork-unsafe plugin: the prime blocks it.
+            worker_server_mod.main([str(tmp_path), str(target), "1", "", "", "-p", "no:tach"])
             sys.stdout.flush()
         finally:
             os.dup2(saved_stdout_fd, 1)
@@ -517,5 +636,7 @@ def test_worker_server_degrades_to_subprocess_on_leaked_target(tmp_path, monkeyp
     lines = captured_out.splitlines()
     assert json.loads(lines[0]) == {"ready": True}
     assert json.loads(lines[1])["status"] == "survived"
-    assert len(created_forking) == 1, "expected the forking executor to be attempted once"
-    assert len(created_subprocess) == 1, "expected the self-leak to fall back to the subprocess executor"
+    assert json.loads(lines[2])["description"]["fresh_interpreter"] == 1
+    assert len(lines) == 3, "the fresh interpreter's own output must not reach the protocol"
+    assert len(created_forking) == 1, "expected the forking executor to be primed once"
+    assert created_subprocess == [], "an already-imported target must not fall back to the subprocess executor"

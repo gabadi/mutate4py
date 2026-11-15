@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-10-11T14:06:20Z",
-  "module_hash": "e7c9b0c5f2dd014c82eaad8cce9ddf86f2a3845b9cc8e93f628e2be11a55da96",
-  "source_sha256": "031caa815a4a84a4bc8e9089630f39641057aea1190cfa95ee6d2dfed2189f23",
+  "tested_at": "2026-11-15T00:30:18Z",
+  "module_hash": "dbc2dd48edf863ae6c52d904b8fad79056915282deced46e4f25a9a9d5fcb2fb",
+  "source_sha256": "70c6d9278d2a17e7e31234b15258452f9b426b6f14c4b4ed7b32575e14055328",
   "functions": [
     {
       "id": "func/ValidationError.__init__",
@@ -12,136 +12,115 @@
       "hash": "58b7e90ea79aa2e2cf50807fd85bc81fe66cf156098bec683efcad2941abe12b"
     },
     {
-      "id": "func/_check_coverage_flags",
-      "name": "_check_coverage_flags",
-      "line": 23,
-      "end_line": 27,
-      "hash": "6dba055fafc941f034499e3acb52ccf1d0b1bca8099d2aadf9f4cfa7275246da"
+      "id": "func/_check_removed_flags",
+      "name": "_check_removed_flags",
+      "line": 38,
+      "end_line": 44,
+      "hash": "462758c0a9cf88ad0d759143ec5421b1eafcf035e8c44363e71ffec9493ccba0"
     },
     {
       "id": "func/_no_run_flag",
       "name": "_no_run_flag",
-      "line": 30,
-      "end_line": 38,
-      "hash": "d7c2e75aa759ea7ecff84de24e2462f9976689fdb71a4f1958b6c2352bdec396"
+      "line": 47,
+      "end_line": 53,
+      "hash": "59aa486011c3e3158e11848b3f49b3182be927b8b3fc1c89b7b93890a7470ba9"
     },
     {
       "id": "func/_exit_incompatible",
       "name": "_exit_incompatible",
-      "line": 41,
-      "end_line": 42,
+      "line": 56,
+      "end_line": 57,
       "hash": "235efa5765062bda3712911d8fc253b9495c6b6a3ca7520319ce60e3333ed27d"
     },
     {
       "id": "func/_check_no_run_incompatibilities",
       "name": "_check_no_run_incompatibilities",
-      "line": 45,
-      "end_line": 57,
-      "hash": "511a4918b982ad8e6f20c609ed979a229e0eddb12df1de6daa382c29a551a301"
+      "line": 60,
+      "end_line": 64,
+      "hash": "14d987f3200f7ab9a7bb3ef3855c46d3a17720b464dfafc95b73c47b5fc469e5"
     },
     {
       "id": "func/_check_no_run_survivor_flag",
       "name": "_check_no_run_survivor_flag",
-      "line": 60,
-      "end_line": 63,
+      "line": 67,
+      "end_line": 70,
       "hash": "413b2e208bb4dd6cebcce9f2c6f3e910f58c2209cb3f6ac7b63702b604559d9b"
     },
     {
       "id": "func/_check_scan_only_incompatibilities",
       "name": "_check_scan_only_incompatibilities",
-      "line": 66,
-      "end_line": 73,
-      "hash": "c9ffb2cc156517a0b5936e68fe161ab99569ed9ca041f24cd03d1e06b5b000f6"
-    },
-    {
-      "id": "func/_check_build_test_contexts_incompatibilities",
-      "name": "_check_build_test_contexts_incompatibilities",
-      "line": 76,
-      "end_line": 82,
-      "hash": "68e9b52a97e280e7328b4d4687efef18a6b1d8b6ee0a5c2046ebc25b6c096a91"
-    },
-    {
-      "id": "func/_check_selection_exclusivity",
-      "name": "_check_selection_exclusivity",
-      "line": 85,
-      "end_line": 89,
-      "hash": "f6f0fe3366fa14ccfe8b8b627665682a2ab7d078d99dae5b74fc383a2522ac52"
+      "line": 73,
+      "end_line": 80,
+      "hash": "002627e8daef422a67872a25b140f0dd065a780bdab3856605a0e5106ef26611"
     },
     {
       "id": "func/_check_no_run_mode_specific_incompatibilities",
       "name": "_check_no_run_mode_specific_incompatibilities",
-      "line": 92,
-      "end_line": 97,
-      "hash": "283058581b4a7e7db26263236683132b0f9edd8d1717febd6be8eacb5970d0bb"
+      "line": 83,
+      "end_line": 86,
+      "hash": "1243c0236564794479e3c6a2c56b1dfdbd1a2e9cb9764ab5e604ab883fe107af"
     },
     {
       "id": "func/_validate_mutual_exclusions",
       "name": "_validate_mutual_exclusions",
-      "line": 100,
-      "end_line": 115,
-      "hash": "e59a79e8eb039b5b80beb9f93728f5b92b7dbd3efdc848b8f3b3a2ae86ec418a"
-    },
-    {
-      "id": "func/_check_test_contexts_file",
-      "name": "_check_test_contexts_file",
-      "line": 118,
-      "end_line": 120,
-      "hash": "88768fdb1bba5a33e64dca30493cbf9087c87bc931be8a9bea284902f0edd910"
+      "line": 89,
+      "end_line": 102,
+      "hash": "5129ad83a0a871e534982ccd820fb3673b22ee2e25f157182def22202d6b3abf"
     },
     {
       "id": "func/_nearest_project_root",
       "name": "_nearest_project_root",
-      "line": 123,
-      "end_line": 134,
+      "line": 105,
+      "end_line": 116,
       "hash": "460efc9410e8c7a7cff0733487aaeebc8f461ed5ce012d62837a387c729af0d1"
     },
     {
       "id": "func/_env_mismatch_message",
       "name": "_env_mismatch_message",
-      "line": 137,
-      "end_line": 143,
+      "line": 119,
+      "end_line": 125,
       "hash": "17530e68e443d4add1bff4bc2d88be8e55aca10b4e0818db80fa30d69eeb6dfd"
     },
     {
       "id": "func/_site_packages_dirs",
       "name": "_site_packages_dirs",
-      "line": 146,
-      "end_line": 149,
+      "line": 128,
+      "end_line": 131,
       "hash": "2b435d96c51157aecc75341f42940902a815c00448944d4bbd1bc2f9f14b7e21"
     },
     {
       "id": "func/_pythonpath_entries",
       "name": "_pythonpath_entries",
-      "line": 152,
-      "end_line": 153,
+      "line": 134,
+      "end_line": 135,
       "hash": "d943adbf599a926a756134d1bd66db44bfde7b1c2eccf11d8611f9c457eceeaf"
     },
     {
       "id": "func/_running_identity",
       "name": "_running_identity",
-      "line": 156,
-      "end_line": 163,
+      "line": 138,
+      "end_line": 145,
       "hash": "dac80fa293ebaa8f9674d274b11040c537298fc7d7d8c6bb567896b98895da4d"
     },
     {
       "id": "func/_is_running_env",
       "name": "_is_running_env",
-      "line": 166,
-      "end_line": 169,
+      "line": 148,
+      "end_line": 151,
       "hash": "d5afd218484fbd762cdb714d1a7afc18d881e93db2a6e6982768cd3b6a86d13b"
     },
     {
       "id": "func/check_project_env",
       "name": "check_project_env",
-      "line": 172,
-      "end_line": 191,
+      "line": 154,
+      "end_line": 173,
       "hash": "0c13f843b05d45da3fd3fe150ee50809b1fe4999ee3e530ad9efe7b9ca74c71d"
     },
     {
       "id": "func/check_run_env",
       "name": "check_run_env",
-      "line": 194,
-      "end_line": 206,
+      "line": 176,
+      "end_line": 188,
       "hash": "b2330ec25705f68948c3393e0114349b166d281f2dcc5e3c4e48798505b65c7b"
     }
   ]

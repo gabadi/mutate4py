@@ -1,99 +1,134 @@
 {
   "version": 1,
-  "tested_at": "2026-10-11T06:13:28Z",
-  "module_hash": "da88b5ef15c0c6a03d9eb1a62e6bedb822c52d7f88579e2b47fe416cccbe0e29",
-  "source_sha256": "56e8635c6387fd8bc3dd36e87c88c761448c1b38450dfd044be68d8912017c80",
+  "tested_at": "2026-11-13T17:49:40Z",
+  "module_hash": "3cfa55d44a8addf1320055a7ad84254e9a59e460d66b48c3c33eb7581aeb576e",
+  "source_sha256": "bc64d09b13a4371e15569abf6cbb5a7494ab54f6b55180e2db2bef3dccb4b4b0",
   "functions": [
     {
       "id": "func/worker_python",
       "name": "worker_python",
-      "line": 32,
-      "end_line": 36,
+      "line": 40,
+      "end_line": 44,
       "hash": "c7875c428fd993ad117648c51cb5697dd3c43066324951949e6f69d5d3cb15ee"
     },
     {
       "id": "func/check_worker_python",
       "name": "check_worker_python",
-      "line": 39,
-      "end_line": 56,
+      "line": 47,
+      "end_line": 64,
       "hash": "cefa89e889b9eb118b60db0d3ecc76ca440f23206939511548be69184e866eb9"
     },
     {
       "id": "func/check_worker_pytest",
       "name": "check_worker_pytest",
-      "line": 59,
-      "end_line": 71,
+      "line": 67,
+      "end_line": 79,
       "hash": "17ff3fc2b0449e76e6a8c3e0a15c08a8c79704520057bb12126f8d7267d5debf"
+    },
+    {
+      "id": "func/_launch_python",
+      "name": "_launch_python",
+      "line": 103,
+      "end_line": 104,
+      "hash": "904644e89cf9a97ecf8d863afe2c90481ea3b62681df7cdbb7b91bb5d582edf9"
     },
     {
       "id": "func/worker_server_argv",
       "name": "worker_server_argv",
-      "line": 74,
-      "end_line": 91,
-      "hash": "23cc5fea680f18d5130a497da6f14762872a6a6100dbedf9cccb05970cc2ec9e"
+      "line": 107,
+      "end_line": 125,
+      "hash": "fce0c4b7c96298862fc397bbee083fdd9b6d5e59c715a9e92cd963da8e77ee2f"
     },
     {
       "id": "func/encode_request",
       "name": "encode_request",
-      "line": 94,
-      "end_line": 96,
+      "line": 128,
+      "end_line": 130,
       "hash": "cf63aa6ae968635275b4441272379073d93b1cde1ca8bd2868ba1a5ef5829556"
+    },
+    {
+      "id": "func/encode_describe",
+      "name": "encode_describe",
+      "line": 133,
+      "end_line": 135,
+      "hash": "71fe4f6bd8c4c5120c0c75ac252216d19d777ccd0436aa6633bd528a23ebb332"
     },
     {
       "id": "func/_decode_ready",
       "name": "_decode_ready",
-      "line": 99,
-      "end_line": 103,
+      "line": 138,
+      "end_line": 142,
       "hash": "21f17258f5b42d354876f8bbfa783e4317424b80de626843bfad6a9e80a6dcce"
     },
     {
       "id": "func/_decode_status",
       "name": "_decode_status",
-      "line": 106,
-      "end_line": 110,
+      "line": 145,
+      "end_line": 149,
       "hash": "3b5e210b81ce5f47cd0c2b9425377a78802707a4079f6aee8fa51269b9b8b2db"
+    },
+    {
+      "id": "func/_decode_description",
+      "name": "_decode_description",
+      "line": 152,
+      "end_line": 156,
+      "hash": "7d9068db9e13520acdd01bbac9dbd422b782bd9fd23f2c2064664ae7e92734e4"
     },
     {
       "id": "func/_shutdown_process",
       "name": "_shutdown_process",
-      "line": 113,
-      "end_line": 122,
+      "line": 159,
+      "end_line": 168,
       "hash": "e352834d046265ba22f6fce649bca4558832d3757181eb5f9b50af858051411a"
     },
     {
       "id": "func/_worker_pythonpath",
       "name": "_worker_pythonpath",
-      "line": 125,
-      "end_line": 136,
+      "line": 171,
+      "end_line": 182,
       "hash": "374b4ea16932d7f99cf7d603125db9ab7a2d73eedb4d7e15f1237d9574f3275b"
     },
     {
       "id": "func/WorkerProcessExecutor.__init__",
       "name": "__init__",
-      "line": 142,
-      "end_line": 156,
-      "hash": "4759c6fbe35b63f3060a55a59e3b450811ad0f8e3f2d61713cfad0e363b87765"
+      "line": 188,
+      "end_line": 200,
+      "hash": "a3489e489e86f389c026b0c4ca4db0bd888eab5ce2f04b56c497dbf0213f9508"
     },
     {
       "id": "func/WorkerProcessExecutor.prime",
       "name": "prime",
-      "line": 158,
-      "end_line": 187,
-      "hash": "1056bc7879c72209f7d7d83dadbe21e265f78fc5cebe8bd67561c69144866c3d"
+      "line": 202,
+      "end_line": 227,
+      "hash": "5ca91bd6eda650c561a67c632621269ffef8ffa4e061c4e6d327c0accba558e6"
     },
     {
       "id": "func/WorkerProcessExecutor.run",
       "name": "run",
-      "line": 189,
-      "end_line": 194,
+      "line": 229,
+      "end_line": 234,
       "hash": "9cde3bf7eefd869eea6651cb59c50ccc77c2cfd335889430058b19a2dedd2586"
+    },
+    {
+      "id": "func/WorkerProcessExecutor.describe",
+      "name": "describe",
+      "line": 236,
+      "end_line": 241,
+      "hash": "235a9fb168b275f0fd6f8598218d554635d6756c85b1643c975b247cb57c3842"
     },
     {
       "id": "func/WorkerProcessExecutor.close",
       "name": "close",
-      "line": 196,
-      "end_line": 199,
+      "line": 243,
+      "end_line": 246,
       "hash": "04ab2279b5c45291480001a247b94ffa754bdee24d54092089b85f325e4832de"
+    },
+    {
+      "id": "func/fork_server",
+      "name": "fork_server",
+      "line": 249,
+      "end_line": 263,
+      "hash": "ec75be03c6e290c6881e51404946ac24ffd21592fd010c9dbfb2e10394fa6c19"
     }
   ]
 }

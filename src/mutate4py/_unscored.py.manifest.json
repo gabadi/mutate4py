@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "tested_at": "2026-11-15T01:18:03Z",
+  "module_hash": "3038791c2865fa135a3ca1f6e6a23ac7c79470485b4e80256d5821fbb3ae19b1",
+  "source_sha256": "721dbfc0f4641ec0188b8018762bcdefe57351983536eed486daaf618e53d1cb",
+  "functions": [
+    {
+      "id": "func/unscored_functions",
+      "name": "unscored_functions",
+      "line": 10,
+      "end_line": 20,
+      "hash": "7ea1f317166a5239ded7cf7df118e8e9ad7a82973779046cd71f0d039cc3a957",
+      "score": {
+        "killed": 3,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "3a9011bfcb0e89294ec79d7dcec04b370bb0f00937074dcf7efca6efc2f57e33"
+    }
+  ],
+  "tests_fingerprint": "9a15af64d0003d4c16102155d590079cc5eb8cacfb41b4c21c04d46be61f7786"
+}

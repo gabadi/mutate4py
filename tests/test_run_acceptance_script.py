@@ -46,6 +46,7 @@ def test_run_acceptance_fails_naming_gherkin_parser_when_missing(tmp_path, bash4
     )
     assert result.returncode != 0
     assert "gherkin-parser not found" in result.stderr
+    assert "just install-tools" in result.stderr
 
 
 @pytest.mark.integration

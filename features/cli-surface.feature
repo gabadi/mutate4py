@@ -6,7 +6,7 @@
 Feature: The CLI surface parses, validates, and dispatches the flag matrix
 
   # TRACKING: F5 (cli-surface) — docs/adr/0015-parallel-workers-via-uv-clone-per-worker.md;
-  #           docs/adr/0008-coverage-flags-pairwise-exclusive.md
+  #           docs/adr/0027-single-session-ctrace-measurement-unit-only-scoring.md (the coverage flags are removed)
   #           Upstream ground truth: unclebob/mutate4go internal/cli/cli.go
   #           (ValidateArgs, consumeValueOption, parsePositiveInt, parseLines).
   #
@@ -20,14 +20,6 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #                            batch, 0 = uv workspace autodiscovery (ADR 0017).
   #     --scan               — no-run mode: count sites (F1 surface).
   #     --update-manifest    — no-run mode: rewrite the footer manifest (F2 surface).
-  #     --build-test-contexts OUTPUT_PATH — no-run mode: build a test-context db
-  #                             (issue #50, ADR 0021) from every test pytest
-  #                             would collect, scoped by --pytest-args; accepts
-  #                             no positional PATH target (it isn't a mutation
-  #                             target).
-  #     --lines L1,L2,...     — selection: comma-separated POSITIVE ints.
-  #     --since-last-run      — selection: only changed functions.
-  #     --mutate-all          — selection: all covered sites despite manifest.
   #     --mutation-warning N  — positive int, default 50.
   #     --timeout-factor N    — positive int, default 10.
   #     --pytest-args ARGS    — one shell-quoted string of extra pytest arguments,
@@ -35,7 +27,14 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #                             through a shell — pytest is the only supported
   #                             runner by contract.
   #     --max-workers N       — positive int, default 0/unset = serial.
-  #     --cov-cmd CMD | --lcov PATH | --reuse-coverage — the three coverage flags.
+  #     --cov-cmd CMD | --lcov PATH | --reuse-coverage | --test-contexts DB |
+  #     --build-test-contexts OUT — REMOVED in 0.3.0: each exits 2
+  #                             with "<flag> removed in 0.3.0: the run measures coverage
+  #                             itself" (refusal scenarios live in coverage.feature).
+  #     --lines L | --since-last-run | --mutate-all — REMOVED in 0.3.0: each exits 2 the same
+  #                             way, naming the flag and its replacement (refusal scenarios:
+  #                             cli-surface-5). --mutate-all is removed by spec #115: the
+  #                             default run already scores every changed or Unscored function.
   #     --exclude PATTERN     — repeatable; skip files whose walked path matches the
   #                             shared glob dialect (union across patterns) — the
   #                             same dialect <targets> and uv members/exclude use
@@ -56,15 +55,14 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   # CONSTRAINTS:
   #   - Positive-int flags (--mutation-warning, --timeout-factor, --max-workers) require
   #     an integer >= 1; non-integer or <= 0 is a usage error (parsePositiveInt).
-  #   - --lines requires a comma-separated list of POSITIVE integers (parseLines).
   #   - Mutual exclusion (fail-loud, never silent-precedence; ADR 0008):
   #       * --scan and --update-manifest: exclusive of each other AND of every execution
-  #         option (--lines, --since-last-run, --mutate-all, non-default --timeout-factor,
-  #         a non-empty --pytest-args, --max-workers).
-  #       * --since-last-run / --mutate-all / --lines: PAIRWISE exclusive.
-  #       * --cov-cmd / --lcov / --reuse-coverage: PAIRWISE exclusive (F3 ADR 0008).
-  #   - --max-workers joins ONLY the scan/update-manifest exclusion; it MAY combine with
-  #     the selection flags (it does not conflict with --lines/--since-last-run/--mutate-all).
+  #         option (non-default --timeout-factor, a non-empty --pytest-args,
+  #         --max-workers).
+  #   - The removed selection flags (--lines, --since-last-run, --mutate-all) are refused,
+  #     never ignored (cli-surface-5). That refusal is checked before the exclusion check.
+  #   - --max-workers joins ONLY the scan/update-manifest exclusion; a default scored run
+  #     takes it.
   #   - A literal target path that does not exist, or a glob pattern matching
   #     nothing, is a usage error. Zero positionals is NOT itself a usage error —
   #     it triggers uv workspace autodiscovery; that only errors (exit 2) if no
@@ -95,7 +93,7 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   #   - Does NOT: execute parallel workers (F6) — F5 validates --max-workers and passes
   #     the count through; the serial/parallel switch and worker engine are F6.
   #   - Does NOT: re-implement --scan counting (F1), --update-manifest writing (F2), the
-  #     LCOV gate (F3), or the run loop (F4) — it dispatches to them.
+  #     coverage gate (F3), or the run loop (F4) — it dispatches to them.
   #   - Does NOT: re-create the --scan / --update-manifest output strings (F1/F2 own
   #     them); F5 only routes to the mode that prints them.
   #   - ASSUMED: the exact arg-parser (argparse vs hand-rolled) and the exact non-zero
@@ -142,9 +140,6 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
       | --max-workers 0        |
       | --max-workers -1       |
       | --max-workers many     |
-      | --lines 0              |
-      | --lines 7,-2           |
-      | --lines 7,x            |
 
   # cli-surface-3: a value flag given no value is a usage error
   Scenario Outline: a value flag with a missing value is rejected
@@ -158,7 +153,6 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
       | --timeout-factor   |
       | --pytest-args      |
       | --max-workers      |
-      | --lines            |
 
   # cli-surface-4: --scan and --update-manifest reject every execution option
   Scenario Outline: a no-run mode rejects being combined with an execution option
@@ -169,52 +163,59 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
     Examples:
       | mode              | other             |
       | --scan            | --update-manifest |
-      | --scan            | --lines 7         |
-      | --scan            | --since-last-run  |
-      | --scan            | --mutate-all      |
       | --scan            | --timeout-factor 5 |
       | --scan            | --pytest-args "-k foo" |
       | --scan            | --max-workers 4   |
       | --update-manifest | --scan            |
-      | --update-manifest | --lines 7         |
-      | --update-manifest | --since-last-run  |
-      | --update-manifest | --mutate-all      |
       | --update-manifest | --max-workers 4   |
-      | --build-test-contexts out.db | --scan            |
-      | --build-test-contexts out.db | --update-manifest |
-      | --build-test-contexts out.db | --check-manifest  |
-      | --build-test-contexts out.db | --lines 7         |
-      | --build-test-contexts out.db | --since-last-run  |
-      | --build-test-contexts out.db | --mutate-all      |
-      | --build-test-contexts out.db | --max-workers 4   |
-      | --build-test-contexts out.db | --test-contexts .coverage |
       | --scan            | --allow-survivors |
       | --update-manifest | --allow-survivors |
-      | --build-test-contexts out.db | --allow-survivors |
       | --check-manifest  | --allow-survivors |
 
-  # cli-surface-5: the three selection flags are pairwise exclusive
-  Scenario Outline: combining two selection flags is a usage error
-    When I run mutate4py with "<one>" and "<two>"
+  # cli-surface-4b: a rejected invocation does no work: it names the problem,
+  # leaves the source byte-identical and creates no backup
+  Scenario Outline: a rejected invocation exits non-zero and leaves the source untouched
+    When I run the rejected invocation "<invocation>"
+    Then the command exits with a non-zero status
+    And the printed output names the offending flag or combination
+    And the source file is byte-identical to before the run
+    And no ".mutate4py.bak" file was created
+
+    Examples:
+      | invocation                     |
+      | --mutation-warning 0           |
+      | --max-workers -1               |
+      | --timeout-factor 1.5           |
+      | --lines 7                      |
+      | --scan --max-workers 4         |
+      | --update-manifest --lines 7    |
+      | --since-last-run               |
+      | --mutate-all                   |
+      | --bogus-flag                   |
+      | (a path that does not exist)   |
+      | (no source file argument)      |
+      | --max-workers (with no value)  |
+
+  # cli-surface-5: the selection flags removed in 0.3.0 are refused, not ignored: each is a
+  # usage error that runs no analysis. The refusal wording is pinned by
+  # tests/test_removed_selection_flags.py.
+  Scenario Outline: a selection flag removed in 0.3.0 is a usage error
+    When I run mutate4py with the flag "<flag>"
     Then the invocation is a usage error
     And the command exits with a non-zero status
+    And no analysis or test run occurs
 
     Examples:
-      | one              | two          |
-      | --since-last-run | --mutate-all |
-      | --since-last-run | --lines 7    |
-      | --mutate-all     | --lines 7    |
-
-  # cli-surface-6: --max-workers may combine with selection flags (it is not exclusive of them)
-  Scenario Outline: --max-workers is accepted alongside a selection flag
-    When I run mutate4py with "--max-workers 4" and "<selection>"
-    Then the invocation is accepted
-
-    Examples:
-      | selection        |
+      | flag             |
       | --lines 7        |
       | --since-last-run |
       | --mutate-all     |
+
+  # cli-surface-6: --max-workers is accepted on the default scored run. --mutate-all is
+  # removed (spec #115), so no selection flag remains to combine with --max-workers.
+  Scenario: --max-workers is accepted on the default scored run
+    When I run mutate4py with the accepted flags "--max-workers 4 (a scored run)"
+    Then the invocation is accepted
 
   # cli-surface-7: an unknown flag or a missing source file is a usage error.
   # --test-command is deliberately unrecognized here: it was retired in favor
@@ -243,7 +244,7 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
       | alongside        |
       | (nothing)        |
       | --max-workers 0  |
-      | --scan --mutate-all |
+      | --mutate-all        |
 
   # cli-surface-9: an accepted invocation dispatches to the matching mode
   Scenario Outline: validated options are routed to the right behaviour
@@ -254,11 +255,11 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
       | flags             | target          |
       | --scan            | scan surface    |
       | --update-manifest | manifest write  |
-      | (a coverage flag) | run loop        |
+      | (a scored run) | run loop        |
 
   # cli-surface-10: the accepted --max-workers count is passed through to the dispatcher
   Scenario: an accepted --max-workers count reaches the run dispatcher
-    When I run mutate4py with the accepted flags "--max-workers 4 (a coverage flag)"
+    When I run mutate4py with the accepted flags "--max-workers 4 (a scored run)"
     Then the run is dispatched to the "run loop" behaviour
     And the dispatcher receives a worker count of "4"
 
@@ -274,30 +275,13 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
     When I run mutate4py on both files with "--check-manifest"
     Then both "one.py" and "two.py" are reported
 
-  # cli-surface-13: --build-test-contexts builds a db for whatever pytest
-  # collects, not for a mutation target, so it does not accept one (issue #50)
-  Scenario: --build-test-contexts rejects a positional PATH target
-    When I run mutate4py on that source file with "--build-test-contexts out.db"
-    Then the invocation is a usage error
-    And the command exits with a non-zero status
-
-  # cli-surface-14: an accepted --build-test-contexts run dispatches to the
-  # test-context build behaviour and writes a real, usable db (issue #50,
-  # ADR 0021) — proven end to end against the checked-in overlapping-coverage
-  # fixture (tests/fixtures/overlapping_coverage), whose shared line is
-  # covered by two tests.
-  Scenario: --build-test-contexts writes a db that narrows to every covering test
-    When I run mutate4py with the flag "--build-test-contexts" against the overlapping-coverage fixture
-    Then the invocation is accepted
-    And the written test-context db narrows the shared line to both covering tests
-
   # cli-surface-15: a scored run whose project .venv is not the running
   # interpreter is rejected before any Baseline starts (ADR 0025;
   # a foreign interpreter otherwise fails at the
   # Baseline with an uninformative "exit code 2")
   Scenario: a run from outside the project environment is rejected before any baseline
     Given a project with a ".venv" that the running interpreter is not
-    When I run mutate4py with the accepted flags "(a coverage flag)" from outside that environment
+    When I run mutate4py with the accepted flags "(a scored run)" from outside that environment
     Then the command exits with status "2"
     And the error names the running interpreter and the project environment
     And no baseline pytest run is started
@@ -307,5 +291,5 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   # above is not satisfied vacuously.
   Scenario: the same project without a ".venv" starts its baseline
     Given a project with no ".venv"
-    When I run mutate4py with the accepted flags "(a coverage flag)" from that project
+    When I run mutate4py with the accepted flags "(a scored run)" from that project
     Then a baseline pytest run is started

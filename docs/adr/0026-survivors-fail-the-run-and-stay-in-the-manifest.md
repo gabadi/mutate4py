@@ -15,9 +15,21 @@ selected every covered Site in it; a function with no covered Site is rescored o
 a full-file run. A narrowed run that finds a recorded survivor's Site uncovered keeps the function's old block. An aborted run rescores nothing. A full-file run whose coverage misses
 a survivor's line clears it: on an explicit full run, coverage is the truth.
 
+**Amendment (issue #115): a changed or Unscored function with no covered Site is scored.**
+The rule above ("a function with no covered Site is rescored only by a full-file run") no
+longer holds for a function the run re-scores: a function whose hash or tests digest moved,
+or that is Unscored, is scored by any default run even when no covered Site reaches it. Its
+Sites are tallied `uncovered` and its `score` block is written. A function with a stored
+score, an unchanged hash and no covered Site is still skipped on a narrowed run. ADR 0029's
+amendment for spec #115 has the detail.
+
 `--check-manifest` exits 1 while any function records a survivor, and checks this
 before the `source_sha256` fast path, so a matching footer hash cannot hide one.
-Survivor-carrying functions count as changed, so the next default run retries them.
+Survivor-carrying functions count as changed only while their entry has no
+`tests_digest`, so a 0.2.x entry with Survivors is retried once. Once an entry has a
+digest, a function whose hash and digest are unchanged is skipped even with
+Survivors, and its recorded Survivors print apart from the run's own and still fail
+it (amended by ADR 0029, which replaces "the next default run retries them").
 
 An equivalent is accepted by `# mutate4py: equivalent <reason>` on the mutated line.
 It accepts every survived Site on that line, so to accept one of two Sites, split the
@@ -30,8 +42,10 @@ Accepted consequences:
 - After a hash-changing edit, `--update-manifest` drops that function's survivors. The
   function becomes Unscored and `--check-manifest` passes on hashes, the same skip that
   already applies to changed functions.
-- A 0.1.4 Manifest gains scores only for functions a run fully selects. A default
-  differential run selects nothing unchanged, so one `--mutate-all` run scores the file.
+- ~~A 0.1.4 Manifest gains scores only for functions a run fully selects. A default
+  differential run selects nothing unchanged, so one `--mutate-all` run scores the file.~~
+  **Superseded by #115:** a default run scores every Unscored function, so a 0.1.4
+  Manifest gains its scores from one ordinary run (see ADR 0029's amendment for spec #115).
 - A module-level survivor exits 3 but is not recorded: it has no function entry, so
   `--check-manifest` cannot see it.
 
@@ -48,3 +62,17 @@ Rejected alternatives:
 - `--require-scored`: not needed yet.
 - Per-Site merging of partial runs: a partly selected function's score cannot be known,
   so it is skipped.
+
+## Addendum (issue #89)
+
+A function is changed when its Unit hash or its Tests digest (ADR 0029) differs from
+the stored one, so an edit to a test that reaches a function re-scores it with no hash
+change. Recorded Survivors still make a function changed only while its entry has no
+stored `tests_digest`, so a 0.2.x entry with Survivors is retried once. Once an entry
+has a digest, a function whose hash and digest are both unchanged is skipped even with
+Survivors. Its recorded Survivors print on their own block and still fail the run: exit
+3, or 0 with `--allow-survivors`.
+
+The adoption rule follows this ADR's precedent: an entry with a score, no Survivors and
+no digest adopts the fresh digest without a re-score. `--check-manifest` still fails on
+recorded Survivors and equivalent markers, and does not check digests (ADR 0029).

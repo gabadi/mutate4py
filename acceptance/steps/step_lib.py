@@ -17,38 +17,6 @@ def run_mutate4py(*args: str) -> subprocess.CompletedProcess:
     )
 
 
-class QAState:
-    """Mutable state bag for QA step modules (report output + fixture paths)."""
-
-    def __init__(self, source_path: str, lcov_path: str):
-        self.report_output: str = ""
-        self.source_path: str = source_path
-        self.lcov_path: str = lcov_path
-
-
-def check_cli_available() -> bool:
-    """Return True if crap4py.__main__ is importable (CLI entrypoint exists)."""
-    result = subprocess.run(
-        ["uv", "run", "python", "-c", "import crap4py.__main__"],
-        cwd=_REPO_ROOT,
-        capture_output=True,
-    )
-    return result.returncode == 0
-
-
-def run_cli(lcov_path: str, source_path: str, cli_available: bool) -> str:
-    """Run 'uv run crap4py --lcov <lcov> <source>' and return stdout, or '' if CLI absent."""
-    if not cli_available:
-        return ""
-    result = subprocess.run(
-        ["uv", "run", "crap4py", "--lcov", lcov_path, source_path],
-        cwd=_REPO_ROOT,
-        capture_output=True,
-        text=True,
-    )
-    return result.stdout
-
-
 def assert_nonzero_exit(
     result: subprocess.CompletedProcess, label: str = "exit"
 ) -> None:

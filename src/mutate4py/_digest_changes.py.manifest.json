@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "tested_at": "2026-11-15T01:19:46Z",
+  "module_hash": "848003993d67b1150a45cb56dbfd4b2205e659abaf0fbe0eac403e035a628cd8",
+  "source_sha256": "8a70f278e1c4dcfa20d04ec83f753664d8b005b0e3a5e55891e38bc11722d4e9",
+  "functions": [
+    {
+      "id": "func/_stored_digests",
+      "name": "_stored_digests",
+      "line": 10,
+      "end_line": 15,
+      "hash": "35cdb97a4fd3341c6c0816893d3645186ede5209a6e550dd2d824dd2e83fa696",
+      "score": {
+        "killed": 3,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "7ef819c9118b712ed1d5f274b420a1720576e28402a3e11cb8c903a0c912198f"
+    },
+    {
+      "id": "func/functions_with_changed_digest",
+      "name": "functions_with_changed_digest",
+      "line": 18,
+      "end_line": 24,
+      "hash": "139985f66030310216e5f4cd35c7896d7d266e191c938008de2d8468d0fe720d",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "7ef819c9118b712ed1d5f274b420a1720576e28402a3e11cb8c903a0c912198f"
+    }
+  ],
+  "tests_fingerprint": "9a15af64d0003d4c16102155d590079cc5eb8cacfb41b4c21c04d46be61f7786"
+}

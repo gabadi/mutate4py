@@ -1,0 +1,204 @@
+{
+  "version": 1,
+  "tested_at": "2026-11-13T17:18:57Z",
+  "module_hash": "ce7837161b082e0e1c0c2a70de967b0000c990c88c702ea71ed3c9d8cd58fa17",
+  "source_sha256": "cc09f1609213da10b2fc902cb99e89088da3b0e0c2d77e46ad96a40b3a0e3c59",
+  "functions": [
+    {
+      "id": "func/_All.__repr__",
+      "name": "__repr__",
+      "line": 86,
+      "end_line": 87,
+      "hash": "1051eafb92df616ddf2813024a633d9a109f288ac01ee74c630317a81650562f"
+    },
+    {
+      "id": "func/MeasureRequest.__post_init__",
+      "name": "__post_init__",
+      "line": 118,
+      "end_line": 121,
+      "hash": "77d9f3e94454ccd3dfb4f74575de7a0e238b4e9ba6db2e756595b0cf4f84519b"
+    },
+    {
+      "id": "func/MeasurementFailed.__init__",
+      "name": "__init__",
+      "line": 127,
+      "end_line": 137,
+      "hash": "0e338df23e94d55e915bcd499325db9fcec3a7ea2727c7fbf458c478096c0c1c"
+    },
+    {
+      "id": "func/CoverageCoreRefused.__init__",
+      "name": "__init__",
+      "line": 141,
+      "end_line": 144,
+      "hash": "ec8b198264eb52efd29ce65b502802e834eb9f4e275cceb58cb4457d79b01171"
+    },
+    {
+      "id": "func/_canonical",
+      "name": "_canonical",
+      "line": 147,
+      "end_line": 148,
+      "hash": "de51d52e78ae5b67b4c30553e671bb0d8f7aa8dd79104f2afd7b7e5828ca2bbc"
+    },
+    {
+      "id": "func/Measurement.core",
+      "name": "core",
+      "line": 163,
+      "end_line": 164,
+      "hash": "27529f84eaff61c9dfa52d9a8aedd0deb40a917940da1a3a4409219ae686e326"
+    },
+    {
+      "id": "func/Measurement.note",
+      "name": "note",
+      "line": 167,
+      "end_line": 168,
+      "hash": "f968cecf73acfb7c23d944e1cc203f21ad876733457f1f299844958fdff9cea8"
+    },
+    {
+      "id": "func/Measurement.tests",
+      "name": "tests",
+      "line": 171,
+      "end_line": 172,
+      "hash": "39a26c153e277bd038b49b115582b89347881d348f9dc1a98cb79c68e997e7cf"
+    },
+    {
+      "id": "func/Measurement.positional_args",
+      "name": "positional_args",
+      "line": 175,
+      "end_line": 177,
+      "hash": "9b124abe8f9bfcbd42ddc04d4b41bf5176eacd742bb975655caeb1242aad7496"
+    },
+    {
+      "id": "func/Measurement.per_mutant_overhead",
+      "name": "per_mutant_overhead",
+      "line": 180,
+      "end_line": 181,
+      "hash": "27ce28b798adbe7c6ce6cc1f055e034a6eb0c339b12575e9f123ed5fb9895e94"
+    },
+    {
+      "id": "func/Measurement.budget_of",
+      "name": "budget_of",
+      "line": 183,
+      "end_line": 189,
+      "hash": "99e294eb9199fbc146abd60ed53609d68eb4bc4bfb41201784572f908f232330"
+    },
+    {
+      "id": "func/Measurement._line_contexts",
+      "name": "_line_contexts",
+      "line": 191,
+      "end_line": 192,
+      "hash": "e77cf8f4fa2658d8373cd448cd71920b2a89a902fcab165616c49c6caeae0505"
+    },
+    {
+      "id": "func/Measurement.outcome",
+      "name": "outcome",
+      "line": 194,
+      "end_line": 199,
+      "hash": "41dc2e7f9c8fb285b51dca8702649811948da8bca76dfbef14e59ad6a97ceebc"
+    },
+    {
+      "id": "func/Measurement.tests_for_line",
+      "name": "tests_for_line",
+      "line": 201,
+      "end_line": 209,
+      "hash": "aff8a93408a649a405641cc94f8da16188065e9697b35028427136162cdaf5e8"
+    },
+    {
+      "id": "func/Measurement.covered_lines",
+      "name": "covered_lines",
+      "line": 211,
+      "end_line": 212,
+      "hash": "ef9d766d557499bbba3b679ca92a58ea302748b89cff195c5383c29741bdd9f4"
+    },
+    {
+      "id": "func/Measurement.empty_lines",
+      "name": "empty_lines",
+      "line": 214,
+      "end_line": 215,
+      "hash": "19f9ac5bb704dd4f0cdd127c0ffab5da430fbedd3d0f932534ba6750dca4a49e"
+    },
+    {
+      "id": "func/Measurement.digest_inputs",
+      "name": "digest_inputs",
+      "line": 217,
+      "end_line": 227,
+      "hash": "088279a24860f47b893db7929b8db92d72061d7ed677ce03d5941453111ea28c"
+    },
+    {
+      "id": "func/_largest_setup_by_file",
+      "name": "_largest_setup_by_file",
+      "line": 230,
+      "end_line": 243,
+      "hash": "dd827f3b7a95d31485681f48c17fd6fc0c677d6de3add919979629499716c5cf"
+    },
+    {
+      "id": "func/_payable",
+      "name": "_payable",
+      "line": 246,
+      "end_line": 248,
+      "hash": "1ae7ef1e759f1a1ce779937940bbe08259489259640df17f9ea50e5894220332"
+    },
+    {
+      "id": "func/measurement_from",
+      "name": "measurement_from",
+      "line": 251,
+      "end_line": 269,
+      "hash": "8f8f7e1cf4f730644c173c2bf0bcd98e0fb58ae64a2605629e4f041912705ee0"
+    },
+    {
+      "id": "func/_session_env",
+      "name": "_session_env",
+      "line": 272,
+      "end_line": 279,
+      "hash": "5c112b4e87c07f0c9b91fc379f7f21e8138ee00929ee227f40c422937da454e5"
+    },
+    {
+      "id": "func/_read_record",
+      "name": "_read_record",
+      "line": 282,
+      "end_line": 287,
+      "hash": "7301ec4f499a44ba57b6eda6463c85c7386cd4c7602c423b316ad01eb5c159dd"
+    },
+    {
+      "id": "func/_failure_reason",
+      "name": "_failure_reason",
+      "line": 290,
+      "end_line": 295,
+      "hash": "e37e938deff1f02ce6b74f8aa3f5168ff6a006c2ed75beca9336200fab827df5"
+    },
+    {
+      "id": "func/_last_nonblank",
+      "name": "_last_nonblank",
+      "line": 298,
+      "end_line": 299,
+      "hash": "6da96875f2bc599f10d302be2a9953b69fec1aa67056544813ab509b1fe3f598"
+    },
+    {
+      "id": "func/raise_for_session",
+      "name": "raise_for_session",
+      "line": 302,
+      "end_line": 308,
+      "hash": "23064b21dee7ec6cc2ecafb684afccfa9ea71567ba849d56336a7091ab434ece"
+    },
+    {
+      "id": "func/_run_session",
+      "name": "_run_session",
+      "line": 311,
+      "end_line": 318,
+      "hash": "2b747b85094c25f81038469b06379b760d9c1b827f7843c68691751427b12838"
+    },
+    {
+      "id": "func/measure",
+      "name": "measure",
+      "line": 321,
+      "end_line": 344,
+      "hash": "5cbbda0040f5d95e0f6b5d184a3c7574dbd76bb465fea0d4817867ad2ce01223"
+    },
+    {
+      "id": "func/measure_in_scratch",
+      "name": "measure_in_scratch",
+      "line": 347,
+      "end_line": 362,
+      "hash": "f1ecdbf5c38e0b1844b34df6926ebf914d115f5ebe6bcda2bd5b0baa4efa4517"
+    }
+  ]
+}

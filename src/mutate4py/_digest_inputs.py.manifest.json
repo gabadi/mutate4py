@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "tested_at": "2026-11-13T17:43:32Z",
+  "module_hash": "912167c0c9f7f26a0b410c30481dba09cd2bd36bea77eafb3f3e2f374afc31f7",
+  "source_sha256": "2d6fadba4ad6b7e4f61aee2caf3a5c401f54640d1081101a439ea07ebc562cfc",
+  "functions": [
+    {
+      "id": "func/digest_inputs_from",
+      "name": "digest_inputs_from",
+      "line": 21,
+      "end_line": 30,
+      "hash": "e5d6e5036dce666917ff472015fbf0759b0986d20bc6cfbec9d445555e6cf5bf"
+    },
+    {
+      "id": "func/_conftests_for",
+      "name": "_conftests_for",
+      "line": 33,
+      "end_line": 40,
+      "hash": "893f8860e297aaf9199dfb5282cc5831f5c75f68499482083ab7db86df53d8af"
+    },
+    {
+      "id": "func/_support_files",
+      "name": "_support_files",
+      "line": 43,
+      "end_line": 49,
+      "hash": "b8bf6e3213dd283decd6080c840f9adac077d0560f2451e8d94a59e9c5ed0404"
+    },
+    {
+      "id": "func/_relative",
+      "name": "_relative",
+      "line": 52,
+      "end_line": 53,
+      "hash": "699393f2760ee2dd57d825417424cbcb7f6914fe864fc00ee4564917879d1c2c"
+    },
+    {
+      "id": "func/_chain",
+      "name": "_chain",
+      "line": 56,
+      "end_line": 58,
+      "hash": "2f70c881f5e0389c13fd71b65b7f8e09f59c0759d8c3e6e1ef5138817d5dbc80"
+    }
+  ]
+}

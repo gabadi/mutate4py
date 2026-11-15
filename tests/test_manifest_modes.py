@@ -211,8 +211,63 @@ def test_update_manifest_drops_scores_of_changed_function(tmp_path, manifest_fil
     assert "score" not in g
 
 
+@pytest.mark.unit
+@pytest.mark.parametrize("manifest_file", [True, False], ids=["sidecar", "embedded"])
+def test_update_manifest_keeps_tests_digest_of_unchanged_function(tmp_path, manifest_file):
+    path = str(tmp_path / "calc.py")
+    assert update_manifest(path=path, source=_seed(path, SRC), manifest_file=manifest_file) == 0
+    scored = _apply_scores(_read_stored(path, manifest_file), _SCORES)
+    _fn(scored, "func/f")["tests_digest"] = "d-f"
+    _store(path, SRC, scored, manifest_file)
+
+    assert update_manifest(path=path, source=_read_source(path), manifest_file=manifest_file) == 0
+
+    assert _fn(_read_stored(path, manifest_file), "func/f")["tests_digest"] == "d-f"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("manifest_file", [True, False], ids=["sidecar", "embedded"])
+def test_update_manifest_drops_tests_digest_of_changed_function(tmp_path, manifest_file):
+    path = str(tmp_path / "calc.py")
+    assert update_manifest(path=path, source=_seed(path, SRC), manifest_file=manifest_file) == 0
+    scored = _apply_scores(_read_stored(path, manifest_file), _SCORES)
+    _fn(scored, "func/f")["tests_digest"] = "d-f"
+    _fn(scored, "func/g")["tests_digest"] = "d-g"
+    _store(path, SRC_G_CHANGED, scored, manifest_file)
+
+    assert update_manifest(path=path, source=_read_source(path), manifest_file=manifest_file) == 0
+
+    stored = _read_stored(path, manifest_file)
+    assert _fn(stored, "func/f")["tests_digest"] == "d-f"
+    assert "tests_digest" not in _fn(stored, "func/g")
+
+
+def _fn(manifest, fid):
+    return next(fn for fn in manifest["functions"] if fn["id"] == fid)
+
+
 def _seed(path, clean):
     """Write the clean source and return the text --update-manifest reads from it."""
     with open(path, "w") as f:
         f.write(clean)
     return clean
+
+
+# ── --check-manifest: tests digests are not checked (#106) ──────────────
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("manifest_file", [True, False], ids=["sidecar", "embedded"])
+def test_check_manifest_ignores_a_tests_digest_that_no_run_would_reproduce(tmp_path, caplog, manifest_file):
+    """No Measurement exists here, so a digest cannot be recomputed: it never makes a Manifest stale."""
+    path = str(tmp_path / "calc.py")
+    clean_scores = {fid: {"score": _G_SCORE, "survivors": [], "accepted": []} for fid in ("func/f", "func/g")}
+    manifest = _apply_scores(build_manifest(SRC, tested_at=TESTED_AT), clean_scores)
+    _fn(manifest, "func/f")["tests_digest"] = "digest-of-tests-that-have-since-changed"
+    _store(path, SRC, manifest, manifest_file)
+
+    with caplog.at_level(logging.INFO):
+        rc = check_manifest(path=path, source=_read_source(path), manifest_file=manifest_file)
+
+    assert rc == 0
+    assert "Manifest current: " + path in caplog.text

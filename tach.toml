@@ -2,10 +2,9 @@
 #
 # `layers` is ordered highest first. A module may import anything in a strictly
 # lower layer for free; importing a sibling in its own layer needs an explicit
-# `depends_on`. That one mechanic is what enforces the "_coverage must not
-# import _discovery" invariant — both sit in `domain`, neither lists the other,
-# so tach rejects the import the moment someone adds it. It needs no rule of
-# its own.
+# `depends_on`. That one mechanic is what enforces same-layer isolation: two
+# modules in one layer that do not list each other stay apart, and tach rejects
+# the import the moment someone adds it. It needs no rule of its own.
 #
 # Most layers here hold a single module extracted from `__main__.py` or
 # `_runner.py` to keep those under their size caps. Their order relative to
@@ -83,8 +82,27 @@ path = "mutate4py._py_tree"
 layer = "primitives"
 depends_on = []
 
+# How a pytest argv reads (flag, value, positional). Read by both `_tests_fingerprint` and
+# `_test_dispatch`, which sit in different layers, so it lives in `primitives`.
+[[modules]]
+path = "mutate4py._pytest_argv"
+layer = "primitives"
+depends_on = []
+
+# Where pytest's configuration declares its testpaths. Split from `_tests_fingerprint`, which sits
+# at its size cap (tests/test_module_size_guard.py). Stdlib-only, so it lives in `primitives`.
+[[modules]]
+path = "mutate4py._pytest_config"
+layer = "primitives"
+depends_on = []
+
 [[modules]]
 path = "mutate4py._sidecar_io"
+layer = "primitives"
+depends_on = []
+
+[[modules]]
+path = "mutate4py._code_swap"
 layer = "primitives"
 depends_on = []
 
@@ -98,6 +116,25 @@ path = "mutate4py._manifest"
 layer = "domain"
 depends_on = []
 
+# The functions whose stored tests digest a run's fresh digests change (#106). Split from
+# `_manifest`, which sits at its size cap (tests/test_module_size_guard.py).
+[[modules]]
+path = "mutate4py._digest_changes"
+layer = "domain"
+depends_on = ["mutate4py._manifest"]
+
+# The functions a run scores because no stored score block covers them (ADR 0029 rule 1, spec #115).
+# Split from `_manifest`, which sits at its size cap (tests/test_module_size_guard.py).
+[[modules]]
+path = "mutate4py._unscored"
+layer = "domain"
+depends_on = ["mutate4py._manifest"]
+
+[[modules]]
+path = "mutate4py._tests_fingerprint"
+layer = "domain"
+depends_on = ["mutate4py._manifest"]
+
 [[modules]]
 path = "mutate4py._scoring"
 layer = "domain"
@@ -109,34 +146,22 @@ layer = "domain"
 depends_on = []
 
 [[modules]]
-path = "mutate4py._coverage"
+path = "mutate4py._tests_digest"
 layer = "domain"
 depends_on = []
 
+# Builds the plain DigestInputs from the record (#105). Pure: record in, values out.
 [[modules]]
-path = "mutate4py._test_selection"
+path = "mutate4py._digest_inputs"
 layer = "domain"
-depends_on = []
+depends_on = ["mutate4py._tests_digest"]
 
+# The fresh digest of each function in a measured file (#105): reads the Measurement's
+# reach, so it sits beside it in `baseline`.
 [[modules]]
-path = "mutate4py._test_context_build"
-layer = "domain"
-depends_on = []
-
-[[modules]]
-path = "mutate4py._test_collection"
-layer = "domain"
-depends_on = []
-
-[[modules]]
-path = "mutate4py._test_context_cache"
-layer = "domain"
-depends_on = []
-
-[[modules]]
-path = "mutate4py._test_context_orchestration"
-layer = "domain"
-depends_on = ["mutate4py._test_collection", "mutate4py._test_context_build", "mutate4py._test_context_cache"]
+path = "mutate4py._fresh_digests"
+layer = "baseline"
+depends_on = ["mutate4py._measurement"]
 
 [[modules]]
 path = "mutate4py._workspace"
@@ -193,10 +218,39 @@ path = "mutate4py._source_loading"
 layer = "source_loading"
 depends_on = []
 
+# The stored Manifests an invocation reads to decide its skip (design #89 §5b). Reads
+# files and Manifests, decides nothing about the run itself.
 [[modules]]
-path = "mutate4py._baseline"
+path = "mutate4py._skip_facts"
+layer = "source_loading"
+depends_on = []
+
+# The report of a skipped run (design #89 §5b): the Measurement line, the recorded
+# Survivors and the exit code, with no Mutation Report.
+[[modules]]
+path = "mutate4py._skipped_run"
+layer = "report"
+depends_on = ["mutate4py._report"]
+
+# The Measurement (design #89 §2) sits in `baseline`: above `domain`, whose
+# `_plugin_neutralisation` it uses, and below the layers that read from it.
+[[modules]]
+path = "mutate4py._measurement"
 layer = "baseline"
 depends_on = []
+
+# The record is the pure format both sides of the Measurement share, so it
+# has no deps. The plugin runs inside the user's pytest and may import only
+# coverage, pytest and the record: a sibling in `primitives`, listed here.
+[[modules]]
+path = "mutate4py._measure_record"
+layer = "primitives"
+depends_on = []
+
+[[modules]]
+path = "mutate4py._measure_plugin"
+layer = "primitives"
+depends_on = ["mutate4py._measure_record"]
 
 [[modules]]
 path = "mutate4py._executor"
@@ -206,7 +260,12 @@ depends_on = []
 [[modules]]
 path = "mutate4py._workers"
 layer = "execution_backends"
-depends_on = ["mutate4py._worker_protocol", "mutate4py._worker_provision"]
+depends_on = ["mutate4py._worker_protocol", "mutate4py._worker_provision", "mutate4py._worker_results"]
+
+[[modules]]
+path = "mutate4py._worker_results"
+layer = "execution_backends"
+depends_on = []
 
 [[modules]]
 path = "mutate4py._worker_provision"
@@ -215,6 +274,11 @@ depends_on = ["mutate4py._worker_protocol"]
 
 [[modules]]
 path = "mutate4py._forking_executor"
+layer = "execution_backends"
+depends_on = ["mutate4py._fork_child"]
+
+[[modules]]
+path = "mutate4py._fork_child"
 layer = "execution_backends"
 depends_on = []
 
@@ -226,7 +290,7 @@ depends_on = []
 [[modules]]
 path = "mutate4py._executor_selection"
 layer = "execution_backends"
-depends_on = ["mutate4py._forking_executor", "mutate4py._subprocess_executor"]
+depends_on = ["mutate4py._forking_executor", "mutate4py._subprocess_executor", "mutate4py._worker_protocol"]
 
 [[modules]]
 path = "mutate4py._worker_protocol"
@@ -239,9 +303,14 @@ layer = "execution_backends"
 depends_on = ["mutate4py._executor_selection"]
 
 [[modules]]
-path = "mutate4py._runner"
+path = "mutate4py._run_request"
 layer = "run_loop"
 depends_on = []
+
+[[modules]]
+path = "mutate4py._runner"
+layer = "run_loop"
+depends_on = ["mutate4py._run_request"]
 
 [[modules]]
 path = "mutate4py.__main__"

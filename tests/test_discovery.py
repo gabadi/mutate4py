@@ -4,7 +4,7 @@ import ast
 import pathlib
 import textwrap
 import pytest
-from mutate4py._discovery import apply_mutant, discover_sites
+from mutate4py._discovery import Site, apply_mutant, discover_sites, partition_sites
 from mutate4py._site_selection import _select_sites
 
 _SRC_DIR = pathlib.Path(__file__).resolve().parents[1] / "src" / "mutate4py"
@@ -272,8 +272,7 @@ def test_unary_site_selected_only_in_changed_function():
         sites,
         covered,
         {minus_site.function_id},
-        effective_since_last_run=True,
-        lines_filter=None,
+        differential=True,
     )
     assert [s.orig_text for s in selected] == ["-"]
 
@@ -738,3 +737,59 @@ def test_apply_mutant_splices_correctly_with_non_ascii_before_mutation_column():
     assert len(sites) == 1
     mutated = apply_mutant(src, sites[0])
     assert mutated == 'def f(t):\n    u = "éééé"; return len(t) >= 2\n'
+
+
+# ── partition_sites ───────────────────────────────────────────────────────────
+
+
+def _site(line: int) -> Site:
+    return Site(
+        index=0,
+        line=line,
+        col=0,
+        end_line=line,
+        end_col=1,
+        function_id="",
+        orig_text="x",
+        mutant_text="y",
+        desc="x -> y",
+    )
+
+
+@pytest.mark.unit
+def test_partition_all_covered():
+    sites = [_site(3), _site(5), _site(7)]
+    covered, uncovered = partition_sites(sites, {3, 5, 7})
+    assert covered == 3
+    assert uncovered == 0
+
+
+@pytest.mark.unit
+def test_partition_none_covered():
+    sites = [_site(3), _site(5), _site(7)]
+    covered, uncovered = partition_sites(sites, set())
+    assert covered == 0
+    assert uncovered == 3
+
+
+@pytest.mark.unit
+def test_partition_partial():
+    sites = [_site(3), _site(5), _site(7)]
+    covered, uncovered = partition_sites(sites, {3, 7})
+    assert covered == 2
+    assert uncovered == 1
+
+
+@pytest.mark.unit
+def test_partition_covered_plus_uncovered_equals_total():
+    sites = [_site(i) for i in range(10)]
+    covered_lines = {0, 2, 4, 6, 8}
+    covered, uncovered = partition_sites(sites, covered_lines)
+    assert covered + uncovered == len(sites)
+
+
+@pytest.mark.unit
+def test_partition_empty_sites():
+    covered, uncovered = partition_sites([], {3, 5})
+    assert covered == 0
+    assert uncovered == 0

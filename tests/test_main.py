@@ -8,7 +8,7 @@ import textwrap
 
 import pytest
 
-from mutate4py._runner import CoverageSource, scan_report
+from mutate4py._runner import scan_report
 
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -166,14 +166,23 @@ def test_scan_report_with_embedded_manifest_reports_exists_true(tmp_path):
     assert "Manifest exists: true" in lines
 
 
+def _scored_manifest(source):
+    """Test setup: a Manifest whose every function carries a clean score block, so none is Unscored."""
+    from mutate4py._manifest import build_manifest
+
+    manifest = build_manifest(source, tested_at="2026-01-01T00:00:00Z")
+    for fn in manifest["functions"]:
+        fn.update(score={"killed": 1, "survived": 0, "uncovered": 0}, survivors=[], accepted=[])
+    return manifest
+
+
 @pytest.mark.unit
 def test_scan_report_with_embedded_manifest_changed_reflects_diff(tmp_path):
-    from mutate4py._runner import update_manifest
+    from mutate4py._manifest import embed_manifest
 
     p = tmp_path / "mod.py"
     src = "def f(a, b):\n    return a > b\n\n\ndef g(a, b):\n    return a < b\n"
-    p.write_text(src)
-    update_manifest(path=str(p), source=src, manifest_file=False)
+    p.write_text(embed_manifest(src, _scored_manifest(src)))
     embedded = p.read_text()
 
     # Only g's body changes after the manifest was recorded.
@@ -187,6 +196,22 @@ def test_scan_report_with_embedded_manifest_changed_reflects_diff(tmp_path):
 
 @pytest.mark.unit
 def test_scan_report_sidecar_manifest_reports_exists_true(tmp_path):
+    from mutate4py._manifest_storage import write_sidecar_manifest
+
+    p = tmp_path / "mod.py"
+    src = "def f(a, b):\n    return a > b\n"
+    p.write_text(src)
+    write_sidecar_manifest(str(p), _scored_manifest(src))
+
+    lines, _ = scan_report(str(p), src, 1000, manifest_file=True)
+    assert "Manifest exists: true" in lines
+    assert "Changed mutation sites: 0" in lines
+
+
+@pytest.mark.unit
+def test_scan_report_counts_every_site_of_an_unscored_manifest_as_changed(tmp_path):
+    # A Manifest with no score block is Unscored, and a default run scores it (ADR 0029 rule 1), so the scan
+    # report counts its sites as changed even though the source did not move.
     from mutate4py._runner import update_manifest
 
     p = tmp_path / "mod.py"
@@ -196,7 +221,7 @@ def test_scan_report_sidecar_manifest_reports_exists_true(tmp_path):
 
     lines, _ = scan_report(str(p), src, 1000, manifest_file=True)
     assert "Manifest exists: true" in lines
-    assert "Changed mutation sites: 0" in lines
+    assert "Changed mutation sites: 1" in lines
 
 
 @pytest.mark.unit
@@ -242,9 +267,16 @@ def test_main_missing_file_exits(tmp_path):
 
 
 @pytest.mark.unit
-def test_main_no_scan_flag_exits(tmp_path):
+def test_main_no_scan_flag_exits(tmp_path, monkeypatch):
+    # The Measurement is faked: an unfaked one runs the repo's own suite in a nested
+    # session, which reaches this test again and recurses.
     import mutate4py.__main__ as m
+    from mutate4py._measurement import MeasurementFailed
 
+    def no_tests(**kwargs):
+        raise MeasurementFailed(no_tests=True)
+
+    monkeypatch.setattr("mutate4py._runner.measure_in_scratch", no_tests)
     p = tmp_path / "s.py"
     p.write_text("pass\n")
     sys.argv = ["mutate4py", str(p)]
@@ -375,114 +407,6 @@ def test_main_update_manifest_mode(tmp_path, capsys):
     assert "# mutate4py-manifest-begin" in p.read_text()
 
 
-# ── scan_report_with_coverage unit tests ─────────────────────────────────────
-
-
-@pytest.mark.unit
-def test_scan_report_with_coverage_basic(tmp_path):
-    from mutate4py._runner import scan_report_with_coverage
-
-    src_file = tmp_path / "foo.py"
-    src_file.write_text("x = a + b\n")
-    lcov_file = tmp_path / "cov.info"
-    lcov_file.write_text(f"SF:{src_file}\nDA:1,1\nend_of_record\n")
-
-    lines, exceeded = scan_report_with_coverage(
-        str(src_file),
-        src_file.read_text(),
-        1000,
-        CoverageSource(cov_cmd=None, lcov_path=str(lcov_file), reuse_coverage=False, cwd=str(tmp_path)),
-    )
-    assert any("Covered mutation sites:" in line for line in lines)
-    assert any("Uncovered mutation sites:" in line for line in lines)
-    assert not exceeded
-
-
-@pytest.mark.unit
-def test_scan_report_with_coverage_warning(tmp_path):
-    from mutate4py._runner import scan_report_with_coverage
-
-    src_file = tmp_path / "foo.py"
-    src_file.write_text("x = a + b\ny = c - d\n")
-    lcov_file = tmp_path / "cov.info"
-    lcov_file.write_text(f"SF:{src_file}\nDA:1,1\nend_of_record\n")
-
-    lines, exceeded = scan_report_with_coverage(
-        str(src_file),
-        src_file.read_text(),
-        1,
-        CoverageSource(cov_cmd=None, lcov_path=str(lcov_file), reuse_coverage=False, cwd=str(tmp_path)),
-    )
-    assert exceeded
-    assert any("Warning:" in line for line in lines)
-
-
-@pytest.mark.unit
-def test_scan_report_with_coverage_manifest_exists_false(tmp_path):
-    # mutant_22,23,24: "Manifest exists: false" must appear in output
-    from mutate4py._runner import scan_report_with_coverage
-
-    src_file = tmp_path / "foo.py"
-    src_file.write_text("x = a + b\n")
-    lcov_file = tmp_path / "cov.info"
-    lcov_file.write_text(f"SF:{src_file}\nDA:1,1\nend_of_record\n")
-
-    lines, _ = scan_report_with_coverage(
-        str(src_file),
-        src_file.read_text(),
-        1000,
-        CoverageSource(cov_cmd=None, lcov_path=str(lcov_file), reuse_coverage=False, cwd=str(tmp_path)),
-    )
-    assert "Manifest exists: false" in lines
-    assert "Changed mutation sites: 1" in lines
-
-
-@pytest.mark.unit
-def test_scan_report_with_coverage_embedded_manifest_reports_exists_true_and_changed(tmp_path):
-    from mutate4py._runner import scan_report_with_coverage, update_manifest
-
-    src_file = tmp_path / "foo.py"
-    src = "def f(a, b):\n    return a > b\n\n\ndef g(a, b):\n    return a < b\n"
-    src_file.write_text(src)
-    update_manifest(path=str(src_file), source=src, manifest_file=False)
-    embedded = src_file.read_text()
-    changed_src = embedded.replace("return a < b", "return a <= b")
-
-    lcov_file = tmp_path / "cov.info"
-    lcov_file.write_text(f"SF:{src_file}\nDA:2,1\nDA:6,1\nend_of_record\n")
-
-    lines, _ = scan_report_with_coverage(
-        str(src_file),
-        changed_src,
-        1000,
-        CoverageSource(cov_cmd=None, lcov_path=str(lcov_file), reuse_coverage=False, cwd=str(tmp_path)),
-    )
-    assert "Manifest exists: true" in lines
-    total = int(next(line for line in lines if "Total mutation sites:" in line).split(": ")[1])
-    changed = int(next(line for line in lines if "Changed mutation sites:" in line).split(": ")[1])
-    assert 0 < changed < total
-
-
-@pytest.mark.unit
-def test_scan_report_with_coverage_no_warning_at_threshold(tmp_path):
-    # mutant_26: exceeded = total > warning_threshold (not >=), so at threshold no warning
-    from mutate4py._runner import scan_report_with_coverage
-
-    src_file = tmp_path / "foo.py"
-    src_file.write_text("x = a + b\n")  # 1 site
-    lcov_file = tmp_path / "cov.info"
-    lcov_file.write_text(f"SF:{src_file}\nDA:1,1\nend_of_record\n")
-
-    lines, exceeded = scan_report_with_coverage(
-        str(src_file),
-        src_file.read_text(),
-        1,
-        CoverageSource(cov_cmd=None, lcov_path=str(lcov_file), reuse_coverage=False, cwd=str(tmp_path)),
-    )
-    assert not exceeded
-    assert not any("Warning" in line for line in lines)
-
-
 @pytest.mark.unit
 def test_do_update_manifest_tested_at_iso8601_utc_format(tmp_path):
     # mutant_5,7,8,9,10,13: tested_at = datetime.datetime.now(utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -506,22 +430,6 @@ def test_do_update_manifest_tested_at_iso8601_utc_format(tmp_path):
             )
             return
     assert False, "No manifest JSON line found in output"
-
-
-@pytest.mark.integration
-def test_main_no_coverage_flag_errors_about_coverage(tmp_path):
-    # F4: invoking with no coverage flag attempts a run and errors about missing coverage.
-    p = tmp_path / "s.py"
-    p.write_text("x = a > b\n")
-    result = subprocess.run(
-        [sys.executable, "-m", "mutate4py", str(p)],
-        capture_output=True,
-        text=True,
-        cwd=str(tmp_path),
-        env={**os.environ, "PYTHONPATH": os.path.join(REPO_ROOT, "src")},
-    )
-    # Exits non-zero (1) because no coverage source is found
-    assert result.returncode != 0
 
 
 @pytest.mark.unit

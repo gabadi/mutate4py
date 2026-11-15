@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "tested_at": "2026-11-13T22:03:18Z",
+  "module_hash": "2de429417f20133c3a681b4f050006c04c44e7f27197b0fdbaafe7bd692be913",
+  "source_sha256": "375c1cc04a5482e99a3f2eebdc7069cf26f8ab00443f47cf96d0e65a73f7d4eb",
+  "functions": [
+    {
+      "id": "func/MeasurePlugin.__init__",
+      "name": "__init__",
+      "line": 21,
+      "end_line": 26,
+      "hash": "9381f78038062a55295f2da41a1a5877ceb1daae0d6b56702bcd34862c363321"
+    },
+    {
+      "id": "func/MeasurePlugin.pytest_runtest_protocol",
+      "name": "pytest_runtest_protocol",
+      "line": 29,
+      "end_line": 37,
+      "hash": "3769d1580275437b6cf6438ac8a55f9aa319391f56bb5217bc32fe20a2f1e70c"
+    },
+    {
+      "id": "func/MeasurePlugin.pytest_fixture_setup",
+      "name": "pytest_fixture_setup",
+      "line": 40,
+      "end_line": 45,
+      "hash": "6081d2c5c9086c61f79f90607196ac55dcc46eeb587aa7f80edda31a29f5b3c0"
+    },
+    {
+      "id": "func/MeasurePlugin.pytest_runtest_logreport",
+      "name": "pytest_runtest_logreport",
+      "line": 47,
+      "end_line": 48,
+      "hash": "655cae8bc5a859529ed1631d440ccaa4f9c453e7226f615b06df9eb3b82bf29c"
+    },
+    {
+      "id": "func/MeasurePlugin.pytest_collectreport",
+      "name": "pytest_collectreport",
+      "line": 50,
+      "end_line": 52,
+      "hash": "e1b3475eaa929738b21677107991fa706b1db2fb82fcdf86a32f759b1ae67c11"
+    },
+    {
+      "id": "func/MeasurePlugin.pytest_deselected",
+      "name": "pytest_deselected",
+      "line": 54,
+      "end_line": 55,
+      "hash": "887548879deb40a32f3671b84945da713e75af63e963baa668a6a6d27c6b251e"
+    },
+    {
+      "id": "func/MeasurePlugin.pytest_collection_finish",
+      "name": "pytest_collection_finish",
+      "line": 57,
+      "end_line": 58,
+      "hash": "a0a4a4e060bcf37d1cfbb4626d61650f85364aef9d7beceef21b0e20af6e6e09"
+    },
+    {
+      "id": "func/MeasurePlugin.pytest_sessionfinish",
+      "name": "pytest_sessionfinish",
+      "line": 60,
+      "end_line": 76,
+      "hash": "5ccec55ad9cf7cf8f5cea008a6e60c8a24b3991756e804556a5c3fcc8ac8b554"
+    },
+    {
+      "id": "func/_files",
+      "name": "_files",
+      "line": 79,
+      "end_line": 80,
+      "hash": "3f1c815b5a2dbe491657e8aa9cb635c7db673f1a1ae6965e3955a22df2571b47"
+    }
+  ]
+}

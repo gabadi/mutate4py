@@ -61,7 +61,8 @@ def test_build_parser_defaults_no_flags():
 
 
 @pytest.mark.unit
-def test_build_parser_mutate_all_flag_exists():
+def test_build_parser_mutate_all_flag_is_parsed_for_refusal():
+    # The removed flag stays parseable (hidden, spec #115) so _check_removed_flags can refuse it.
     # mutant_18: "--mutate-all" → "--MUTATE-ALL" (different flag name)
     # Correct: --mutate-all must be parseable and set mutate_all=True
     from mutate4py.__main__ import _build_parser
@@ -188,27 +189,6 @@ def test_mutation_warning_default_is_50():
     parser = _build_parser()
     args = parser.parse_args(["f.py"])
     assert args.warning_threshold == 50
-
-
-# ── F5: --lines positive-int validation ──────────────────────────────────────
-
-
-@pytest.mark.unit
-def test_lines_zero_is_usage_error():
-    result = run_cli("--scan", "--lines", "0", source="x = 1\n")
-    assert result.returncode != 0
-
-
-@pytest.mark.unit
-def test_lines_negative_is_usage_error():
-    result = run_cli("--scan", "--lines", "7,-2", source="x = 1\n")
-    assert result.returncode != 0
-
-
-@pytest.mark.unit
-def test_lines_non_integer_is_usage_error():
-    result = run_cli("--scan", "--lines", "7,x", source="x = 1\n")
-    assert result.returncode != 0
 
 
 # ── F5: mutual exclusion — --scan / --update-manifest ────────────────────────
@@ -454,49 +434,10 @@ def test_manifest_file_check_missing_sidecar_reports_missing(tmp_path):
     assert "Manifest missing:" in result.stdout
 
 
-# ── --test-contexts ───────────────────────────────────────────────────────────
+@pytest.mark.unit
+def test_check_manifest_help_states_what_it_checks_and_what_it_does_not():
+    from mutate4py.__main__ import _build_parser
 
+    help_text = " ".join(_build_parser().format_help().split())
 
-@pytest.mark.integration
-def test_test_contexts_incompatible_with_scan_exits_2(tmp_path):
-    import sqlite3
-
-    db = tmp_path / ".coverage"
-    conn = sqlite3.connect(str(db))
-    conn.execute("CREATE TABLE file (id INTEGER PRIMARY KEY, path TEXT)")
-    conn.execute("CREATE TABLE context (id INTEGER PRIMARY KEY, context TEXT)")
-    conn.execute("CREATE TABLE line_bits (file_id INTEGER, context_id INTEGER, numbits BLOB)")
-    conn.commit()
-    conn.close()
-    p = tmp_path / "mod.py"
-    p.write_text("x = a > b\n")
-    result = _run_cli_path(str(p), "--scan", "--test-contexts", str(db))
-    assert result.returncode == 2
-    assert "--test-contexts" in result.stderr
-
-
-@pytest.mark.integration
-def test_test_contexts_missing_file_exits_2(tmp_path):
-    p = tmp_path / "mod.py"
-    p.write_text("x = a > b\n")
-    result = _run_cli_path(str(p), "--test-contexts", str(tmp_path / "no.coverage"))
-    assert result.returncode == 2
-    assert "--test-contexts" in result.stderr
-
-
-@pytest.mark.integration
-def test_test_contexts_flag_accepted_with_valid_file(tmp_path):
-    import sqlite3
-
-    db = tmp_path / ".coverage"
-    conn = sqlite3.connect(str(db))
-    conn.execute("CREATE TABLE file (id INTEGER PRIMARY KEY, path TEXT)")
-    conn.execute("CREATE TABLE context (id INTEGER PRIMARY KEY, context TEXT)")
-    conn.execute("CREATE TABLE line_bits (file_id INTEGER, context_id INTEGER, numbits BLOB)")
-    conn.commit()
-    conn.close()
-    p = tmp_path / "mod.py"
-    p.write_text("x = a > b\n")
-    result = _run_cli_path(str(p), "--test-contexts", str(db))
-    assert "cannot be combined" not in result.stderr
-    assert "--test-contexts file not found" not in result.stderr
+    assert "checks hashes, recorded Survivors and equivalent markers, not tests digests" in help_text

@@ -1,256 +1,96 @@
-"""Unit tests for baseline timing and per-Mutant overhead (_baseline.py),
-plus the run_mutations-level integration tests that pin how those
-measurements surface in the Mutation Report (issue 06)."""
+"""Run-level component tests for how the Measurement's Baseline and per-Mutant
+overhead surface in a run's Mutation Report (issue 06), and for a run whose
+Measurement fails. The Measurement's own indexing and exit-status rules are
+pinned in test_measurement_index.py; the no-flag Coverage gate in
+test_measurement_gate.py."""
 
+import logging
 import os
+import re
 
-from ._pytest_project_helpers import (
-    write_always_failing_pytest_project,
-    write_always_passing_pytest_project,
-)
-import mutate4py._baseline
-from mutate4py._baseline import _baseline_reason, measure_baseline_and_overhead, resolve_baseline_and_overhead
-from mutate4py._discovery import discover_sites
-from mutate4py._runner import RunMutationsRequest, run_mutations
 import pytest
 
+from ._measurement_helpers import measurement_for
+from ._pytest_project_helpers import write_always_failing_pytest_project, write_always_passing_pytest_project
+from mutate4py._discovery import discover_sites
+from mutate4py._runner import RunMutationsRequest, run_mutations
 
-# ── _baseline_reason ────────────────────────────────────────────────────────
-
-
-@pytest.mark.unit
-def test_baseline_reason_uses_stderr_first():
-    import subprocess
-
-    result = subprocess.CompletedProcess(args=[], returncode=1, stderr=b"test suite crashed\nsecond line")
-    assert _baseline_reason(result) == "test suite crashed"
+SRC = "def f(a, b):\n    return a > b\n"
 
 
-@pytest.mark.unit
-def test_baseline_reason_falls_back_to_exit_code():
-    import subprocess
-
-    result = subprocess.CompletedProcess(args=[], returncode=42, stderr=b"")
-    assert _baseline_reason(result) == "exit code 42"
-
-
-@pytest.mark.unit
-def test_baseline_reason_reads_stdout_error_line_when_stderr_is_empty():
-    """pytest prints import failures to stdout; with stderr empty the
-    reason must carry that line instead of a bare exit code."""
-    import subprocess
-
-    stdout = b"ImportError while loading conftest\nModuleNotFoundError: No module named 'demo'\n"
-    result = subprocess.CompletedProcess(args=[], returncode=2, stdout=stdout, stderr=b"")
-    assert _baseline_reason(result) == "ModuleNotFoundError: No module named 'demo' (exit code 2)"
+def _write_source(tmp_path) -> str:
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(SRC)
+    return src_path
 
 
-@pytest.mark.unit
-def test_baseline_reason_prefers_the_last_stdout_error_line():
-    import subprocess
-
-    stdout = b"Error: first\nunrelated line\nError: last one\n"
-    result = subprocess.CompletedProcess(args=[], returncode=2, stdout=stdout, stderr=b"")
-    assert _baseline_reason(result) == "Error: last one (exit code 2)"
-
-
-@pytest.mark.unit
-def test_baseline_reason_without_stdout_error_line_falls_back_to_exit_code():
-    import subprocess
-
-    result = subprocess.CompletedProcess(args=[], returncode=3, stdout=b"all quiet\n", stderr=b"")
-    assert _baseline_reason(result) == "exit code 3"
+def _write_suite_that_imports_calc(tmp_path) -> list[str]:
+    """A suite that imports calc and calls f, so a real Measurement of it reaches f's line."""
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir(exist_ok=True)
+    (tests_dir / "test_calc.py").write_text("from calc import f\n\n\ndef test_f():\n    assert f(2, 1)\n")
+    return ["-q", "tests"]
 
 
-# ── resolve_baseline_and_overhead / measure_baseline_and_overhead ───────────
-
-
-@pytest.fixture
-def stub_measurements(monkeypatch):
-    """Replace both real pytest subprocesses with recorded stand-ins, so the
-    composition of baseline + overhead can be asserted without paying for a
-    single pytest startup."""
-
-    def _stub(*, baseline: tuple[float, str | None], overhead: float):
-        calls: list[str] = []
-
-        def fake_run_baseline(pytest_args, cwd):
-            calls.append("baseline")
-            return baseline
-
-        def fake_measure_overhead(mutant_pytest_args, cwd):
-            calls.append("overhead")
-            return overhead
-
-        monkeypatch.setattr(mutate4py._baseline, "run_baseline", fake_run_baseline)
-        monkeypatch.setattr(mutate4py._baseline, "measure_per_mutant_overhead", fake_measure_overhead)
-        return calls
-
-    return _stub
-
-
-@pytest.mark.unit
-def test_measure_baseline_and_overhead_probes_overhead_after_a_passing_baseline(stub_measurements):
-    calls = stub_measurements(baseline=(1.5, None), overhead=0.25)
-    assert measure_baseline_and_overhead(["-q"], "/w", ["-q", "-p", "no:cov"]) == (1.5, None, 0.25)
-    assert calls == ["baseline", "overhead"]
-
-
-@pytest.mark.unit
-def test_measure_baseline_and_overhead_skips_the_probe_when_the_baseline_failed(stub_measurements):
-    calls = stub_measurements(baseline=(1.5, "test suite crashed"), overhead=0.25)
-    assert measure_baseline_and_overhead(["-q"], "/w", ["-q"]) == (1.5, "test suite crashed", None)
-    assert calls == ["baseline"]
-
-
-@pytest.mark.unit
-def test_resolve_baseline_and_overhead_passes_a_pre_supplied_duration_through(stub_measurements):
-    calls = stub_measurements(baseline=(1.5, None), overhead=0.25)
-    assert resolve_baseline_and_overhead(["-q"], "/w", ["-q"], 9.0) == (9.0, None, None)
-    assert calls == [], "a pre-supplied baseline must not run anything"
-
-
-@pytest.mark.unit
-def test_resolve_baseline_and_overhead_measures_when_nothing_is_pre_supplied(stub_measurements):
-    stub_measurements(baseline=(1.5, None), overhead=0.25)
-    assert resolve_baseline_and_overhead(["-q"], "/w", ["-q"], None) == (1.5, None, 0.25)
-
-
-# ── run_mutations integration: baseline/overhead reporting ────────────────────
-
-
-def _write_lcov(path: str, source_abs: str, covered_lines: list[int]) -> None:
-    da_lines = "\n".join(f"DA:{ln},1" for ln in covered_lines)
-    content = f"SF:{source_abs}\n{da_lines}\nend_of_record\n"
-    with open(path, "w") as f:
-        f.write(content)
+def _request(tmp_path, src_path, pytest_args, measurement=None) -> RunMutationsRequest:
+    return RunMutationsRequest(
+        path=src_path,
+        source=SRC,
+        pytest_args=pytest_args,
+        timeout_factor=10,
+        warning_threshold=1000,
+        cwd=str(tmp_path),
+        measurement=measurement,
+    )
 
 
 @pytest.mark.component
-def test_run_mutations_reports_per_mutant_overhead(tmp_path):
-    """A real run (no pre-supplied baseline_duration) measures the fixed
-    per-Mutant overhead via the extra collect-only pass and prints it in the
-    Mutation Report — presence and shape only, never the measured value,
-    which is machine-dependent (issue 06)."""
-    src = "def f(a, b):\n    return a > b\n"
-    src_path = str(tmp_path / "calc.py")
-    with open(src_path, "w") as f:
-        f.write(src)
+def test_run_mutations_reports_per_mutant_overhead(tmp_path, caplog):
+    """A run given no injected Measurement runs one itself, and its Mutation
+    Report carries the fixed per-Mutant overhead the Measurement measured:
+    presence and shape only, never the measured value, which is
+    machine-dependent (issue 06)."""
+    caplog.set_level(logging.INFO)
+    src_path = _write_source(tmp_path)
+    pytest_args = _write_suite_that_imports_calc(tmp_path)
 
-    sites = discover_sites(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov(lcov_path, src_path, [s.line for s in sites])
+    rc = run_mutations(_request(tmp_path, src_path, pytest_args))
 
-    pytest_args = write_always_passing_pytest_project(str(tmp_path))
-
-    import io
-    import re
-    from contextlib import redirect_stdout
-
-    buf = io.StringIO()
-    with redirect_stdout(buf):
-        rc = run_mutations(
-            RunMutationsRequest(
-                path=src_path,
-                source=src,
-                cov_cmd=None,
-                lcov_path=lcov_path,
-                reuse_coverage=False,
-                pytest_args=pytest_args,
-                timeout_factor=10,
-                lines_filter=None,
-                since_last_run=False,
-                mutate_all=False,
-                warning_threshold=1000,
-                cwd=str(tmp_path),
-            )
-        )
-    output = buf.getvalue()
     assert rc == 3
+    output = "\n".join(caplog.messages)
     match = re.search(r"^Per-Mutant overhead: (\d+\.\d\ds)$", output, re.MULTILINE)
     assert match, f"no 'Per-Mutant overhead:' line found in:\n{output}"
 
 
 @pytest.mark.component
-def test_run_mutations_omits_overhead_when_baseline_duration_is_pre_supplied(tmp_path):
-    """A pre-supplied baseline_duration means no fresh Baseline ran, so there
-    is nothing to attach the extra collect-only pass to — the report must not
-    claim a measurement that never happened."""
-    src = "def f(a, b):\n    return a > b\n"
-    src_path = str(tmp_path / "calc.py")
-    with open(src_path, "w") as f:
-        f.write(src)
-
-    sites = discover_sites(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov(lcov_path, src_path, [s.line for s in sites])
-
+def test_run_mutations_omits_overhead_when_the_measurement_is_injected(tmp_path, caplog):
+    """An injected Measurement was taken by the caller, who owns the overhead
+    line; the run must not claim an overhead it did not measure."""
+    caplog.set_level(logging.INFO)
+    src_path = _write_source(tmp_path)
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
+    measurement = measurement_for(os.path.abspath(src_path), {"": [s.line for s in discover_sites(SRC)]}, wall=0.01)
 
-    import io
-    from contextlib import redirect_stdout
+    rc = run_mutations(_request(tmp_path, src_path, pytest_args, measurement))
 
-    buf = io.StringIO()
-    with redirect_stdout(buf):
-        rc = run_mutations(
-            RunMutationsRequest(
-                path=src_path,
-                source=src,
-                cov_cmd=None,
-                lcov_path=lcov_path,
-                reuse_coverage=False,
-                pytest_args=pytest_args,
-                timeout_factor=10,
-                lines_filter=None,
-                since_last_run=False,
-                mutate_all=False,
-                warning_threshold=1000,
-                cwd=str(tmp_path),
-                baseline_duration=0.01,
-            )
-        )
-    output = buf.getvalue()
     assert rc == 3
-    assert "Per-Mutant overhead:" not in output
+    assert "Per-Mutant overhead:" not in caplog.text
 
 
 @pytest.mark.component
-def test_run_mutations_baseline_failure_exits_1(tmp_path):
-    src = "def f(a, b):\n    return a > b\n"
-    src_path = str(tmp_path / "calc.py")
-    with open(src_path, "w") as f:
-        f.write(src)
-
-    sites = discover_sites(src)
-    lcov_path = str(tmp_path / "cov.lcov")
-    _write_lcov(lcov_path, src_path, [s.line for s in sites])
-
+def test_run_mutations_measurement_failure_exits_1(tmp_path, caplog):
+    """A suite that fails under the Measurement gives the run no Baseline, so
+    it stops before any Mutant and names the Measurement as the cause."""
+    caplog.set_level(logging.INFO)
+    src_path = _write_source(tmp_path)
     pytest_args = write_always_failing_pytest_project(str(tmp_path))
 
-    import io
-    from contextlib import redirect_stdout
+    rc = run_mutations(_request(tmp_path, src_path, pytest_args))
 
-    buf = io.StringIO()
-    with redirect_stdout(buf):
-        rc = run_mutations(
-            RunMutationsRequest(
-                path=src_path,
-                source=src,
-                cov_cmd=None,
-                lcov_path=lcov_path,
-                reuse_coverage=False,
-                pytest_args=pytest_args,
-                timeout_factor=10,
-                lines_filter=None,
-                since_last_run=False,
-                mutate_all=False,
-                warning_threshold=1000,
-                cwd=str(tmp_path),
-            )
-        )
-    output = buf.getvalue()
     assert rc == 1
-    assert "baseline failed:" in output
-    assert "Mutation Report" not in output
+    assert "baseline failed: " in caplog.text
+    assert "tests/test_always_fails.py::test_fail" in caplog.text
+    assert "Mutation Report" not in caplog.text
     # No backup left
     assert not os.path.exists(src_path + ".bak")

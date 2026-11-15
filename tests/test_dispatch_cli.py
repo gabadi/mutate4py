@@ -337,9 +337,15 @@ def _make_pkg_tree(tmp_path) -> str:
 
 
 @pytest.mark.unit
-def test_main_directory_run_mode_exits_1_without_coverage(tmp_path):
+def test_main_directory_run_mode_exits_1_when_measurement_has_no_tests(tmp_path, monkeypatch):
+    # The Measurement is faked: an unfaked one would run the repo's own suite in-process.
     import mutate4py.__main__ as m
+    from mutate4py._measurement import MeasurementFailed
 
+    def no_tests(**kwargs):
+        raise MeasurementFailed(no_tests=True)
+
+    monkeypatch.setattr("mutate4py._dispatch.measure_in_scratch", no_tests)
     d = tmp_path / "src"
     d.mkdir()
     (d / "a.py").write_text("x = a > b\n")
@@ -440,7 +446,7 @@ def test_main_directory_scan_continues_past_syntax_error(tmp_path, capsys):
 
 
 @pytest.mark.component
-def test_main_directory_run_mode_continues_past_syntax_error(tmp_path, capsys):
+def test_main_directory_run_mode_continues_past_syntax_error(tmp_path, capsys, monkeypatch):
     """The default mutation Run loop (no --scan/--update-manifest/--check-manifest)
     must apply the same continue-the-batch contract as the other three modes
     (issue #35 acceptance: "Applies to ... the Run loop")."""
@@ -455,16 +461,24 @@ def test_main_directory_run_mode_continues_past_syntax_error(tmp_path, capsys):
     bad.write_text("def broken(:\n    pass\n")
     zlast.write_text("def g(c, d):\n    return c > d\n")
 
-    lcov = tmp_path / "lcov.info"
-    lcov.write_text(f"SF:{good}\nDA:2,1\nend_of_record\nSF:{zlast}\nDA:2,1\nend_of_record\n")
+    # The batch Measurement runs pytest in the working directory, so the run
+    # happens there: a suite that imports both parseable modules, with the
+    # source directory put on sys.path by a root conftest.
+    (tmp_path / "conftest.py").write_text(f"import sys\n\nsys.path.insert(0, {str(d)!r})\n")
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "test_suite.py").write_text(
+        "from good import f\nfrom zlast import g\n\n\n"
+        "def test_f():\n    assert f(2, 1)\n\n\n"
+        "def test_g():\n    assert g(2, 1)\n"
+    )
+    monkeypatch.chdir(tmp_path)
 
     sys.argv = [
         "mutate4py",
         str(d),
-        "--lcov",
-        str(lcov),
         "--pytest-args",
-        "--collect-only -q tests/test_cmd.py",
+        "-q tests",
         "--no-fork",
     ]
     with pytest.raises(SystemExit) as exc:

@@ -12,22 +12,22 @@ Feature: The mutation run loop and report
   #
   # CONTRACT:
   #   command: mutate4py <file> [--pytest-args ARGS] [--timeout-factor N]
-  #            [--lines L,...] [--since-last-run] [--mutate-all] [--mutation-warning N]
-  #            <one coverage flag: --cov-cmd CMD | --lcov PATH | --reuse-coverage>
+  #            [--mutation-warning N]
+  #            (no coverage flag: the run measures coverage itself, ADR 0027)
   #   request:
   #     <file> — path, required; a Python source file with discovered mutation sites (F1).
   #     --pytest-args ARGS — one shell-quoted string of extra pytest arguments,
-  #       default none; reaches pytest directly (no shell) for the baseline and
+  #       default none; reaches pytest directly (no shell) for the Measurement and
   #       per-mutant runs.
   #     --timeout-factor N — positive int, default 10; mutant timeout = max(1s, N × baseline).
-  #     selection flags (--lines / --since-last-run / --mutate-all) — already parsed (F5 validates).
+  #     no selection flag. --lines, --since-last-run and --mutate-all were removed in 0.3.0
+  #       and are refused (exit 2); a run scores every changed or Unscored function (spec #115).
   #   run order (observable): strip manifest -> discover -> build+diff manifest ->
-  #     acquire coverage (F3) + partition -> select -> print header -> [uncovered block] ->
-  #     baseline -> save .mutate4py.bak -> per-site apply/test/classify/restore ->
+  #     Measurement (baseline + coverage, ADR 0027) + partition -> select -> print header ->
+  #     [uncovered block] -> save .mutate4py.bak -> per-site apply/test/classify/restore ->
   #     restore source -> print report -> re-embed manifest -> remove .mutate4py.bak.
   #   stdout (exit 0) — the run output:
   #     [Restored source from backup (previous run was interrupted).]   (only if a .bak existed)
-  #     [Reusing existing coverage; covered/uncovered classification may be stale.]  (only --reuse-coverage)
   #     Mutation run: <file>
   #     Total mutation sites: <n>
   #     Covered mutation sites: <c>
@@ -36,7 +36,7 @@ Feature: The mutation run loop and report
   #     Manifest exists: <true|false>
   #     Selected mutation sites: <s>
   #     [Warning: <n> mutation sites exceeds threshold <m>.]            (only when n > m)
-  #     [Uncovered mutations: / "  line <L> <desc> <functionID>" ...]   (only when not differential and no --lines)
+  #     [Uncovered mutations: / "  line <L> <desc> <functionID>" ...]   (only when not differential)
   #     [i/total] <status> line <L> <orig> -> <mutant>: <functionID>    (one per selected site)
   #     (blank line)
   #     Mutation Report
@@ -62,9 +62,9 @@ Feature: The mutation run loop and report
   #   - The per-mutant line has a colon before <functionID>; the uncovered and survivor
   #     lines do not (ADR 0011): per-mutant "<desc>: <functionID>" vs "  line <L> <desc> <functionID>".
   #   - mutant timeout = max(1s, timeout-factor × baseline-duration); the 1s floor is fixed.
-  #   - effectiveSinceLastRun = --since-last-run OR (manifest exists AND not --mutate-all
-  #     AND not --lines). Differential is the default once a manifest exists.
-  #   - The uncovered block prints only when NOT differential AND no --lines.
+  #   - differential = manifest exists. A run with no manifest is a full-file run. No flag
+  #     turns differential off (--mutate-all is removed, spec #115).
+  #   - The uncovered block prints only when NOT differential.
   #   - Survivors block prints only when survived > 0.
   #   - Killed report total = killed-count + timeout-count.
   #   - The run is serial: sites are mutated one at a time in stable (line, column) order;
@@ -72,15 +72,15 @@ Feature: The mutation run loop and report
   #     by --max-workers >= 2 AND >= 2 sites is F6 (parallel-workers, ADR 0015).
   #
   # SEQUENCING:
-  #   - Coverage is acquired and sites partitioned BEFORE the baseline runs.
-  #   - The baseline runs BEFORE any mutant is applied and BEFORE .mutate4py.bak is saved;
+  #   - The Measurement is the baseline: it runs the unit tests once, BEFORE any mutant is
+  #     applied and BEFORE .mutate4py.bak is saved, and sites are partitioned from it;
   #     a baseline failure therefore leaves no backup.
   #   - Each site is restored to the original BEFORE the next site is mutated.
   #   - The source is restored and the report printed BEFORE the fresh manifest is re-embedded.
   #   - A pre-existing .mutate4py.bak is restored at run START, before discovery.
   #
   # NFR:
-  #   - The baseline and each mutant run the test command exactly once; per-mutant runs
+  #   - The Measurement and each mutant run the test command exactly once; per-mutant runs
   #     are bounded by the mutant timeout so a hung mutant cannot stall the run.
   #   - A baseline failure exits non-zero so CI fails loudly and no misleading report prints.
   #   - On any interruption the next run self-heals from .mutate4py.bak before doing work.
@@ -89,15 +89,16 @@ Feature: The mutation run loop and report
   #   - The run mutates the source file in place during the loop, then restores it and
   #     re-embeds a fresh manifest; the only persistent change to <file> is the updated
   #     manifest footer. .mutate4py.bak exists only during the loop.
-  #   - The acceptance entrypoint generator and step handlers must learn the new steps:
-  #     a fake test command whose pass/fail/sleep is scripted per mutant; assert ordered
-  #     stdout blocks; assert .mutate4py.bak presence/absence; assert the restored source.
+  #   - The step handlers write a real pytest project: a source module, an empty root
+  #     conftest.py and tests that reach each site and pass, fail or sleep when its
+  #     Mutant is applied; assert ordered stdout blocks, .mutate4py.bak presence/absence
+  #     and the restored source body byte for byte.
   #
   # SCOPE:
   #   - Does NOT: parse or validate CLI flags, mutual-exclusion, or numeric ranges (F5);
   #     it consumes already-parsed options.
   #   - Does NOT: own --scan or --update-manifest output (F1/F2); does NOT re-implement
-  #     site discovery (F1), manifest embed/diff (F2), or the LCOV line gate (F3).
+  #     site discovery (F1), manifest embed/diff (F2), or the coverage gate (F3).
   #   - Does NOT: print a "worker-<k>" token or a "Timeout:" report line; does NOT
   #     parallelize — the serial path only. Does NOT print a "Mutation
   #     workers" line in the F4 default case (--max-workers unset/0); the workers line
@@ -105,8 +106,8 @@ Feature: The mutation run loop and report
   #     Parsing --max-workers is F5.
   #   - ASSUMED: the injected exec seam runs pytest directly (no shell) and reports exit
   #     status and timeout; the exact subprocess mechanism is the coder's to pin.
-  #   - ASSUMED: a coverage source is supplied (F3); a run with no coverage flag is an F5
-  #     validation concern, not specified here.
+  #   - A coverage flag (--cov-cmd, --lcov, --reuse-coverage) was removed in 0.3.0; the
+  #     refusal is specified in coverage.feature.
   #
   # UX INTENT: none
   # Design artifacts: none
@@ -188,35 +189,30 @@ Feature: The mutation run loop and report
     And no ".mutate4py.bak" file is left behind
     And no "Mutation Report" is printed
 
-  # run-loop-6: differential selection is the default once a manifest exists
-  Scenario Outline: effectiveSinceLastRun decides which covered sites are selected
+  # run-loop-6: a manifest makes the run differential; there is no flag that turns it off
+  # (--mutate-all is removed, spec #115)
+  Scenario Outline: differential selection decides which covered sites are selected
     Given the file "<hasManifest>" an existing manifest
-    And the flags supplied are "<flags>"
     When I run mutate4py mutating that file
     Then the run "<isDifferential>" differential
     And only "<selected>" sites are selected
 
     Examples:
-      | hasManifest | flags           | isDifferential | selected         |
-      | has         |                 | is             | changed-function |
-      | has         | --mutate-all    | is not         | all-covered      |
-      | has not     |                 | is not         | all-covered      |
-      | has         | --since-last-run | is            | changed-function |
+      | hasManifest | isDifferential | selected         |
+      | has         | is             | changed-function |
+      | has not     | is not         | all-covered      |
 
-  # run-loop-7: the uncovered block prints only on a non-differential run with no --lines
+  # run-loop-7: the uncovered block prints only on a non-differential run
   Scenario Outline: the uncovered block visibility follows the differential switch
     Given the file "<hasManifest>" an existing manifest
-    And the flags supplied are "<flags>"
     And there is at least one uncovered site
     When I run mutate4py mutating that file
     Then an "Uncovered mutations:" block "<visibility>" printed
 
     Examples:
-      | hasManifest | flags        | visibility  |
-      | has not     |              | is          |
-      | has         |              | is not      |
-      | has         | --mutate-all | is          |
-      | has not     | --lines 7    | is not      |
+      | hasManifest | visibility  |
+      | has not     | is          |
+      | has         | is not      |
 
   # run-loop-8: the header reports the six counts with no workers line
   Scenario: the run header prints the count lines and never a workers line
@@ -251,13 +247,6 @@ Feature: The mutation run loop and report
     When I run mutate4py mutating that file
     Then the output line "Restored source from backup (previous run was interrupted)." is printed
     And the source matches the backup before discovery proceeds
-
-  # run-loop-12: --reuse-coverage prints the stale-coverage warning before the header
-  Scenario: reusing coverage warns that the classification may be stale
-    Given a readable LCOV file at the default coverage path
-    When I run mutate4py mutating that file with "--reuse-coverage"
-    Then the output line "Reusing existing coverage; covered/uncovered classification may be stale." is printed
-    And that line appears before the "Mutation run:" line
 
   # run-loop-13: a surviving mutant is recorded in the sidecar and fails --check-manifest
   Scenario: a surviving mutant is recorded in the sidecar and fails --check-manifest

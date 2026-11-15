@@ -6,20 +6,23 @@ itself just a formatting call wrapped for use as a worker-thread callback.
 
 import dataclasses
 import logging
-import os
 
-from mutate4py._coverage import acquire_coverage
-from mutate4py._discovery import Site, discover_sites, partition_sites
+from mutate4py._discovery import Site, discover_sites
+from mutate4py._executor import ExecutorDescription, MutantTiming
+from mutate4py._exit_codes import EXIT_FAILURE, EXIT_USAGE
 from mutate4py._manifest_storage import ManifestLocation
+from mutate4py._measurement import CoverageCoreRefused, Measurement, MeasurementFailed
 from mutate4py._source_loading import _compute_manifest_diff
+from mutate4py._test_dispatch import NO_TESTS_HINT
 
 __all__ = [
-    "CoverageSource",
     "OverheadInfo",
     "RunStats",
+    "batch_summary_lines",
+    "measurement_failure",
+    "measurement_lines",
     "overhead_info",
     "scan_report",
-    "scan_report_with_coverage",
 ]
 
 _logger = logging.getLogger(__name__)
@@ -36,16 +39,6 @@ class RunStats:
     manifest_exists: bool
     selected_count: int
     warning_threshold: int
-
-
-@dataclasses.dataclass(frozen=True)
-class CoverageSource:
-    """Where scan-time coverage comes from."""
-
-    cov_cmd: str | None
-    lcov_path: str | None
-    reuse_coverage: bool
-    cwd: str
 
 
 def _run_header_lines(path: str, stats: RunStats) -> list[str]:
@@ -116,10 +109,9 @@ class OverheadInfo:
 
 
 def overhead_info(overhead_duration: float | None, baseline_duration: float | None) -> OverheadInfo | None:
-    """Pair a measured overhead with its Baseline, or None when there is no
-    overhead to report — a pre-supplied Baseline skips the probe entirely
-    (see `_baseline.resolve_baseline_and_overhead`), so the run has a
-    baseline_duration but nothing to pair it with.
+    """Pair a run's Per-Mutant overhead with its Baseline, or None when the run
+    reports no overhead of its own — a run handed a Measurement leaves the
+    overhead line to its batch, which prints it once for every file.
     """
     if overhead_duration is None:
         return None
@@ -139,30 +131,56 @@ def _overhead_report_lines(overhead_duration: float, baseline_duration: float) -
     return lines
 
 
-def _selection_report_lines(selection_counts: dict[str, int]) -> list[str]:
-    """The Test selection summary line, plus a Warning once any Site degraded."""
-    degraded = selection_counts.get("degraded", 0)
-    lines = [
-        f"Test selection: narrowed {selection_counts['narrowed']}, "
-        f"static {selection_counts['static']}, degraded {degraded}"
-    ]
-    if degraded:
-        lines.append(
-            f"Warning: {degraded} Site(s) had test-context data rejected as incomplete "
-            "(named covering tests came from a single shared --cov-context=test session, "
-            "which docs/adr/0021 established silently drops every covering test but the "
-            "first to reach a shared line) -- their Mutants ran the full test set instead "
-            "of the narrowed one. Rebuild the db with --build-test-contexts for sound "
-            "narrowing."
-        )
+def measurement_lines(measurement: Measurement) -> list[str]:
+    """The Measurement line, plus the coverage.py core note when the core is the slow pytrace one.
+
+    Opens with a blank line so the Survivors block above it ends there: the
+    Measurement's wall time varies run to run and is not part of that block.
+    """
+    lines = ["", f"Measurement: {measurement.wall:.2f}s, {measurement.tests} tests, core {measurement.core}"]
+    if measurement.note is not None:
+        lines.append(measurement.note)
     return lines
+
+
+def batch_summary_lines(measurement: Measurement, timing: MutantTiming, wall: float) -> list[str]:
+    """A directory run's closing lines: the Measurement and Per-Mutant overhead, then the Time line
+    summed over every file and the run's total wall time (Measurement included), printed once."""
+    return [
+        *measurement_lines(measurement),
+        *_overhead_report_lines(measurement.per_mutant_overhead, measurement.wall),
+        timing.render(),
+        f"Wall: {wall:.2f}s",
+    ]
+
+
+def measurement_failure(exc: MeasurementFailed | CoverageCoreRefused) -> tuple[int, str]:
+    """The exit code and error line for a run whose Measurement gave it no Baseline."""
+    if isinstance(exc, CoverageCoreRefused):
+        return EXIT_USAGE, f"error: {exc}"
+    if exc.no_tests:
+        return EXIT_FAILURE, f"error: {exc}: {NO_TESTS_HINT}"
+    return EXIT_FAILURE, f"error: {exc}"
+
+
+@dataclasses.dataclass(frozen=True)
+class SelectionTally:
+    """A run's narrowed and static Mutant counts, as the Measurement selected them."""
+
+    counts: dict[str, int]
+
+
+def _selection_report_lines(selection: SelectionTally) -> list[str]:
+    """The Test selection summary line: Mutants narrowed to their covering tests, and Mutants run on the full set."""
+    counts = selection.counts
+    return [f"Test selection: narrowed {counts['narrowed']}, static {counts['static']}"]
 
 
 def _mutation_report_lines(
     counts: dict[str, int],
     survivors: list[Site],
     uncovered_count: int,
-    selection_counts: dict[str, int] | None = None,
+    selection: SelectionTally | None = None,
     overhead: OverheadInfo | None = None,
 ) -> list[str]:
     killed_total = counts["killed"] + counts["timeout"]
@@ -174,8 +192,8 @@ def _mutation_report_lines(
         f"Survived: {counts['survived']}",
         f"Uncovered: {uncovered_count}",
     ]
-    if selection_counts is not None:
-        lines.extend(_selection_report_lines(selection_counts))
+    if selection is not None:
+        lines.extend(_selection_report_lines(selection))
     if overhead is not None:
         lines.extend(_overhead_report_lines(overhead.overhead_duration, overhead.baseline_duration))
     if survivors:
@@ -198,6 +216,24 @@ def _accepted_block_lines(accepted: list[tuple[Site, str]]) -> list[str]:
     return lines
 
 
+def _recorded_block_lines(recorded: list[tuple[str, dict]]) -> list[str]:
+    """The survivors a skipped function kept from the Manifest, apart from this run's Survivors (#106).
+
+    Each entry is (function id, {"line", "desc"}). Empty when none.
+    """
+    if not recorded:
+        return []
+    lines = ["", "Recorded survivors (function unchanged, not re-run):"]
+    for fid, s in recorded:
+        lines.append(f"  line {s['line']} {s['desc']} {fid}")
+    return lines
+
+
+def executor_block_lines(description: ExecutorDescription, timing: MutantTiming) -> list[str]:
+    """The Time and Executor lines that close a run's Mutation Report, blank-led to sit apart from Survivors."""
+    return ["", timing.render(), f"Executor: {description.render()}"]
+
+
 def _workers_header_lines(max_workers: int, *, use_parallel: bool, n_selected: int) -> list[str]:
     if max_workers <= 0:
         return []
@@ -217,59 +253,25 @@ def _scan_manifest_state(path: str, source: str, *, manifest_file: bool) -> tupl
     in that case; once a manifest exists, changed_fn_ids drives the real diff.
     """
     loc = ManifestLocation(path=path, manifest_file=manifest_file)
-    clean_source, _, manifest_exists, changed_fn_ids, _ = _compute_manifest_diff(source, loc)
-    sites = discover_sites(clean_source)
-    if manifest_exists:
-        changed_count = len([s for s in sites if s.function_id in changed_fn_ids])
+    diff = _compute_manifest_diff(source, loc)
+    sites = discover_sites(diff.clean_source)
+    if diff.manifest_exists:
+        changed_count = len([s for s in sites if s.function_id in diff.changed_fn_ids])
     else:
         changed_count = len(sites)
-    return sites, changed_count, manifest_exists
+    return sites, changed_count, diff.manifest_exists
 
 
 def scan_report(
     path: str, source: str, warning_threshold: int, *, manifest_file: bool = False
 ) -> tuple[list[str], bool]:
-    """Return (output_lines, exceeded_threshold) for a --scan run without coverage."""
+    """Return (output_lines, exceeded_threshold) for a --scan run: coverage-free."""
     sites, changed_count, manifest_exists = _scan_manifest_state(path, source, manifest_file=manifest_file)
     total = len(sites)
     manifest_str = "true" if manifest_exists else "false"
     lines = [
         f"Mutation scan: {path}",
         f"Total mutation sites: {total}",
-        f"Changed mutation sites: {changed_count}",
-        f"Manifest exists: {manifest_str}",
-    ]
-    exceeded = total > warning_threshold
-    if exceeded:
-        lines.append(f"Warning: {total} mutation sites exceeds threshold {warning_threshold}.")
-    return lines, exceeded
-
-
-def scan_report_with_coverage(
-    path: str,
-    source: str,
-    warning_threshold: int,
-    coverage: CoverageSource,
-    *,
-    manifest_file: bool = False,
-) -> tuple[list[str], bool]:
-    """Return (output_lines, exceeded_threshold) for a --scan run with coverage."""
-    sites, changed_count, manifest_exists = _scan_manifest_state(path, source, manifest_file=manifest_file)
-    total = len(sites)
-    covered_lines = acquire_coverage(
-        cov_cmd=coverage.cov_cmd,
-        lcov_path=coverage.lcov_path,
-        reuse=coverage.reuse_coverage,
-        cwd=coverage.cwd,
-        source_path=os.path.abspath(path),
-    )
-    covered, uncovered = partition_sites(sites, covered_lines)
-    manifest_str = "true" if manifest_exists else "false"
-    lines = [
-        f"Mutation scan: {path}",
-        f"Total mutation sites: {total}",
-        f"Covered mutation sites: {covered}",
-        f"Uncovered mutation sites: {uncovered}",
         f"Changed mutation sites: {changed_count}",
         f"Manifest exists: {manifest_str}",
     ]

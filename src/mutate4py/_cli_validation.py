@@ -20,11 +20,28 @@ class ValidationError(Exception):
         self.exit_code = exit_code
 
 
-def _check_coverage_flags(args: argparse.Namespace) -> None:
-    """Raise if more than one coverage flag is supplied (ADR 0008)."""
-    cov_flags = [args.cov_cmd is not None, args.lcov is not None, args.reuse_coverage]
-    if sum(cov_flags) > 1:
-        raise ValidationError("--cov-cmd, --lcov, and --reuse-coverage are mutually exclusive; supply at most one.")
+# The flags removed in 0.3.0 (ADR 0008, 0021, 0022 superseded; spec #89): the run
+# measures coverage itself and re-scores only what changed, so each is refused rather
+# than silently ignored. The reason is the tail of the refusal message.
+_REMOVED_FLAGS = (
+    ("--cov-cmd", "cov_cmd", "the run measures coverage itself"),
+    ("--lcov", "lcov", "the run measures coverage itself"),
+    ("--reuse-coverage", "reuse_coverage", "the run measures coverage itself"),
+    ("--test-contexts", "test_contexts", "the run measures coverage itself"),
+    ("--build-test-contexts", "build_test_contexts", "the run measures coverage itself"),
+    ("--since-last-run", "since_last_run", "a default run already re-scores only changed functions"),
+    ("--lines", "lines", "re-score a function by editing it"),
+    ("--mutate-all", "mutate_all", "a run scores every changed or Unscored function itself"),
+)
+
+
+def _check_removed_flags(args: argparse.Namespace) -> None:
+    """Raise, naming the flag, for the first flag removed in 0.3.0 that is set."""
+    for flag, dest, reason in _REMOVED_FLAGS:
+        value = getattr(args, dest)
+        if value is None or value is False:
+            continue
+        raise ValidationError(f"{flag} removed in 0.3.0: {reason}")
 
 
 def _no_run_flag(args: argparse.Namespace) -> str:
@@ -33,8 +50,6 @@ def _no_run_flag(args: argparse.Namespace) -> str:
         return "--scan"
     if args.update_manifest:
         return "--update-manifest"
-    if args.build_test_contexts is not None:
-        return "--build-test-contexts"
     return "--check-manifest"
 
 
@@ -45,16 +60,8 @@ def _exit_incompatible(flag_a: str, flag_b: str) -> None:
 def _check_no_run_incompatibilities(args: argparse.Namespace) -> None:
     """Raise if run-mode flags are paired with no-run-mode flags."""
     flag = _no_run_flag(args)
-    if args.lines is not None:
-        _exit_incompatible(flag, "--lines")
-    if args.since_last_run:
-        _exit_incompatible(flag, "--since-last-run")
-    if args.mutate_all:
-        _exit_incompatible(flag, "--mutate-all")
     if args.max_workers is not None:
         _exit_incompatible(flag, "--max-workers")
-    if args.test_contexts is not None:
-        _exit_incompatible(flag, "--test-contexts")
 
 
 def _check_no_run_survivor_flag(args: argparse.Namespace) -> None:
@@ -67,34 +74,16 @@ def _check_scan_only_incompatibilities(args: argparse.Namespace) -> None:
     """Raise if scan-only flags are paired with non-scan flags."""
     if args.timeout_factor != 10:
         _exit_incompatible("--scan", "--timeout-factor")
-    if args.min_timeout != 1.0:
+    if args.min_timeout != 5.0:
         _exit_incompatible("--scan", "--min-timeout")
     if args.pytest_args:
         _exit_incompatible("--scan", "--pytest-args")
-
-
-def _check_build_test_contexts_incompatibilities(args: argparse.Namespace) -> None:
-    """Raise if --build-test-contexts is combined with a positional PATH
-    target: it builds a db for whatever pytest collects (scoped via
-    --pytest-args), not for a mutation target, so a PATH given alongside it
-    would otherwise be silently ignored."""
-    if args.files:
-        _exit_incompatible("--build-test-contexts", "a positional PATH target")
-
-
-def _check_selection_exclusivity(args: argparse.Namespace) -> None:
-    """Raise if more than one selection flag is set."""
-    selection_count = sum([args.since_last_run, args.mutate_all, args.lines is not None])
-    if selection_count > 1:
-        raise ValidationError("--since-last-run, --mutate-all, and --lines are pairwise exclusive; supply at most one.")
 
 
 def _check_no_run_mode_specific_incompatibilities(args: argparse.Namespace) -> None:
     """Raise the extra checks specific to whichever no-run mode is active."""
     if args.scan:
         _check_scan_only_incompatibilities(args)
-    if args.build_test_contexts is not None:
-        _check_build_test_contexts_incompatibilities(args)
 
 
 def _validate_mutual_exclusions(args: argparse.Namespace) -> None:
@@ -103,7 +92,6 @@ def _validate_mutual_exclusions(args: argparse.Namespace) -> None:
         ("--scan", args.scan),
         ("--update-manifest", args.update_manifest),
         ("--check-manifest", args.check_manifest),
-        ("--build-test-contexts", args.build_test_contexts is not None),
     ]
     active = [name for name, v in no_run if v]
     if len(active) > 1:
@@ -112,12 +100,6 @@ def _validate_mutual_exclusions(args: argparse.Namespace) -> None:
         _check_no_run_incompatibilities(args)
         _check_no_run_survivor_flag(args)
         _check_no_run_mode_specific_incompatibilities(args)
-    _check_selection_exclusivity(args)
-
-
-def _check_test_contexts_file(args: argparse.Namespace) -> None:
-    if args.test_contexts is not None and not os.path.isfile(args.test_contexts):
-        raise ValidationError(f"--test-contexts file not found: {args.test_contexts}")
 
 
 def _nearest_project_root(target: str, cwd: str) -> str:

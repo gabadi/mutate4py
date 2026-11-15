@@ -14,7 +14,7 @@ states, one of which is damaging.
 | `line-absent` / `file-absent` | the db cannot account for the line | **abort, exit 2** |
 | `no-tests-collected` / `usage-error` | dispatch built a command (pytest exit 5 / 4), but pytest ran no test at all for the Mutant | **abort, exit 2** |
 
-**Why case 3 is an error and not a fallback.** Selected sites are LCOV-covered *by
+**Why case 3 is an error and not a fallback.** Selected sites are covered *by
 construction* — the coverage gate runs before selection. So a db miss can only be an
 input defect: a stale db, a path-format mismatch, or coverage recorded in a
 subprocess `--cov-context` cannot see. Never "uncovered code". Silently falling back
@@ -114,3 +114,58 @@ source lines, which the three-case model then turns into a loud abort.
 
 **Note:** this ADR originally recorded that `--test-contexts` forces serial
 execution. It no longer does — narrowing composes with parallel Workers.
+
+**Amendment (issue #96): the Measurement is a selection source.** With no
+`--test-contexts` db, selection reads the same-run Measurement's coverage index,
+so the run prints `Test selection: narrowed <n>, static <k>` with no `degraded`
+tally. The Measurement never degrades a Site, so the `degraded` tally and its
+`Warning:` line appear only on a `--test-contexts` run. Its outcomes map onto the
+table above: a line reached by named tests is `narrowed`; a line reached only by
+the whole-run context is `static`. A line the Measurement holds no context for is
+`uncovered`: it runs the full test set and is tallied `static`, rather than
+aborting. The abort stays reserved for the db's `line-absent` and `file-absent`.
+
+**Amendment (issue #97): a Survivor is confirmed before it counts.** Narrowing runs
+a Mutant with only the tests that reached its line, and a narrowed list can miss a
+killing test: one that reads state a covering test left behind (a memoised body)
+reaches no line of the Site, so no covering list names it. Such a Mutant survives
+the narrowed run and would be reported as a Survivor though the full suite kills it.
+So every Survivor of a non-accepted Site is re-run with the full test set, in a fresh
+interpreter through the subprocess executor, under the full-set timeout, and counts
+as a Survivor only if it survives that run too. A kill, or a timeout, under the full
+set folds into `killed` (ADR 0011).
+
+- **The orchestrator confirms, serial and parallel alike.** Workers return `survived`
+  and the orchestrator confirms serially on its own copy of the file, spliced and
+  restored as the serial loop splices it. One path gives both run shapes one verdict.
+- **Accepted-equivalent Sites are not confirmed.** Their line carries an equivalent
+  marker, so the Survivor is accepted by design and a full run would buy nothing.
+- **A fresh interpreter, not the forking executor.** The confirmation exists to rule
+  out state leaking between runs; a forked child shares the primed parent's imports,
+  and a memoised body read from that parent is the very state to avoid.
+- **Visible in the report.** The `Time:` line carries `confirmation .. (n run, k
+  killed)`, and the `Executor:` line says how the Mutants ran (`forking (fresh import
+  N)`, or `subprocess (<reason>)` for a whole-run fallback).
+
+**Rejected: widen the narrowed list instead.** A covering list is derived from the
+lines each test reaches, so a test that matters only through state it reads cannot be
+named by it; widening it means running the full set for every Mutant, which is the
+cost narrowing exists to avoid. Confirming only the few Survivors keeps narrowing for
+the Mutants that die early.
+
+## Addendum (issue #89)
+
+`--test-contexts` is removed in 0.3.0, along with the db it read. Selection reads only
+the same-run Measurement's Test map (ADR 0027), so the outcomes narrow to two:
+`narrowed` (named tests reach the line, so only those run) and `static` (only the
+whole-run context reaches it, so the full test set runs). The `under-listed` outcome
+and the disagreement hard-error go with the db: they policed inputs built apart from
+the run, and one Measurement has no second source to disagree with. The db-only aborts
+(`line-absent`, `file-absent`) go too. The `no-tests-collected` / `usage-error` abort
+(exit 2) stays, because it guards a pytest run that exercised nothing.
+
+Survivor confirmation (amendment #97) is what keeps narrowing and swap mode honest. A
+Survivor of a non-accepted Site is re-run with the full test set through the subprocess
+executor (ADR 0028), and counts only if it survives that run too. A narrowed list cannot
+name a test that matters only through state it reads, so this re-run is the step that
+catches it.

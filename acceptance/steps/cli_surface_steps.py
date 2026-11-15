@@ -12,7 +12,6 @@ from acceptance.steps.cli_surface_helpers import (
     assert_accepted,
     assert_all_reported,
     assert_baseline_run,
-    assert_db_narrows_shared_line,
     assert_dispatched_to,
     assert_exit_status,
     assert_names_interpreters,
@@ -26,16 +25,17 @@ from acceptance.steps.cli_surface_helpers import (
     assert_usage_printed,
     assert_worker_count,
     assert_zero_exit,
-    build_test_contexts_fixture_args,
+    REACHING_TEST,
+    assert_bytes_unchanged,
+    assert_error_printed,
+    assert_no_backup,
     default_source,
+    rejected_args,
     described_args,
     exclude_run_args,
-    lcov_content,
-    overlapping_coverage_fixture_dir,
     require_result,
     run_with_running_interpreter,
     single_flag_args,
-    source_file_run_args,
     two_flag_args,
     two_target_run_args,
     write_baseline_sentinel,
@@ -62,26 +62,22 @@ class Context:
     def __init__(self):
         self.tmpdir: str | None = None
         self.src_path: str | None = None
-        self.lcov_path: str | None = None
+        self.src_bytes_before: bytes | None = None
         self.cli_result: subprocess.CompletedProcess | None = None
         self.dispatch_max_workers: int | None = None
         self.dir_path: str | None = None
         self.file_pair: tuple[str, str] | None = None
-        self.build_db_path: str | None = None
-        self.fixture_dir: str | None = None
         self.foreign_env: str | None = None
         self.sentinel_marker: str | None = None
 
     def reset(self):
         self.tmpdir = None
         self.src_path = None
-        self.lcov_path = None
+        self.src_bytes_before = None
         self.cli_result = None
         self.dispatch_max_workers = None
         self.dir_path = None
         self.file_pair = None
-        self.build_db_path = None
-        self.fixture_dir = None
         self.foreign_env = None
         self.sentinel_marker = None
 
@@ -96,24 +92,22 @@ class Context:
             self.src_path = os.path.join(d, "sample.py")
             with open(self.src_path, "w") as f:
                 f.write(default_source())
+            with open(self.src_path, "rb") as f:
+                self.src_bytes_before = f.read()
         return self.src_path
 
-    def ensure_lcov(self) -> str:
-        src = self.ensure_src()
-        if self.lcov_path is None:
-            self.lcov_path = os.path.join(self.ensure_tmpdir(), "cov.lcov")
-            with open(self.lcov_path, "w") as f:
-                f.write(lcov_content(src))
-        return self.lcov_path
-
     def ensure_passing_tests(self) -> None:
-        """Write a trivial always-passing pytest test into tmpdir/tests, so
-        the flag/two-flag/accepted-flags helpers below can reach the real
-        run loop with --pytest-args "-q tests" instead of a shell stand-in."""
-        tests_dir = os.path.join(self.ensure_tmpdir(), "tests")
+        """Write a passing pytest test that reaches the source's site (and the
+        empty conftest.py that puts the project root on sys.path) into tmpdir, so
+        the flag/two-flag/accepted-flags helpers below can reach the real run
+        loop with --pytest-args "-q tests"."""
+        root = self.ensure_tmpdir()
+        tests_dir = os.path.join(root, "tests")
         os.makedirs(tests_dir, exist_ok=True)
+        with open(os.path.join(root, "conftest.py"), "w") as f:
+            f.write("")
         with open(os.path.join(tests_dir, "test_ok.py"), "w") as f:
-            f.write("def test_ok():\n    pass\n")
+            f.write(REACHING_TEST)
 
     def make_dir_with(self, *names: str) -> str:
         d = os.path.join(self.ensure_tmpdir(), "pkg")
@@ -153,7 +147,6 @@ ctx = Context()
 def given_source_with_sites(m, params):
     ctx.reset()
     ctx.ensure_src()
-    ctx.ensure_lcov()
 
 
 @step(r'a directory holding "(.*)" and "(.*)"')
@@ -173,7 +166,7 @@ def given_two_files(m, params):
 @step(r'I run mutate4py with the flag "(.*)"')
 def when_run_with_flag(m, params):
     ctx.ensure_passing_tests()
-    args = single_flag_args(m.group(1), ctx.ensure_src(), ctx.ensure_lcov())
+    args = single_flag_args(m.group(1), ctx.ensure_src())
     ctx.cli_result = _run_mutate4py(*args, cwd=ctx.ensure_tmpdir())
 
 
@@ -185,7 +178,7 @@ def when_run_with_trailing_flag(m, params):
 @step(r'I run mutate4py with "(.*)" and "(.*)"')
 def when_run_with_two_flags(m, params):
     ctx.ensure_passing_tests()
-    args = two_flag_args(m.group(1).strip(), m.group(2).strip(), ctx.ensure_src(), ctx.ensure_lcov())
+    args = two_flag_args(m.group(1).strip(), m.group(2).strip(), ctx.ensure_src())
     ctx.cli_result = _run_mutate4py(*args, cwd=ctx.ensure_tmpdir())
 
 
@@ -202,30 +195,23 @@ def when_run_on_both_files(m, params):
     ctx.cli_result = _run_mutate4py(*args, cwd=ctx.ensure_tmpdir())
 
 
-@step(r'I run mutate4py on that source file with "(.*)"')
-def when_run_on_source_file_with(m, params):
-    args = source_file_run_args(m.group(1).strip(), ctx.ensure_src())
-    ctx.cli_result = _run_mutate4py(*args, cwd=ctx.ensure_tmpdir())
-
-
-@step(r'I run mutate4py with the flag "--build-test-contexts" against the overlapping-coverage fixture')
-def when_run_build_test_contexts_against_fixture(m, params):
-    ctx.build_db_path = os.path.join(ctx.ensure_tmpdir(), "contexts.db")
-    ctx.fixture_dir = overlapping_coverage_fixture_dir(REPO_ROOT)
-    args = build_test_contexts_fixture_args(ctx.build_db_path)
-    ctx.cli_result = _run_mutate4py(*args, cwd=ctx.fixture_dir)
-
-
 @step(r'I run mutate4py described by "(.*)"')
 def when_run_described(m, params):
     args = described_args(m.group(1).strip(), ctx.ensure_src())
     ctx.cli_result = _run_mutate4py(*args, cwd=ctx.ensure_tmpdir())
 
 
+@step(r'I run the rejected invocation "(.*)"')
+def when_run_rejected_invocation(m, params):
+    ctx.ensure_passing_tests()
+    args = rejected_args(m.group(1).strip(), ctx.ensure_src())
+    ctx.cli_result = _run_mutate4py(*args, cwd=ctx.ensure_tmpdir())
+
+
 @step(r'I run mutate4py with the accepted flags "(.*)"')
 def when_run_with_accepted_flags(m, params):
     ctx.ensure_passing_tests()
-    args, _target, workers = accepted_flags_args(m.group(1).strip(), ctx.ensure_src(), ctx.ensure_lcov())
+    args, _target, workers = accepted_flags_args(m.group(1).strip(), ctx.ensure_src())
     ctx.dispatch_max_workers = workers
     ctx.cli_result = _run_mutate4py(*args, cwd=ctx.ensure_tmpdir())
 
@@ -245,13 +231,6 @@ def then_invocation_accepted(m, params):
     assert_accepted(r.returncode, r.stdout, r.stderr)
 
 
-@step(r"the written test-context db narrows the shared line to both covering tests")
-def then_db_narrows_shared_line(m, params):
-    assert ctx.build_db_path is not None, "no --build-test-contexts run recorded"
-    assert ctx.fixture_dir is not None, "no --build-test-contexts run recorded"
-    assert_db_narrows_shared_line(ctx.build_db_path, ctx.fixture_dir)
-
-
 @step(r"the invocation is a usage error")
 def then_invocation_usage_error(m, params):
     r = require_result(ctx.cli_result)
@@ -267,6 +246,25 @@ def then_nonzero_exit(m, params):
 def then_zero_exit(m, params):
     r = require_result(ctx.cli_result)
     assert_zero_exit(r.returncode, r.stderr)
+
+
+@step(r"the printed output names the offending flag or combination")
+def then_output_names_offender(m, params):
+    r = require_result(ctx.cli_result)
+    assert_error_printed(r.stdout + r.stderr)
+
+
+@step(r"the source file is byte-identical to before the run")
+def then_source_byte_identical(m, params):
+    assert ctx.src_path is not None, "No source path recorded"
+    with open(ctx.src_path, "rb") as f:
+        assert_bytes_unchanged(ctx.src_bytes_before, f.read())
+
+
+@step(r'no "\.mutate4py\.bak" file was created')
+def then_no_backup_created(m, params):
+    assert ctx.src_path is not None, "No source path recorded"
+    assert_no_backup(ctx.src_path)
 
 
 @step(r"no analysis or test run occurs")
@@ -323,7 +321,6 @@ def _prepare_project(*, with_env: bool) -> None:
     if with_env:
         ctx.foreign_env = write_placeholder_venv(root)
     ctx.ensure_src()
-    ctx.ensure_lcov()
     ctx.sentinel_marker = write_baseline_sentinel(root)
 
 
@@ -333,7 +330,7 @@ def when_run_from_outside_env(m, params):
 
 
 def _run_accepted_flags_from_project(flags: str) -> None:
-    args, _target, _workers = accepted_flags_args(flags.strip(), ctx.ensure_src(), ctx.ensure_lcov())
+    args, _target, _workers = accepted_flags_args(flags.strip(), ctx.ensure_src())
     ctx.cli_result = run_with_running_interpreter(args, cwd=ctx.ensure_tmpdir())
 
 

@@ -163,3 +163,17 @@ Feature: Mutation site discovery and the --scan count surface
     When the command "mutate4py <missing> --scan" is run
     Then the command exits with a usage error
     And no mutation scan block is printed
+
+  # site-discovery-7: a scan of a committed fixture is read-only and runs no test
+  Scenario: scanning a committed fixture beside a test changes nothing and runs no test
+    Given a copy of the committed fixture "mixed_operators.py"
+    And a test beside it that leaves a marker file when it runs
+    When the copy is scanned from its own directory
+    Then the copy is byte for byte what it was
+    And the test left no marker and nothing else was written beside the copy
+
+  # site-discovery-8: the scan block is deterministic
+  Scenario: two scans of the same committed fixture print the same block
+    Given a copy of the committed fixture "mixed_operators.py"
+    When the copy is scanned twice from its own directory
+    Then both scans print the same block

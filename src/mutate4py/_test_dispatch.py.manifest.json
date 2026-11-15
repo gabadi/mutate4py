@@ -1,29 +1,57 @@
 {
   "version": 1,
-  "tested_at": "2026-08-12T15:49:32Z",
-  "module_hash": "0f232bfaf34b3cb17aac7c76605776fe89d1274cb17afaa2f7b28c31a2954753",
-  "source_sha256": "0d45a27ef51efdceaab0240545d30676f413019bcba3425e8c384a41113b09d4",
+  "tested_at": "2026-11-13T21:35:11Z",
+  "module_hash": "e8d2840d509275bdacc24941b76aece14db5ef93f1a3af42d83dafdbb439ac97",
+  "source_sha256": "6332688c41dcc7dd0f8a44ed79e908ef8371af2cedc66f1a7f66d7e048c8f9cd",
   "functions": [
     {
       "id": "func/_check_execution_status",
       "name": "_check_execution_status",
-      "line": 57,
-      "end_line": 61,
+      "line": 48,
+      "end_line": 52,
       "hash": "f129ab238daaf03b6bbf5522a05d812d0c382d32da5a7d4e7e7962fd438eac78"
     },
     {
       "id": "func/_log_dispatch_abort",
       "name": "_log_dispatch_abort",
-      "line": 64,
-      "end_line": 70,
-      "hash": "1944e590dc505407d3dd486aae69a08553d3dfba068498f461056bd66ff11cd5"
+      "line": 55,
+      "end_line": 58,
+      "hash": "14b52054fc7968d7c6dc1b2b9653028bde158aa6f078fc9287fcc7e995c02719"
     },
     {
-      "id": "func/_build_mutant_args",
-      "name": "_build_mutant_args",
-      "line": 73,
-      "end_line": 99,
-      "hash": "f57d42cd969706d9516b3b5c37b1238d1b278eb77750aceed6db8e4c9739240a"
+      "id": "func/_without_positionals",
+      "name": "_without_positionals",
+      "line": 61,
+      "end_line": 75,
+      "hash": "7be248afc359c4df3d356a857840cf586c3f24b16dfce8fe20f750e0cfdcad20"
+    },
+    {
+      "id": "func/TimeoutPolicy.timeout_for",
+      "name": "timeout_for",
+      "line": 93,
+      "end_line": 94,
+      "hash": "3b66c19b5889cc277438a2a480e384afcf791d9ea52a52f3188eb9e7c3293805"
+    },
+    {
+      "id": "func/plan_mutant",
+      "name": "plan_mutant",
+      "line": 120,
+      "end_line": 144,
+      "hash": "4d424c62cd990fbdce8d21b0e5e73849dd0d50c79b318827d541312aba8d2a7f"
+    },
+    {
+      "id": "func/confirm_plan",
+      "name": "confirm_plan",
+      "line": 147,
+      "end_line": 155,
+      "hash": "f8ac202262e292b3482f9dc0c0b8b453b90d551e427ffaa6711440dc5b582eca"
+    },
+    {
+      "id": "func/plan_sites",
+      "name": "plan_sites",
+      "line": 158,
+      "end_line": 160,
+      "hash": "8f8da030eab9cdd7f6d40ce61cdead4253acc94b90f4619702411c3bea3d6f36"
     }
   ]
 }

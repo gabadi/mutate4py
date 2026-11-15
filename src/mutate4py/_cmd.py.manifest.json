@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "tested_at": "2026-10-11T16:09:25Z",
+  "tested_at": "2026-11-13T19:03:36Z",
   "module_hash": "82607a996155ffed0c789b54281f4b3690a3c6256d9aa13c1e548f08cb479e09",
   "source_sha256": "75ead3c72f36de7a8610f4ef8b53f54ebef7cbc0e3995368afca7896a6d3cf1a",
   "functions": [
@@ -9,14 +9,30 @@
       "name": "classify_exit_code",
       "line": 23,
       "end_line": 28,
-      "hash": "70daea636c407a277765466e805097cb8bacaef3278022368bb7be2417716d1d"
+      "hash": "70daea636c407a277765466e805097cb8bacaef3278022368bb7be2417716d1d",
+      "score": {
+        "killed": 2,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "0d23743478150477d7a1e62919d4de95375f98b24964526accdf8ad89a557172"
     },
     {
       "id": "func/run_argv",
       "name": "run_argv",
       "line": 31,
       "end_line": 45,
-      "hash": "05bed4039e5aa6eac0de3870b33a6817e247979ffb15695551e451c1b71b5f13"
+      "hash": "05bed4039e5aa6eac0de3870b33a6817e247979ffb15695551e451c1b71b5f13",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a2ad4f0d0cf9a24f0d16e4ff5c7c01548175c2422cbf0b62d1b30d72bedb2dc2"
     }
   ]
 }

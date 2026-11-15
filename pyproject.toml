@@ -1,6 +1,6 @@
 [project]
 name = "mutate4py"
-version = "0.2.0"
+version = "0.3.0"
 description = "Mutation testing for Python with an embedded-in-source manifest"
 readme = "README.md"
 license = "MIT"
@@ -13,7 +13,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["coverage>=7.10"]
 
 [project.scripts]
 mutate4py = "mutate4py.__main__:main"
@@ -34,12 +34,11 @@ packages = ["src/mutate4py"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["scripts"]
-addopts = "--tb=short --strict-markers --ignore=tests/fixtures/django_project --ignore=tests/fixtures/overlapping_coverage --ignore=tests/fixtures/plain_project"
+addopts = "--tb=short --strict-markers --ignore=tests/fixtures"
 markers = [
     "unit: fast, fully isolated test; no real subprocess/fork execution. Runs in the test-unit gate, which is also where the coverage measurement is taken.",
-    "component: exercises mutate4py's own pipeline in-process (real subprocess/fork spawns via an Executor), so it is slow -- but it still runs in this interpreter, so --cov-context=test sees it and it stays eligible for per-Mutant test narrowing. Excluded from test-unit's fast gate and, with it, from the coverage measurement; runs in test-component.",
-    "integration: work runs inside a spawned interpreter (via _run_cli_path/_run_cli_in), so --cov-context=test can't see it and it contributes no per-Mutant test narrowing; excluded from the mutation test command, and coverage-blind, so it is outside the coverage measurement too. Runs in test-integration.",
+    "component: exercises mutate4py's own pipeline in-process (real subprocess/fork spawns via an Executor), so it is slow. Since code mutation is unit-only, no scored run's test set includes component tests (ADR 0023, ADR 0027): a Mutant that only a component test kills is a Survivor. Excluded from test-unit's fast gate and from the coverage measurement; runs in test-component.",
+    "integration: work runs inside a spawned interpreter (via _run_cli_path/_run_cli_in), which the Measurement cannot see, so it is coverage-blind and outside code mutation (ADR 0023). Runs in test-integration.",
 ]
 
 [tool.coverage.run]
@@ -55,12 +54,13 @@ dev = [
     "pytest==9.1.1",
     "pytest-cov==7.1.0",
     "pytest-django==4.13.0",
+    "pytest-xdist==3.8.0",
     "ruff==0.16.2",
     "tach==0.35.0",
 ]
 
 [tool.bumpversion]
-current_version = "0.2.0"
+current_version = "0.3.0"
 commit = true
 tag = true
 tag_name = "v{new_version}"

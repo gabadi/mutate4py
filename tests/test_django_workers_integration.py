@@ -26,14 +26,6 @@ def _copy_fixture(tmp_path):
     return str(dest)
 
 
-def _write_lcov(path: str, covered_lines: list[int]) -> str:
-    da = "\n".join(f"DA:{ln},1" for ln in covered_lines)
-    lcov_path = os.path.join(os.path.dirname(path), "coverage.lcov")
-    with open(lcov_path, "w") as f:
-        f.write(f"SF:{path}\n{da}\nend_of_record\n")
-    return lcov_path
-
-
 def _run_cli(cwd: str, extra_args: list[str], *, extra_env: dict | None = None) -> subprocess.CompletedProcess:
     env = {**os.environ, "PYTHONPATH": os.path.join(REPO_ROOT, "src")}
     if extra_env:
@@ -54,14 +46,17 @@ def _run_cli(cwd: str, extra_args: list[str], *, extra_env: dict | None = None) 
 
 @pytest.mark.integration
 def test_two_workers_get_distinct_test_databases_with_reuse_db(tmp_path):
+    # Premise: a narrowed calc.py Mutant runs only the tests covering its line.
+    # tests/test_polls.py::test_calc_thresholds_hold_alongside_a_database_write
+    # is the one DB-using test on those lines, so it is what creates the
+    # per-Worker test databases asserted below.
     project = _copy_fixture(tmp_path)
-    lcov = _write_lcov(os.path.join(project, "calc.py"), [6, 10])
     shared_db_dir = tmp_path / "shared_db"
     shared_db_dir.mkdir()
 
     result = _run_cli(
         project,
-        ["calc.py", "--mutate-all", "--pytest-args=-q --reuse-db", "--lcov", lcov, "--max-workers", "2"],
+        ["calc.py", "--pytest-args=-q --reuse-db", "--max-workers", "2"],
         extra_env={"MUTATE4PY_FIXTURE_DB_DIR": str(shared_db_dir)},
     )
     assert result.returncode == 0, result.stdout + result.stderr
@@ -76,23 +71,28 @@ def test_two_workers_get_distinct_test_databases_with_reuse_db(tmp_path):
     )
 
 
-# ── a Mutant in an app-loaded module degrades but is still killed correctly
-#    (checklist item 5) ───────────────────────────────────────────────────────
+# ── an app-loaded module is swapped, its class-body Site runs in a fresh
+#    interpreter, and both classify correctly with no whole-run fallback ─────
+
+# This repo's environment has tach, a fork-unsafe plugin: a run that does not
+# block it gets the subprocess executor.
+_PYTEST_ARGS = "--pytest-args=-p no:tach -q"
 
 
 @pytest.mark.integration
-def test_app_loaded_module_degrades_to_subprocess_and_is_killed(tmp_path):
+def test_app_loaded_module_swaps_its_method_body_and_runs_its_class_body_site_in_a_fresh_interpreter(tmp_path):
     project = _copy_fixture(tmp_path)
-    lcov = _write_lcov(os.path.join(project, "polls", "models.py"), [14])
-
-    result = _run_cli(project, ["polls/models.py", "--mutate-all", "--pytest-args=-q", "--lcov", lcov])
+    # The whole file is mutated (no selection flag). Line 11 (votes default) survives: no test pins it,
+    # so the run exits 3 unless --allow-survivors accepts it. The assertions below are about the
+    # executor modes and the line-14 kill, not about the survivor.
+    result = _run_cli(project, ["polls/models.py", "--allow-survivors", _PYTEST_ARGS])
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "forking executor unavailable" in result.stdout, (
-        "polls/models.py is imported by django.setup() during priming, so the "
-        "module-leak guard must force the subprocess executor"
+    assert "Executor: forking (fresh import 0, swap 1, fresh interpreter 1)" in result.stdout, (
+        "polls/models.py is imported by django.setup() during priming: the is_popular body is swapped,"
+        " the class-body default runs in a fresh interpreter"
     )
     assert "Killed: 1" in result.stdout
-    assert "Survived: 0" in result.stdout
+    assert "Survived: 1" in result.stdout
 
 
 # ── a Mutant in a module outside app loading keeps the warm path
@@ -102,14 +102,12 @@ def test_app_loaded_module_degrades_to_subprocess_and_is_killed(tmp_path):
 @pytest.mark.integration
 def test_non_app_loaded_module_keeps_warm_path(tmp_path):
     project = _copy_fixture(tmp_path)
-    lcov = _write_lcov(os.path.join(project, "calc.py"), [6])
-
-    result = _run_cli(project, ["calc.py", "--mutate-all", "--pytest-args=-q", "--lcov", lcov])
+    result = _run_cli(project, ["calc.py", _PYTEST_ARGS])
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "forking executor unavailable" not in result.stdout, (
-        "calc.py is never imported by django.setup(), so the forking executor must stay primed rather than degrading"
+    assert "Executor: forking (fresh import 2, swap 0, fresh interpreter 0)" in result.stdout, (
+        "calc.py is never imported by django.setup(), so each child imports it fresh"
     )
-    assert "Killed: 1" in result.stdout
+    assert "Killed: 2" in result.stdout
     assert "Survived: 0" in result.stdout
 
 
@@ -124,14 +122,11 @@ sys.path.insert(0, os.getcwd())
 
 from mutate4py._forking_executor import ForkingExecutor
 
-# calc.py, not polls/models.py: django.setup() (which the collect-only
-# prime triggers) imports every INSTALLED_APPS model module regardless of
-# which file is guarded, so priming would trip the (separately tested)
-# module-leak guard for an app-loaded guarded_path before this assertion
-# ever ran. calc.py isn't app-loaded, so priming here succeeds and this
-# test actually exercises the db-connection invariant.
+# django.setup() (which the collect-only prime triggers) imports every
+# INSTALLED_APPS model module whichever file is guarded; tach, installed in
+# this environment, is fork-unsafe, so the prime blocks it.
 target = os.path.join(os.getcwd(), "calc.py")
-executor = ForkingExecutor(cwd=os.getcwd(), guarded_path=target)
+executor = ForkingExecutor(cwd=os.getcwd(), guarded_path=target, prime_args=["-p", "no:tach"])
 executor.prime()
 
 import django  # noqa: E402

@@ -9,7 +9,25 @@ import textwrap
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 from acceptance.steps.cli_surface_helpers import survivor_flag
+from acceptance.steps.parallel_workers_helpers import (
+    assert_measured_in_original,
+    assert_mutants_ran_in_workers,
+    assert_original_never_spliced,
+    assert_worker_tree_seen_during_run,
+    placement_probe,
+    read_placements,
+    report_tally,
+    survivor_lines,
+)
+from acceptance.steps.run_loop_helpers import (
+    ROOT_CONFTEST,
+    SAMPLE_MODULE,
+    compare_source,
+    function_names,
+    outcome_test_body,
+)
 from acceptance.steps.step_lib import make_registry
+from mutate4py._manifest import strip_manifest
 
 STEP_HANDLERS, step, run_step = make_registry()
 
@@ -20,16 +38,20 @@ class Context:
     def __init__(self):
         self.project_dir: str | None = None
         self.src_path: str | None = None
-        self.lcov_path: str | None = None
         self.test_script: str | None = None
         self.cli_result: subprocess.CompletedProcess | None = None
         self.extra_cli_args: list[str] = []
         self.sites_count: int = 0
         self.max_workers_flag: str | None = None
-        self.finish_order: list[int] | None = None
         self.worker_run_during: bool = False
         self.src_fixed: bool = False  # True if src_path must not be overwritten
         self.failure_mode: str | None = None
+        # The functions the project's tests call, and each one's outcome under its Mutant.
+        self.outcomes: dict[str, str] = {}
+        self.placement_record: str | None = None
+        # The source body above the manifest footer before the run, and the runs' results.
+        self.expected_body: str | None = None
+        self.runs: list[subprocess.CompletedProcess] = []
         # Set for src-layout scenarios: the orchestrator's interpreter must see the
         # original src as an installed package (ADR 0015), so it is put on PYTHONPATH.
         self.orchestrator_pythonpath: str | None = None
@@ -44,23 +66,20 @@ ctx = Context()
 def _reset_ctx():
     ctx.project_dir = None
     ctx.src_path = None
-    ctx.lcov_path = None
     ctx.test_script = None
     ctx.cli_result = None
     ctx.extra_cli_args = []
     ctx.sites_count = 0
     ctx.max_workers_flag = None
-    ctx.finish_order = None
     ctx.worker_run_during = False
     ctx.src_fixed = False
     ctx.failure_mode = None
+    ctx.outcomes = {}
+    ctx.placement_record = None
+    ctx.expected_body = None
+    ctx.runs = []
     ctx.orchestrator_pythonpath = None
     ctx.orchestrator_python = None
-
-
-def _make_lcov(source_abs: str, covered_lines: list[int]) -> str:
-    da = "\n".join(f"DA:{ln},1" for ln in sorted(covered_lines))
-    return f"SF:{source_abs}\n{da}\nend_of_record\n"
 
 
 def _write_test(path: str, body: str) -> None:
@@ -89,21 +108,29 @@ def _make_project_dir() -> str:
     """)
     with open(os.path.join(d, "pyproject.toml"), "w") as f:
         f.write(pyproject)
+    # An empty conftest.py puts the project root on sys.path for the tests.
+    with open(os.path.join(d, "conftest.py"), "w") as f:
+        f.write(ROOT_CONFTEST)
     # No pre-made uv.lock: it would not list pytest, so uv re-resolves the dev group.
     return d
 
 
-def _make_n_site_source(n: int) -> tuple[str, list[int]]:
-    """Return (source, covered_lines) for n comparison sites."""
-    lines = []
-    site_lines = []
-    for i in range(1, n + 1):
-        lines.append(f"def f{i}(a, b):")
-        line_no = len(lines) + 1  # next line
-        lines.append("    return a > b")
-        site_lines.append(line_no)
-        lines.append("")
-    return "\n".join(lines) + "\n", site_lines
+def _write_tests(outcomes: dict[str, str], probe: str = "") -> None:
+    """Write the project's tests: one per function, each ending as `outcomes` says under its Mutant."""
+    ctx.outcomes = dict(outcomes)
+    _write_test(ctx.test_script, outcome_test_body(SAMPLE_MODULE, ctx.outcomes, probe))
+
+
+def _write_n_site_project(n: int) -> None:
+    """A sample module of n comparison functions with tests that reach every one (all Mutants survive)."""
+    d = ctx.project_dir
+    source, _ = compare_source(n)
+    ctx.src_path = os.path.join(d, f"{SAMPLE_MODULE}.py")
+    with open(ctx.src_path, "w") as f:
+        f.write(source)
+    ctx.sites_count = n
+    ctx.test_script = os.path.join(_tests_dir(d), "test_qa.py")
+    _write_tests({name: "survive" for name in function_names(n)})
 
 
 # ── Background ────────────────────────────────────────────────────────────────
@@ -112,23 +139,14 @@ def _make_n_site_source(n: int) -> tuple[str, list[int]]:
 @step(r"a Python source file with covered mutation sites")
 def given_source_with_covered_sites(m, params):
     _reset_ctx()
-    d = _make_project_dir()
-    ctx.project_dir = d
-    src, site_lines = _make_n_site_source(2)
-    ctx.src_path = os.path.join(d, "sample.py")
-    with open(ctx.src_path, "w") as f:
-        f.write(src)
-    ctx.lcov_path = os.path.join(d, "cov.lcov")
-    with open(ctx.lcov_path, "w") as f:
-        f.write(_make_lcov(ctx.src_path, site_lines))
-    ctx.sites_count = 2
+    ctx.project_dir = _make_project_dir()
+    _write_n_site_project(2)
 
 
 @step(r"a baseline test command that passes")
 def given_baseline_passes(m, params):
-    d = ctx.project_dir or tempfile.mkdtemp()
-    ctx.test_script = os.path.join(_tests_dir(d), "test_qa.py")
-    _write_test(ctx.test_script, "def test_qa():\n    pass\n")
+    # The project's tests (written above) reach every site and pass on the original code.
+    assert ctx.test_script is not None, "no project tests were written"
 
 
 # ── Given steps ───────────────────────────────────────────────────────────────
@@ -140,20 +158,7 @@ def given_n_sites(m, params):
     ctx.sites_count = n
     if ctx.src_fixed:
         return
-    d = ctx.project_dir
-    if d is None:
-        d = _make_project_dir()
-        ctx.project_dir = d
-    src, site_lines = _make_n_site_source(n)
-    ctx.src_path = os.path.join(d, "sample.py")
-    with open(ctx.src_path, "w") as f:
-        f.write(src)
-    ctx.lcov_path = os.path.join(d, "cov.lcov")
-    with open(ctx.lcov_path, "w") as f:
-        f.write(_make_lcov(ctx.src_path, site_lines))
-    if ctx.test_script is None:
-        ctx.test_script = os.path.join(_tests_dir(d), "test_qa.py")
-        _write_test(ctx.test_script, "def test_qa():\n    pass\n")
+    _write_n_site_project(n)
 
 
 @step(r'the flag supplied is "(--max-workers \d+)"')
@@ -196,116 +201,67 @@ def given_specific_site(m, params):
         "    return a > b\n"  # line 13 — site index 4
         "\n"
     )
-    from mutate4py._discovery import discover_sites
-
-    all_sites = discover_sites(src)
-    covered_lines = [s.line for s in all_sites if s.index != 0]
-
     with open(ctx.src_path, "w") as f:
         f.write(src)
-    with open(ctx.lcov_path, "w") as f:
-        f.write(_make_lcov(ctx.src_path, covered_lines))
-    ctx.sites_count = len(covered_lines)
+    # The tests call every function but `uncov`, so its site is the one uncovered site.
+    _write_tests({name: "survive" for name in ("dummy1", "calc", "dummy3", "dummy4")})
+    ctx.sites_count = 4
     ctx.src_fixed = True
 
 
 @step(r'that mutant is run by worker "(\d+)" and exits nonzero')
 def given_worker_kills(m, params):
-    src_rel = os.path.relpath(ctx.src_path, ctx.project_dir)
-    body = (
-        "def test_qa():\n"
-        f"    with open({src_rel!r}) as f:\n"
-        "        content = f.read()\n"
-        "    assert '>=' not in content\n"
-    )
-    _write_test(ctx.test_script, body)
+    _write_tests({**ctx.outcomes, "calc": "kill"})
+
+
+_OUTCOME_FOR_RUN = {"exit nonzero": "kill", "exit zero": "survive", "exceed timeout": "timeout"}
 
 
 @step(r'a selected site whose mutated test run will "([^"]*)"')
 def given_site_outcome(m, params):
     outcome = params.get("outcome") or m.group(1)
-    # Build a 4-site source where only the last site is a comparison (produces >=).
-    # Other sites are constant-flip mutations that don't trigger the test script.
-    d = ctx.project_dir
+    if outcome not in _OUTCOME_FOR_RUN:
+        raise ValueError(f"Unknown outcome: {outcome}")
+    # Four sites; only the last one, `a > b`, is the target whose test is scripted.
     src = (
-        "def f1():\n"
+        "def f1(a, b):\n"
         "    return True\n"  # site index 0: True -> False
         "\n"
-        "def f2():\n"
+        "def f2(a, b):\n"
         "    return 0\n"  # site index 1: 0 -> 1
         "\n"
-        "def f3():\n"
+        "def f3(a, b):\n"
         "    return True\n"  # site index 2: True -> False
         "\n"
         "def f4(a, b):\n"
         "    return a > b\n"  # site index 3: a > b -> a >= b (the target)
         "\n"
     )
-    from mutate4py._discovery import discover_sites
-
-    all_sites = discover_sites(src)
-    covered_lines = [s.line for s in all_sites]
-
-    src_path = os.path.join(d, "sample.py")
-    lcov_path = os.path.join(d, "cov.lcov")
-    with open(src_path, "w") as f:
-        f.write(src)
-    with open(lcov_path, "w") as f:
-        f.write(_make_lcov(src_path, covered_lines))
-    ctx.src_path = src_path
-    ctx.lcov_path = lcov_path
-    ctx.sites_count = len(all_sites)
-    ctx.src_fixed = True
-
-    src_rel = os.path.relpath(src_path, d)
-    if outcome == "exit nonzero":
-        body = (
-            "def test_qa():\n"
-            f"    with open({src_rel!r}) as f:\n"
-            "        content = f.read()\n"
-            "    assert '>=' not in content\n"
-        )
-    elif outcome == "exit zero":
-        body = "def test_qa():\n    pass\n"
-    elif outcome == "exceed timeout":
-        body = (
-            "import time\n\n"
-            "def test_qa():\n"
-            f"    with open({src_rel!r}) as f:\n"
-            "        content = f.read()\n"
-            "    if '>=' in content:\n"
-            "        time.sleep(60)\n"
-        )
-        ctx.extra_cli_args = list(ctx.extra_cli_args) + ["--min-timeout", "0.1"]
-    else:
-        raise ValueError(f"Unknown outcome: {outcome}")
-    _write_test(ctx.test_script, body)
-
-
-@step(r'the file has "(\d+)" selected mutation sites at indexes "(\d+)", "(\d+)", "(\d+)"')
-def given_sites_at_indexes(m, params):
-    n = int(m.group(1))
-    ctx.sites_count = n
-    d = ctx.project_dir
-    src, site_lines = _make_n_site_source(n)
-    ctx.src_path = os.path.join(d, "sample.py")
+    ctx.src_path = os.path.join(ctx.project_dir, f"{SAMPLE_MODULE}.py")
     with open(ctx.src_path, "w") as f:
         f.write(src)
-    ctx.lcov_path = os.path.join(d, "cov.lcov")
-    with open(ctx.lcov_path, "w") as f:
-        f.write(_make_lcov(ctx.src_path, site_lines))
+    ctx.sites_count = 4
+    ctx.src_fixed = True
+    _write_tests({"f1": "survive", "f2": "survive", "f3": "survive", "f4": _OUTCOME_FOR_RUN[outcome]})
+    if outcome == "exceed timeout":
+        ctx.extra_cli_args = list(ctx.extra_cli_args) + ["--min-timeout", "0.1", "--timeout-factor", "1"]
 
 
-@step(r'the workers finish the mutants in order "(\d+)", "(\d+)", "(\d+)"')
-def given_finish_order(m, params):
-    # Arrival order is non-deterministic; we note the requested order but
-    # the test just checks all sites appear in the output.
-    ctx.finish_order = [int(m.group(1)), int(m.group(2)), int(m.group(3))]
+@step(r'"(\d+)" of the mutants survive and the rest are killed')
+def given_some_survive(m, params):
+    survivors = int(params.get("survivedCount") or m.group(1))
+    names = function_names(ctx.sites_count)
+    outcomes = ["survive"] * survivors + ["kill"] * (len(names) - survivors)
+    _write_tests(dict(zip(names, outcomes)))
 
 
-@step(r'each worker has its own copy under "\.mutate4py/workers/"')
-def given_worker_copies_setup(m, params):
-    pass  # verified in Then
+@step(r"the tests record where they run")
+def given_tests_record_placement(m, params):
+    ctx.placement_record = os.path.join(ctx.project_dir, "placements.txt")
+    workers_dir = os.path.join(ctx.project_dir, ".mutate4py", "workers")
+    probe = placement_probe(ctx.placement_record, workers_dir, ctx.src_path)
+    # Every Mutant is killed, so no survivor is re-run and each record is a mutated run.
+    _write_tests({name: "kill" for name in ctx.outcomes}, probe)
 
 
 @step(r'the working directory contains a "([^"]*)" entry')
@@ -335,19 +291,17 @@ def given_dir_has_entry(m, params):
 @step(r"the target file is outside the working directory")
 def given_target_outside_cwd(m, params):
     outside_dir = tempfile.mkdtemp()
-    src, site_lines = _make_n_site_source(4)
+    src, _ = compare_source(4)
     outside_src = os.path.join(outside_dir, "outside.py")
     with open(outside_src, "w") as f:
         f.write(src)
     ctx.src_path = outside_src
     ctx.src_fixed = True
-    ctx.lcov_path = os.path.join(outside_dir, "cov.lcov")
-    with open(ctx.lcov_path, "w") as f:
-        f.write(_make_lcov(outside_src, site_lines))
     ctx.sites_count = 4
-    if ctx.test_script is None:
-        ctx.test_script = os.path.join(_tests_dir(ctx.project_dir), "test_qa.py")
-        _write_test(ctx.test_script, "def test_qa():\n    pass\n")
+    # The project's tests reach the outside module, so its sites are covered and selected.
+    body = outcome_test_body("outside", {name: "survive" for name in function_names(4)})
+    reach = f"import sys\n\nsys.path.insert(0, {outside_dir!r})\n\n"
+    _write_test(os.path.join(_tests_dir(ctx.project_dir), "test_outside.py"), reach + body)
 
 
 _SRC_LAYOUT_SOURCE = "def add(a, b):\n    return a + b\n\n\ndef sub(a, b):\n    return a - b\n"
@@ -395,14 +349,6 @@ def _write_src_layout_project(d: str, *, with_cov: bool) -> str:
     return src_path
 
 
-def _write_src_layout_lcov() -> None:
-    ctx.lcov_path = os.path.join(ctx.project_dir, "cov.lcov")
-    with open(ctx.lcov_path, "w") as f:
-        # add's return is line 2, sub's return is line 6.
-        f.write(_make_lcov(ctx.src_path, [2, 6]))
-    ctx.sites_count = 2
-
-
 def _setup_src_layout(*, with_cov: bool) -> None:
     d = ctx.project_dir
     if d is None:
@@ -410,7 +356,7 @@ def _setup_src_layout(*, with_cov: bool) -> None:
         ctx.project_dir = d
     ctx.src_path = _write_src_layout_project(d, with_cov=with_cov)
     ctx.orchestrator_pythonpath = os.path.join(d, "src")
-    _write_src_layout_lcov()
+    ctx.sites_count = 2
 
 
 def _setup_project_venv_src_layout() -> None:
@@ -423,7 +369,7 @@ def _setup_project_venv_src_layout() -> None:
     ctx.src_path = _write_src_layout_project(d, with_cov=True)
     subprocess.run(["uv", "sync"], cwd=d, check=True)
     ctx.orchestrator_python = os.path.join(d, ".venv", "bin", "python")
-    _write_src_layout_lcov()
+    ctx.sites_count = 2
 
 
 @step(r"the project is a src-layout editable package with pytest and pytest-cov")
@@ -467,7 +413,7 @@ def _run_mutate4py(extra: list[str]) -> subprocess.CompletedProcess:
         env["_MUTATE4PY_TEST_WORKER_SHORT_RESULT"] = "1"
     # Scored run: an unaccepted survivor exits 3. These scenarios test worker
     # behaviour, not the survivor gate, so they allow survivors and assert exit 0.
-    args = cmd + [ctx.src_path, "--lcov", ctx.lcov_path, "--pytest-args", "tests"] + extra
+    args = cmd + [ctx.src_path, "--pytest-args", "tests"] + extra
     args += survivor_flag(args)
     return subprocess.run(
         args,
@@ -478,9 +424,30 @@ def _run_mutate4py(extra: list[str]) -> subprocess.CompletedProcess:
     )
 
 
+def _record_expected_body() -> None:
+    with open(ctx.src_path) as f:
+        # A manifest footer always follows exactly one newline, so start from a body that ends in one.
+        ctx.expected_body = strip_manifest(f.read()).rstrip("\n") + "\n"
+    with open(ctx.src_path, "w") as f:
+        f.write(ctx.expected_body)
+
+
 @step(r"I run mutate4py mutating that file")
 def when_run_mutate4py(m, params):
+    _record_expected_body()
     ctx.cli_result = _run_mutate4py(list(ctx.extra_cli_args))
+
+
+@step(r"I run mutate4py mutating that file twice")
+def when_run_mutate4py_twice(m, params):
+    _record_expected_body()
+    ctx.runs = []
+    for _ in range(2):
+        # The first run embeds a manifest; start each run from the same input.
+        with open(ctx.src_path, "w") as f:
+            f.write(ctx.expected_body)
+        ctx.runs.append(_run_mutate4py(list(ctx.extra_cli_args)))
+    ctx.cli_result = ctx.runs[-1]
 
 
 # ── Then steps ────────────────────────────────────────────────────────────────
@@ -607,61 +574,41 @@ def then_report_counts(m, params):
         raise AssertionError(f"Unknown tally value: {tally!r}; expected 'Killed' or 'Survived'")
 
 
-@step(r'the per-mutant lines appear in arrival order "(\d+)", "(\d+)", "(\d+)"')
-def then_lines_in_arrival_order(m, params):
-    stdout = ctx.cli_result.stdout
-    progress = [ln for ln in stdout.splitlines() if ln.startswith("[")]
-    assert len(progress) >= 3, "Expected at least 3 progress lines, got:\n" + "\n".join(progress)
-    # All 3 sites must appear in some order
-    indexes = []
-    for ln in progress:
-        bracket_end = ln.index("/")
-        idx = int(ln[1:bracket_end])
-        indexes.append(idx)
-    assert sorted(indexes) == [1, 2, 3], f"Expected sites 1,2,3 in output, got: {indexes}"
+@step(r'both runs print "(Killed|Survived): (\d+)"')
+def then_both_runs_print(m, params):
+    label = m.group(1)
+    expected = int(m.group(2))
+    assert len(ctx.runs) == 2, "the file was not run twice"
+    for run in ctx.runs:
+        assert run.returncode == 0, f"Run failed unexpectedly: {run.stdout}\n{run.stderr}"
+        assert report_tally(run.stdout, label) == expected, f"{label} differs from {expected}:\n{run.stdout}"
 
 
-@step(r'the "Survivors:" block lists sites sorted by stable index')
-def then_survivors_sorted(m, params):
-    stdout = ctx.cli_result.stdout
-    # Survivors block is deterministic; just verify it's present (all survived here)
-    # In this scenario all sites exit 0 so they all survive
-    assert "Survivors:" in stdout or "Survived: 0" in stdout, f"Expected Survivors: block or Survived: 0 in:\n{stdout}"
+@step(r'both runs list the same site under "Survivors:"')
+def then_both_runs_list_same_survivor(m, params):
+    first, second = (survivor_lines(run.stdout) for run in ctx.runs)
+    assert first, f"the first run listed no survivor:\n{ctx.runs[0].stdout}"
+    assert first == second, f"survivors differ between runs: {first} != {second}"
 
 
-@step(r'the "Mutation Report" tallies are independent of finish order')
-def then_report_independent(m, params):
-    stdout = ctx.cli_result.stdout
-    assert "Mutation Report" in stdout, f"Expected Mutation Report in:\n{stdout}"
+@step(r"the Measurement ran in the original directory")
+def then_measured_in_original(m, params):
+    assert_measured_in_original(read_placements(ctx.placement_record), ctx.project_dir, len(ctx.outcomes))
 
 
-@step(r'each worker has its own copy under "\.mutate4py/workers/"')
-def then_worker_copies_exist_during(m, params):
-    # This is verified implicitly by the run completing with worker tokens
-    stdout = ctx.cli_result.stdout
-    assert "worker-" in stdout, f"Expected worker tokens in:\n{stdout}"
+@step(r'every mutated test run ran under a worker copy in "\.mutate4py/workers/"')
+def then_mutants_ran_in_worker_copies(m, params):
+    assert_mutants_ran_in_workers(read_placements(ctx.placement_record), ctx.project_dir, len(ctx.outcomes))
 
 
-@step(r"each worker copy is restored to the original after its mutant")
-def then_worker_copy_restored(m, params):
-    # Verified by checking the original file is clean after the run
-    from mutate4py._manifest import strip_manifest
-
-    with open(ctx.src_path) as f:
-        content = f.read()
-    body = strip_manifest(content)
-    assert ">=" not in body, f"Original file has mutant:\n{body}"
+@step(r"the original source never held a mutant while the tests ran")
+def then_original_never_held_a_mutant(m, params):
+    assert_original_never_spliced(read_placements(ctx.placement_record))
 
 
-@step(r"the original source file is never spliced with a mutant during the run")
-def then_original_never_spliced(m, params):
-    # Post-run: original should be clean
-    from mutate4py._manifest import strip_manifest
-
-    with open(ctx.src_path) as f:
-        content = f.read()
-    body = strip_manifest(content)
-    assert ">=" not in body, f"Original has mutant after run:\n{body}"
+@step(r'every mutated test run saw a worker tree under "\.mutate4py/workers/"')
+def then_mutated_runs_saw_worker_tree(m, params):
+    assert_worker_tree_seen_during_run(read_placements(ctx.placement_record), len(ctx.outcomes))
 
 
 @step(r'no per-worker "\.mutate4py\.bak" file is created')
@@ -679,14 +626,6 @@ def then_run_completes_successfully(m, params):
     stdout = ctx.cli_result.stdout
     stderr = ctx.cli_result.stderr
     assert ctx.cli_result.returncode == 0, f"Run failed unexpectedly: {stdout}\n{stderr}"
-
-
-@step(r'a worker run root existed under "\.mutate4py/workers/" during the run')
-def then_worker_root_existed(m, params):
-    # Verified implicitly by the run succeeding with worker tokens
-    assert "worker-" in ctx.cli_result.stdout, (
-        f"No worker token in stdout; worker root may not have been created:\n{ctx.cli_result.stdout}"
-    )
 
 
 @step(r'no worker run root remains under "\.mutate4py/workers/" after the run')
@@ -731,12 +670,10 @@ def then_no_worker_root(m, params):
 
 @step(r"after the run the original source has no mutant spliced in")
 def then_original_no_mutant(m, params):
-    from mutate4py._manifest import strip_manifest
-
     with open(ctx.src_path) as f:
-        content = f.read()
-    body = strip_manifest(content)
-    assert ">=" not in body, f"Mutant found in original after run:\n{body}"
+        body = strip_manifest(f.read())
+    # Byte for byte: the body above the manifest footer is what it was before the run.
+    assert body == ctx.expected_body, f"source body differs from the pre-run body:\n{body!r}\n!=\n{ctx.expected_body!r}"
 
 
 @step(r'the original source ends with a fresh "mutate4py-manifest" footer')

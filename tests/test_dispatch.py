@@ -11,38 +11,7 @@ import os
 
 import pytest
 
-from ._fork_unsafe_plugin_helpers import skip_unless_fork_unsafe_plugin_loaded
-
-
-def _make_args(**kwargs):
-    """Build a minimal argparse.Namespace for dispatch-cluster tests."""
-    import argparse
-
-    defaults = dict(
-        scan=False,
-        update_manifest=False,
-        check_manifest=False,
-        lines=None,
-        since_last_run=False,
-        mutate_all=False,
-        max_workers=None,
-        timeout_factor=10,
-        min_timeout=1.0,
-        pytest_args=[],
-        test_contexts=None,
-        cov_cmd=None,
-        lcov=None,
-        reuse_coverage=False,
-        warning_threshold=50,
-        manifest_file=False,
-        verbose=False,
-        exclude=None,
-        prune_dirs=(),
-        no_fork=False,
-        allow_survivors=False,
-    )
-    defaults.update(kwargs)
-    return argparse.Namespace(**defaults)
+from ._dispatch_helpers import make_args
 
 
 def _make_pkg_tree(tmp_path) -> str:
@@ -69,37 +38,11 @@ def test_run_scan_no_coverage(tmp_path, capsys):
     args = argparse.Namespace(
         file=str(src_file),
         warning_threshold=1000,
-        cov_cmd=None,
-        lcov=None,
-        reuse_coverage=False,
         manifest_file=False,
     )
-    _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
+    _run_scan(args, str(src_file), src_file.read_text())
     out = capsys.readouterr().out
     assert "Total mutation sites: 1" in out
-
-
-@pytest.mark.unit
-def test_run_scan_with_lcov(tmp_path, capsys):
-    import argparse
-
-    from mutate4py._dispatch import _run_scan
-
-    src_file = tmp_path / "foo.py"
-    src_file.write_text("x = a + b\n")
-    lcov_file = tmp_path / "cov.info"
-    lcov_file.write_text(f"SF:{src_file}\nDA:1,1\nend_of_record\n")
-    args = argparse.Namespace(
-        file=str(src_file),
-        warning_threshold=1000,
-        cov_cmd=None,
-        lcov=str(lcov_file),
-        reuse_coverage=False,
-        manifest_file=False,
-    )
-    _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
-    out = capsys.readouterr().out
-    assert "Covered mutation sites:" in out
 
 
 # ── _run_on_file: CLI-args → run_mutations wiring ─────────────────────────────
@@ -107,8 +50,8 @@ def test_run_scan_with_lcov(tmp_path, capsys):
 # Gap found via coverage.py arc data: nothing in the suite exercises the
 # non-scan/non-manifest branch of _run_on_file (the code that maps a parsed
 # argparse.Namespace onto run_mutations' kwargs for the directory-mode
-# per-file dispatch path). A mutant swapping since_last_run/mutate_all, or
-# dropping test_contexts_path=args.test_contexts, would go undetected.
+# per-file dispatch path). A mutant dropping a field from the request would
+# go undetected.
 # run_mutations' own behavior is already covered directly in test_runner.py;
 # this section is only about proving the wiring is correct.
 
@@ -127,84 +70,31 @@ def test_run_on_file_wires_args_into_run_mutations(monkeypatch):
 
     monkeypatch.setattr("mutate4py._dispatch.run_mutations", fake_run_mutations)
 
-    args = _make_args(
-        cov_cmd="echo hi",
+    args = make_args(
         pytest_args=["-x", "-k", "foo"],
         timeout_factor=7,
         min_timeout=2.5,
-        lines="3,4",
-        since_last_run=True,
-        mutate_all=False,
         warning_threshold=42,
         max_workers=3,
-        test_contexts=".coverage",
     )
-    result = _run_on_file(args, "f.py", "x = 1\n", "/cwd", baseline_duration=1.5)
+    result = _run_on_file(args, "f.py", "x = 1\n", "/cwd")
     assert result == 0
     assert dataclasses.asdict(captured["request"]) == {
         "path": "f.py",
         "source": "x = 1\n",
-        "cov_cmd": "echo hi",
-        "lcov_path": None,
-        "reuse_coverage": False,
         "pytest_args": ["-x", "-k", "foo"],
         "timeout_factor": 7,
         "min_timeout": 2.5,
-        "lines_filter": {3, 4},
-        "since_last_run": True,
-        "mutate_all": False,
         "warning_threshold": 42,
         "allow_survivors": False,
         "max_workers": 3,
         "cwd": "/cwd",
-        "baseline_duration": 1.5,
-        "test_contexts_path": ".coverage",
+        "measurement": None,
+        "timing_sink": None,
         "manifest_file": False,
         "forking_requested": True,
         "executor": None,
     }
-
-
-@pytest.mark.unit
-def test_run_on_file_mutate_all_wired_when_lines_and_since_last_run_absent(
-    monkeypatch,
-):
-    """Distinguishes mutate_all from since_last_run in the wiring (mutant: swapped kwargs)."""
-    from mutate4py._dispatch import _run_on_file
-
-    captured = {}
-    monkeypatch.setattr(
-        "mutate4py._dispatch.run_mutations",
-        lambda request: captured.update(request=request) or 0,
-    )
-
-    args = _make_args(since_last_run=False, mutate_all=True, max_workers=None)
-    _run_on_file(args, "f.py", "x = 1\n", "/cwd")
-
-    request = captured["request"]
-    assert request.since_last_run is False
-    assert request.mutate_all is True
-    assert request.max_workers == 0  # None -> 0 default, per _run_on_file
-    assert request.lines_filter is None
-    assert request.baseline_duration is None
-
-
-@pytest.mark.unit
-def test_run_on_file_scan_coverage_error_exits_2(monkeypatch, capsys):
-    """The --scan branch's own try/except (distinct from _run_scan's) must exit(2)."""
-    from mutate4py._coverage import CoverageError
-    from mutate4py._dispatch import _run_on_file
-
-    def raise_coverage_error(**kwargs):
-        raise CoverageError("no coverage source")
-
-    monkeypatch.setattr("mutate4py._dispatch.run_scan", raise_coverage_error)
-
-    args = _make_args(scan=True)
-    with pytest.raises(SystemExit) as exc:
-        _run_on_file(args, "f.py", "x = 1\n", "/cwd")
-    assert exc.value.code == 2
-    assert "no coverage source" in capsys.readouterr().err
 
 
 @pytest.mark.unit
@@ -217,7 +107,7 @@ def test_run_on_file_forking_requested_defaults_true(monkeypatch):
         "mutate4py._dispatch.run_mutations",
         lambda request: captured.update(request=request) or 0,
     )
-    args = _make_args(no_fork=False)
+    args = make_args(no_fork=False)
     _run_on_file(args, "f.py", "x = 1\n", "/cwd")
     assert captured["request"].forking_requested is True
 
@@ -231,81 +121,9 @@ def test_run_on_file_forking_requested_false_when_disabled(monkeypatch):
         "mutate4py._dispatch.run_mutations",
         lambda request: captured.update(request=request) or 0,
     )
-    args = _make_args(no_fork=True)
+    args = make_args(no_fork=True)
     _run_on_file(args, "f.py", "x = 1\n", "/cwd")
     assert captured["request"].forking_requested is False
-
-
-# ── _needs_directory_baseline / _prepare_directory_baseline ───────────────────
-
-
-@pytest.mark.unit
-def test_needs_directory_baseline_true_for_normal_run():
-    from mutate4py._dispatch import _needs_directory_baseline
-
-    args = _make_args()
-    assert _needs_directory_baseline(["a.py"], args) is True
-
-
-@pytest.mark.unit
-def test_needs_directory_baseline_false_when_no_files():
-    from mutate4py._dispatch import _needs_directory_baseline
-
-    args = _make_args()
-    assert _needs_directory_baseline([], args) is False
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize("extra", [{"scan": True}, {"update_manifest": True}, {"check_manifest": True}])
-def test_needs_directory_baseline_false_for_no_run_modes(extra):
-    from mutate4py._dispatch import _needs_directory_baseline
-
-    args = _make_args(**extra)
-    assert _needs_directory_baseline(["a.py"], args) is False
-
-
-@pytest.mark.unit
-def test_prepare_directory_baseline_returns_duration(monkeypatch):
-    from mutate4py._dispatch import _prepare_directory_baseline
-
-    monkeypatch.setattr("mutate4py._coverage.acquire_coverage", lambda **kwargs: {1, 2})
-    monkeypatch.setattr("mutate4py._dispatch.run_baseline", lambda pytest_args, cwd: (1.23, None))
-
-    args = _make_args()
-    duration = _prepare_directory_baseline(args, ["a.py"], "/cwd")
-
-    assert duration == 1.23
-
-
-@pytest.mark.unit
-def test_prepare_directory_baseline_coverage_error_exits_1(monkeypatch, capsys):
-    from mutate4py._coverage import CoverageError
-    from mutate4py._dispatch import _prepare_directory_baseline
-
-    def raise_coverage_error(**kwargs):
-        raise CoverageError("no coverage source")
-
-    monkeypatch.setattr("mutate4py._coverage.acquire_coverage", raise_coverage_error)
-
-    args = _make_args()
-    with pytest.raises(SystemExit) as exc:
-        _prepare_directory_baseline(args, ["a.py"], "/cwd")
-    assert exc.value.code == 1
-    assert "no coverage source" in capsys.readouterr().err
-
-
-@pytest.mark.unit
-def test_prepare_directory_baseline_baseline_failure_exits_1(monkeypatch, capsys):
-    from mutate4py._dispatch import _prepare_directory_baseline
-
-    monkeypatch.setattr("mutate4py._coverage.acquire_coverage", lambda **kwargs: {1, 2})
-    monkeypatch.setattr("mutate4py._dispatch.run_baseline", lambda cmd, cwd: (0.0, "boom"))
-
-    args = _make_args()
-    with pytest.raises(SystemExit) as exc:
-        _prepare_directory_baseline(args, ["a.py"], "/cwd")
-    assert exc.value.code == 1
-    assert "boom" in capsys.readouterr().err
 
 
 # ── Mutant-killing gap tests: _load_source / _run_scan ─────────────────────────
@@ -333,51 +151,6 @@ def test_load_source_error_on_stderr(tmp_path, capsys):
 
 
 @pytest.mark.unit
-def test_run_scan_coverage_error_exits_2(tmp_path):
-    # mutant_21-26: CoverageError → sys.exit(2) exactly
-    import argparse
-
-    from mutate4py._dispatch import _run_scan
-
-    src_file = tmp_path / "foo.py"
-    src_file.write_text("x = a + b\n")
-    args = argparse.Namespace(
-        file=str(src_file),
-        warning_threshold=1000,
-        cov_cmd=None,
-        lcov=str(tmp_path / "missing.info"),
-        reuse_coverage=False,
-        manifest_file=False,
-    )
-    with pytest.raises(SystemExit) as exc:
-        _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
-    assert exc.value.code == 2
-
-
-@pytest.mark.unit
-def test_run_scan_coverage_error_goes_to_stderr(tmp_path, capsys):
-    # mutant_21-26: error message goes to stderr
-    import argparse
-
-    from mutate4py._dispatch import _run_scan
-
-    src_file = tmp_path / "foo.py"
-    src_file.write_text("x = a + b\n")
-    args = argparse.Namespace(
-        file=str(src_file),
-        warning_threshold=1000,
-        cov_cmd=None,
-        lcov=str(tmp_path / "missing.info"),
-        reuse_coverage=False,
-        manifest_file=False,
-    )
-    with pytest.raises(SystemExit):
-        _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
-    err = capsys.readouterr().err
-    assert "error" in err.lower()
-
-
-@pytest.mark.unit
 def test_run_scan_output_newline_separated(tmp_path, capsys):
     # mutant_28,_36: print("\n".join(lines)) — output lines are newline-separated
     import argparse
@@ -389,67 +162,14 @@ def test_run_scan_output_newline_separated(tmp_path, capsys):
     args = argparse.Namespace(
         file=str(src_file),
         warning_threshold=1000,
-        cov_cmd=None,
-        lcov=None,
-        reuse_coverage=False,
         manifest_file=False,
     )
-    _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
+    _run_scan(args, str(src_file), src_file.read_text())
     out = capsys.readouterr().out
     assert "Mutation scan:" in out
     assert "Total mutation sites:" in out
     # Lines are separated by newlines (not spaces, tabs, etc.)
     assert "\n" in out
-
-
-@pytest.mark.unit
-def test_run_scan_passes_cov_cmd_to_coverage(tmp_path, capsys):
-    # mutant_10: cov_cmd=None vs args.cov_cmd — cov_cmd must be passed through
-    import argparse
-
-    from mutate4py._dispatch import _run_scan
-
-    src_file = tmp_path / "foo.py"
-    src_file.write_text("x = a + b\n")
-    lcov_file = tmp_path / "coverage.lcov"
-    # Create a cov_cmd that writes the lcov file
-    cmd = f"printf 'SF:{src_file}\\nDA:1,1\\nend_of_record\\n' > '{lcov_file}'"
-    args = argparse.Namespace(
-        file=str(src_file),
-        warning_threshold=1000,
-        cov_cmd=cmd,
-        lcov=None,
-        reuse_coverage=False,
-        manifest_file=False,
-    )
-    _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
-    out = capsys.readouterr().out
-    assert "Covered mutation sites:" in out
-
-
-@pytest.mark.unit
-def test_run_scan_reuse_coverage_with_cwd(tmp_path, capsys):
-    # mutant_12/13: reuse_coverage and cwd are passed through to acquire_coverage;
-    # coverage.lcov in cwd is found only when cwd is correct
-    import argparse
-
-    from mutate4py._dispatch import _run_scan
-
-    src_file = tmp_path / "foo.py"
-    src_file.write_text("x = a + b\n")
-    lcov_file = tmp_path / "coverage.lcov"
-    lcov_file.write_text(f"SF:{src_file}\nDA:1,1\nend_of_record\n")
-    args = argparse.Namespace(
-        file=str(src_file),
-        warning_threshold=1000,
-        cov_cmd=None,
-        lcov=None,
-        reuse_coverage=True,
-        manifest_file=False,
-    )
-    _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
-    out = capsys.readouterr().out
-    assert "Covered mutation sites:" in out
 
 
 @pytest.mark.unit
@@ -465,12 +185,9 @@ def test_run_scan_passes_args_file_path(tmp_path, capsys):
     args = argparse.Namespace(
         file=str(src_file),
         warning_threshold=1000,
-        cov_cmd=None,
-        lcov=None,
-        reuse_coverage=False,
         manifest_file=False,
     )
-    _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
+    _run_scan(args, str(src_file), src_file.read_text())
     out = capsys.readouterr().out
     assert "mymod.py" in out
 
@@ -487,90 +204,14 @@ def test_run_scan_separator_is_newline_not_other_string(tmp_path, capsys):
     args = argparse.Namespace(
         file=str(src_file),
         warning_threshold=1000,
-        cov_cmd=None,
-        lcov=None,
-        reuse_coverage=False,
         manifest_file=False,
     )
-    _run_scan(args, str(src_file), src_file.read_text(), str(tmp_path))
+    _run_scan(args, str(src_file), src_file.read_text())
     out = capsys.readouterr().out
     assert "XX" not in out
     # Output must have each label on its own line
     for label in ["Mutation scan:", "Total mutation sites:"]:
         assert label in out
-
-
-# ── _parse_lines ──────────────────────────────────────────────────────────────
-
-
-@pytest.mark.unit
-def test_parse_lines_none():
-    from mutate4py._dispatch import _parse_lines
-
-    assert _parse_lines(None) is None
-
-
-@pytest.mark.unit
-def test_parse_lines_single():
-    from mutate4py._dispatch import _parse_lines
-
-    assert _parse_lines("5") == {5}
-
-
-@pytest.mark.unit
-def test_parse_lines_multiple():
-    from mutate4py._dispatch import _parse_lines
-
-    assert _parse_lines("3,7,12") == {3, 7, 12}
-
-
-@pytest.mark.unit
-def test_parse_lines_with_spaces():
-    from mutate4py._dispatch import _parse_lines
-
-    assert _parse_lines(" 3 , 7 ") == {3, 7}
-
-
-# ── _parse_lines: error branches ──────────────────────────────────────────────
-
-
-@pytest.mark.unit
-def test_parse_lines_non_integer_exits(capsys):
-    from mutate4py._dispatch import _parse_lines
-
-    try:
-        _parse_lines("3,abc")
-        assert False, "expected SystemExit"
-    except SystemExit as exc:
-        assert exc.code == 2
-    err = capsys.readouterr().err
-    assert "not a valid integer" in err
-
-
-@pytest.mark.unit
-def test_parse_lines_zero_exits(capsys):
-    from mutate4py._dispatch import _parse_lines
-
-    try:
-        _parse_lines("0")
-        assert False, "expected SystemExit"
-    except SystemExit as exc:
-        assert exc.code == 2
-    err = capsys.readouterr().err
-    assert "positive integer" in err
-
-
-@pytest.mark.unit
-def test_parse_lines_negative_exits(capsys):
-    from mutate4py._dispatch import _parse_lines
-
-    try:
-        _parse_lines("-3")
-        assert False, "expected SystemExit"
-    except SystemExit as exc:
-        assert exc.code == 2
-    err = capsys.readouterr().err
-    assert "positive integer" in err
 
 
 # ── _parse_pytest_args ──────────────────────────────────────────────────────
@@ -641,7 +282,7 @@ def test_collect_union_files_single_root_returns_survivors(tmp_path):
     from mutate4py._dispatch import _collect_union_files
 
     d = _make_pkg_tree(tmp_path)
-    args = _make_args(file=d, exclude=["**/sub/*.py"])
+    args = make_args(file=d, exclude=["**/sub/*.py"])
     assert _collect_union_files(args, [d]) == [
         os.path.join(d, "__init__.py"),
         os.path.join(d, "mod.py"),
@@ -654,7 +295,7 @@ def test_collect_union_files_single_root_raises_when_all_excluded(tmp_path):
     from mutate4py._target_resolution import NoFilesToProcessError
 
     d = _make_pkg_tree(tmp_path)
-    args = _make_args(file=d, exclude=["**/*.py"])
+    args = make_args(file=d, exclude=["**/*.py"])
     with pytest.raises(NoFilesToProcessError):
         _collect_union_files(args, [d])
 
@@ -665,7 +306,7 @@ def test_collect_union_files_single_root_verbose_reports_before_raising(tmp_path
     from mutate4py._target_resolution import NoFilesToProcessError
 
     d = _make_pkg_tree(tmp_path)
-    args = _make_args(file=d, exclude=["**/*.py"], verbose=True)
+    args = make_args(file=d, exclude=["**/*.py"], verbose=True)
     with pytest.raises(NoFilesToProcessError):
         _collect_union_files(args, [d])
     assert capsys.readouterr().out.count("Excluded: ") == 4
@@ -675,7 +316,7 @@ def test_collect_union_files_single_root_verbose_reports_before_raising(tmp_path
 def test_raise_if_target_excluded_returns_when_no_match(tmp_path):
     from mutate4py._dispatch import _raise_if_target_excluded
 
-    args = _make_args(file="pkg/mod.py", exclude=["*/other.py"])
+    args = make_args(file="pkg/mod.py", exclude=["*/other.py"])
     _raise_if_target_excluded(args)  # must not raise
 
 
@@ -684,7 +325,7 @@ def test_raise_if_target_excluded_raises_on_match(capsys):
     from mutate4py._dispatch import _raise_if_target_excluded
     from mutate4py._target_resolution import NoFilesToProcessError
 
-    args = _make_args(file="pkg/mod.py", exclude=["*/mod.py"])
+    args = make_args(file="pkg/mod.py", exclude=["*/mod.py"])
     with pytest.raises(NoFilesToProcessError):
         _raise_if_target_excluded(args)
     assert capsys.readouterr().out == ""
@@ -695,7 +336,7 @@ def test_raise_if_target_excluded_verbose_names_the_target(capsys):
     from mutate4py._dispatch import _raise_if_target_excluded
     from mutate4py._target_resolution import NoFilesToProcessError
 
-    args = _make_args(file="pkg/mod.py", exclude=["*/mod.py"], verbose=True)
+    args = make_args(file="pkg/mod.py", exclude=["*/mod.py"], verbose=True)
     with pytest.raises(NoFilesToProcessError):
         _raise_if_target_excluded(args)
     assert capsys.readouterr().out == "Excluded: pkg/mod.py\n"
@@ -712,7 +353,7 @@ def _run_batch(monkeypatch, codes):
     by_file = dict(zip(files, codes))
     seen = []
 
-    def fake_run_on_file(args, py_file, source, cwd, baseline_duration=None):
+    def fake_run_on_file(args, py_file, source, cwd, batch=None):
         seen.append(py_file)
         return by_file[py_file]
 
@@ -720,7 +361,7 @@ def _run_batch(monkeypatch, codes):
     monkeypatch.setattr(m, "_run_on_file", fake_run_on_file)
 
     with pytest.raises(SystemExit) as exc:
-        m._run_files_and_exit(_make_args(scan=True), files)
+        m._run_files_and_exit(make_args(scan=True), files)
     assert seen == files, "every file must run, even after one fails"
     return exc.value.code
 
@@ -772,7 +413,7 @@ def test_run_files_and_exit_continues_past_syntax_error(monkeypatch, capsys):
     files = ["good1.py", "bad.py", "good2.py"]
     seen = []
 
-    def fake_run_on_file(args, py_file, source, cwd, baseline_duration=None):
+    def fake_run_on_file(args, py_file, source, cwd, batch=None):
         seen.append(py_file)
         if py_file == "bad.py":
             raise SyntaxError("invalid syntax", ("bad.py", 3, 5, "def f(:\n", 3, 6))
@@ -782,7 +423,7 @@ def test_run_files_and_exit_continues_past_syntax_error(monkeypatch, capsys):
     monkeypatch.setattr(m, "_run_on_file", fake_run_on_file)
 
     with pytest.raises(SystemExit) as exc:
-        m._run_files_and_exit(_make_args(scan=True), files)
+        m._run_files_and_exit(make_args(scan=True), files)
 
     assert seen == files, "a parse failure must not stop the batch"
     assert exc.value.code == 2
@@ -792,14 +433,14 @@ def test_run_files_and_exit_continues_past_syntax_error(monkeypatch, capsys):
 def test_run_files_and_exit_syntax_error_message_on_stderr(monkeypatch, capsys):
     import mutate4py._dispatch as m
 
-    def fake_run_on_file(args, py_file, source, cwd, baseline_duration=None):
+    def fake_run_on_file(args, py_file, source, cwd, batch=None):
         raise SyntaxError("invalid syntax", ("bad.py", 3, 5, "def f(:\n", 3, 6))
 
     monkeypatch.setattr(m, "_load_source", lambda path: "x = 1\n")
     monkeypatch.setattr(m, "_run_on_file", fake_run_on_file)
 
     with pytest.raises(SystemExit):
-        m._run_files_and_exit(_make_args(scan=True), ["bad.py"])
+        m._run_files_and_exit(make_args(scan=True), ["bad.py"])
 
     err = capsys.readouterr().err
     assert "error: cannot parse bad.py: invalid syntax (line 3)" in err
@@ -810,7 +451,7 @@ def test_run_files_and_exit_syntax_error_message_on_stderr(monkeypatch, capsys):
 def test_run_files_and_exit_reports_parse_failure_count(monkeypatch, capsys):
     import mutate4py._dispatch as m
 
-    def fake_run_on_file(args, py_file, source, cwd, baseline_duration=None):
+    def fake_run_on_file(args, py_file, source, cwd, batch=None):
         if py_file in ("bad1.py", "bad2.py"):
             raise SyntaxError("invalid syntax", (py_file, 1, 1, "?\n", 1, 2))
         return 0
@@ -819,7 +460,7 @@ def test_run_files_and_exit_reports_parse_failure_count(monkeypatch, capsys):
     monkeypatch.setattr(m, "_run_on_file", fake_run_on_file)
 
     with pytest.raises(SystemExit) as exc:
-        m._run_files_and_exit(_make_args(scan=True), ["bad1.py", "good.py", "bad2.py"])
+        m._run_files_and_exit(make_args(scan=True), ["bad1.py", "good.py", "bad2.py"])
 
     assert exc.value.code == 2
     assert "error: 2 files could not be parsed" in capsys.readouterr().err
@@ -833,7 +474,7 @@ def test_run_files_and_exit_no_parse_failure_summary_when_all_parse(monkeypatch,
     monkeypatch.setattr(m, "_run_on_file", lambda *a, **k: 0)
 
     with pytest.raises(SystemExit) as exc:
-        m._run_files_and_exit(_make_args(scan=True), ["a.py", "b.py"])
+        m._run_files_and_exit(make_args(scan=True), ["a.py", "b.py"])
 
     assert exc.value.code == 0
     assert "could not be parsed" not in capsys.readouterr().err
@@ -848,7 +489,7 @@ def test_run_files_and_exit_syntax_error_worst_code_wins_either_order(
     loop reaches first."""
     import mutate4py._dispatch as m
 
-    def fake_run_on_file(args, py_file, source, cwd, baseline_duration=None):
+    def fake_run_on_file(args, py_file, source, cwd, batch=None):
         if py_file == "bad.py":
             raise SyntaxError("invalid syntax", ("bad.py", 1, 1, "?\n", 1, 2))
         return 1
@@ -858,7 +499,7 @@ def test_run_files_and_exit_syntax_error_worst_code_wins_either_order(
 
     for files in (["fails.py", "bad.py"], ["bad.py", "fails.py"]):
         with pytest.raises(SystemExit) as exc:
-            m._run_files_and_exit(_make_args(scan=True), files)
+            m._run_files_and_exit(make_args(scan=True), files)
         assert exc.value.code == 2
 
 
@@ -873,7 +514,7 @@ def test_run_on_file_propagates_syntax_error(monkeypatch):
         raise SyntaxError("invalid syntax", ("mod.py", 2, 1, "def f(:\n", 2, 2))
 
     monkeypatch.setattr(m, "run_mutations", fake_run_mutations)
-    args = _make_args(file="mod.py")
+    args = make_args(file="mod.py")
 
     with pytest.raises(SyntaxError):
         m._run_on_file(args, "mod.py", "def f(:\n", os.getcwd())
@@ -892,7 +533,7 @@ def test_collect_union_files_unions_and_dedups_across_roots(tmp_path):
     b_dir.mkdir()
     (a_dir / "a.py").write_text("x = 1\n")
     (b_dir / "b.py").write_text("x = 2\n")
-    args = _make_args(exclude=None, verbose=False)
+    args = make_args(exclude=None, verbose=False)
     files = _collect_union_files(args, [str(a_dir), str(b_dir), str(a_dir)])
     assert files == [str(a_dir / "a.py"), str(b_dir / "b.py")]
 
@@ -906,7 +547,7 @@ def test_collect_union_files_raises_when_the_whole_union_is_empty(tmp_path):
     b_dir = tmp_path / "b_pkg"
     a_dir.mkdir()
     b_dir.mkdir()
-    args = _make_args(exclude=None, verbose=False)
+    args = make_args(exclude=None, verbose=False)
     with pytest.raises(NoFilesToProcessError):
         _collect_union_files(args, [str(a_dir), str(b_dir)])
 
@@ -921,80 +562,7 @@ def test_collect_union_files_verbose_reports_excluded_per_root(tmp_path, capsys)
     b_dir.mkdir()
     (a_dir / "a.py").write_text("x = 1\n")
     (b_dir / "b.py").write_text("x = 2\n")
-    args = _make_args(exclude=["**/b.py"], verbose=True)
+    args = make_args(exclude=["**/b.py"], verbose=True)
     files = _collect_union_files(args, [str(a_dir), str(b_dir)])
     assert files == [str(a_dir / "a.py")]
     assert f"Excluded: {b_dir / 'b.py'}" in capsys.readouterr().out
-
-
-# --- _build_isolated_session_runner (issue #51) -------------------------------
-
-
-@pytest.mark.unit
-def test_build_isolated_session_runner_returns_none_when_a_fork_unsafe_plugin_is_loaded(tmp_path):
-    """Regression: this repo's own acceptance suite hung for 36+ minutes
-    (real, observed) because --build-test-contexts unconditionally engaged
-    the forking path against tests/fixtures/overlapping_coverage, which
-    deadlocks under pytest-tach's fork-time lock (see
-    isolated_coverage_session_safe). tach.pytest_plugin is genuinely loaded
-    in this test process -- this repo's own active pytest plugin -- so this
-    exercises the real hazard, not a synthetic stand-in."""
-    from mutate4py._dispatch import _build_isolated_session_runner
-
-    skip_unless_fork_unsafe_plugin_loaded()
-    (tmp_path / "test_x.py").write_text("def test_ok():\n    assert True\n")
-    runner = _build_isolated_session_runner(no_fork=False, cwd=str(tmp_path))
-    assert runner is None
-
-
-@pytest.mark.component
-def test_build_isolated_session_runner_forks_and_runs_when_eligible(tmp_path, monkeypatch):
-    """With the fork-unsafe-plugin precheck stubbed out (this dev venv always
-    has tach loaded once ForkingExecutor.prime()'s own collect-only
-    pytest.main() call runs, so the real check can't be forced True here --
-    see isolated_coverage_session_safe's docstring), prove the returned
-    closure is wired correctly end to end: forks, runs the named test under
-    an isolated coverage session, and returns "survived".
-
-    Two independent call sites need stubbing: _dispatch.py's own eligibility
-    check (decides whether to build a working closure at all) and
-    ForkingExecutor.run_isolated_coverage_session's self-check (issue #51
-    Standards fix -- the method no longer trusts a caller to have checked
-    first, so it re-checks on every call)."""
-    import mutate4py._dispatch as dispatch_mod
-    import mutate4py._forking_executor as forking_executor_mod
-
-    monkeypatch.setattr(dispatch_mod, "isolated_coverage_session_safe", lambda: True)
-    monkeypatch.setattr(forking_executor_mod, "isolated_coverage_session_safe", lambda: True)
-    (tmp_path / "test_x.py").write_text("def test_ok():\n    assert True\n")
-
-    runner = dispatch_mod._build_isolated_session_runner(no_fork=False, cwd=str(tmp_path))
-    assert runner is not None
-
-    status = runner("test_x.py::test_ok", str(tmp_path / ".coverage.0"), ["-q"])
-    assert status == "survived"
-
-
-@pytest.mark.unit
-def test_dispatch_build_test_contexts_refuses_a_foreign_interpreter_before_building(tmp_path, monkeypatch):
-    """--build-test-contexts runs pytest collection in the project's venv, so a
-    foreign interpreter must be refused before any context build starts."""
-    import sys
-
-    from mutate4py import _dispatch
-    from mutate4py.__main__ import _build_parser
-    from mutate4py._cli_validation import ValidationError
-
-    (tmp_path / "pyproject.toml").write_text("[project]\nname = 'demo'\n")
-    (tmp_path / ".venv" / "bin").mkdir(parents=True)
-    (tmp_path / ".venv" / "bin" / "python").write_text("")
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(sys, "prefix", "/opt/other")
-    built = []
-    monkeypatch.setattr(_dispatch, "build_test_contexts", lambda **kwargs: built.append(kwargs) or 0)
-
-    args = _build_parser().parse_args(["--build-test-contexts", "db.sqlite"])
-    with pytest.raises(ValidationError) as exc:
-        _dispatch._dispatch(args)
-    assert exc.value.exit_code == 2
-    assert built == [], "no context build may start under a foreign interpreter"

@@ -7,38 +7,46 @@ eligible, subprocess otherwise — chosen by that Worker's own subprocess
 Mutant is dispatched over `_worker_protocol`'s request/response pipe; the
 cost this design exists to avoid is a fresh `pytest` process per Mutant.
 
-Per-site test-context narrowing (`_test_dispatch._build_mutant_args`)
-composes with parallel Workers exactly as it does with the serial loop —
-neither path may special-case the other.
+Per-site test-context narrowing (`_test_dispatch.plan_mutant`) is planned by
+the orchestrator, once per Site, before dispatch; each Worker runs the plan it
+is handed. Narrowing composes with parallel Workers exactly as it does with the
+serial loop — neither path may special-case the other.
 """
 
 import dataclasses
-import importlib.metadata
 import os
 import shutil
 import subprocess
-import sys
 import time
-from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable
 
 from mutate4py._discovery import Site, apply_mutant
-from mutate4py._executor import Executor
-from mutate4py._test_dispatch import _build_mutant_args, _check_execution_status
-from mutate4py._worker_protocol import WorkerProcessError, WorkerProcessExecutor
+from mutate4py._executor import Executor, ExecutorDescription, MutantTiming, combine_descriptions
+from mutate4py._plugin_neutralisation import disabled_plugin_args
+from mutate4py._worker_results import (
+    _assign_sites_to_workers,
+    _drop_one_result_if_injected,
+    _summarize_results,
+    _summarize_selection,
+    _summarize_timing,
+)
+from mutate4py._test_dispatch import MutantPlan, PlanInputs, TimeoutPolicy, _check_execution_status, plan_sites
+from mutate4py._worker_protocol import ServerLaunch, WorkerProcessError, WorkerProcessExecutor
 from mutate4py._worker_provision import (
     _copy_tree,
     _link_import_root,
     _provision_venv,
+    _required_worker_distributions,
 )
 
-__all__ = ["ParallelRunError", "ParallelRunRequest", "WorkerFailureError", "run_parallel"]
+__all__ = ["ParallelRunError", "ParallelRunRequest", "ParallelRunResult", "WorkerFailureError", "run_parallel"]
 
 
 @dataclasses.dataclass
 class SiteAssignment:
-    """One (site, worker) pairing plus its position in the overall progress count."""
+    """One (site, worker) pairing, the MutantPlan built for that Site, and its
+    position in the overall progress count."""
 
     worker_idx: int
     site: Site
@@ -46,17 +54,16 @@ class SiteAssignment:
     total: int
     worker_root: str
     worker_file_path: str
+    plan: MutantPlan
 
 
 @dataclasses.dataclass
 class WorkerRunSettings:
-    """Shared across every mutant run within one parallel dispatch."""
+    """Shared across every mutant run within one parallel dispatch. Holds no
+    selection or timeout input: each SiteAssignment already carries its plan."""
 
     clean_source: str
-    pytest_args: list[str]
-    mutant_timeout: float
     on_result: Callable
-    test_ctx_db: object = None
     abs_source_path: str = ""
 
 
@@ -67,12 +74,14 @@ class ParallelRunRequest:
     source_path: str
     cwd: str
     pytest_args: list[str]
-    mutant_timeout: float
+    timeout_policy: TimeoutPolicy
     max_workers: int
     on_result: Callable
-    test_ctx_db: object = None
+    selection_source: object = None
     abs_source_path: str = ""
     forking_requested: bool = True
+    positionals: tuple[str, ...] = ()
+    ran_at_import: frozenset[int] = frozenset()  # the guarded file's, for swap mode
     # Test-injection seam: when set, every Worker shares this one
     # Executor instead of provisioning a real WorkerProcessExecutor — makes
     # narrowed/static dispatch, per-Worker Site assignment, and
@@ -90,6 +99,8 @@ class _WorkerDispatchPlan:
     executors: list[Executor]
     source_rel: str
     total: int
+    # plans[site_idx - 1] is the MutantPlan for that Site; site_idx counts from 1.
+    plans: list[MutantPlan]
     settings: WorkerRunSettings
     n_workers: int
 
@@ -100,6 +111,19 @@ class ParallelRunError(Exception):
 
 class WorkerFailureError(ParallelRunError):
     pass
+
+
+@dataclasses.dataclass
+class ParallelRunResult:
+    """What one parallel dispatch hands back: the tallies, the Survivors in site
+    order, the selection tally (None without a selection source), the Mutants'
+    timing, and the Executor description the Workers gave of themselves."""
+
+    counts: dict[str, int]
+    survivors: list[Site]
+    selection_counts: dict[str, int] | None
+    timing: MutantTiming
+    executor_description: ExecutorDescription
 
 
 def _provision_worker(worker_root: str, required: frozenset[str]) -> None:
@@ -119,7 +143,7 @@ def _provision_worker_executors(
     worker_roots: list[str],
     source_rel: str,
     *,
-    forking_requested: bool,
+    launch: ServerLaunch,
     injected_executor: Executor | None,
     source_root: str,
 ) -> list[Executor]:
@@ -139,21 +163,17 @@ def _provision_worker_executors(
         WorkerProcessExecutor(
             worker_root=root,
             guarded_path=os.path.join(root, source_rel),
-            forking_requested=forking_requested,
             source_root=source_root,
-            worker_id=f"gw{i}",
+            launch=dataclasses.replace(launch, worker_id=f"gw{i}"),
         )
         for i, root in enumerate(worker_roots, start=1)
     ]
 
 
 def _run_one_site(assignment: SiteAssignment, executor: Executor, settings: WorkerRunSettings) -> dict:
-    """Build this site's dispatch args, mutate the worker copy, dispatch to
-    executor.run(), restore, call on_result, return the result dict."""
-    args, selection = _build_mutant_args(
-        settings.pytest_args, settings.test_ctx_db, settings.abs_source_path, assignment.site
-    )
-
+    """Mutate the worker copy, dispatch this site's MutantPlan to executor.run(),
+    restore, call on_result, return the result dict."""
+    plan = assignment.plan
     with open(assignment.worker_file_path) as f:
         original_source = f.read()
 
@@ -167,7 +187,9 @@ def _run_one_site(assignment: SiteAssignment, executor: Executor, settings: Work
         raise WorkerFailureError(f"worker-{assignment.worker_idx} could not write file copy: {e}") from e
 
     try:
-        status = executor.run(args, settings.mutant_timeout)
+        started = time.monotonic()
+        status = executor.run(plan.args, plan.timeout)
+        seconds = time.monotonic() - started
         # Raises before the caller can tally: a Mutant pytest never
         # exercised must never reach the tally as `killed` (issue #55).
         # The finally clause below still restores the worker's file copy.
@@ -187,20 +209,11 @@ def _run_one_site(assignment: SiteAssignment, executor: Executor, settings: Work
         "site_idx": assignment.site_idx,
         "total": assignment.total,
         "status": status,
-        "selection": selection,
+        "selection": plan.selection,
+        "seconds": seconds,
     }
     settings.on_result(result)
     return result
-
-
-def _required_worker_distributions(real_cwd: str) -> frozenset[str]:
-    """The distributions every Worker venv must hold (ADR 0015): the project environment's
-    when the orchestrator runs under that `.venv`, else none (mutate4py's own venv, as in
-    the parallel-workers-15 acceptance scenario). mutate4py itself is never required."""
-    if os.path.realpath(sys.prefix) != os.path.realpath(os.path.join(real_cwd, ".venv")):
-        return frozenset()
-    names = {d.metadata["Name"].lower().replace("_", "-") for d in importlib.metadata.distributions()}
-    return frozenset(names - {"mutate4py"})
 
 
 def _provision_workers(run_root: str, n_workers: int, real_cwd: str) -> list[str]:
@@ -220,37 +233,6 @@ def _provision_workers(run_root: str, n_workers: int, real_cwd: str) -> list[str
     return worker_roots
 
 
-def _assign_sites_to_workers(selected_sites: list[Site], n_workers: int) -> dict[int, list[tuple[int, Site, int]]]:
-    """Round-robin assign sites to workers; return by_worker grouping."""
-    by_worker: dict[int, list[tuple[int, Site, int]]] = defaultdict(list)
-    for i, site in enumerate(selected_sites):
-        worker_idx = (site.index % n_workers) + 1
-        by_worker[worker_idx].append((worker_idx, site, i + 1))
-    return by_worker
-
-
-def _summarize_results(results: list[dict]) -> tuple[dict[str, int], list[Site]]:
-    """Tally counts and collect survivors from sorted result list."""
-    counts: dict[str, int] = {"killed": 0, "timeout": 0, "survived": 0}
-    survivors: list[Site] = []
-    for r in results:
-        counts[r["status"]] += 1
-        if r["status"] == "survived":
-            survivors.append(r["site"])
-    survivors.sort(key=lambda s: s.index)
-    return counts, survivors
-
-
-def _summarize_selection(results: list[dict]) -> dict[str, int]:
-    """Tally narrowed/static/degraded selection counts, mirroring the serial loop's tally."""
-    counts = {"narrowed": 0, "static": 0, "degraded": 0}
-    for r in results:
-        selection = r.get("selection")
-        if selection is not None:
-            counts[selection] += 1
-    return counts
-
-
 def _prime_worker_executor(executor: Executor, worker_idx: int) -> None:
     """Prime this Worker's executor, restating a protocol failure as the
     Worker failure the run loop reports."""
@@ -258,6 +240,15 @@ def _prime_worker_executor(executor: Executor, worker_idx: int) -> None:
         executor.prime()
     except WorkerProcessError as e:
         raise WorkerFailureError(f"worker-{worker_idx} could not start: {e}") from e
+
+
+def _describe_worker_executor(executor: Executor, worker_idx: int) -> ExecutorDescription:
+    """Ask this Worker's primed executor how it runs its Mutants, restating a
+    protocol failure as the Worker failure the run loop reports."""
+    try:
+        return executor.describe()
+    except WorkerProcessError as e:
+        raise WorkerFailureError(f"worker-{worker_idx} could not describe its executor: {e}") from e
 
 
 def _close_worker_executor(executor: Executor) -> None:
@@ -268,28 +259,23 @@ def _close_worker_executor(executor: Executor) -> None:
         close()
 
 
-def _drop_one_result_if_injected(worker_results: list[dict], *, short_fail: bool) -> list[dict]:
-    """Test-injection seam (_MUTATE4PY_TEST_WORKER_SHORT_RESULT=1): silently
-    lose one Worker's last result, so run_parallel's own
-    results-vs-sites reconciliation can be proven to fire."""
-    if short_fail and worker_results:
-        return worker_results[:-1]
-    return worker_results
-
-
-def _dispatch_worker_groups(plan: _WorkerDispatchPlan) -> list[dict]:
-    """Prime each Worker's executor once, run its whole assignment
+def _dispatch_worker_groups(plan: _WorkerDispatchPlan) -> tuple[list[dict], list[ExecutorDescription]]:
+    """Prime each Worker's executor once, describe it, run its whole assignment
     sequentially (same file path), then close it — the executor is alive
     from priming to the end of that Worker's share of the run. Workers
-    dispatch across plan.n_workers threads."""
+    dispatch across plan.n_workers threads. Returns the results and, ordered
+    by Worker index, the description each Worker that ran Mutants gave."""
     short_fail = os.environ.get("_MUTATE4PY_TEST_WORKER_SHORT_RESULT") == "1"
 
-    def _run_worker_group(worker_idx: int, assignments: list[tuple[int, Site, int]]) -> list[dict]:
+    def _run_worker_group(
+        worker_idx: int, assignments: list[tuple[int, Site, int]]
+    ) -> tuple[list[dict], ExecutorDescription]:
         executor = plan.executors[worker_idx - 1]
         worker_root = plan.worker_roots[worker_idx - 1]
         worker_file_path = os.path.join(worker_root, plan.source_rel)
         _prime_worker_executor(executor, worker_idx)
         try:
+            description = _describe_worker_executor(executor, worker_idx)
             worker_results = [
                 _run_one_site(
                     SiteAssignment(
@@ -299,6 +285,7 @@ def _dispatch_worker_groups(plan: _WorkerDispatchPlan) -> list[dict]:
                         total=plan.total,
                         worker_root=worker_root,
                         worker_file_path=worker_file_path,
+                        plan=plan.plans[site_idx - 1],
                     ),
                     executor,
                     plan.settings,
@@ -307,31 +294,53 @@ def _dispatch_worker_groups(plan: _WorkerDispatchPlan) -> list[dict]:
             ]
         finally:
             _close_worker_executor(executor)
-        return _drop_one_result_if_injected(worker_results, short_fail=short_fail)
+        return _drop_one_result_if_injected(worker_results, short_fail=short_fail), description
 
     results: list[dict] = []
+    descriptions: dict[int, ExecutorDescription] = {}
     with ThreadPoolExecutor(max_workers=plan.n_workers) as executor_pool:
         futures = {
             executor_pool.submit(_run_worker_group, worker_idx, assignments): worker_idx
             for worker_idx, assignments in plan.by_worker.items()
         }
         for future in as_completed(futures):
-            results.extend(future.result())
-    return results
+            worker_results, description = future.result()
+            results.extend(worker_results)
+            descriptions[futures[future]] = description
+    return results, [descriptions[worker_idx] for worker_idx in sorted(descriptions)]
 
 
-def run_parallel(request: ParallelRunRequest) -> tuple[dict, list[Site], dict[str, int] | None]:
+def _plan_inputs(request: ParallelRunRequest) -> PlanInputs:
+    return PlanInputs(
+        pytest_args=request.pytest_args,
+        selection_source=request.selection_source,
+        abs_source_path=request.abs_source_path,
+        timeout_policy=request.timeout_policy,
+        positionals=request.positionals,
+    )
+
+
+def _run_settings(request: ParallelRunRequest) -> WorkerRunSettings:
+    return WorkerRunSettings(
+        clean_source=request.clean_source,
+        on_result=request.on_result,
+        abs_source_path=request.abs_source_path,
+    )
+
+
+def run_parallel(request: ParallelRunRequest) -> ParallelRunResult:
     """Run sites in parallel across max_workers isolated Workers, each owning
     exactly one primed Executor for the whole run.
 
     on_result(result_dict) is called from worker threads as each site finishes —
     callers use this to print progress lines in arrival order.
 
-    Returns (counts, survivors, selection_counts) sorted by stable site index;
-    selection_counts is None unless a test-context db is in play.
+    Returns a ParallelRunResult: counts and survivors sorted by stable site index,
+    selection_counts (None unless a selection source is in play), the Mutants'
+    timing, and the combined description of the Workers that ran Mutants.
     Raises WorkerFailureError on write/restore/dispatch failure.
     Raises ParallelRunError if collected results != selected site count.
-    A TestSelectionError (case 3) or NoTestsCollectedError (case 4) propagates uncaught.
+    A NoTestsCollectedError (case 4) propagates uncaught.
     """
     real_source = os.path.realpath(request.source_path)
     real_cwd = os.path.realpath(request.cwd)
@@ -343,33 +352,32 @@ def run_parallel(request: ParallelRunRequest) -> tuple[dict, list[Site], dict[st
     source_rel = os.path.relpath(real_source, real_cwd)
     run_root = os.path.join(real_cwd, ".mutate4py", "workers", f"run-{os.getpid()}-{time.monotonic_ns()}")
 
-    settings = WorkerRunSettings(
-        clean_source=request.clean_source,
-        pytest_args=request.pytest_args,
-        mutant_timeout=request.mutant_timeout,
-        on_result=request.on_result,
-        test_ctx_db=request.test_ctx_db,
-        abs_source_path=request.abs_source_path,
-    )
-
     try:
+        # Planned before any Worker is provisioned, so a selection disagreement
+        # aborts the run before a single Mutant is dispatched.
+        plans = plan_sites(selected_sites, _plan_inputs(request))
         worker_roots = _provision_workers(run_root, n_workers, real_cwd)
         by_worker = _assign_sites_to_workers(selected_sites, n_workers)
         executors = _provision_worker_executors(
             worker_roots,
             source_rel,
-            forking_requested=request.forking_requested,
+            launch=ServerLaunch(
+                forking_requested=request.forking_requested,
+                prime_args=tuple(disabled_plugin_args(request.pytest_args)),
+                ran_at_import=request.ran_at_import,
+            ),
             injected_executor=request.executor,
             source_root=real_cwd,
         )
-        results = _dispatch_worker_groups(
+        results, descriptions = _dispatch_worker_groups(
             _WorkerDispatchPlan(
                 by_worker=by_worker,
                 worker_roots=worker_roots,
                 executors=executors,
                 source_rel=source_rel,
                 total=len(selected_sites),
-                settings=settings,
+                plans=plans,
+                settings=_run_settings(request),
                 n_workers=n_workers,
             )
         )
@@ -379,8 +387,14 @@ def run_parallel(request: ParallelRunRequest) -> tuple[dict, list[Site], dict[st
 
         results.sort(key=lambda r: r["site_idx"])
         counts, survivors = _summarize_results(results)
-        selection_counts = _summarize_selection(results) if request.test_ctx_db is not None else None
-        return counts, survivors, selection_counts
+        selection_counts = _summarize_selection(results) if request.selection_source is not None else None
+        return ParallelRunResult(
+            counts=counts,
+            survivors=survivors,
+            selection_counts=selection_counts,
+            timing=_summarize_timing(results),
+            executor_description=combine_descriptions(descriptions),
+        )
 
     finally:
         shutil.rmtree(run_root, ignore_errors=True)

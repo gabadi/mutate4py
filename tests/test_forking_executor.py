@@ -1,5 +1,6 @@
 """Unit/integration tests for _forking_executor (issue #25 forking executor)."""
 
+import importlib.util
 import itertools
 import os
 import signal
@@ -8,23 +9,26 @@ import textwrap
 import time
 import types
 
-import coverage
 import pytest
 
 import mutate4py._forking_executor
 from mutate4py._forking_executor import (
     ForkingExecutor,
     ForkingExecutorUnavailable,
-    ModuleLeakError,
-    assert_source_clean,
+    ForkUnsafePlugin,
+    file_mode,
+    fresh_interpreter_argv,
+    fresh_interpreter_env,
     is_available,
-    isolated_coverage_session_safe,
+    loaded_files,
+    refuse_fork_unsafe_plugins,
 )
-from mutate4py._forking_executor import _wait_for_child
+from mutate4py._forking_executor import _run_pytest_output_suppressed, _wait_for_child
 from mutate4py._plugin_neutralisation import neutralising_args
-from mutate4py._test_selection import TestContextDB
 
-from ._fork_unsafe_plugin_helpers import skip_unless_fork_unsafe_plugin_loaded
+# This repo's own environment has tach, a fork-unsafe plugin: an in-process
+# prime that does not block it refuses to fork.
+_NO_TACH = ["-p", "no:tach"]
 
 
 # --- is_available ------------------------------------------------------------
@@ -41,44 +45,93 @@ def test_is_available_false_without_os_fork(monkeypatch):
     assert is_available() is False
 
 
-# --- assert_source_clean / _leaked_modules ----------------------------------
+# --- file_mode ---------------------------------------------------------------
 
 
 @pytest.mark.unit
-def test_assert_source_clean_passes_when_target_not_imported(tmp_path):
-    target = tmp_path / "not_imported.py"
-    target.write_text("x = 1\n")
-    assert_source_clean(str(target))
+def test_a_file_the_process_loaded_before_prime_is_a_harness_file(tmp_path):
+    target = str(tmp_path / "harness.py")
+    assert file_mode(target, harness_files={target}, loaded_after_prime={target}) == "harness"
 
 
 @pytest.mark.unit
-def test_assert_source_clean_raises_when_target_already_imported(tmp_path, monkeypatch):
-    target = tmp_path / "leaked_target.py"
-    target.write_text("x = 1\n")
-    fake_module = types.ModuleType("leaked_target")
-    fake_module.__file__ = str(target)
-    monkeypatch.setitem(sys.modules, "leaked_target", fake_module)
-    with pytest.raises(ModuleLeakError, match="leaked_target"):
-        assert_source_clean(str(target))
+def test_a_file_prime_imported_is_swapped(tmp_path):
+    target = str(tmp_path / "models.py")
+    assert file_mode(target, harness_files=set(), loaded_after_prime={target}) == "swap"
 
 
 @pytest.mark.unit
-def test_assert_source_clean_ignores_modules_without_file(monkeypatch, tmp_path):
-    target = tmp_path / "no_file_module.py"
-    target.write_text("x = 1\n")
-    fake_module = types.ModuleType("builtin_like")
-    monkeypatch.setitem(sys.modules, "builtin_like", fake_module)
-    assert_source_clean(str(target))
+def test_a_file_nothing_imported_is_a_fresh_import(tmp_path):
+    target = str(tmp_path / "calc.py")
+    other = str(tmp_path / "other.py")
+    assert file_mode(target, harness_files={other}, loaded_after_prime={other}) == "fresh import"
 
 
 @pytest.mark.unit
-def test_assert_source_clean_ignores_unrelated_modules(tmp_path):
-    unrelated = tmp_path / "unrelated.py"
-    unrelated.write_text("x = 1\n")
-    target = tmp_path / "target.py"
-    target.write_text("x = 1\n")
-    # `os` itself is always in sys.modules; unrelated to target, must not trip.
-    assert_source_clean(str(target))
+def test_file_mode_compares_real_paths(tmp_path):
+    real = tmp_path / "calc.py"
+    real.write_text("")
+    link = tmp_path / "link.py"
+    link.symlink_to(real)
+    assert file_mode(str(link), harness_files=set(), loaded_after_prime={os.path.realpath(real)}) == "swap"
+
+
+# --- loaded_files ------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_loaded_files_are_the_real_paths_of_the_modules_with_a_file(tmp_path):
+    real = tmp_path / "calc.py"
+    real.write_text("")
+    link = tmp_path / "link.py"
+    link.symlink_to(real)
+    modules = {
+        "calc": types.SimpleNamespace(__file__=str(link)),
+        "builtin_like": types.SimpleNamespace(),
+        "namespace_like": types.SimpleNamespace(__file__=None),
+    }
+    assert loaded_files(modules) == {os.path.realpath(real)}
+
+
+# --- refuse_fork_unsafe_plugins -------------------------------------------------
+
+
+@pytest.mark.unit
+def test_tach_among_the_registered_plugins_is_refused_by_name():
+    with pytest.raises(ForkUnsafePlugin) as refused:
+        refuse_fork_unsafe_plugins(["_pytest.python", "tach.pytest_plugin", "pytest_cov.plugin"])
+    assert refused.value.reason == "fork-unsafe plugin: tach.pytest_plugin"
+
+
+@pytest.mark.unit
+def test_a_session_without_a_known_unsafe_plugin_is_not_refused():
+    refuse_fork_unsafe_plugins(["_pytest.python", "tach"])
+
+
+@pytest.mark.unit
+def test_a_fork_unsafe_plugin_error_names_the_plugin_as_the_whole_reason():
+    error = ForkUnsafePlugin(["tach.pytest_plugin", "other.plugin"])
+    assert isinstance(error, ForkingExecutorUnavailable)
+    assert error.reason == "fork-unsafe plugin: tach.pytest_plugin, other.plugin"
+
+
+@pytest.mark.unit
+def test_any_other_unavailability_is_reported_as_the_forking_executor_unavailable():
+    assert ForkingExecutorUnavailable("no pytest").reason == "forking executor unavailable: no pytest"
+
+
+# --- the fresh-interpreter exec -------------------------------------------------
+
+
+@pytest.mark.unit
+def test_a_fresh_interpreter_runs_this_interpreters_pytest_over_the_args():
+    assert fresh_interpreter_argv(["-q", "tests"]) == [sys.executable, "-m", "pytest", "-q", "tests"]
+
+
+@pytest.mark.unit
+def test_a_fresh_interpreter_writes_no_bytecode_and_keeps_the_rest_of_the_environment():
+    env = fresh_interpreter_env({"PATH": "/bin", "PYTHONDONTWRITEBYTECODE": ""})
+    assert env == {"PATH": "/bin", "PYTHONDONTWRITEBYTECODE": "1"}
 
 
 # --- ForkingExecutor.prime / run ---------------------------------------------
@@ -97,7 +150,7 @@ def _write_fixture_project(tmp_path, *, target_body: str, test_body: str, confte
     The target module's name is unique per call (not a fixed "under_test")
     so different tests in this file — all running in one shared outer
     pytest process — cannot collide with each other's sys.modules entries,
-    which would otherwise mask exactly the leak this module exists to catch.
+    which would otherwise turn a fresh import into a loaded file.
     """
     mod_name = f"under_test_{next(_module_name_counter)}"
     target = tmp_path / f"{mod_name}.py"
@@ -110,7 +163,7 @@ def _write_fixture_project(tmp_path, *, target_body: str, test_body: str, confte
 
 
 _ADD_TEST_BODY = "from {mod} import add\ndef test_add():\n    assert add(2, 2) == 4\n"
-_ARGS = ["-q", "tests"]
+_ARGS = [*_NO_TACH, "-q", "tests"]
 
 
 @pytest.mark.component
@@ -120,7 +173,7 @@ def test_prime_succeeds_when_target_not_pre_imported(tmp_path):
         target_body="def add(a, b):\n    return a + b\n",
         test_body=_ADD_TEST_BODY,
     )
-    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
     executor.prime()  # must not raise
 
 
@@ -137,9 +190,9 @@ def test_prime_and_run_import_from_cwd_without_root_conftest(tmp_path):
         f"from under_test_{n} import add\n\n\ndef test_add():\n    assert add(2, 2) == 4\n"
     )
     saved = list(sys.path)
-    executor = ForkingExecutor(cwd=str(tmp_path), guarded_path=str(target))
+    executor = ForkingExecutor(cwd=str(tmp_path), guarded_path=str(target), prime_args=_NO_TACH)
     executor.prime()
-    assert executor.run(["-q", "tests"], timeout=30.0) == "survived"
+    assert executor.run(_ARGS, timeout=30.0) == "survived"
     assert sys.path == saved
 
 
@@ -171,62 +224,17 @@ def test_prime_neutralises_plugins_on_its_own_collect_only_call(tmp_path, monkey
     captured_args: list[list[str]] = []
     real_run = mutate4py._forking_executor._run_pytest_output_suppressed
 
-    def spy(pytest_module, args, run_cwd):
+    def spy(pytest_module, args, run_cwd, plugins=()):
         captured_args.append(args)
-        return real_run(pytest_module, args, run_cwd)
+        return real_run(pytest_module, args, run_cwd, plugins=plugins)
 
     monkeypatch.setattr(mutate4py._forking_executor, "_run_pytest_output_suppressed", spy)
 
-    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
     executor.prime()
 
     assert captured_args, "prime() must invoke pytest.main() via _run_pytest_output_suppressed"
     assert set(neutralising_args()) <= set(captured_args[0])
-
-
-@pytest.mark.component
-def test_prime_raises_module_leak_when_conftest_imports_target(tmp_path):
-    cwd, target = _write_fixture_project(
-        tmp_path,
-        target_body="def add(a, b):\n    return a + b\n",
-        test_body=_ADD_TEST_BODY,
-        conftest_body="import {mod}\n",
-    )
-    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
-    with pytest.raises(ModuleLeakError):
-        executor.prime()
-
-
-@pytest.mark.component
-def test_prime_leak_does_not_poison_a_later_same_named_file(tmp_path):
-    """Regression: a leaked module from one file's prime() must not survive
-    to fool a *different* file's leak check later in the same process —
-    exactly the shape of a directory batch run with colliding basenames."""
-    dir_a = tmp_path / "a"
-    dir_a.mkdir()
-    cwd_a, target_a = _write_fixture_project(
-        dir_a,
-        target_body="def add(a, b):\n    return a + b\n",
-        test_body=_ADD_TEST_BODY,
-        conftest_body="import {mod}\n",
-    )
-    executor_a = ForkingExecutor(cwd=cwd_a, guarded_path=target_a)
-    with pytest.raises(ModuleLeakError):
-        executor_a.prime()
-
-    # A second, unrelated file that happens to reuse the same module name.
-    mod_name = os.path.splitext(os.path.basename(target_a))[0]
-    dir_b = tmp_path / "b"
-    dir_b.mkdir()
-    target_b = dir_b / f"{mod_name}.py"
-    target_b.write_text("def add(a, b):\n    return a + b\n")
-    (dir_b / "conftest.py").write_text("")
-    tests_b = dir_b / "tests"
-    tests_b.mkdir()
-    (tests_b / f"test_{mod_name}.py").write_text(_ADD_TEST_BODY.format(mod=mod_name))
-
-    executor_b = ForkingExecutor(cwd=str(dir_b), guarded_path=str(target_b))
-    executor_b.prime()  # must not raise: file a's leak must not have persisted
 
 
 @pytest.mark.component
@@ -236,7 +244,7 @@ def test_run_survives_when_tests_pass(tmp_path):
         target_body="def add(a, b):\n    return a + b\n",
         test_body=_ADD_TEST_BODY,
     )
-    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
     executor.prime()
     status = executor.run(_ARGS, timeout=30.0)
     assert status == "survived"
@@ -249,7 +257,7 @@ def test_run_killed_when_tests_fail(tmp_path):
         target_body="def add(a, b):\n    return a - b\n",  # mutated: - instead of +
         test_body=_ADD_TEST_BODY,
     )
-    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
     executor.prime()
     status = executor.run(_ARGS, timeout=30.0)
     assert status == "killed"
@@ -265,9 +273,9 @@ def test_run_reports_no_tests_collected_when_filter_deselects_everything(tmp_pat
         target_body="def add(a, b):\n    return a + b\n",
         test_body=_ADD_TEST_BODY,
     )
-    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
     executor.prime()
-    status = executor.run(["-q", "tests", "-k", "no_such_test_name"], timeout=30.0)
+    status = executor.run([*_ARGS, "-k", "no_such_test_name"], timeout=30.0)
     assert status == "no-tests-collected"
 
 
@@ -280,9 +288,9 @@ def test_run_reports_usage_error_for_a_bad_argument(tmp_path):
         target_body="def add(a, b):\n    return a + b\n",
         test_body=_ADD_TEST_BODY,
     )
-    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
     executor.prime()
-    status = executor.run(["-q", "tests", "--not-a-real-flag-xyz"], timeout=30.0)
+    status = executor.run([*_ARGS, "--not-a-real-flag-xyz"], timeout=30.0)
     assert status == "usage-error"
 
 
@@ -295,7 +303,7 @@ def test_run_picks_up_post_prime_mutation_from_disk(tmp_path):
         target_body="def add(a, b):\n    return a + b\n",
         test_body=_ADD_TEST_BODY,
     )
-    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
     executor.prime()
 
     # First mutant: correct code, unmutated -> tests pass -> survived.
@@ -327,7 +335,7 @@ def test_run_reports_timeout_and_kills_child(tmp_path):
             "import time\nfrom {mod} import add\ndef test_add():\n    time.sleep(5)\n    assert add(2, 2) == 4\n"
         ),
     )
-    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
     executor.prime()
     status = executor.run(_ARGS, timeout=0.5)
     assert status == "timeout"
@@ -340,6 +348,26 @@ def test_run_before_prime_raises():
         executor.run(["-q"], timeout=1.0)
 
 
+@pytest.mark.unit
+def test_describe_before_any_run_reports_no_fresh_import():
+    executor = ForkingExecutor(cwd="/tmp", guarded_path="/tmp/x.py")
+    assert executor.describe().render() == "forking (fresh import 0, swap 0, fresh interpreter 0)"
+
+
+@pytest.mark.component
+def test_describe_counts_each_mutant_run_as_a_fresh_import(tmp_path):
+    cwd, target = _write_fixture_project(
+        tmp_path,
+        target_body="def add(a, b):\n    return a + b\n",
+        test_body=_ADD_TEST_BODY,
+    )
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
+    executor.prime()
+    executor.run(_ARGS, timeout=30.0)
+    executor.run(_ARGS, timeout=30.0)
+    assert executor.describe().render() == "forking (fresh import 2, swap 0, fresh interpreter 0)"
+
+
 @pytest.mark.component
 def test_run_does_not_leak_child_stdout(tmp_path, capsys):
     cwd, target = _write_fixture_project(
@@ -349,7 +377,7 @@ def test_run_does_not_leak_child_stdout(tmp_path, capsys):
             "from {mod} import add\ndef test_add():\n    print('SHOULD_NOT_APPEAR')\n    assert add(2, 2) == 4\n"
         ),
     )
-    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
     executor.prime()
     executor.run(_ARGS, timeout=30.0)
     captured = capsys.readouterr()
@@ -357,210 +385,131 @@ def test_run_does_not_leak_child_stdout(tmp_path, capsys):
     assert "SHOULD_NOT_APPEAR" not in captured.err
 
 
-# --- isolated_coverage_session_safe -------------------------------------------
+@pytest.mark.component
+@pytest.mark.skipif(importlib.util.find_spec("tach") is None, reason="needs tach, a fork-unsafe plugin, installed")
+def test_prime_refuses_a_session_that_registers_a_fork_unsafe_plugin(tmp_path):
+    cwd, target = _write_fixture_project(
+        tmp_path,
+        target_body="def add(a, b):\n    return a + b\n",
+        test_body=_ADD_TEST_BODY,
+    )
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target)
+    with pytest.raises(ForkUnsafePlugin, match="tach.pytest_plugin"):
+        executor.prime()
+
+
+@pytest.mark.component
+def test_a_target_the_conftest_imports_is_swapped_into_its_live_function(tmp_path):
+    cwd, target = _write_fixture_project(
+        tmp_path,
+        target_body="def add(a, b):\n    return a + b\n",
+        test_body=_ADD_TEST_BODY,
+        conftest_body="import {mod}\n",
+    )
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
+    executor.prime()
+    assert executor.run(_ARGS, timeout=30.0) == "survived"
+    with open(target, "w") as f:
+        f.write("def add(a, b):\n    return a - b\n")
+    assert executor.run(_ARGS, timeout=30.0) == "killed"
+    assert executor.describe().render() == "forking (fresh import 0, swap 2, fresh interpreter 0)"
+
+
+@pytest.mark.component
+def test_a_swap_the_import_time_check_refuses_runs_in_a_fresh_interpreter(tmp_path):
+    cwd, target = _write_fixture_project(
+        tmp_path,
+        target_body="def add(a, b):\n    return a + b\n\n\nSEED = add(1, 1)\n",
+        test_body=_ADD_TEST_BODY,
+        conftest_body="import {mod}\n",
+    )
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH, ran_at_import=frozenset({2}))
+    executor.prime()
+    with open(target, "w") as f:
+        f.write("def add(a, b):\n    return a - b\n\n\nSEED = add(1, 1)\n")
+    assert executor.run(_ARGS, timeout=30.0) == "killed"
+    assert executor.describe().render() == "forking (fresh import 0, swap 0, fresh interpreter 1)"
+
+
+# --- _run_pytest_output_suppressed -------------------------------------------
+
+
+def _fake_pytest(main):
+    """A stand-in pytest module: _run_pytest_output_suppressed touches only .main."""
+    return types.SimpleNamespace(main=main)
 
 
 @pytest.mark.unit
-def test_isolated_coverage_session_safe_false_when_a_known_unsafe_plugin_is_loaded(monkeypatch):
-    """Regression for the acceptance-suite hang this precheck exists to
-    prevent: tach.pytest_plugin is genuinely loaded in this test process
-    (it's this repo's own pytest plugin), so this assertion also proves the
-    check fires for real, not just against a synthetic fake module."""
-    skip_unless_fork_unsafe_plugin_loaded()
-    assert isolated_coverage_session_safe() is False
+def test_run_pytest_output_suppressed_returns_the_exit_code_main_gives(tmp_path):
+    assert _run_pytest_output_suppressed(_fake_pytest(lambda args, plugins: 5), ["-q"], str(tmp_path)) == 5
 
 
 @pytest.mark.unit
-def test_isolated_coverage_session_safe_true_when_no_unsafe_plugin_is_loaded(monkeypatch):
-    monkeypatch.delitem(sys.modules, "tach.pytest_plugin", raising=False)
-    assert isolated_coverage_session_safe() is True
+def test_run_pytest_output_suppressed_passes_args_and_plugins_to_main(tmp_path):
+    seen = {}
 
+    def main(args, plugins):
+        seen["args"] = args
+        seen["plugins"] = plugins
+        return 0
 
-# --- ForkingExecutor.run_isolated_coverage_session ---------------------------
-
-
-def _write_coverage_fixture_project(tmp_path) -> str:
-    """Write a minimal two-test project with a line shared by both tests plus
-    one line private to each, mirroring tests/fixtures/overlapping_coverage/
-    but built fresh under tmp_path (real system tmp, outside this repo).
-
-    Must NOT reuse the in-repo fixture: priming followed by a second
-    in-process pytest.main() call inside this repo's own tree deadlocks
-    under pytest-tach's native fork-time lock (issue #51 spike finding);
-    tmp_path sidesteps the plugin's config discovery entirely. branch=True
-    in .coveragerc routes context lookups through the arc table, avoiding
-    the unrelated, separately-tracked off-by-one in the line-only numbits
-    decoder (mutate4py._test_selection._numbits_to_lines).
-    """
-    (tmp_path / ".coveragerc").write_text("[run]\nbranch = True\n")
-    (tmp_path / "shared.py").write_text(
-        "def shared():\n    return 1\n\n\ndef only_a():\n    return 'a'\n\n\ndef only_b():\n    return 'b'\n"
-    )
-    (tmp_path / "test_a.py").write_text(
-        "from shared import only_a, shared\n\n\ndef test_from_a():\n    assert shared() == 1\n"
-        "    assert only_a() == 'a'\n"
-    )
-    (tmp_path / "test_b.py").write_text(
-        "from shared import only_b, shared\n\n\ndef test_from_b():\n    assert shared() == 1\n"
-        "    assert only_b() == 'b'\n"
-    )
-    return str(tmp_path)
-
-
-_SHARED_LINE = 2
-_ONLY_A_LINE = 6
-_ONLY_B_LINE = 10
-
-
-@pytest.mark.component
-def test_run_isolated_coverage_session_narrows_shared_line_to_both_tests(tmp_path, monkeypatch):
-    """Central correctness property (ADR 0021): two isolated per-test
-    sessions, combined, must narrow a shared line to both covering tests and
-    a private line to only its own test. This also exercises the
-    chdir-before-Coverage()-construction ordering fix -- the outer pytest
-    process's own cwd is this repo's root (source=["mutate4py"] in
-    pyproject.toml), so a regressed ordering would silently record zero data
-    for this fixture project's files instead of raising.
-
-    isolated_coverage_session_safe stubbed True: this dev venv's own
-    tach.pytest_plugin is reloaded by prime()'s internal collect-only
-    pytest.main() call regardless of cwd (confirmed empirically -- it is not
-    specific to being inside this repo's tree), so the real gate would
-    always refuse here. That gate has its own dedicated tests above; this
-    test isolates the fork/coverage mechanics it protects."""
-    monkeypatch.setattr(mutate4py._forking_executor, "isolated_coverage_session_safe", lambda: True)
-    cwd = _write_coverage_fixture_project(tmp_path)
-    executor = ForkingExecutor(cwd=cwd, guarded_path=cwd)
-    executor.prime()
-
-    data_a = str(tmp_path / ".coverage.a")
-    data_b = str(tmp_path / ".coverage.b")
-    status_a = executor.run_isolated_coverage_session(
-        "test_a.py::test_from_a", data_file=data_a, pytest_args=["-q"], timeout=30.0
-    )
-    status_b = executor.run_isolated_coverage_session(
-        "test_b.py::test_from_b", data_file=data_b, pytest_args=["-q"], timeout=30.0
-    )
-    assert status_a == "survived"
-    assert status_b == "survived"
-
-    combined_path = str(tmp_path / "combined.coverage")
-    combined = coverage.Coverage(data_file=combined_path)
-    combined.combine(data_paths=[data_a, data_b], strict=True)
-    combined.save()
-
-    db = TestContextDB(combined_path)
-    try:
-        shared_py = str(tmp_path / "shared.py")
-        node_ids = sorted(["test_a.py::test_from_a", "test_b.py::test_from_b"])
-        assert db.tests_for_line(shared_py, _SHARED_LINE) == ("narrowed", node_ids)
-        assert db.tests_for_line(shared_py, _ONLY_A_LINE) == ("narrowed", ["test_a.py::test_from_a"])
-        assert db.tests_for_line(shared_py, _ONLY_B_LINE) == ("narrowed", ["test_b.py::test_from_b"])
-    finally:
-        db.close()
-
-
-@pytest.mark.component
-def test_run_isolated_coverage_session_killed_when_test_fails(tmp_path, monkeypatch):
-    """isolated_coverage_session_safe stubbed True: see the docstring on
-    test_run_isolated_coverage_session_narrows_shared_line_to_both_tests."""
-    monkeypatch.setattr(mutate4py._forking_executor, "isolated_coverage_session_safe", lambda: True)
-    cwd = _write_coverage_fixture_project(tmp_path)
-    (tmp_path / "test_a.py").write_text(
-        "from shared import shared\n\n\ndef test_from_a():\n    assert shared() == 999\n"
-    )
-    executor = ForkingExecutor(cwd=cwd, guarded_path=cwd)
-    executor.prime()
-    status = executor.run_isolated_coverage_session(
-        "test_a.py::test_from_a", data_file=str(tmp_path / ".coverage.a"), pytest_args=["-q"], timeout=30.0
-    )
-    assert status == "killed"
-
-
-@pytest.mark.component
-def test_run_isolated_coverage_session_reports_timeout_and_kills_child(tmp_path, monkeypatch):
-    """isolated_coverage_session_safe stubbed True: see the docstring on
-    test_run_isolated_coverage_session_narrows_shared_line_to_both_tests."""
-    monkeypatch.setattr(mutate4py._forking_executor, "isolated_coverage_session_safe", lambda: True)
-    cwd = _write_coverage_fixture_project(tmp_path)
-    (tmp_path / "test_a.py").write_text(
-        "import time\nfrom shared import shared\n\n\ndef test_from_a():\n    time.sleep(5)\n    assert shared() == 1\n"
-    )
-    executor = ForkingExecutor(cwd=cwd, guarded_path=cwd)
-    executor.prime()
-    status = executor.run_isolated_coverage_session(
-        "test_a.py::test_from_a", data_file=str(tmp_path / ".coverage.a"), pytest_args=["-q"], timeout=0.5
-    )
-    assert status == "timeout"
+    plugin = object()
+    _run_pytest_output_suppressed(_fake_pytest(main), ["-q", "-x"], str(tmp_path), plugins=[plugin])
+    assert seen == {"args": ["-q", "-x"], "plugins": [plugin]}
 
 
 @pytest.mark.unit
-def test_run_isolated_coverage_session_before_prime_raises(tmp_path):
-    """Unit, not component: the unprimed guard returns before any fork, so
-    nothing here reaches an Executor subprocess — same reasoning as
-    test_run_before_prime_raises above."""
-    executor = ForkingExecutor(cwd=str(tmp_path), guarded_path=str(tmp_path))
-    with pytest.raises(ForkingExecutorUnavailable):
-        executor.run_isolated_coverage_session(
-            "test_a.py::test_from_a", data_file=str(tmp_path / ".coverage.a"), pytest_args=[], timeout=1.0
-        )
+def test_run_pytest_output_suppressed_runs_main_in_cwd_with_cwd_first_on_sys_path(tmp_path, monkeypatch):
+    seen = {}
+
+    def main(args, plugins):
+        seen["cwd"] = os.getcwd()
+        seen["sys_path_head"] = sys.path[0]
+        return 0
+
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    _run_pytest_output_suppressed(_fake_pytest(main), ["-q"], str(tmp_path))
+    assert os.path.realpath(seen["cwd"]) == os.path.realpath(tmp_path)
+    assert seen["sys_path_head"] == os.path.abspath(tmp_path)
 
 
 @pytest.mark.unit
-def test_run_isolated_coverage_session_refuses_a_fork_unsafe_process(tmp_path, monkeypatch):
-    """The fork-unsafe-plugin guard is the second precondition, so reaching it
-    needs a primed executor — set directly here rather than paying for a real
-    prime(), since the guard returns before any fork either way. The
-    component-level companion below proves the same refusal after a real
-    prime()."""
-    monkeypatch.setattr(mutate4py._forking_executor, "isolated_coverage_session_safe", lambda: False)
-    executor = ForkingExecutor(cwd=str(tmp_path), guarded_path=str(tmp_path))
-    executor._primed = True
-    with pytest.raises(ForkingExecutorUnavailable, match="fork-unsafe pytest plugin"):
-        executor.run_isolated_coverage_session(
-            "test_a.py::test_from_a", data_file=str(tmp_path / ".coverage.a"), pytest_args=[], timeout=1.0
-        )
+def test_run_pytest_output_suppressed_keeps_main_output_off_the_real_fds(tmp_path, capfd):
+    def main(args, plugins):
+        os.write(1, b"STDOUT_LEAK\n")
+        os.write(2, b"STDERR_LEAK\n")
+        return 0
+
+    _run_pytest_output_suppressed(_fake_pytest(main), ["-q"], str(tmp_path))
+    captured = capfd.readouterr()
+    assert "LEAK" not in captured.out
+    assert "LEAK" not in captured.err
 
 
-@pytest.mark.component
-def test_run_isolated_coverage_session_raises_when_a_fork_unsafe_plugin_is_loaded_after_prime(tmp_path):
-    """Self-enforcement regression (issue #51 Standards review): a fork-unsafe
-    plugin (e.g. tach.pytest_plugin) can get loaded into sys.modules by
-    prime()'s own internal pytest.main() call, not just by whatever loaded
-    the interpreter -- verified for real here, since this dev venv's tach
-    plugin does exactly that (see the empirical note on
-    test_run_isolated_coverage_session_narrows_shared_line_to_both_tests).
-    run_isolated_coverage_session must refuse on its own, not rely on a
-    caller (e.g. _dispatch.py) to have checked isolated_coverage_session_safe()
-    beforehand -- a direct caller that skips that check must still be
-    protected from the fork-after-prime deadlock hazard."""
-    cwd = _write_coverage_fixture_project(tmp_path)
-    executor = ForkingExecutor(cwd=cwd, guarded_path=cwd)
-    executor.prime()
-    skip_unless_fork_unsafe_plugin_loaded()
-    with pytest.raises(ForkingExecutorUnavailable):
-        executor.run_isolated_coverage_session(
-            "test_a.py::test_from_a", data_file=str(tmp_path / ".coverage.a"), pytest_args=["-q"], timeout=30.0
-        )
+@pytest.mark.unit
+def test_run_pytest_output_suppressed_restores_the_real_fds_after_main(tmp_path, capfd):
+    _run_pytest_output_suppressed(_fake_pytest(lambda args, plugins: 0), ["-q"], str(tmp_path))
+    os.write(1, b"AFTER_STDOUT\n")
+    os.write(2, b"AFTER_STDERR\n")
+    captured = capfd.readouterr()
+    assert "AFTER_STDOUT" in captured.out
+    assert "AFTER_STDERR" in captured.err
 
 
-@pytest.mark.component
-def test_run_isolated_coverage_session_does_not_leak_child_stdout(tmp_path, capsys, monkeypatch):
-    """isolated_coverage_session_safe stubbed True: see the docstring on
-    test_run_isolated_coverage_session_narrows_shared_line_to_both_tests."""
-    monkeypatch.setattr(mutate4py._forking_executor, "isolated_coverage_session_safe", lambda: True)
-    cwd = _write_coverage_fixture_project(tmp_path)
-    (tmp_path / "test_a.py").write_text(
-        "from shared import shared\n\n\ndef test_from_a():\n    print('SHOULD_NOT_APPEAR')\n    assert shared() == 1\n"
-    )
-    executor = ForkingExecutor(cwd=cwd, guarded_path=cwd)
-    executor.prime()
-    executor.run_isolated_coverage_session(
-        "test_a.py::test_from_a", data_file=str(tmp_path / ".coverage.a"), pytest_args=["-q"], timeout=30.0
-    )
-    captured = capsys.readouterr()
-    assert "SHOULD_NOT_APPEAR" not in captured.out
-    assert "SHOULD_NOT_APPEAR" not in captured.err
+@pytest.mark.unit
+def test_run_pytest_output_suppressed_restores_cwd_sys_path_and_fds_when_main_raises(tmp_path, monkeypatch, capfd):
+    def main(args, plugins):
+        raise RuntimeError("pytest blew up")
+
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    cwd_before = os.getcwd()
+    path_before = list(sys.path)
+    with pytest.raises(RuntimeError, match="pytest blew up"):
+        _run_pytest_output_suppressed(_fake_pytest(main), ["-q"], str(tmp_path))
+    assert os.getcwd() == cwd_before
+    assert sys.path == path_before
+    os.write(1, b"AFTER_STDOUT\n")
+    assert "AFTER_STDOUT" in capfd.readouterr().out
 
 
 # --- _wait_for_child ---------------------------------------------------------
@@ -585,3 +534,63 @@ def test_wait_for_child_reports_killed_when_child_dies_by_signal():
     os.kill(pid, signal.SIGTERM)
     status = _wait_for_child(pid, timeout=5.0)
     assert status == "killed"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("exit_code", "status"),
+    [(0, "survived"), (1, "killed"), (4, "usage-error"), (5, "no-tests-collected")],
+)
+def test_wait_for_child_classifies_the_exit_code_the_child_leaves(exit_code, status):
+    pid = os.fork()
+    if pid == 0:
+        os._exit(exit_code)  # pragma: no cover - runs only in the forked child
+    assert _wait_for_child(pid, timeout=5.0) == status
+
+
+@pytest.mark.unit
+def test_wait_for_child_waits_for_a_slow_child_inside_the_timeout_without_killing_it(monkeypatch):
+    kills = []
+    monkeypatch.setattr(os, "kill", lambda pid, sig: kills.append((pid, sig)))
+    pid = os.fork()
+    if pid == 0:
+        time.sleep(0.2)
+        os._exit(0)  # pragma: no cover - runs only in the forked child
+    assert _wait_for_child(pid, timeout=5.0) == "survived"
+    assert kills == []
+
+
+@pytest.mark.unit
+def test_wait_for_child_times_out_at_exactly_the_deadline_without_another_poll(monkeypatch):
+    """The deadline is inclusive: a clock reading equal to it is a timeout at once, not one more poll
+    later. The clock is faked so the first check lands exactly on the deadline; later reads are past it."""
+    clock = iter([0.0, 1.0] + [2.0] * 100)  # deadline = 0.0 + 1.0; first check at 1.0; then past it
+    sleeps = []
+    fake_time = types.SimpleNamespace(monotonic=lambda: next(clock), sleep=sleeps.append)
+    monkeypatch.setattr(mutate4py._forking_executor, "time", fake_time)
+    pid = os.fork()
+    if pid == 0:
+        time.sleep(30)
+        os._exit(0)  # pragma: no cover - only reached if the SIGKILL below fails
+    assert _wait_for_child(pid, timeout=1.0) == "timeout"
+    assert sleeps == []
+
+
+@pytest.mark.unit
+def test_wait_for_child_timeout_sigkills_the_child_and_reaps_it(monkeypatch):
+    kills = []
+    real_kill = os.kill
+
+    def spy_kill(pid, sig):
+        kills.append((pid, sig))
+        real_kill(pid, sig)
+
+    monkeypatch.setattr(os, "kill", spy_kill)
+    pid = os.fork()
+    if pid == 0:
+        time.sleep(30)
+        os._exit(0)  # pragma: no cover - only reached if the SIGKILL below fails
+    assert _wait_for_child(pid, timeout=0.05) == "timeout"
+    assert kills == [(pid, signal.SIGKILL)]
+    with pytest.raises(ChildProcessError):
+        os.waitpid(pid, os.WNOHANG)  # already reaped: no child left to wait on

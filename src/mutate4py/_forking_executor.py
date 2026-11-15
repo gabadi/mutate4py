@@ -1,18 +1,36 @@
-"""Forking executor for the serial mutation loop.
+"""Forking executor, primed inside a Worker server: the fork server a serial
+run starts over the project tree, or one Worker of a parallel run. The
+orchestrator never primes one itself (`_executor_selection.select_executor`).
 
 A parent process primes pytest/plugins/framework setup once (running a
 collect-only pass against an empty directory, so root conftest.py and
 framework bootstrap — e.g. django.setup() — run without importing any real
-test file), then fork()s a child per mutant. Each child calls pytest.main()
-in-process, importing the guarded target file fresh, post-fork, from its
-current (mutated) on-disk contents.
+test file), then fork()s a child per mutant. POSIX-only (requires os.fork).
 
-POSIX-only (requires os.fork). The parent must never import the guarded
-target file before or between forks: a fork inherits the parent's
-sys.modules, so a pre-imported target would make every child test
-pre-mutation code and every mutant would falsely report as a survivor.
-`assert_source_clean` enforces this after priming; `ForkingExecutor.prime`
-raises `ModuleLeakError` rather than silently proceeding unsafe.
+A fork inherits the parent's sys.modules, so `prime` decides once, per guarded
+file, how each child gets the mutated code (`file_mode`):
+
+- **fresh import**: the guarded file is not loaded after prime. Each child
+  calls pytest.main() in-process and imports the file fresh from its current
+  (mutated) on-disk contents.
+- **harness**: the guarded file is one of this process's own modules, loaded
+  before prime (the executor and protocol code the child runs around pytest).
+  Mutated code there could rewrite the child's own result into a false kill or
+  a false Survivor, so every Mutant runs in a fresh interpreter.
+- **swap**: prime imported the guarded file (a conftest or a plugin did), so
+  the child's copy is the clean one. Each child plans a body swap
+  (`_code_swap.plan_swap`) from the clean source read at prime to the mutated
+  file on disk, applies it to the live functions prime's import built, then
+  runs pytest in-process. Any refusal (an import-time change, a body that ran
+  at import per the Measurement's Empty context, no live function, ...) runs
+  that Mutant in a fresh interpreter instead (ADR 0028).
+
+Every child reports how it ran through a pipe the parent reads once it has
+ended, for `describe` (`_fork_child`).
+
+A fresh interpreter is the forked child exec()ing `python -m pytest`: the pid
+stays the same, so the parent's wait, timeout kill and exit-code
+Classification are unchanged.
 
 Pytest is the supported runner by contract — there is no other execution
 shape to sniff for, so priming never inspects the argument list it will
@@ -25,19 +43,25 @@ import signal
 import sys
 import tempfile
 import time
+from collections.abc import Mapping, Sequence
 from typing import Callable
 
 from mutate4py._bytecode_cache import invalidate_bytecode_cache
 from mutate4py._cmd import classify_exit_code
+from mutate4py._executor import ExecutorDescription
 from mutate4py._plugin_neutralisation import neutralising_args
+from mutate4py._fork_child import SwapSource, child_mode, read_report, report_mode, reported_mode, swap_side
 
 __all__ = [
+    "ForkUnsafePlugin",
     "ForkingExecutor",
     "ForkingExecutorUnavailable",
-    "ModuleLeakError",
-    "assert_source_clean",
+    "file_mode",
+    "loaded_files",
+    "refuse_fork_unsafe_plugins",
+    "fresh_interpreter_argv",
+    "fresh_interpreter_env",
     "is_available",
-    "isolated_coverage_session_safe",
 ]
 
 _POLL_INTERVAL = 0.01
@@ -49,32 +73,36 @@ _POLL_INTERVAL = 0.01
 # re-acquire it post-fork (classic native-lock-held-at-fork-time hazard —
 # matches CPython's own fork()-in-multithreaded-process warning). Confirmed
 # by hanging faulthandler.dump_traceback_later inside tach's Rust parser.
-# `run()` (Mutant execution) never hits this in mutate4py's own dogfooding
-# only by coincidence -- the target file being mutated is usually already
-# self-imported, which routes it to the subprocess executor via
-# assert_source_clean before any fork happens. `run_isolated_coverage_session`
-# has no such file to leak-check (nothing is ever mutated), so it needs this
-# explicit precheck instead.
 _FORK_UNSAFE_PLUGIN_MODULES = ("tach.pytest_plugin",)
-
-
-def isolated_coverage_session_safe() -> bool:
-    """False if a plugin known to deadlock fork()-after-prime() (see module
-    docstring above `_FORK_UNSAFE_PLUGIN_MODULES`) is already loaded in this
-    process. Checked once per process, like all forking-executor eligibility
-    (`_executor_selection.py`) -- a loaded plugin can't become safe mid-run,
-    so callers should decide this before the first
-    `run_isolated_coverage_session` call, not per node_id.
-    """
-    return not any(name in sys.modules for name in _FORK_UNSAFE_PLUGIN_MODULES)
 
 
 class ForkingExecutorUnavailable(Exception):
     """Forking-executor preconditions are not met; caller should fall back."""
 
+    @property
+    def reason(self) -> str:
+        """Why the run falls back, as the subprocess executor reports it."""
+        return f"forking executor unavailable: {self}"
 
-class ModuleLeakError(ForkingExecutorUnavailable):
-    """The guarded target file is already present in sys.modules."""
+
+class ForkUnsafePlugin(ForkingExecutorUnavailable):
+    """The run's pytest session loads a plugin that deadlocks a forked child."""
+
+    def __init__(self, plugins: Sequence[str]) -> None:
+        super().__init__(f"fork-unsafe plugin: {', '.join(plugins)}")
+
+    @property
+    def reason(self) -> str:
+        return str(self)
+
+
+def refuse_fork_unsafe_plugins(plugin_module_names: Sequence[str]) -> None:
+    """Raise `ForkUnsafePlugin` if a pytest session registered, among these plugin
+    module names, one known to deadlock a fork()-after-prime() (see
+    `_FORK_UNSAFE_PLUGIN_MODULES`)."""
+    unsafe = [name for name in _FORK_UNSAFE_PLUGIN_MODULES if name in plugin_module_names]
+    if unsafe:
+        raise ForkUnsafePlugin(unsafe)
 
 
 def is_available() -> bool:
@@ -82,48 +110,72 @@ def is_available() -> bool:
     return hasattr(os, "fork")
 
 
-def _leaked_modules(guarded_path: str) -> list[str]:
-    real_guarded = os.path.realpath(guarded_path)
-    leaked = []
-    for name, mod in list(sys.modules.items()):
-        mod_file = getattr(mod, "__file__", None)
-        if mod_file and os.path.realpath(mod_file) == real_guarded:
-            leaked.append(name)
-    return leaked
+def loaded_files(modules: Mapping[str, object]) -> set[str]:
+    """The real path of every module file among `modules` (a `sys.modules`)."""
+    files = (getattr(mod, "__file__", None) for mod in list(modules.values()))
+    return {os.path.realpath(mod_file) for mod_file in files if mod_file}
 
 
-def assert_source_clean(guarded_path: str) -> None:
-    """Raise ModuleLeakError if guarded_path is already imported in this process.
+def file_mode(guarded_path: str, *, harness_files: set[str], loaded_after_prime: set[str]) -> str:
+    """How each child gets the guarded file's mutated code: "harness" when it is
+    one of the process's own modules from before prime, "swap" when prime
+    imported it, "fresh import" otherwise. Both sets hold real paths."""
+    real = os.path.realpath(guarded_path)
+    if real in harness_files:
+        return "harness"
+    if real in loaded_after_prime:
+        return "swap"
+    return "fresh import"
 
-    Any matching module is also evicted from sys.modules before raising, so a
-    detected leak cannot persist and confuse a *different* file's leak check
-    later in the same process (e.g. a directory batch run where two mutated
-    files share a module name).
-    """
-    leaked = _leaked_modules(guarded_path)
-    if leaked:
-        for name in leaked:
-            del sys.modules[name]
-        raise ModuleLeakError(
-            f"module(s) {leaked!r} already imported from {guarded_path}; "
-            "the forking executor cannot guarantee children re-read the mutated file"
-        )
+
+# The child entry point each mode runs pytest with: in-process, or exec'd fresh.
+_CHILD_ENTRY = {"fresh import": "_run_child", "swap": "_run_child", "fresh interpreter": "_exec_fresh_interpreter"}
+
+
+class _PluginRecorder:
+    """A pytest plugin that records the module name of every plugin its session registered."""
+
+    def __init__(self) -> None:
+        self.module_names: list[str] = []
+
+    def pytest_configure(self, config) -> None:
+        self.module_names = [getattr(p, "__name__", "") for p in config.pluginmanager.get_plugins()]
 
 
 class ForkingExecutor:
     """Primes pytest once for `cwd`, then forks a child per mutant.
 
-    `guarded_path` must never be importable in this process before or
-    between forks. Call `prime()` once; it raises `ForkingExecutorUnavailable`
-    (including the narrower `ModuleLeakError`) if the fast path is not safe
-    for this project, in which case the caller should fall back to the
-    subprocess executor instead of calling `run()`.
+    Call `prime()` once; it raises `ForkingExecutorUnavailable` (including the
+    narrower `ForkUnsafePlugin`) if the fast path is not safe for this
+    project, in which case the caller should fall back to the subprocess
+    executor instead of calling `run()`.
     """
 
-    def __init__(self, cwd: str, guarded_path: str) -> None:
+    def __init__(
+        self,
+        cwd: str,
+        guarded_path: str,
+        prime_args: Sequence[str] = (),
+        ran_at_import: frozenset[int] = frozenset(),
+    ) -> None:
         self._cwd = cwd
         self._guarded_path = guarded_path
-        self._primed = False
+        self._prime_args = list(prime_args)
+        self._ran_at_import = ran_at_import
+        self._mode: str | None = None
+        self._counts = {"fresh import": 0, "swap": 0, "fresh interpreter": 0}
+        # Swap mode only, set at prime: the clean side of every swap and the live
+        # functions prime's import built from it.
+        self._swap_source = SwapSource("", guarded_path, ran_at_import)
+        self._live: list = []
+
+    def describe(self) -> ExecutorDescription:
+        return ExecutorDescription(
+            mode="forking",
+            fresh_import=self._counts["fresh import"],
+            swap=self._counts["swap"],
+            fresh_interpreter=self._counts["fresh interpreter"],
+        )
 
     def prime(self) -> None:
         try:
@@ -145,18 +197,26 @@ class ForkingExecutor:
         # instance inside the same interpreter that is running this
         # process's own coverage measurement — corrupting sys.monitoring's
         # already-armed line/branch tracking for the rest of the run.
+        # prime_args (the run's own `-p no:<name>` blocks) keep a plugin the
+        # run disables out of the process every child forks from.
+        harness_files = loaded_files(sys.modules)
+        recorder = _PluginRecorder()
         with tempfile.TemporaryDirectory(dir=scratch_root, prefix="prime-") as empty_dir:
-            _run_pytest_output_suppressed(pytest, ["--collect-only", "-q", empty_dir, *neutralising_args()], self._cwd)
+            collect_only = ["--collect-only", "-q", empty_dir, *neutralising_args(), *self._prime_args]
+            _run_pytest_output_suppressed(pytest, collect_only, self._cwd, plugins=[recorder])
 
-        assert_source_clean(self._guarded_path)
-        self._primed = True
+        refuse_fork_unsafe_plugins(recorder.module_names)
+        self._mode = file_mode(
+            self._guarded_path, harness_files=harness_files, loaded_after_prime=loaded_files(sys.modules)
+        )
+        self._swap_source, self._live = swap_side(self._mode, self._guarded_path, self._ran_at_import)
 
     def _fork_and_wait(self, child: Callable[[], None], timeout: float) -> str:
         """Fork, run `child` in the forked process, and classify how it ended.
 
-        `child` never returns — every child entry point ends in os._exit —
-        so the trailing exit is only there to make an escaped return fatal
-        rather than let a second copy of the parent run on.
+        `child` never returns — every child entry point ends in os._exit or
+        an exec — so the trailing exit is only there to make an escaped
+        return fatal rather than let a second copy of the parent run on.
         """
         pid = os.fork()
         if pid == 0:
@@ -165,39 +225,38 @@ class ForkingExecutor:
         return _wait_for_child(pid, timeout)
 
     def run(self, args: list[str], timeout: float) -> str:
-        """Fork a child that runs pytest.main(args) once; return the classification."""
-        if not self._primed:
+        """Fork a child that runs pytest once over args; return the classification.
+        The child reports how it ran (`child_mode`), counted for `describe` once it has ended."""
+        if self._mode is None:
             raise ForkingExecutorUnavailable("prime() must succeed before run()")
-        return self._fork_and_wait(lambda: self._run_child(args), timeout)
+        read_fd, write_fd = os.pipe()
+        try:
+            status = self._fork_and_wait(lambda: self._child(args, read_fd, write_fd), timeout)
+        finally:
+            os.close(write_fd)
+        self._counts[reported_mode(read_report(read_fd))] += 1
+        return status
 
-    def run_isolated_coverage_session(
-        self, node_id: str, *, data_file: str, pytest_args: list[str], timeout: float
-    ) -> str:
-        """Fork a child that runs exactly node_id under a coverage.py session
-        statically named `context=node_id`, saving to `data_file` — the warm
-        equivalent of `coverage run --context=<node_id> --data-file=<data_file>
-        -m pytest <node_id>` (see _test_context_build.py / ADR 0021), minus
-        the per-process interpreter/plugin-bootstrap cost `run()` already
-        avoids for Mutant execution. Returns the same classification
-        vocabulary as `run()` (survived/killed/timeout/no-tests-collected/
-        usage-error); the caller decides what "not survived" means for it.
+    def _child(self, args: list[str], read_fd: int, write_fd: int) -> None:
+        """Decide and report how this Mutant runs, then run it. Never returns."""
+        try:
+            os.close(read_fd)
+            mode = child_mode(self._mode, self._swap_source, self._guarded_path, self._live)
+            report_mode(write_fd, mode)
+        except BaseException:
+            os._exit(3)
+        getattr(self, _CHILD_ENTRY[mode])(args)
 
-        Nothing is ever mutated on disk between calls here (unlike `run()`,
-        which exists to re-read a just-mutated file post-fork), so there is
-        no bytecode-cache-invalidation step: whatever the child reads for
-        node_id's own file is, by construction, the only content it will
-        ever have during this build.
-        """
-        if not self._primed:
-            raise ForkingExecutorUnavailable("prime() must succeed before run_isolated_coverage_session()")
-        if not isolated_coverage_session_safe():
-            raise ForkingExecutorUnavailable(
-                "a fork-unsafe pytest plugin is loaded (see _FORK_UNSAFE_PLUGIN_MODULES); "
-                "the caller must fall back to the subprocess executor"
-            )
-        return self._fork_and_wait(
-            lambda: self._run_coverage_child(node_id, data_file=data_file, pytest_args=pytest_args), timeout
-        )
+    def _exec_fresh_interpreter(self, args: list[str]) -> None:
+        """Replace this child with this interpreter's `python -m pytest args`, as
+        the subprocess executor runs it, output suppressed. Never returns."""
+        try:
+            invalidate_bytecode_cache(self._guarded_path)
+            os.chdir(self._cwd)
+            _silence_std_fds()
+            os.execve(sys.executable, fresh_interpreter_argv(args), fresh_interpreter_env(os.environ))
+        except BaseException:
+            os._exit(3)
 
     def _run_child(self, args: list[str]) -> None:
         import pytest
@@ -216,33 +275,27 @@ class ForkingExecutor:
             os._exit(3)
         os._exit(exit_code if isinstance(exit_code, int) else int(exit_code))
 
-    def _run_coverage_child(self, node_id: str, *, data_file: str, pytest_args: list[str]) -> None:
-        import coverage
-        import pytest
 
-        sys.dont_write_bytecode = True
-        try:
-            # cwd must be set before Coverage() is constructed: coverage.py
-            # auto-discovers its config (pyproject.toml/.coveragerc) from the
-            # current working directory at construction time, and this
-            # process's cwd is still wherever the parent last left it until
-            # _run_pytest_output_suppressed's own chdir — which runs too
-            # late, after config discovery would already have happened.
-            os.chdir(self._cwd)
-            cov = coverage.Coverage(data_file=data_file, context=node_id)
-            cov.start()
-            try:
-                exit_code = _run_pytest_output_suppressed(pytest, [node_id, *pytest_args], self._cwd)
-            finally:
-                cov.stop()
-                cov.save()
-        except BaseException:
-            os._exit(3)
-        os._exit(exit_code if isinstance(exit_code, int) else int(exit_code))
+def fresh_interpreter_argv(args: Sequence[str]) -> list[str]:
+    """The argv a fresh-interpreter child execs: this interpreter's pytest over args.
+    `-m` puts the child's cwd on sys.path, as for any `python -m pytest` (#82)."""
+    return [sys.executable, "-m", "pytest", *args]
 
 
-def _run_pytest_output_suppressed(pytest_module, args: list[str], cwd: str) -> int:
-    """Run pytest.main(args) with cwd set and stdout/stderr redirected to devnull.
+def fresh_interpreter_env(environ: Mapping[str, str]) -> dict[str, str]:
+    """environ with bytecode writes off, as the subprocess executor runs pytest (#81)."""
+    return {**environ, "PYTHONDONTWRITEBYTECODE": "1"}
+
+
+def _silence_std_fds() -> None:
+    """Point fds 0-2 at devnull: a Worker server's stdin and stdout are its protocol pipes."""
+    devnull_fd = os.open(os.devnull, os.O_RDWR)
+    for fd in (0, 1, 2):
+        os.dup2(devnull_fd, fd)
+
+
+def _run_pytest_output_suppressed(pytest_module, args: list[str], cwd: str, plugins: Sequence[object] = ()) -> int:
+    """Run pytest.main(args, plugins) with cwd set and stdout/stderr redirected to devnull.
 
     cwd is on sys.path[0] for the call, as `python -m pytest` would put it (#82).
 
@@ -267,7 +320,7 @@ def _run_pytest_output_suppressed(pytest_module, args: list[str], cwd: str) -> i
         inserted = True
         os.dup2(devnull_fd, 1)
         os.dup2(devnull_fd, 2)
-        return int(pytest_module.main(args))
+        return int(pytest_module.main(args, plugins=list(plugins)))
     finally:
         sys.stdout.flush()
         sys.stderr.flush()
