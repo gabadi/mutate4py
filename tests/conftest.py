@@ -8,6 +8,11 @@ entirely is failed here, with its measured duration and a duration-based
 suggestion attached to *that* failure, so the fix stays visible right where the
 test broke rather than as a separate, easy-to-ignore report."""
 
+import multiprocessing.process
+import os
+import subprocess
+import sys
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -49,3 +54,81 @@ def pytest_runtest_makereport(item, call):
         "(system is a manual call, not duration-based: only for a test that runs real processes "
         "(a fork server, worker servers, nested pytest, a spawned interpreter), outside code mutation and coverage)"
     )
+
+
+# --- Unit tests run in-process (ADR 0030) -----------------------------------
+#
+# A `unit` test may not create a process. The guard is installed around the test
+# call only: fixture setup and teardown are not guarded, and a `system` test is
+# not guarded at all. A refusal fails the test and names the call site. A refusal
+# the test swallows still fails it, because the hook checks the refusal list once
+# the call returns.
+
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_PROCESS_ENTRY_POINTS = (
+    (subprocess, "Popen", "subprocess.Popen (run, call, check_output)"),
+    (os, "fork", "os.fork"),
+    (os, "posix_spawn", "os.posix_spawn"),
+    (os, "posix_spawnp", "os.posix_spawnp"),
+    (multiprocessing.process.BaseProcess, "start", "multiprocessing process start"),
+)
+
+
+def _process_entry_points():
+    return [(owner, attr, label) for owner, attr, label in _PROCESS_ENTRY_POINTS if hasattr(owner, attr)]
+
+
+def _call_site(frame) -> str:
+    """The innermost frame, walking out from `frame`, that is this repo's code: not the
+    stdlib, not .venv, not this conftest. Falls back to `frame` itself."""
+    start = frame
+    while frame is not None:
+        filename = frame.f_code.co_filename
+        if (
+            filename != __file__
+            and filename.startswith(_REPO_ROOT + os.sep)
+            and f"{os.sep}.venv{os.sep}" not in filename
+        ):
+            return f"{os.path.relpath(filename, _REPO_ROOT)}:{frame.f_lineno} in {frame.f_code.co_name}"
+        frame = frame.f_back
+    return f"{start.f_code.co_filename}:{start.f_lineno}"
+
+
+def _refusal(nodeid: str, label: str, refusals: list[str]):
+    def refuse(*_args, **_kwargs):
+        site = _call_site(sys._getframe(1))
+        message = (
+            f"unit test {nodeid} creates a process ({label}) at {site}; mark it `system` or call the code in-process"
+        )
+        refusals.append(message)
+        pytest.fail(message, pytrace=False)
+
+    return refuse
+
+
+@contextmanager
+def _no_process_creation(nodeid: str):
+    """Make every process entry point refuse until the block exits, then restore them.
+
+    Yields the refusal list so the caller can fail the test even if the test swallowed the refusal."""
+    refusals: list[str] = []
+    entry_points = _process_entry_points()
+    saved = [(owner, attr, getattr(owner, attr)) for owner, attr, _label in entry_points]
+    for owner, attr, label in entry_points:
+        setattr(owner, attr, _refusal(nodeid, label, refusals))
+    try:
+        yield refusals
+    finally:
+        for owner, attr, original in reversed(saved):
+            setattr(owner, attr, original)
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_call(item):
+    if item.get_closest_marker("unit") is None:
+        return (yield)
+    with _no_process_creation(item.nodeid) as refusals:
+        result = yield
+    if refusals:
+        pytest.fail(refusals[0], pytrace=False)
+    return result
