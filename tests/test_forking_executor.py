@@ -527,21 +527,29 @@ def _deadline_clock(monkeypatch) -> list:
 
 
 @pytest.mark.unit
-def test_wait_for_child_reports_killed_when_child_dies_by_signal(monkeypatch):
-    """A child that dies from an external signal (not its own os._exit, e.g. a
-    mutant that crashes the interpreter) must still resolve to "killed", not
-    misread WEXITSTATUS on a status word that WIFSIGNALED, not WIFEXITED.
+def test_wait_for_child_reports_errored_when_child_dies_by_signal(monkeypatch):
+    """A child that dies from an external signal (not its own os._exit, e.g. a mutant that crashes the
+    interpreter) must still resolve, not misread WEXITSTATUS on a status word that WIFSIGNALED, not
+    WIFEXITED. It is "errored": a signal shows no test ran to completion, so a Control run it ends is no
+    proof that the argv runs tests.
 
     The status word is the one waitpid reports for a child killed by SIGTERM. The real
     fork path stays covered by the system-marked tests in this file."""
     monkeypatch.setattr(os, "waitpid", lambda pid, flags: (pid, int(signal.SIGTERM)))
-    assert _wait_for_child(_FAKE_CHILD, timeout=5.0) == "killed"
+    assert _wait_for_child(_FAKE_CHILD, timeout=5.0) == "errored"
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
     ("exit_code", "status"),
-    [(0, "survived"), (1, "killed"), (4, "usage-error"), (5, "no-tests-collected")],
+    [
+        (0, "survived"),
+        (1, "killed"),
+        (2, "errored"),
+        (3, "errored"),  # the child's own os._exit(3) when it fails before it can run pytest
+        (4, "usage-error"),
+        (5, "no-tests-collected"),
+    ],
 )
 def test_wait_for_child_classifies_the_exit_code_the_child_leaves(monkeypatch, exit_code, status):
     monkeypatch.setattr(os, "waitpid", lambda pid, flags: (pid, exit_code << 8))

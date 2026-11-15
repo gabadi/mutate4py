@@ -131,8 +131,9 @@ that the full test set kills, so a Survivor is not trusted until this run agrees
 
 **Control run**:
 The re-run of a Mutant's pytest argv on the original code, made only when that Mutant
-ends in pytest exit 4 or 5. Tests that run mean the Mutant broke the run, so it is
-killed. Exit 4 or 5 again, or a timeout, means the argv is the defect, so the run aborts.
+ends in pytest exit 4 or 5. Tests that run (pytest exit 0 or 1) mean the Mutant broke the
+run, so it is killed. Any other end (exit 4 or 5 again, a timeout, a crash) means the
+argv is the suspect, so the run aborts.
 
 **Worker**:
 An isolated tree copy of the working directory with its own provisioned environment,

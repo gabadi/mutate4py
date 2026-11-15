@@ -183,10 +183,17 @@ Control run. It applies to exit 4 and exit 5 alike.
 - **The Control run.** When a Mutant ends in exit 4 or 5, the run restores the original
   source and runs the same pytest argv once, under the same timeout, through the same
   Executor. If tests run, the argv is good and the Mutant caused the exit: the Mutant is
-  `killed`. If the Control run ends in exit 4 or 5 again, or in a timeout, the argv is
-  the suspect and the run aborts with exit 2, as case 4 always did. A timeout does not
-  clear the argv: a run that proves nothing about the argv must not turn a failure into
-  a kill.
+  `killed`. Tests ran only if pytest exited 0 or 1 (all passed, or a test failed). Any
+  other end shows nothing about the argv: exit 4 or 5 again, a timeout, or `errored`.
+  Then the argv is the suspect and the run aborts with exit 2, as case 4 always did. A
+  run that proves nothing about the argv must not turn a failure into a kill.
+- **`errored`.** An Executor reports `errored` for a pytest that ended with no result:
+  exit 2 (interrupted) or 3 (internal error), any other exit code, a signal, or a process
+  that did not start. Before 0.3.1 the Executors reported these as `killed`, so one Control
+  run ended by a signal looked like proof that tests ran. It cleared a bad argv for the
+  rest of the run, and every later exit 4 was scored `killed`: the false win this case
+  exists to stop. A Mutant that ends `errored` is still a kill (ADR 0011): the run folds
+  it into `killed` before it tallies.
 - **One Control run per argv.** Once a Control run has run tests, its argv is cleared
   for the rest of the run. A later Mutant that ends in exit 4 or 5 with that argv is
   killed with no new Control run. A Control run that ran no test is not remembered,

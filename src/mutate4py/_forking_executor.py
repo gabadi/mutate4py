@@ -347,5 +347,5 @@ def _wait_for_child(pid: int, timeout: float) -> str:
             return "timeout"
         time.sleep(_POLL_INTERVAL)
     if os.WIFSIGNALED(status):
-        return "killed"
+        return "errored"
     return classify_exit_code(os.WEXITSTATUS(status))

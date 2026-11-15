@@ -717,6 +717,44 @@ def test_run_one_site_runs_one_control_for_every_mutant_that_runs_the_same_argv(
 
 
 @pytest.mark.unit
+def test_run_one_site_counts_a_mutant_that_ends_abnormally_as_killed_with_no_control_run(tmp_path, monkeypatch):
+    src = "def f(a, b):\n    return a > b\n"
+    site = discover_sites(src)[0]
+    worker_file = tmp_path / "calc.py"
+    worker_file.write_text(src)
+    monkeypatch.delenv("_MUTATE4PY_TEST_WORKER_WRITE_FAIL", raising=False)
+    executor = ScriptedExecutor(worker_file, ["errored"])
+
+    result = _run_one_site(
+        _assignment(tmp_path, site, worker_file),
+        executor,
+        WorkerRunSettings(clean_source=src, on_result=noop_on_result),
+    )
+
+    assert result["status"] == "killed"
+    assert len(executor.calls) == 1
+
+
+@pytest.mark.unit
+def test_run_one_site_aborts_when_a_control_run_ends_abnormally_and_does_not_clear_the_argv(tmp_path, monkeypatch):
+    """The Workers share one record of cleared argvs: a Control run that proved nothing must leave it empty."""
+    src = "def f(a, b):\n    return a > b\n"
+    site = discover_sites(src)[0]
+    worker_file = tmp_path / "calc.py"
+    worker_file.write_text(src)
+    monkeypatch.delenv("_MUTATE4PY_TEST_WORKER_WRITE_FAIL", raising=False)
+    executor = ScriptedExecutor(worker_file, ["usage-error", "errored", "usage-error", "usage-error"])
+    settings = WorkerRunSettings(clean_source=src, on_result=noop_on_result, abs_source_path=str(worker_file))
+
+    for _ in range(2):
+        with pytest.raises(NoTestsCollectedError, match="usage error"):
+            _run_one_site(_assignment(tmp_path, site, worker_file), executor, settings)
+
+    assert len(executor.calls) == 4
+    assert settings.controls.cleared == set()
+
+
+@pytest.mark.unit
 def test_run_one_site_aborts_and_still_restores_when_the_control_run_runs_no_test(tmp_path, monkeypatch):
     src = "def f(a, b):\n    return a > b\n"
     site = discover_sites(src)[0]

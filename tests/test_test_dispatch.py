@@ -253,11 +253,31 @@ def test_settle_kills_a_mutant_whose_control_run_ran_tests(status, control):
 
 
 @pytest.mark.unit
+def test_settle_counts_a_mutant_that_ends_abnormally_as_killed_and_runs_no_control():
+    """Exit 2 or 3, a signal, a pytest that did not start: the Executor says `errored`. For a Mutant
+    that is a kill (ADR 0011), and it is no exit 4 or 5 that a Control run must explain."""
+    assert ControlRuns().settle("errored", ["-q"], _no_control) == "killed"
+
+
+@pytest.mark.unit
 @pytest.mark.parametrize("status", ["usage-error", "no-tests-collected"])
-@pytest.mark.parametrize("control", ["usage-error", "no-tests-collected", "timeout"])
+@pytest.mark.parametrize("control", ["usage-error", "no-tests-collected", "timeout", "errored"])
 def test_settle_keeps_the_exit_when_the_control_run_ran_no_test(status, control):
-    """The original code ends the same way, or cannot show it: the argv may be the defect, so the exit stays."""
+    """The original code ends the same way, or shows no test ran (a timeout; an exit 2 or 3, a signal,
+    a pytest that did not start): the argv may be the defect, so the exit stays."""
     assert ControlRuns().settle(status, ["-q"], lambda: control) == status
+
+
+@pytest.mark.unit
+def test_settle_clears_no_argv_on_a_control_run_that_proved_nothing():
+    """With a bad argv, one Control run that ended in a signal must not clear the argv: every later
+    exit 4 of it would be scored killed while no test ran, a false win."""
+    answers = iter(["errored", "usage-error"])
+    controls = ControlRuns()
+
+    assert controls.settle("usage-error", ["--bad"], lambda: next(answers)) == "usage-error"
+    assert controls.settle("usage-error", ["--bad"], lambda: next(answers)) == "usage-error"
+    assert controls.cleared == set()
 
 
 @pytest.mark.unit

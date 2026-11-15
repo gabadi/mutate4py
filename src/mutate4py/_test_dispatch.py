@@ -132,9 +132,10 @@ class ControlRuns:
     A Mutant whose pytest exits 4 or 5 ran no test, for one of two causes: the argv is
     the defect, or the Mutant broke the run. Exit codes cannot tell them apart, so the
     first such Mutant of an argv gets a control run: the same argv on the original code.
-    If tests run there, the Mutant caused the exit, and every later 4 or 5 of that argv
-    needs no further control run. If the control run ends in 4 or 5 again, or times out,
-    the argv stays the suspect and the exit stays, for `_check_execution_status` to abort on.
+    Only exit 0 or 1 there (`survived`, `killed`) shows that tests ran: then the Mutant
+    caused the exit, and every later 4 or 5 of that argv needs no further control run.
+    Any other end (4 or 5 again, a timeout, `errored`) shows nothing, so the argv stays
+    the suspect and the exit stays, for `_check_execution_status` to abort on.
     """
 
     cleared: set[tuple[str, ...]] = dataclasses.field(default_factory=set)
@@ -142,10 +143,13 @@ class ControlRuns:
     def settle(self, status: str, args: list[str], control: Callable[[], str]) -> str:
         """The Classification to tally for a Mutant that ended in `status`.
 
-        Only exit 4 and 5 are settled: other statuses return unchanged and call no `control`.
-        An exit 4 or 5 returns "killed" when the argv is cleared or `control()` (the same argv
-        on the original code) ran tests; otherwise it returns `status` unchanged.
+        `errored` (pytest ended without a result: exit 2 or 3, a signal, a start that failed) is a
+        kill, as for any Mutant. Exit 4 and 5 are settled: "killed" when the argv is cleared or
+        `control()` (the same argv on the original code) ran tests; otherwise `status` unchanged.
+        Other statuses return unchanged and call no `control`.
         """
+        if status == "errored":
+            return "killed"
         if status not in _ABORT_HINTS:
             return status
         key = tuple(args)

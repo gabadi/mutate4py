@@ -1,5 +1,7 @@
 """Unit tests for the mutant execution engine (_execution.py)."""
 
+import subprocess
+
 import pytest
 
 from mutate4py._discovery import apply_mutant, discover_sites
@@ -12,6 +14,7 @@ from mutate4py._execution import (
     _run_parallel_workers,
 )
 from mutate4py._executor import ExecutorDescription, MutantTiming
+from mutate4py._subprocess_executor import SubprocessExecutor
 from mutate4py._test_dispatch import TimeoutPolicy
 from mutate4py._workers import ParallelRunResult
 
@@ -296,13 +299,53 @@ def test_run_mutation_loop_kills_a_mutant_that_breaks_the_run_when_the_original_
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("control", ["usage-error", "no-tests-collected", "timeout"])
+@pytest.mark.parametrize("control", ["usage-error", "no-tests-collected", "timeout", "errored"])
 def test_run_mutation_loop_aborts_when_the_control_run_on_the_original_code_runs_no_test(tmp_path, control):
-    """The original code gives the same exit, or no answer: the argv may be the defect, so the run aborts."""
+    """The original code gives the same exit, or no answer (a timeout; an exit 2 or 3, a signal, a pytest that
+    did not start): the argv may be the defect, so the run aborts."""
     ctx, _ = _loop_ctx(tmp_path, ["usage-error", control])
 
     with pytest.raises(NoTestsCollectedError, match="usage error before collecting any test"):
         _run_mutation_loop(selected_sites=discover_sites(_ONE_SITE), clean_source=_ONE_SITE, ctx=ctx)
+
+
+@pytest.mark.unit
+def test_run_mutation_loop_aborts_when_pytest_cannot_start_for_the_control_run(tmp_path, monkeypatch):
+    """The Mutant's pytest exits 4 on a bad argv. The Control run then fails to start (the OS refuses the
+    process): that is no proof the argv runs tests, so the run aborts and no kill is scored."""
+    outcomes = iter([subprocess.CompletedProcess([], 4), OSError("cannot start")])
+
+    def fake_run(argv, **kwargs):
+        outcome = next(outcomes)
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(_ONE_SITE)
+    ctx = MutantExecCtx(
+        path=str(src_file),
+        cwd=str(tmp_path),
+        pytest_args=["--no-such-flag"],
+        executor=SubprocessExecutor(str(tmp_path), str(src_file)),
+        timeout_policy=_policy(5.0),
+        abs_source_path=str(src_file),
+    )
+
+    with pytest.raises(NoTestsCollectedError, match="usage error before collecting any test"):
+        _run_mutation_loop(selected_sites=discover_sites(_ONE_SITE), clean_source=_ONE_SITE, ctx=ctx)
+
+
+@pytest.mark.unit
+def test_run_mutation_loop_tallies_a_mutant_that_ends_abnormally_as_killed_with_no_control_run(tmp_path):
+    ctx, executor = _loop_ctx(tmp_path, ["errored"])
+
+    counts, survivors, _ = _run_mutation_loop(selected_sites=discover_sites(_ONE_SITE), clean_source=_ONE_SITE, ctx=ctx)
+
+    assert counts == {"killed": 1, "timeout": 0, "survived": 0}
+    assert survivors == []
+    assert len(executor.calls) == 1
 
 
 @pytest.mark.unit
@@ -493,6 +536,19 @@ def test_confirm_survivors_a_full_set_run_that_breaks_pytest_is_a_kill_when_the_
     assert (still, runs, kills) == ([], 1, 1)
     assert executor.calls == [(FULL_SET, 7.5), (FULL_SET, 7.5)]
     assert executor.seen_sources == [apply_mutant(_ONE_SITE, site), _ONE_SITE]
+
+
+@pytest.mark.unit
+def test_confirm_survivors_a_full_set_run_that_ends_abnormally_is_a_kill(tmp_path):
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(_ONE_SITE)
+    site = discover_sites(_ONE_SITE)[0]
+    executor = ScriptedExecutor(str(src_file), ["errored"])
+
+    still, runs, kills = _confirm_survivors([site], _ONE_SITE, _confirm_ctx(tmp_path, src_file), executor)
+
+    assert (still, runs, kills) == ([], 1, 1)
+    assert len(executor.calls) == 1
 
 
 @pytest.mark.unit
