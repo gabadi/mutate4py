@@ -9,9 +9,17 @@ know which one it has.
 """
 
 import dataclasses
+import enum
 from typing import Protocol
 
-__all__ = ["Executor", "ExecutorDescription", "MutantTiming", "combine_descriptions"]
+__all__ = ["Executor", "ExecutorDescription", "FileMode", "MutantTiming", "combine_descriptions"]
+
+
+class FileMode(enum.StrEnum):
+    HARNESS = "harness"
+    SWAP = "swap"
+    FRESH_IMPORT = "fresh import"
+    FRESH_INTERPRETER = "fresh interpreter"
 
 
 @dataclasses.dataclass(frozen=True)

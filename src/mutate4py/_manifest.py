@@ -277,7 +277,6 @@ def _on_own_lines(cur: dict, nested: list[dict], line: int) -> bool:
 
 
 def _markers_on_own_lines(cur: dict, units: list[dict], markers: dict[int, str]) -> Counter[str]:
-    """Per reason, the markers that sit inside cur's line span and outside every unit nested in it."""
     nested = [unit for unit in units if _is_nested_in(unit, cur)]
     return Counter(reason for line, reason in markers.items() if _on_own_lines(cur, nested, line))
 

@@ -99,7 +99,6 @@ def _summarize_selection(results: list[dict]) -> dict[str, int]:
 
 
 def _build_result(groups: list[WorkerGroupOutcome], results: list[dict], *, with_selection: bool) -> ParallelRunResult:
-    """Tally the site-ordered results of a parallel dispatch into its ParallelRunResult."""
     counts, survivors = _summarize_results(results)
     return ParallelRunResult(
         counts=counts,

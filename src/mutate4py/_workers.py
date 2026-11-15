@@ -321,7 +321,6 @@ def _run_settings(request: ParallelRunRequest) -> WorkerRunSettings:
 
 
 def _locate_source(request: ParallelRunRequest) -> tuple[str, str]:
-    """The real working directory and the source path relative to it."""
     real_source = os.path.realpath(request.source_path)
     real_cwd = os.path.realpath(request.cwd)
     if not real_source.startswith(real_cwd + os.sep):
@@ -330,7 +329,6 @@ def _locate_source(request: ParallelRunRequest) -> tuple[str, str]:
 
 
 def _collected_results(groups: list[WorkerGroupOutcome], expected: int) -> list[dict]:
-    """Every Worker's results in site order; ParallelRunError when fewer than `expected` came back."""
     results = [r for group in groups for r in group.results]
     if len(results) != expected:
         raise ParallelRunError(f"mutation workers stopped after {len(results)}/{expected} results")

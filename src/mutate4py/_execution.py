@@ -11,7 +11,7 @@ import time
 from typing import TYPE_CHECKING
 
 from mutate4py._discovery import Site, apply_mutant
-from mutate4py._executor import Executor, ExecutorDescription, MutantTiming
+from mutate4py._executor import Executor, ExecutorDescription, FileMode, MutantTiming
 from mutate4py._report import _on_parallel_result, _serial_progress_line
 from mutate4py._subprocess_executor import SubprocessExecutor
 from mutate4py._test_dispatch import (
@@ -186,7 +186,7 @@ def _confirm_survivors(
 
 
 def _on_fork_server(executor: Executor) -> bool:
-    return executor.describe().file_mode == "fresh import"
+    return executor.describe().file_mode == FileMode.FRESH_IMPORT
 
 
 def _confirmation_executor(ctx: MutantExecCtx) -> Executor:
