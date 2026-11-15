@@ -150,9 +150,11 @@ are what make a skip safe; narrowing either lets a stale proof read as current.
 A default run scores every Unscored function, including one that no covered Site
 reaches. Such a function is not skipped: its Sites are tallied Uncovered and its `score`
 block is written with `uncovered` set. Unscored means no `score` block, or no stored
-entry; `functions_unscored` agrees with `is_unscored`. A function that has a stored score
-and no covered Site is still skipped by the rule above. This amends ADR 0026's line that
-a function with no covered Site is rescored only by a full-file run.
+entry; `unscored_functions` agrees with `is_unscored`. A function whose Unit hash or
+tests digest moved is scored the same way, so an edited function no test reaches is scored
+by the edit run and the next run takes the skip. A function that has a stored score, an
+unchanged hash and no covered Site is still skipped by the rule above. This amends ADR
+0026's line that a function with no covered Site is rescored only by a full-file run.
 
 `--mutate-all` is removed and refused with exit 2. Its full re-score is now a run with no
-Manifest: that run is full-file and scores every covered function.
+Manifest: that run is full-file and scores every function, an uncovered one with an `uncovered` score.

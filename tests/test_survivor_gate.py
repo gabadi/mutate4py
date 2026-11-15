@@ -283,7 +283,7 @@ def test_compute_manifest_diff_includes_functions_with_survivors(tmp_path):
     )
     write_sidecar_manifest(src_path, manifest)
 
-    changed = _compute_manifest_diff(_SRC, ManifestLocation(path=src_path, manifest_file=True))[3]
+    changed = _compute_manifest_diff(_SRC, ManifestLocation(path=src_path, manifest_file=True)).changed_fn_ids
 
     assert changed == {_SURVIVOR_FN}
 
@@ -299,7 +299,7 @@ def test_compute_manifest_diff_includes_functions_without_a_score_block(tmp_path
     src_path = str(tmp_path / "calc.py")
     write_sidecar_manifest(src_path, build_manifest(_SRC, tested_at="2026-01-01T00:00:00Z"))
 
-    changed = _compute_manifest_diff(_SRC, ManifestLocation(path=src_path, manifest_file=True))[3]
+    changed = _compute_manifest_diff(_SRC, ManifestLocation(path=src_path, manifest_file=True)).changed_fn_ids
 
     assert changed == {_SURVIVOR_FN}
 
@@ -315,7 +315,7 @@ def test_compute_manifest_diff_leaves_out_a_scored_function_without_survivors(tm
     manifest["functions"][0].update(score={"killed": 1, "survived": 0, "uncovered": 0}, survivors=[], accepted=[])
     write_sidecar_manifest(src_path, manifest)
 
-    changed = _compute_manifest_diff(_SRC, ManifestLocation(path=src_path, manifest_file=True))[3]
+    changed = _compute_manifest_diff(_SRC, ManifestLocation(path=src_path, manifest_file=True)).changed_fn_ids
 
     assert changed == set()
 

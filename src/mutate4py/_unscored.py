@@ -7,7 +7,7 @@ entry's score block through the same `_scored_fields` `_manifest` reads, so it a
 from mutate4py._manifest import _scored_fields
 
 
-def functions_unscored(existing: dict | None, current: dict) -> set[str]:
+def unscored_functions(existing: dict | None, current: dict) -> set[str]:
     """Ids of current functions with no stored score block (ADR 0029 rule 1).
 
     That covers a function the stored Manifest never scored, such as one a 0.1.4 Manifest holds, and a

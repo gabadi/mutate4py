@@ -219,7 +219,7 @@ records Survivors. Its recorded Survivors print under `Recorded survivors (funct
 apart from the run's own Survivors, and they count toward the exit code: exit 3, or 0 with
 `--allow-survivors`. A rerun with nothing changed skips the Measurement and the Mutants,
 and reports the recorded Survivors on the same terms. A run with no Manifest re-scores
-every covered function (`--mutate-all` was removed by spec #115).
+every function (`--mutate-all` was removed by spec #115).
 
 `--check-manifest` checks hashes, recorded Survivors and equivalent markers, not digests:
 it runs no test, so it cannot recompute one, and a stale digest does not fail it. See
@@ -343,7 +343,7 @@ flag, so a script that still passes one fails loudly rather than being silently 
 | `--build-test-contexts` | None. No test-context db is built. |
 | `--since-last-run` | None. A default run already re-scores only the changed functions. |
 | `--lines` | Edit a function to re-score it. |
-| `--mutate-all` | None. A default run scores every changed or Unscored function; a run with no Manifest scores every covered function. |
+| `--mutate-all` | None. A default run scores every changed or Unscored function; a run with no Manifest scores every function (an uncovered one gets an `uncovered` score). |
 
 Coverage now comes from the coverage.py dependency (`coverage>=7.10`), which the run
 drives itself.

@@ -65,8 +65,8 @@ under the Function unit's `accepted` list with its reason; it does not fail the 
 _Avoid_: ignored, suppressed
 
 **Unscored**:
-A Function unit whose Manifest entry has no `score` (written before 0.1.5, or never
-fully selected by a scored run). `--check-manifest` judges it on hashes alone.
+A Function unit with no stored entry, or whose Manifest entry has no `score` (written before
+0.1.5, or never scored by a run). A default run scores it (ADR 0029 rule 1). `--check-manifest` judges it on hashes alone.
 _Avoid_: clean
 
 ### Coverage

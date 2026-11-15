@@ -129,6 +129,20 @@ def test_an_unscored_function_no_test_reaches_is_scored_uncovered(tmp_path):
 
 
 @pytest.mark.integration
+def test_an_edited_function_no_test_reaches_is_scored_so_the_next_run_skips(tmp_path):
+    _project(tmp_path, _KILLING_TESTS, source=_SRC_WITH_UNREACHED_FUNCTION)
+    assert _scored(tmp_path, "--manifest-file").returncode == 0
+    (tmp_path / "calc.py").write_text(_SRC + "\n\ndef h(a, b):\n    return a < b\n")
+
+    edit_run = _scored(tmp_path, "--manifest-file")
+    rerun = _scored(tmp_path, "--manifest-file")
+
+    assert edit_run.returncode == 0, edit_run.stdout + edit_run.stderr
+    assert SKIPPED_LINE in rerun.stdout, rerun.stdout
+    assert _sidecar_functions(tmp_path)["func/h"]["score"] == {"killed": 0, "survived": 0, "uncovered": 1}
+
+
+@pytest.mark.integration
 def test_a_skipped_rerun_exits_3_and_lists_the_survivors_the_scored_run_left(tmp_path):
     _project(tmp_path, _SURVIVING_TESTS)
     scored = _scored(tmp_path)

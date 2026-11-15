@@ -2,7 +2,6 @@
 
 from mutate4py._discovery import Site
 from mutate4py._site_selection import (
-    _is_differential,
     _select_sites,
     _should_run_parallel,
 )
@@ -93,18 +92,3 @@ def test_should_run_parallel_two_workers_one_site():
 def test_should_run_parallel_three_workers():
     """max_workers=3, n_selected=2 -> parallel."""
     assert _should_run_parallel(max_workers=3, n_selected=2) is True
-
-
-# ── _is_differential: the Manifest alone decides ─────────────────────────────
-
-
-@pytest.mark.unit
-def test_is_differential_with_a_manifest():
-    """A Manifest exists -> a differential rerun."""
-    assert _is_differential(manifest_exists=True) is True
-
-
-@pytest.mark.unit
-def test_is_differential_no_manifest():
-    """No Manifest -> a full-file run."""
-    assert _is_differential(manifest_exists=False) is False

@@ -87,7 +87,7 @@ def test_function_scores_scores_unscored_uncovered_function_on_narrowed_run():
         covered_lines=set(),
         selected_sites=[],
         survivors=[],
-        unscored_fn_ids=frozenset({_F}),
+        changed_fn_ids=frozenset({_F}),
     )
 
     assert run.function_scores([_F]) == {
@@ -104,7 +104,7 @@ def test_function_scores_skips_scored_uncovered_function_when_another_is_unscore
         covered_lines=set(),
         selected_sites=[],
         survivors=[],
-        unscored_fn_ids=frozenset({_G}),
+        changed_fn_ids=frozenset({_G}),
     )
 
     assert run.function_scores([_F, _G]) == {
@@ -281,3 +281,19 @@ def test_unaccepted_and_accepted_partition_survivors():
 
     assert run.unaccepted() == [s1]
     assert run.accepted() == [(s0, "same")]
+
+
+@pytest.mark.unit
+def test_function_scores_scores_changed_uncovered_function_on_narrowed_run():
+    s0 = _site(0, line=2)
+    run = ScoredRun(
+        all_sites=[s0],
+        covered_lines=set(),
+        selected_sites=[],
+        survivors=[],
+        changed_fn_ids=frozenset({_F}),
+    )
+
+    assert run.function_scores([_F]) == {
+        _F: {"score": {"killed": 0, "survived": 0, "uncovered": 1}, "survivors": [], "accepted": []}
+    }

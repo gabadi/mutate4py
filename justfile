@@ -314,7 +314,7 @@ gherkin-mutation:
 # mutation scoring is slow. Opt in: `just check mutate-sample`.
 [private]
 mutate-sample:
-    just mutate src/mutate4py/_cmd.py --allow-survivors
+    just mutate-scratch src/mutate4py/_cmd.py --allow-survivors
 
 # --- Mutation testing (hardener loop) ---------------------------------------
 #
@@ -359,12 +359,32 @@ mutate path *args:
     fi
     exit "$status"
 
+# `mutate` on a scratch copy of the tree with no Manifest for any src/ file, so every
+# function is Unscored and a default run scores all of them (ADR 0029 rule 1). The
+# benchmark recipes use it: a run on the real tree would score only what changed and
+# skip the rest. The copy omits .git, .venv, the worktrees and the src/ sidecars; the
+# real tree and its sidecars are never touched. The scratch run reuses the real .venv
+# (UV_PROJECT_ENVIRONMENT, no sync) and puts the copy's src/ first on PYTHONPATH, so
+# the editable install does not shadow the Mutants. Output and exit code are `mutate`'s.
+[private]
+mutate-scratch path *args:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    here="$PWD"
+    scratch="$(mktemp -d)"
+    trap 'rm -rf "$scratch"' EXIT
+    rsync -a --exclude .git --exclude .venv --exclude .worktrees --exclude .claude \
+        --exclude .mutate4py --exclude __pycache__ --exclude '/src/**/*.manifest.json' \
+        "$here"/ "$scratch"/
+    cd "$scratch"
+    UV_PROJECT_ENVIRONMENT="$here/.venv" UV_NO_SYNC=1 PYTHONPATH="$scratch/src" \
+        just mutate {{path}} {{args}}
+
 # --- Perf benchmark ----------------------------------------------------------
 #
 # Times every quality check `check` runs, plus a real mutation run over src/
-# (the default scored run: per-mutant test selection, differential once the
-# Manifests exist, so it re-scores only what changed), and prints a duration
-# table with a total.
+# (a scratch copy with no Manifest, so every function is scored: see
+# `mutate-scratch`), and prints a duration table with a total.
 # Not a pre-commit gate — dogfoods mutate4py against all of src/, so this
 # takes minutes, not seconds. Run it to benchmark real mutation-testing cost.
 #
@@ -402,7 +422,7 @@ perf:
     _run "check-manifest" uv run mutate4py src/ --check-manifest --manifest-file
     _run "acceptance" bash acceptance/run_acceptance.sh
     _run "mutation (src/)" \
-        just mutate src/ --mutation-warning 100000 --allow-survivors
+        just mutate-scratch src/ --mutation-warning 100000 --allow-survivors
 
     name_width=0
     for n in "${names[@]}"; do

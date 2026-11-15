@@ -253,13 +253,13 @@ def _scan_manifest_state(path: str, source: str, *, manifest_file: bool) -> tupl
     in that case; once a manifest exists, changed_fn_ids drives the real diff.
     """
     loc = ManifestLocation(path=path, manifest_file=manifest_file)
-    clean_source, _, manifest_exists, changed_fn_ids, _, _ = _compute_manifest_diff(source, loc)
-    sites = discover_sites(clean_source)
-    if manifest_exists:
-        changed_count = len([s for s in sites if s.function_id in changed_fn_ids])
+    diff = _compute_manifest_diff(source, loc)
+    sites = discover_sites(diff.clean_source)
+    if diff.manifest_exists:
+        changed_count = len([s for s in sites if s.function_id in diff.changed_fn_ids])
     else:
         changed_count = len(sites)
-    return sites, changed_count, manifest_exists
+    return sites, changed_count, diff.manifest_exists
 
 
 def scan_report(

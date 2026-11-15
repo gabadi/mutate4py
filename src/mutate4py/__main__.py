@@ -98,6 +98,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--build-test-contexts", dest="build_test_contexts", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--lines", dest="lines", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--since-last-run", action="store_true", dest="since_last_run", help=argparse.SUPPRESS)
+    parser.add_argument("--mutate-all", action="store_true", dest="mutate_all", help=argparse.SUPPRESS)
     parser.add_argument(
         "--pytest-args",
         dest="pytest_args",
@@ -123,8 +124,6 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Floor for the Mutant's own tests' timeout in seconds, before the per-Mutant overhead "
         "is added (default: 5.0)",
     )
-    # Removed in 0.3.0 (spec #115): parsed so that _check_removed_flags can refuse it, hidden from --help.
-    parser.add_argument("--mutate-all", action="store_true", dest="mutate_all", help=argparse.SUPPRESS)
     parser.add_argument(
         "--allow-survivors",
         action="store_true",

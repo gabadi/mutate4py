@@ -15,6 +15,14 @@ selected every covered Site in it; a function with no covered Site is rescored o
 a full-file run. A narrowed run that finds a recorded survivor's Site uncovered keeps the function's old block. An aborted run rescores nothing. A full-file run whose coverage misses
 a survivor's line clears it: on an explicit full run, coverage is the truth.
 
+**Amendment (issue #115): a changed or Unscored function with no covered Site is scored.**
+The rule above ("a function with no covered Site is rescored only by a full-file run") no
+longer holds for a function the run re-scores: a function whose hash or tests digest moved,
+or that is Unscored, is scored by any default run even when no covered Site reaches it. Its
+Sites are tallied `uncovered` and its `score` block is written. A function with a stored
+score, an unchanged hash and no covered Site is still skipped on a narrowed run. ADR 0029's
+amendment for spec #115 has the detail.
+
 `--check-manifest` exits 1 while any function records a survivor, and checks this
 before the `source_sha256` fast path, so a matching footer hash cannot hide one.
 Survivor-carrying functions count as changed only while their entry has no
@@ -34,9 +42,10 @@ Accepted consequences:
 - After a hash-changing edit, `--update-manifest` drops that function's survivors. The
   function becomes Unscored and `--check-manifest` passes on hashes, the same skip that
   already applies to changed functions.
-- A 0.1.4 Manifest gains scores only for functions a run fully selects. A default
-  differential run selects nothing unchanged, so a run with no Manifest scores the file
-  (`--mutate-all` was removed by spec #115).
+- ~~A 0.1.4 Manifest gains scores only for functions a run fully selects. A default
+  differential run selects nothing unchanged, so one `--mutate-all` run scores the file.~~
+  **Superseded by #115:** a default run scores every Unscored function, so a 0.1.4
+  Manifest gains its scores from one ordinary run (see ADR 0029's amendment for spec #115).
 - A module-level survivor exits 3 but is not recorded: it has no function entry, so
   `--check-manifest` cannot see it.
 
