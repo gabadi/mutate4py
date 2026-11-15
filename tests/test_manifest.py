@@ -323,6 +323,16 @@ def test_two_classes_that_nest_a_class_of_the_same_name_get_two_entries():
 
 
 @pytest.mark.unit
+def test_two_classes_that_nest_a_class_with_the_same_method_get_two_function_entries():
+    src = (
+        "class A:\n    class Meta:\n        def f(self):\n            return 1\n\n\n"
+        "class B:\n    class Meta:\n        def f(self):\n            return 2\n"
+    )
+    entries = _entries(src)
+    assert [i for i in entries if i.startswith("func/")] == ["func/A.Meta.f", "func/B.Meta.f"]
+
+
+@pytest.mark.unit
 def test_a_class_hash_ignores_an_edit_to_a_method_body():
     before = _entries("class C:\n    LIMIT = 2\n\n    def m(self):\n        return 1\n")
     after = _entries("class C:\n    LIMIT = 2\n\n    def m(self):\n        return 2\n")

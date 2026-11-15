@@ -28,7 +28,7 @@ def _own_unit(node: ast.AST, parent: ast.AST | None, *, inside_fn: bool, class_n
     if inside_fn:
         return None
     if isinstance(node, _FUNCTIONS):
-        return _unit(function_unit_id(node, parent), node, ast_sha256(node))
+        return _unit(function_unit_id(node, parent, class_names), node, ast_sha256(node))
     if isinstance(node, ast.ClassDef):
         return _unit(class_unit_id((*class_names, node.name)), node, ast_sha256(_class_body(node)))
     return None

@@ -38,7 +38,8 @@ statements, decorators and bases that are not a method or a nested class. Its Ma
 entry has the same `score` block as a Function unit's.
 
 **FunctionID**:
-The Function unit id attributed to a Site by line range (`func/<Name>`), or the Class
+The Function unit id attributed to a Site by line range (`func/<Name>`, or `func/<Class>.<Name>` for a method, with the names of its enclosing
+classes before it: `func/<Outer>.<Class>.<Name>`), or the Class
 unit id for a Site in a class body (`class/<Name>`, with the names of its enclosing classes
 before it: `class/<Outer>.<Name>`). Empty for module-level Sites,
 which are still mutated.

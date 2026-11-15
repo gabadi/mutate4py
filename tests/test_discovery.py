@@ -143,6 +143,19 @@ def test_a_site_in_a_nested_class_of_each_of_two_classes_gets_its_own_id():
 
 
 @pytest.mark.unit
+def test_a_site_in_a_method_of_a_nested_class_gets_the_id_of_its_parent_chain():
+    src = (
+        "class A:\n    class Meta:\n        def f(self):\n            return 1 > 0\n\n\n"
+        "class B:\n    class Meta:\n        def f(self):\n            return 2 > 1\n"
+    )
+    sites = scan(src)
+    assert {s.line: s.function_id for s in sites if s.desc.endswith("> 0") or s.desc.endswith("> 1")} == {
+        4: "func/A.Meta.f",
+        10: "func/B.Meta.f",
+    }
+
+
+@pytest.mark.unit
 def test_a_site_in_a_method_still_belongs_to_the_method_not_its_class():
     sites = scan("class C:\n    LIMIT = 2 > 1\n    def m(self):\n        return 3 > 2\n")
     assert {s.line: s.function_id for s in sites if s.desc.startswith("2 >") or s.desc.startswith("3 >")} == {

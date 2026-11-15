@@ -5,7 +5,7 @@ import dataclasses
 import functools
 import re
 
-from mutate4py._ids import class_body_unit_id, function_unit_id
+from mutate4py._ids import class_body_unit_id, enclosing_class_names, function_unit_id
 
 
 @dataclasses.dataclass(frozen=True)
@@ -81,7 +81,7 @@ def _format_function_id(ancestors: list[ast.AST]) -> str:
         return class_body_unit_id(ancestors)
 
     parent = ancestors[outermost_idx - 1] if outermost_idx > 0 else None
-    return function_unit_id(outermost_fn, parent)
+    return function_unit_id(outermost_fn, parent, enclosing_class_names(ancestors[:outermost_idx]))
 
 
 def _build_line_index(source: str) -> list[int]:

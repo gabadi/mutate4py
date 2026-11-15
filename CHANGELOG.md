@@ -14,13 +14,16 @@
   was too: an aborted run in embed mode neither adds a footer nor updates one. A failure of a
   parallel Worker counts as an aborted run.
 - A Survivor in a class body is recorded in the Manifest, under the class's own entry
-  (`class/<Name>`, or `class/<Outer>.<Name>` for a nested class), so `--check-manifest` sees it. Before, it failed the run with exit 3 but
+  (`class/<Name>`), so `--check-manifest` sees it. Before, it failed the run with exit 3 but
   was not recorded. A class outside a function is now a unit for its own body. Its hash leaves
   out its methods and its nested classes, so an edit to a method does not re-score the class.
   The first run on a file with a class re-scores the class, and `--check-manifest` reports the
   file stale until a run or `--update-manifest` adds the class entries. A Survivor outside every
   function and class is still not recorded; the report now prints each one as `file:line` under
   "Module-level survivors (not recorded in the Manifest):".
+- A nested class and its methods carry their enclosing classes in their ids (`class/<Outer>.<Name>`,
+  `func/<Outer>.<Class>.<Name>`), so two classes that nest a class of one name keep two entries. Before, both
+  shared one id and their entries merged.
 - A run started in a directory other than the pytest rootdir no longer aborts. The Measurement
   now exposes its rootdir, and the plan rebases the node ids of a narrowed Mutant from the rootdir
   to the run directory. The timeout is still budgeted on the ids as the Measurement recorded
