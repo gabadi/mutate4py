@@ -1,15 +1,15 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T23:06:45Z",
-  "module_hash": "104a1f84038c98539eb6f87d125a4448b7b4c99c48ee701c0d87fcdc1afc05b4",
-  "source_sha256": "29f08de171d19949a7dcb341c5d91cb93d240d3e436611d58d93bec9eb5be386",
+  "tested_at": "2026-11-15T23:26:53Z",
+  "module_hash": "847ceaff0783c3e269330d8555b1213c5abaed09be3f0230756214dd19cb7597",
+  "source_sha256": "4725241b9323307b16e45d8a811365fb1b896d2653bc4a4bf407b4a534ba6a82",
   "functions": [
     {
       "id": "func/function_unit_id",
       "name": "function_unit_id",
       "line": 7,
-      "end_line": 17,
-      "hash": "cd7db1047a88c7306b9e5d4769090de1665329ead7a6b9449756562491ee73c1",
+      "end_line": 14,
+      "hash": "ff5dc90963ff4b8ca9469730063f2c2edfc85ce0495d2fff9eccb55af5d16c59",
       "score": {
         "killed": 0,
         "survived": 0,
@@ -22,9 +22,24 @@
     {
       "id": "func/class_unit_id",
       "name": "class_unit_id",
-      "line": 20,
-      "end_line": 21,
+      "line": 17,
+      "end_line": 18,
       "hash": "8e1c6cfa908949d4cf801bdb11492fb22ba787bbc09b08a9eeee754e49e7f437",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
+    },
+    {
+      "id": "func/enclosing_class_names",
+      "name": "enclosing_class_names",
+      "line": 21,
+      "end_line": 22,
+      "hash": "f48428d2239ff1b505f29a5743f0db6307e8bb9faac9041c7ebe25869b0e614f",
       "score": {
         "killed": 0,
         "survived": 0,
@@ -37,9 +52,9 @@
     {
       "id": "func/class_body_unit_id",
       "name": "class_body_unit_id",
-      "line": 24,
-      "end_line": 26,
-      "hash": "08edc4ce54e2e32c5315b200ecaabdcfe31e2dfa71481178ac0721085b97512e",
+      "line": 25,
+      "end_line": 27,
+      "hash": "561e2bfd9ae0330afdcadd68ae2d88a2b77954c0a16a4e1abdb59cd51f272296",
       "score": {
         "killed": 0,
         "survived": 0,
@@ -50,5 +65,5 @@
       "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     }
   ],
-  "tests_fingerprint": "0dc944fad9ed4dce3bf7b4ef6fe1b1c474d5c8db9375840fe1c6977a6aa4caef"
+  "tests_fingerprint": "eb683dcf74d1ca7acea44ba3c3c038ca5884aef794fdcd6b3c5f8f8a6252bb70"
 }
