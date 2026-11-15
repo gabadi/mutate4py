@@ -15,10 +15,11 @@ from mutate4py._executor import Executor, ExecutorDescription, MutantTiming
 from mutate4py._report import _on_parallel_result, _serial_progress_line
 from mutate4py._subprocess_executor import SubprocessExecutor
 from mutate4py._test_dispatch import (
+    ControlRuns,
+    ControlTarget,
     NoTestsCollectedError,
     PlanInputs,
     TimeoutPolicy,
-    _check_execution_status,
     confirm_plan,
     plan_mutant,
 )
@@ -67,6 +68,9 @@ def _run_mutation_loop(
     ctx.executor is always primed by the time this loop starts (whichever
     implementation _prepare_executor chose), so this loop never branches on
     which one it has — it only ever calls executor.run(args, timeout).
+
+    A Mutant whose pytest exits 4 or 5 gets a Control run on the original code
+    (`ControlRuns`): killed if tests run there, an abort if they do not.
     """
     total_selected = len(selected_sites)
     counts: dict[str, int] = {"killed": 0, "timeout": 0, "survived": 0}
@@ -78,7 +82,10 @@ def _run_mutation_loop(
         abs_source_path=ctx.abs_source_path,
         timeout_policy=ctx.timeout_policy,
         positionals=ctx.positionals,
+        cwd=ctx.cwd,
     )
+    controls = ControlRuns()
+    target = ControlTarget(ctx.path, clean_source, ctx.executor, ctx.abs_source_path)
     for i, site in enumerate(selected_sites, 1):
         # Planned before the splice so a disagreement aborts with the source untouched.
         plan = plan_mutant(site, plan_inputs)
@@ -93,7 +100,7 @@ def _run_mutation_loop(
         # Raises before tallying: a Mutant pytest never exercised must never
         # reach the tally as `killed` (issue #55). The splice already
         # happened, but the caller's finally block restores the source.
-        _check_execution_status(status, ctx.abs_source_path, site)
+        status = controls.settle(status, plan, site, target)
         counts[status] += 1
         ctx.timing.record(status, elapsed)
         if status == "survived":
@@ -177,6 +184,8 @@ def _confirm_survivors(
     fold into killed (ADR 0011).
     """
     plan = confirm_plan(ctx.confirm_args, ctx.timeout_policy)
+    controls = ControlRuns()
+    target = ControlTarget(ctx.path, clean_source, executor, ctx.abs_source_path)
     still: list[Site] = []
     runs = kills = 0
     for site in survivors:
@@ -188,7 +197,7 @@ def _confirm_survivors(
         started = time.monotonic()
         status = executor.run(plan.args, plan.timeout)
         elapsed = time.monotonic() - started
-        _check_execution_status(status, ctx.abs_source_path, site)
+        status = controls.settle(status, plan, site, target)
         runs += 1
         ctx.timing.record_confirmation(status, elapsed)
         if status in ("killed", "timeout"):

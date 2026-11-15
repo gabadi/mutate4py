@@ -129,6 +129,12 @@ The re-run of every Survivor through the subprocess executor with the full test 
 before a Survivor is reported. A narrowed selection or a swap can let a Mutant survive
 that the full test set kills, so a Survivor is not trusted until this run agrees.
 
+**Control run**:
+The re-run of a Mutant's pytest argv on the original code, made only when that Mutant
+ends in pytest exit 4 or 5. Tests that run (pytest exit 0 or 1) mean the Mutant broke the
+run, so it is killed. Any other end (exit 4 or 5 again, a timeout, a crash) means the
+argv is the suspect, so the run aborts.
+
 **Worker**:
 An isolated tree copy of the working directory with its own provisioned environment,
 mutating its own file copy. Parallelism unit.

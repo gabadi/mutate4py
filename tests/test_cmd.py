@@ -82,6 +82,20 @@ def test_classify_exit_code_four_is_usage_error():
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("exit_code", [2, 3, 70, 137])
+def test_classify_exit_code_any_other_exit_is_errored(exit_code):
+    """Only pytest exit 0 (all passed) and 1 (a test failed) show that tests ran. Exit 2 (interrupted),
+    exit 3 (internal error) and any other code say nothing of it, so they are neither survived nor killed."""
+    assert classify_exit_code(exit_code) == "errored"
+
+
+@pytest.mark.unit
+def test_run_argv_exit_3_is_errored(monkeypatch):
+    _stub_child(monkeypatch, returncode=3)
+    assert run_argv(["sh", "-c", "exit 3"], "/tmp", timeout=5.0) == "errored"
+
+
+@pytest.mark.unit
 def test_run_argv_timeout_is_timeout(monkeypatch):
     _stub_child(monkeypatch, error=subprocess.TimeoutExpired(["sleep", "10"], 0.1))
     assert run_argv(["sleep", "10"], "/tmp", timeout=0.1) == "timeout"
@@ -111,11 +125,11 @@ def test_run_argv_capture_output_does_not_leak(capfd):
 
 
 @pytest.mark.unit
-def test_run_argv_unresolvable_program_is_killed(monkeypatch):
-    """No shell means a missing argv[0] raises OSError instead of a shell's
-    graceful nonzero exit; run_argv must still classify it, not crash."""
+def test_run_argv_unresolvable_program_is_errored(monkeypatch):
+    """No shell means a missing argv[0] raises OSError instead of a shell's graceful nonzero exit;
+    run_argv must still classify it, not crash. No pytest ran, so it is not a kill."""
     _stub_child(monkeypatch, error=FileNotFoundError(2, "No such file or directory", "no-such-program-xyz"))
-    assert run_argv(["no-such-program-xyz"], "/tmp", timeout=5.0) == "killed"
+    assert run_argv(["no-such-program-xyz"], "/tmp", timeout=5.0) == "errored"
 
 
 @pytest.mark.unit

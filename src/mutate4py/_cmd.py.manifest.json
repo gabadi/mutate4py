@@ -1,30 +1,30 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T11:45:46Z",
-  "module_hash": "82607a996155ffed0c789b54281f4b3690a3c6256d9aa13c1e548f08cb479e09",
-  "source_sha256": "75ead3c72f36de7a8610f4ef8b53f54ebef7cbc0e3995368afca7896a6d3cf1a",
+  "tested_at": "2026-11-15T12:51:34Z",
+  "module_hash": "663602d1428728bd45d37e522b5293c5331323c4d32585999a7bf3613974d1e0",
+  "source_sha256": "d19600cb21f9cc5c512ef0c12b40dd4de459312f3bdbb5d7d51b8ee5715214df",
   "functions": [
     {
       "id": "func/classify_exit_code",
       "name": "classify_exit_code",
       "line": 23,
-      "end_line": 28,
-      "hash": "70daea636c407a277765466e805097cb8bacaef3278022368bb7be2417716d1d",
+      "end_line": 36,
+      "hash": "0ccf089b8c652d620db2ad270e42a09bef775d186acc3b05755f5c5697f09cfa",
       "score": {
-        "killed": 2,
+        "killed": 4,
         "survived": 0,
         "uncovered": 0
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "c04a1e8edeaa4c6d865ba7d786a52f3c1d14f6bb64e30915c0efee2fa2c6b07b"
+      "tests_digest": "8dd002beef42f67d4e512ed6d86b20656f0d794ccee04ac5944a89fc6790309d"
     },
     {
       "id": "func/run_argv",
       "name": "run_argv",
-      "line": 31,
-      "end_line": 45,
-      "hash": "05bed4039e5aa6eac0de3870b33a6817e247979ffb15695551e451c1b71b5f13",
+      "line": 39,
+      "end_line": 54,
+      "hash": "3094c9b812da0c6898e2121fc8b78f226fafc3bf27a1d098b7915e4e96f4e908",
       "score": {
         "killed": 1,
         "survived": 0,
@@ -32,8 +32,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "339ec37945b05ce02fc97c78e33ed8deac15e31d9940c19fad5e6112927da5c7"
+      "tests_digest": "829585d83659e4c8a405e0bb2b3e9dc689c7240a0c3940e00ac717a861900289"
     }
   ],
-  "tests_fingerprint": "af64abda1fbfd47dd58bd7d2999f8924072729b045afbc1eab051062434d2228"
+  "tests_fingerprint": "25ae60bbb800f9d6710a8e13285b1dcacf8cf632ef0d5b1e6e12cbba25d7a607"
 }

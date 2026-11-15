@@ -125,9 +125,12 @@ def worker_server_argv(*, worker_root: str, guarded_path: str, launch: ServerLau
     ]
 
 
-def encode_request(args: list[str], timeout: float) -> str:
-    """One dispatch as the newline-terminated JSON line `_serve` reads."""
-    return json.dumps({"args": args, "timeout": timeout}) + "\n"
+def encode_request(args: list[str], timeout: float, *, control: bool = False) -> str:
+    """One dispatch as the newline-terminated JSON line `_serve` reads; a Control run says so."""
+    request: dict[str, object] = {"args": args, "timeout": timeout}
+    if control:
+        request["control"] = True
+    return json.dumps(request) + "\n"
 
 
 def encode_describe() -> str:
@@ -226,10 +229,10 @@ class WorkerProcessExecutor:
             ) from e
         _decode_ready(self._proc.stdout.readline(), worker_root=self._worker_root)
 
-    def run(self, args: list[str], timeout: float) -> str:
+    def run(self, args: list[str], timeout: float, *, control: bool = False) -> str:
         if self._proc is None:
             raise WorkerProcessError("prime() must succeed before run()")
-        self._proc.stdin.write(encode_request(args, timeout))
+        self._proc.stdin.write(encode_request(args, timeout, control=control))
         self._proc.stdin.flush()
         return _decode_status(self._proc.stdout.readline(), worker_root=self._worker_root)
 

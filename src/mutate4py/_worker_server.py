@@ -98,7 +98,7 @@ def _serve(executor: Executor, instream: TextIO, outstream: TextIO, *, plugin_ar
             outstream.write(json.dumps({"description": dataclasses.asdict(executor.describe())}) + "\n")
         else:
             args = [*request["args"], *plugin_args]
-            status = executor.run(args, request["timeout"])
+            status = executor.run(args, request["timeout"], control=request.get("control", False))
             outstream.write(json.dumps({"status": status}) + "\n")
         outstream.flush()
 

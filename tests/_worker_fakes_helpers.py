@@ -30,7 +30,7 @@ class FakeExecutor:
         with self._lock:
             self.prime_calls += 1
 
-    def run(self, args: list[str], timeout: float) -> str:
+    def run(self, args: list[str], timeout: float, *, control: bool = False) -> str:
         with self._lock:
             self.calls.append(args)
         return self._status

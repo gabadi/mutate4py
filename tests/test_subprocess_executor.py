@@ -45,6 +45,14 @@ def test_run_survives_when_tests_pass(tmp_path):
 
 
 @pytest.mark.system
+def test_a_control_run_is_run_like_any_other_dispatch(tmp_path):
+    """This executor keeps no per-Mutant count, so a Control run has nothing to be left out of."""
+    cwd = _write_project(tmp_path, target_body="def add(a, b):\n    return a + b\n", test_body=_ADD_TEST_BODY)
+    executor = _executor(cwd)
+    assert executor.run(["-q", "tests"], timeout=30.0, control=True) == "survived"
+
+
+@pytest.mark.system
 def test_run_killed_when_tests_fail(tmp_path):
     cwd = _write_project(tmp_path, target_body="def add(a, b):\n    return a - b\n", test_body=_ADD_TEST_BODY)
     executor = _executor(cwd)

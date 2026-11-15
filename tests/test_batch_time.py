@@ -34,7 +34,7 @@ class _StatusExecutor:
     def prime(self) -> None:
         pass
 
-    def run(self, args, timeout):
+    def run(self, args, timeout, *, control=False):
         return self.status
 
     def describe(self) -> ExecutorDescription:
