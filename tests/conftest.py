@@ -8,6 +8,7 @@ entirely is failed here, with its measured duration and a duration-based
 suggestion attached to *that* failure, so the fix stays visible right where the
 test broke rather than as a separate, easy-to-ignore report."""
 
+import os
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,34 @@ from ._digest_project import digest_project  # noqa: F401  (pytest fixture, shar
 
 _CATEGORY_MARKERS = ("unit", "system")
 _SYSTEM_THRESHOLD_SECONDS = 0.5
+
+# A system test's nested pytest runs (mutate4py's measurement and executors) load
+# only the plugins they name, not every pytest11 entry point in the environment.
+# `--no-cov` (neutralising_args) is only valid with pytest-cov loaded, so it is
+# named here. Every child reads this variable, worker venvs included, so the
+# fixture projects pin pytest-cov in their dependency groups, and a test that
+# needs another plugin names it through its own fixture (issue #124, step 6). Set
+# per test, so it reaches only the children a system test spawns, never the outer
+# run or the unit suite.
+_NESTED_PLUGINS = "-p pytest_cov.plugin"
+
+
+@pytest.fixture(autouse=True)
+def _nested_pytest_loads_only_named_plugins(request, monkeypatch):
+    if request.node.get_closest_marker("system") is None:
+        return
+    monkeypatch.setenv("PYTEST_DISABLE_PLUGIN_AUTOLOAD", "1")
+    existing = os.environ.get("PYTEST_ADDOPTS", "")
+    monkeypatch.setenv("PYTEST_ADDOPTS", f"{existing} {_NESTED_PLUGINS}".strip())
+
+
+@pytest.fixture
+def nested_pytest_loads_tach(monkeypatch):
+    """For a test whose nested pytest must register tach, the fork-unsafe plugin
+    the executor tests exist to detect. Autoload is off, so tach is named here."""
+    existing = os.environ.get("PYTEST_ADDOPTS", "")
+    monkeypatch.setenv("PYTEST_ADDOPTS", f"{existing} -p tach.pytest_plugin".strip())
+
 
 # tests/fixtures/** are sample projects other tests spawn as isolated pytest
 # subprocesses (e.g. the django_project that test_django_workers_integration.py

@@ -360,7 +360,7 @@ def test_a_target_that_is_a_fork_server_module_runs_each_mutant_in_a_fresh_inter
 
 @pytest.mark.system
 @pytest.mark.skipif(importlib.util.find_spec("tach") is None, reason="needs tach, a fork-unsafe plugin, installed")
-def test_a_fork_unsafe_plugin_in_the_run_gives_the_subprocess_executor_and_says_why(tmp_path):
+def test_a_fork_unsafe_plugin_in_the_run_gives_the_subprocess_executor_and_says_why(tmp_path, nested_pytest_loads_tach):
     target = _write_calc_project(tmp_path)
     executor = _serial_executor(tmp_path, target, pytest_args=["-q", "tests"])
     try:

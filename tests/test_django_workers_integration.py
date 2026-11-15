@@ -20,6 +20,15 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 FIXTURE_SRC = os.path.join(os.path.dirname(__file__), "fixtures", "django_project")
 
 
+# The Django project's nested pytest runs (the baseline, the mutant runs and the
+# ForkingExecutor prime pass, which reads only PYTEST_ADDOPTS) do not autoload
+# pytest-django (conftest.py), so the fixture names it.
+@pytest.fixture(autouse=True)
+def _nested_pytest_loads_pytest_django(monkeypatch):
+    existing = os.environ.get("PYTEST_ADDOPTS", "")
+    monkeypatch.setenv("PYTEST_ADDOPTS", f"{existing} -p pytest_django.plugin".strip())
+
+
 def _copy_fixture(tmp_path):
     dest = tmp_path / "django_project"
     shutil.copytree(FIXTURE_SRC, dest, ignore=shutil.ignore_patterns("__pycache__", "*.sqlite3*", ".mutate4py"))
