@@ -365,7 +365,7 @@ def test_injected_executor_receives_narrowed_dispatch_and_is_never_primed(tmp_pa
     # Dispatch-shape assertion below is exact; plugin neutralisation (issue 06)
     # is orthogonal and depends on what's importable in whoever runs this, so
     # it's pinned off here rather than made environment-dependent.
-    monkeypatch.setattr(runner_mod, "neutralising_args", lambda: [])
+    monkeypatch.setattr(runner_mod, "neutralising_args", lambda *_: [])
     _write_test_calc(tmp_path)
 
     fake_executor = _FakeExecutor()
@@ -398,7 +398,7 @@ def test_injected_executor_receives_static_dispatch(tmp_path, monkeypatch):
     import mutate4py._runner as runner_mod
 
     # See the matching note in the narrowed-dispatch test above.
-    monkeypatch.setattr(runner_mod, "neutralising_args", lambda: [])
+    monkeypatch.setattr(runner_mod, "neutralising_args", lambda *_: [])
 
     fake_executor = _FakeExecutor()
     src = _make_multi_site_source(3)
@@ -469,7 +469,13 @@ def test_neutralising_args_reach_every_mutant_dispatch(tmp_path, monkeypatch):
     in whoever runs this."""
     import mutate4py._runner as runner_mod
 
-    monkeypatch.setattr(runner_mod, "neutralising_args", lambda: ["--fake-neutralising-flag"])
+    asked_with = []
+
+    def fake_neutralising_args(pytest_args):
+        asked_with.append(list(pytest_args))
+        return ["--fake-neutralising-flag"]
+
+    monkeypatch.setattr(runner_mod, "neutralising_args", fake_neutralising_args)
 
     fake_executor = _FakeExecutor()
     src = _make_multi_site_source(2)
@@ -491,6 +497,7 @@ def test_neutralising_args_reach_every_mutant_dispatch(tmp_path, monkeypatch):
     )
     assert rc == 0
     assert fake_executor.calls == [["-q", "--fake-neutralising-flag"]] * 2
+    assert asked_with == [["-q"]]
 
 
 @pytest.mark.unit

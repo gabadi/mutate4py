@@ -1,0 +1,69 @@
+"""The run's pytest args reach `neutralising_args` at the Measurement and at the forking executor's prime (#127).
+
+`--no-cov` depends on whether the pytest that receives it loads pytest-cov, which the run's own `-p`
+flags can decide. So each caller asks about the args of the session it is building. In-process: the
+spawn and the prime are replaced by recorders.
+"""
+
+import subprocess
+
+import pytest
+
+import mutate4py._forking_executor as forking_mod
+import mutate4py._measurement as measurement_mod
+from mutate4py._forking_executor import ForkingExecutor
+from mutate4py._measurement import MeasureRequest
+
+
+@pytest.mark.unit
+def test_the_measurement_session_argv_ends_with_the_flags_chosen_for_its_own_pytest_args(tmp_path, monkeypatch):
+    asked_with = []
+    spawned = []
+
+    def fake_neutralising_args(pytest_args):
+        asked_with.append(tuple(pytest_args))
+        return ["--fake-flag"]
+
+    def fake_run(argv, **_kwargs):
+        spawned.append(argv)
+        return subprocess.CompletedProcess(argv, 0, b"", b"")
+
+    monkeypatch.setattr(measurement_mod, "neutralising_args", fake_neutralising_args)
+    monkeypatch.setattr(measurement_mod.subprocess, "run", fake_run)
+    request = MeasureRequest(
+        cwd=str(tmp_path),
+        pytest_args=("-q", "-p", "pytest_cov"),
+        target_files=("calc.py",),
+        scratch_dir=str(tmp_path),
+    )
+
+    files = {name: str(tmp_path / name) for name in ("config_file", "data_file", "record_file")}
+
+    measurement_mod._run_session(request, files)
+
+    assert asked_with == [("-q", "-p", "pytest_cov")]
+    assert spawned[0][-4:] == ["-q", "-p", "pytest_cov", "--fake-flag"]
+
+
+@pytest.mark.unit
+def test_the_forking_executors_prime_asks_for_the_flags_of_its_own_prime_args(tmp_path, monkeypatch):
+    asked_with = []
+    primed = []
+
+    def fake_neutralising_args(pytest_args):
+        asked_with.append(tuple(pytest_args))
+        return ["--fake-flag"]
+
+    def stop_after_the_prime_call(_pytest, args, _cwd, plugins=()):
+        primed.append(list(args))
+        raise RuntimeError("stop")
+
+    monkeypatch.setattr(forking_mod, "neutralising_args", fake_neutralising_args)
+    monkeypatch.setattr(forking_mod, "_run_pytest_output_suppressed", stop_after_the_prime_call)
+    executor = ForkingExecutor(cwd=str(tmp_path), guarded_path=str(tmp_path / "calc.py"), prime_args=("-p", "no:tach"))
+
+    with pytest.raises(RuntimeError, match="stop"):
+        executor.prime()
+
+    assert asked_with == [("-p", "no:tach")]
+    assert primed[0][-3:] == ["--fake-flag", "-p", "no:tach"]

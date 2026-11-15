@@ -23,7 +23,7 @@ import json
 import logging
 import os
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import TextIO
 
 from mutate4py._executor import Executor
@@ -79,16 +79,25 @@ def worker_environ_updates(worker_id: str | None) -> dict[str, str]:
 
 
 def _worker_plugin_args(worker_id: str | None) -> list[str]:
-    """The plugin flags every dispatch from this Worker carries, computed by
-    this process's own interpreter, which runs the pytest they apply to: the
-    kill switches for plugins it can import, then the Django worker plugin
-    (only for a Worker with an id: its plugin reads the id from the environment)."""
-    return [*neutralising_args(), *(_DJANGO_WORKER_PLUGIN_ARGS if worker_id is not None else [])]
+    """The Django worker plugin every dispatch from this Worker carries (only for
+    a Worker with an id: its plugin reads the id from the environment)."""
+    return list(_DJANGO_WORKER_PLUGIN_ARGS) if worker_id is not None else []
 
 
-def _serve(executor: Executor, instream: TextIO, outstream: TextIO, *, plugin_args: Sequence[str]) -> None:
+def _serve(
+    executor: Executor,
+    instream: TextIO,
+    outstream: TextIO,
+    *,
+    plugin_args: Sequence[str],
+    neutralise: Callable[[Sequence[str]], Sequence[str]],
+) -> None:
     """Answer one request per non-empty line until instream closes: a describe
-    request with the executor's description, anything else with a run() status."""
+    request with the executor's description, anything else with a run() status.
+
+    Each dispatch gets the kill switches `neutralise` picks for its own args, computed
+    by this process's interpreter and environment, which run the pytest they apply to,
+    then `plugin_args`."""
     for line in instream:
         line = line.strip()
         if not line:
@@ -97,7 +106,7 @@ def _serve(executor: Executor, instream: TextIO, outstream: TextIO, *, plugin_ar
         if "describe" in request:
             outstream.write(json.dumps({"description": dataclasses.asdict(executor.describe())}) + "\n")
         else:
-            args = [*request["args"], *plugin_args]
+            args = [*request["args"], *neutralise(request["args"]), *plugin_args]
             status = executor.run(args, request["timeout"])
             outstream.write(json.dumps({"status": status}) + "\n")
         outstream.flush()
@@ -120,7 +129,9 @@ def main(argv: list[str]) -> None:
     )
     sys.stdout.write(json.dumps({"ready": True}) + "\n")
     sys.stdout.flush()
-    _serve(executor, sys.stdin, sys.stdout, plugin_args=_worker_plugin_args(args.worker_id))
+    _serve(
+        executor, sys.stdin, sys.stdout, plugin_args=_worker_plugin_args(args.worker_id), neutralise=neutralising_args
+    )
 
 
 if __name__ == "__main__":

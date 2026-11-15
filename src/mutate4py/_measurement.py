@@ -312,7 +312,14 @@ def _run_session(request: MeasureRequest, files: dict[str, str]) -> tuple[subpro
     include = [_canonical(os.path.join(request.cwd, path)) for path in request.target_files]
     with open(files["config_file"], "w") as f:
         json.dump({"data_file": files["data_file"], "record_file": files["record_file"], "include": include}, f)
-    argv = [sys.executable, "-c", _BOOTSTRAP, files["config_file"], *request.pytest_args, *neutralising_args()]
+    argv = [
+        sys.executable,
+        "-c",
+        _BOOTSTRAP,
+        files["config_file"],
+        *request.pytest_args,
+        *neutralising_args(request.pytest_args),
+    ]
     start = time.monotonic()
     result = subprocess.run(argv, cwd=request.cwd, env=_session_env(), capture_output=True)
     return result, time.monotonic() - start

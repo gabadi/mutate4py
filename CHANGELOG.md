@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- A scored run with `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` and no `-p pytest_cov` no longer fails its
+  Measurement with "unrecognized arguments: --no-cov" (exit code 4) (#127). mutate4py now adds
+  `--no-cov` only when the pytest that receives it loads pytest-cov: autoload is on, or
+  `-p pytest_cov` / `-p pytest_cov.plugin` is in the run's pytest args or in `PYTEST_ADDOPTS`.
+  Amends ADR 0020.
+
 ## 0.3.0 (unreleased)
 
 The run measures coverage itself and re-scores only what changed (spec #89). Decisions

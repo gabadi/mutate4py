@@ -5,10 +5,11 @@ about half of a nested run and a Run starts many of them (the Measurement, each 
 each Survivor confirmation). So acceptance turns autoload off and names the plugins a
 fixture project needs, as `-p` flags in PYTEST_ADDOPTS:
 
-- pytest_cov: mutate4py appends `--no-cov` to every nested run whenever pytest_cov is
-  importable in its own interpreter (src/mutate4py/_plugin_neutralisation.py). The flag is
-  only recognised once the plugin is loaded, so the plugin is named here. A Worker venv
-  must then have pytest-cov too (parallel_workers_steps.py declares it in the fixture).
+- pytest_cov: mutate4py appends `--no-cov` to a nested run when pytest_cov is importable in
+  its own interpreter and the run will load it: autoload on, or `-p pytest_cov` named
+  (src/mutate4py/_plugin_neutralisation.py, ADR 0020 amended). The flag is only recognised
+  once the plugin is loaded, so the plugin is named here. A Worker venv must then have
+  pytest-cov too (parallel_workers_steps.py declares it in the fixture).
 
 The fixture projects import nothing else: no hypothesis, no pytest-django, no xdist.
 Exactly one scenario keeps autoload on (`autoload=True`), so the default user path stays

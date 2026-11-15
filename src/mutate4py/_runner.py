@@ -226,7 +226,7 @@ def _select_and_prepare(request: RunMutationsRequest, setup: RunSetup, max_worke
         max_workers=max_workers,
         timeout_policy=prep.timeout_policy,
         executor=prep.executor,
-        mutant_pytest_args=[*request.pytest_args, *neutralising_args()],
+        mutant_pytest_args=[*request.pytest_args, *neutralising_args(request.pytest_args)],
         baseline_duration=prep.baseline_duration,
         overhead_duration=prep.overhead_duration,
         full_selection=not differential,

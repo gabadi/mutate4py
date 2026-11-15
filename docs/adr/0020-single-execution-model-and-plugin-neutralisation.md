@@ -53,3 +53,31 @@ express (ADR 0028). The fork-unsafe plugin guard now covers Mutant runs: a
 prime session that registers tach gives the subprocess executor, which states
 why. The remaining whole-run fallbacks are no `os.fork`, pytest not importable,
 `--no-fork` and a fork-unsafe plugin.
+
+## Amended: `--no-cov` needs pytest-cov loaded in the child, not only importable (2026-11-15, #127)
+
+"Importable" was the wrong test for pytest-cov. `--no-cov` is an option pytest-cov
+registers, so the flag is a pytest usage error (exit 4, "unrecognized arguments:
+--no-cov") in any pytest that does not load the plugin. With
+`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` pytest loads only the plugins that are named, so a
+run that left pytest-cov unnamed failed its Measurement at the Baseline even though
+`pytest_cov` was importable.
+
+`neutralising_args(pytest_args)` now adds `--no-cov` only when both hold: `pytest_cov`
+is importable, and the child session will load it. That is when autoload is on (the
+switch is unset or empty), or when `-p pytest_cov` / `-p pytest_cov.plugin` (also the
+`-ppytest_cov` spelling) appears in the pytest args of that session or in
+`PYTEST_ADDOPTS`. Each caller passes the args of the session it is building: the run's
+pytest args for the Measurement and for every Mutant, the forking executor's prime args
+for its prime, and each request's own args in a Worker (the Worker reads its own
+environment).
+
+Rejected: catching the exit-4 and retrying without the flag (the Baseline would run
+twice, and a real usage error would be swallowed); passing `-p pytest_cov` ourselves
+when autoload is off (it would load a plugin the user chose not to load, and registers
+it under a second name if they name `pytest_cov.plugin`); and `-p no:pytest_cov`, for the
+reasons above. A pytest-cov named only by an ini `addopts` is not detected, so such a
+run with autoload off gets no `--no-cov`.
+
+pytest-benchmark keeps its importable-only guard. Its `--benchmark-disable` has the same
+shape of failure under autoload off, and is left to a separate change.

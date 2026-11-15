@@ -71,10 +71,10 @@ class _RecordingExecutor:
         return "survived"
 
 
-def _drive(executor, plugin_args, *requests):
+def _drive(executor, plugin_args, *requests, neutralise=lambda args: []):
     instream = io.StringIO("".join(json.dumps(r) + "\n" for r in requests))
     outstream = io.StringIO()
-    _serve(executor, instream, outstream, plugin_args=plugin_args)
+    _serve(executor, instream, outstream, plugin_args=plugin_args, neutralise=neutralise)
     return [json.loads(line)["status"] for line in outstream.getvalue().splitlines()]
 
 
@@ -110,7 +110,13 @@ class _DescribingExecutor(_RecordingExecutor):
 def test_serve_answers_a_describe_request_with_its_executors_description_and_runs_nothing():
     executor = _DescribingExecutor()
     outstream = io.StringIO()
-    _serve(executor, io.StringIO(json.dumps({"describe": True}) + "\n"), outstream, plugin_args=[])
+    _serve(
+        executor,
+        io.StringIO(json.dumps({"describe": True}) + "\n"),
+        outstream,
+        plugin_args=[],
+        neutralise=lambda args: [],
+    )
     assert json.loads(outstream.getvalue()) == {
         "description": {
             "mode": "subprocess",
@@ -127,17 +133,33 @@ def test_serve_answers_a_describe_request_with_its_executors_description_and_run
 
 
 @pytest.mark.unit
-def test_worker_plugin_args_neutralises_then_loads_the_django_plugin_for_a_worker_with_an_id(monkeypatch):
-    monkeypatch.setattr(_worker_server, "neutralising_args", lambda: ["--no-cov", "--benchmark-disable"])
-    assert _worker_plugin_args("gw1") == [
-        "--no-cov",
-        "--benchmark-disable",
-        "-p",
-        "mutate4py._django_worker_plugin",
-    ]
+def test_worker_plugin_args_loads_the_django_plugin_for_a_worker_with_an_id():
+    assert _worker_plugin_args("gw1") == ["-p", "mutate4py._django_worker_plugin"]
 
 
 @pytest.mark.unit
-def test_worker_plugin_args_without_a_worker_id_keeps_only_the_neutralising_args(monkeypatch):
-    monkeypatch.setattr(_worker_server, "neutralising_args", lambda: ["--no-cov"])
-    assert _worker_plugin_args(None) == ["--no-cov"]
+def test_worker_plugin_args_is_empty_for_a_worker_without_an_id():
+    assert _worker_plugin_args(None) == []
+
+
+@pytest.mark.unit
+def test_serve_asks_for_the_kill_switches_of_each_dispatchs_own_args_and_puts_them_before_the_plugin_args():
+    executor = _RecordingExecutor()
+    asked = []
+
+    def neutralise(args):
+        asked.append(list(args))
+        return ["--no-cov"] if "-p" in args else []
+
+    _drive(
+        executor,
+        ["-p", "mutate4py._django_worker_plugin"],
+        {"args": ["-q", "-p", "pytest_cov"], "timeout": 5.0},
+        {"args": ["-q"], "timeout": 5.0},
+        neutralise=neutralise,
+    )
+    assert asked == [["-q", "-p", "pytest_cov"], ["-q"]]
+    assert executor.calls == [
+        ["-q", "-p", "pytest_cov", "--no-cov", "-p", "mutate4py._django_worker_plugin"],
+        ["-q", "-p", "mutate4py._django_worker_plugin"],
+    ]
