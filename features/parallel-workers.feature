@@ -6,8 +6,7 @@
 Feature: Parallel worker execution for --max-workers
 
   # TRACKING: F6 (parallel-workers) — CONTEXT.md "Parallel workers (F6)";
-  #           docs/adr/0015-parallel-workers-via-uv-clone-per-worker.md (mechanism +
-  #           grilling resolutions 1-9).
+  #           docs/adr/0015-parallel-workers-via-uv-clone-per-worker.md.
   #           Upstream ground truth: unclebob/mutate4go internal/runner/runner.go
   #           (runMutations switch :319, runMutationsParallel :351, copyProject :487,
   #           shouldSkipCopy :527, sortResults :457, printHeader :614, per-mutant :425).

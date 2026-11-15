@@ -89,8 +89,8 @@ LOG := "check.log"
 
 # Test selection for `mutate`'s scored runs (#98): unit tests only. `system`
 # tests are coverage-blind and excluded too, so a Mutant that only a system
-# test kills is scored a Survivor; the fix is a unit test that kills it (ADR
-# 0023). `-p no:tach` skips tach's pytest plugin, which re-runs its impact
+# test kills is scored a Survivor; the fix is a unit test that kills it.
+# `-p no:tach` skips tach's pytest plugin, which re-runs its impact
 # analysis uncached on every subprocess spawn (~1-1.3s per Mutant, issue #26);
 # `tach check` already covers it in the `lint` gate.
 MUTATE_PYTEST_ARGS := "-p no:tach -m unit"

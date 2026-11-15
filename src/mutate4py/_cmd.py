@@ -11,8 +11,7 @@ __all__ = ["classify_exit_code", "run_argv"]
 # "no tests were collected" (a narrowed/static selection or a --pytest-args
 # filter matched nothing), 4 is "usage error" (pytest never reached collection
 # at all — e.g. a malformed --pytest-args, or a narrowed node ID pytest can't
-# even parse as a path). Both are the same defect one step later than ADR
-# 0018's line-absent/file-absent case: nothing ran, so scoring the Mutant
+# even parse as a path). In both nothing ran, so scoring the Mutant
 # `killed` would be a silent false win (issue #55).
 _ABORT_EXIT_CODES = {
     4: "usage-error",
