@@ -182,9 +182,17 @@ fired in a fresh worktree (issue #119). Two changes follow.
   real inifile exists anywhere above: pytest then takes the first `pyproject.toml` it met
   (`findpaths.py:200-201`). With no inifile at all the walk goes to `/`.
 
-`-c` (the file's directory bounds the conftests, and no config search runs),
-`--confcutdir` and `--rootdir` (the bound when no inifile exists) are read from the pytest
-args. Not read: `--noconftest`, `-p` plugins and `--pyargs`.
+`-c` and `--config-file` (pytest declares them as one option, `_pytest/main.py:263-264`) bound the
+conftests at the directory of the named file, run no config search (`findpaths.py:306-311`), and the
+named file is hashed whole. `--confcutdir` bounds the conftests too, and takes precedence. `--rootdir`
+is the conftest bound when no inifile exists (`config/__init__.py:1598-1603`), and its directory is
+a start point for the config search. Not read: `--noconftest`, `-p` plugins and `--pyargs`.
+
+The conftest chain above a collection root follows `_is_in_confcutdir`
+(`config/__init__.py:682`, `:703-704`): a directory is skipped only when it is strictly above
+`confcutdir`. A bound at or below the root therefore loads no ancestor conftest. A worktree
+nested under an outer checkout, run with no arguments and no `testpaths`, thus records no
+outer conftest: its collection root is the worktree, which is also its inifile directory.
 
 Rejected:
 

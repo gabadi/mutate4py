@@ -3,8 +3,8 @@
 `tests_fingerprint` hashes every input a Measurement and every tests-digest can
 read: the Python files under the collection roots, the conftests above them and
 the pytest configuration above them (both up to the directory holding pytest's
-inifile, else up to the filesystem root, recording only the files that exist),
-the lockfile, the --pytest-args string, the Python
+inifile, else up to the first pyproject.toml, else up to the filesystem root, recording only
+the files that exist), the lockfile, the --pytest-args string, the Python
 version and the mutate4py version. Equal fingerprints therefore prove the
 digests would come out the same.
 
@@ -14,7 +14,7 @@ run writes into a source file never changes the fingerprint that run wrote.
 `can_skip_measurement` decides from per-target facts the caller reduced from
 the stored Manifests. This module reads no Manifest itself: its one Manifest
 import is `strip_manifest`, which removes the footer text and reads no stored
-value. Its other imports are `primitives` (`_py_tree`, `_pytest_argv`, `_pytest_config`).
+value. Its other imports are `primitives` (`_py_tree`, `_pytest_argv`, `_pytest_config`, `_pytest_inifile`).
 """
 
 import dataclasses
@@ -213,7 +213,7 @@ def _config_dirs(cwd: str, roots: list[str], tokens: list[str]) -> list[str]:
     """
     if option_values(tokens, *CONFIG_FILE_OPTIONS):
         return []
-    rootdirs = [os.path.join(cwd, value) for value in option_values(tokens, "--rootdir")]
+    rootdirs = [os.path.join(cwd, os.path.expandvars(value)) for value in option_values(tokens, "--rootdir")]
     starts = [cwd, _pytest_start(cwd, tokens), *roots, *rootdirs]
     chains = (up_to(ancestors(start), inifile_dir(start)) for start in starts)
     return list(dict.fromkeys(directory for chain in chains for directory in chain))

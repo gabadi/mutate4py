@@ -404,6 +404,18 @@ def test_editing_the_config_under_an_explicit_rootdir_changes_it(tmp_path):
 
 
 @pytest.mark.unit
+def test_a_rootdir_given_with_an_environment_variable_is_expanded(tmp_path, monkeypatch):
+    root = _project(tmp_path)
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "pytest.ini").write_text("[pytest]\n")
+    monkeypatch.setenv("MUTATE4PY_TEST_ROOTDIR", "sub")
+    args = "--rootdir=$MUTATE4PY_TEST_ROOTDIR"
+    before = fingerprint_of(root, args)
+    (tmp_path / "sub" / "pytest.ini").write_text("[pytest]\naddopts = -q\n")
+    assert fingerprint_of(root, args) != before
+
+
+@pytest.mark.unit
 def test_a_config_file_above_the_run_directory_changes_it(tmp_path):
     run = tmp_path / "run"
     run.mkdir()
