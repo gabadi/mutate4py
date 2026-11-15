@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.3.3
+
+### Fixed
+
+- Survivor confirmation in a parallel run now uses the fork server. The orchestrator builds a
+  fork server with the run's prime arguments and confirms a Survivor of a "fresh import" file
+  there, as a serial run does. A Survivor of a file that a Worker swaps or runs in its harness
+  is confirmed in a fresh interpreter, inside the Worker that ran it, before the Worker closes.
+  Before, a parallel run confirmed every Survivor in a new interpreter. Amends ADR 0018.
+- A run that aborts writes nothing. The Manifest sidecar is written atomically, and an aborted
+  run leaves it as the last finished run wrote it. An embedded Manifest footer is left as it
+  was too: an aborted run in embed mode neither adds a footer nor updates one. A failure of a
+  parallel Worker counts as an aborted run.
+- A Survivor in a class body is recorded in the Manifest, under the class's own entry
+  (`class/<Name>`), so `--check-manifest` sees it. Before, it failed the run with exit 3 but
+  was not recorded. A class outside a function is now a unit for its own body. Its hash leaves
+  out its methods and its nested classes, so an edit to a method does not re-score the class.
+  The first run on a file with a class re-scores the class, and `--check-manifest` reports the
+  file stale until a run or `--update-manifest` adds the class entries. A Survivor outside every
+  function and class is still not recorded; the report now prints each one as `file:line` under
+  "Module-level survivors (not recorded in the Manifest):".
+- A nested class and its methods carry their enclosing classes in their ids (`class/<Outer>.<Name>`,
+  `func/<Outer>.<Class>.<Name>`), so two classes that nest a class of one name keep two entries. Before, both
+  shared one id and their entries merged.
+- A run started in a directory other than the pytest rootdir no longer aborts. The Measurement
+  now exposes its rootdir, and the plan rebases the node ids of a narrowed Mutant from the rootdir
+  to the run directory. The timeout is still budgeted on the ids as the Measurement recorded
+  them. A node id whose file does not exist still aborts the run with exit 2.
+- The tests digest now includes every file that does not end in `.py` under the test folders
+  (fixture JSON, golden files, tables). Before, an edit to such a file left a stored proof
+  current. The file is shared by every function, so an edit to one re-scores the whole file;
+  an edit to a `.py` test still re-scores only the functions it reaches. Hidden files and
+  directories and `__pycache__` are not inputs. Amends ADR 0029.
+
+### Changed
+
+- The `Uncovered mutations:` block and the `Uncovered mutation sites:` header count cover the
+  run scope: the changed or Unscored functions in a differential run, every function in a full
+  run. The block now prints each Site as `file:line` and prints in a differential run too.
+  Before, it printed in a full run only, and the count covered every function.
+
 ## 0.3.2
 
 ### Fixed

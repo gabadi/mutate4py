@@ -7,7 +7,7 @@ fixture project needs, as `-p` flags in PYTEST_ADDOPTS:
 
 - pytest_cov: mutate4py appends `--no-cov` to a nested run when pytest_cov is importable in
   its own interpreter and the run will load it: autoload on, or `-p pytest_cov` named
-  (src/mutate4py/_plugin_neutralisation.py, ADR 0020 amended). The flag is only recognised
+  (src/mutate4py/_plugin_neutralisation.py). The flag is only recognised
   once the plugin is loaded, so the plugin is named here. A Worker venv must then have
   pytest-cov too (parallel_workers_steps.py declares it in the fixture).
 

@@ -10,7 +10,9 @@ header).
 import json
 import os
 
-__all__ = ["parse_json_text", "read_json_sidecar", "serialize_json_sidecar", "write_json_sidecar"]
+__all__ = ["SIDECAR_SUFFIX", "parse_json_text", "read_json_sidecar", "serialize_json_sidecar", "write_json_sidecar"]
+
+SIDECAR_SUFFIX = ".manifest.json"
 
 
 def serialize_json_sidecar(data: dict) -> str:
@@ -43,5 +45,13 @@ def read_json_sidecar(path: str) -> tuple[dict | None, bool]:
 
 def write_json_sidecar(path: str, data: dict) -> None:
     """Write data as a JSON sidecar file (pretty-printed, trailing newline)."""
-    with open(path, "w") as f:
-        f.write(serialize_json_sidecar(data))
+    text = serialize_json_sidecar(data)
+    tmp_path = f"{path}.{os.getpid()}.tmp"
+    try:
+        with open(tmp_path, "w") as f:
+            f.write(text)
+        os.replace(tmp_path, path)
+    except BaseException:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        raise

@@ -15,6 +15,7 @@ from collections.abc import Sequence
 from mutate4py._executor import ExecutorDescription
 
 __all__ = [
+    "FreshInterpreterRuns",
     "WorkerProcessError",
     "ServerLaunch",
     "WorkerProcessExecutor",
@@ -125,11 +126,13 @@ def worker_server_argv(*, worker_root: str, guarded_path: str, launch: ServerLau
     ]
 
 
-def encode_request(args: list[str], timeout: float, *, control: bool = False) -> str:
-    """One dispatch as the newline-terminated JSON line `_serve` reads; a Control run says so."""
+def encode_request(args: list[str], timeout: float, *, control: bool = False, fresh: bool = False) -> str:
+    """One dispatch as the newline-terminated JSON line `_serve` reads; a Control run and a fresh run say so."""
     request: dict[str, object] = {"args": args, "timeout": timeout}
     if control:
         request["control"] = True
+    if fresh:
+        request["fresh"] = True
     return json.dumps(request) + "\n"
 
 
@@ -229,12 +232,15 @@ class WorkerProcessExecutor:
             ) from e
         _decode_ready(self._proc.stdout.readline(), worker_root=self._worker_root)
 
-    def run(self, args: list[str], timeout: float, *, control: bool = False) -> str:
+    def run(self, args: list[str], timeout: float, *, control: bool = False, fresh: bool = False) -> str:
         if self._proc is None:
             raise WorkerProcessError("prime() must succeed before run()")
-        self._proc.stdin.write(encode_request(args, timeout, control=control))
+        self._proc.stdin.write(encode_request(args, timeout, control=control, fresh=fresh))
         self._proc.stdin.flush()
         return _decode_status(self._proc.stdout.readline(), worker_root=self._worker_root)
+
+    def fresh_interpreter(self) -> "FreshInterpreterRuns":
+        return FreshInterpreterRuns(self)
 
     def describe(self) -> ExecutorDescription:
         if self._proc is None:
@@ -247,6 +253,23 @@ class WorkerProcessExecutor:
         if self._proc is None:
             return
         _shutdown_process(self._proc)
+
+
+class FreshInterpreterRuns:
+    def __init__(self, worker: WorkerProcessExecutor) -> None:
+        self._worker = worker
+
+    def prime(self) -> None:
+        pass
+
+    def run(self, args: list[str], timeout: float, *, control: bool = False) -> str:
+        return self._worker.run(args, timeout, control=control, fresh=True)
+
+    def describe(self) -> ExecutorDescription:
+        return self._worker.describe()
+
+    def fresh_interpreter(self) -> "FreshInterpreterRuns":
+        return self
 
 
 def fork_server(

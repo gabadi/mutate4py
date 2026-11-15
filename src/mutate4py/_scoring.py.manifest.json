@@ -1,9 +1,24 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T05:27:05Z",
-  "module_hash": "7c350eb763a5126b8e0d0e4422fa0f647e1c4063a5e81be0d758022c3ed342bd",
-  "source_sha256": "ac6d1e8926e318575a00d6d248d6e6064cb0603ce5a30038cd7f1d848e080b19",
+  "tested_at": "2026-11-15T22:24:06Z",
+  "module_hash": "d81f58d7f25f0a8d791460af942bde317801069a253db23d23860f8e316cad83",
+  "source_sha256": "0004e71af43abc1626f8fb9bbb76225ef1a3fa2ab3963b148215aa5225ab04c5",
   "functions": [
+    {
+      "id": "class/ScoredRun",
+      "name": "ScoredRun",
+      "line": 9,
+      "end_line": 105,
+      "hash": "4d8ec518095d8ee475daeb10acf5984aff03d0449e3be13dbb9bd1f3058a734b",
+      "score": {
+        "killed": 2,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "5c9cf3f3de432527673e2ac33dc130f4d9297fceeec63f3f79be740e38cb8d9a"
+    },
     {
       "id": "func/ScoredRun.unaccepted",
       "name": "unaccepted",
@@ -17,7 +32,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0a85addcf3bb45cf72aa176c055e350883db0b65f59bf33e00779a1937f30530"
+      "tests_digest": "7e0c69f6df4980f4509df5b06fbdf57bb0a116b5818eb08631e0af770bb5fb2a"
     },
     {
       "id": "func/ScoredRun.accepted",
@@ -32,7 +47,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0a85addcf3bb45cf72aa176c055e350883db0b65f59bf33e00779a1937f30530"
+      "tests_digest": "7e0c69f6df4980f4509df5b06fbdf57bb0a116b5818eb08631e0af770bb5fb2a"
     },
     {
       "id": "func/ScoredRun.function_scores",
@@ -47,7 +62,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0a85addcf3bb45cf72aa176c055e350883db0b65f59bf33e00779a1937f30530"
+      "tests_digest": "7e0c69f6df4980f4509df5b06fbdf57bb0a116b5818eb08631e0af770bb5fb2a"
     },
     {
       "id": "func/ScoredRun._score_block",
@@ -62,7 +77,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0a85addcf3bb45cf72aa176c055e350883db0b65f59bf33e00779a1937f30530"
+      "tests_digest": "7e0c69f6df4980f4509df5b06fbdf57bb0a116b5818eb08631e0af770bb5fb2a"
     },
     {
       "id": "func/ScoredRun._skipped",
@@ -77,7 +92,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0a85addcf3bb45cf72aa176c055e350883db0b65f59bf33e00779a1937f30530"
+      "tests_digest": "7e0c69f6df4980f4509df5b06fbdf57bb0a116b5818eb08631e0af770bb5fb2a"
     },
     {
       "id": "func/ScoredRun._lost_recorded_survivor",
@@ -92,7 +107,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0a85addcf3bb45cf72aa176c055e350883db0b65f59bf33e00779a1937f30530"
+      "tests_digest": "7e0c69f6df4980f4509df5b06fbdf57bb0a116b5818eb08631e0af770bb5fb2a"
     },
     {
       "id": "func/ScoredRun._sites_of",
@@ -107,7 +122,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0a85addcf3bb45cf72aa176c055e350883db0b65f59bf33e00779a1937f30530"
+      "tests_digest": "7e0c69f6df4980f4509df5b06fbdf57bb0a116b5818eb08631e0af770bb5fb2a"
     },
     {
       "id": "func/ScoredRun._covered",
@@ -122,7 +137,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0a85addcf3bb45cf72aa176c055e350883db0b65f59bf33e00779a1937f30530"
+      "tests_digest": "7e0c69f6df4980f4509df5b06fbdf57bb0a116b5818eb08631e0af770bb5fb2a"
     },
     {
       "id": "func/ScoredRun._unaccepted_of",
@@ -137,7 +152,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0a85addcf3bb45cf72aa176c055e350883db0b65f59bf33e00779a1937f30530"
+      "tests_digest": "7e0c69f6df4980f4509df5b06fbdf57bb0a116b5818eb08631e0af770bb5fb2a"
     },
     {
       "id": "func/ScoredRun._accepted_of",
@@ -152,8 +167,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0a85addcf3bb45cf72aa176c055e350883db0b65f59bf33e00779a1937f30530"
+      "tests_digest": "7e0c69f6df4980f4509df5b06fbdf57bb0a116b5818eb08631e0af770bb5fb2a"
     }
   ],
-  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
+  "tests_fingerprint": "293aa98b64e7d47b2e413d8da39ab7a3022363f79dc48eee51d579864ea7a380"
 }

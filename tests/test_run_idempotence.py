@@ -1,4 +1,4 @@
-"""Idempotence of a scored run (ADR 0006): an identical rerun rewrites nothing."""
+"""Idempotence of a scored run: an identical rerun rewrites nothing."""
 
 import io
 import json

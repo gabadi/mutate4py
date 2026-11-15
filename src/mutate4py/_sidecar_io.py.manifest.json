@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T05:27:05Z",
-  "module_hash": "08f2d8c40f3a979bfdfa0260efbd8f2b77a5a14a9d6e59e43c6fe1fa34ea0512",
-  "source_sha256": "45d0ba0f2c28d297ba77b5f1687f74f524e2bcbf7d76ef4b8b1b4d2df780290f",
+  "tested_at": "2026-11-15T23:12:24Z",
+  "module_hash": "f89514511d806a6ed4a5a4c30c001c595b016157f79967ef795bb02d265d54ba",
+  "source_sha256": "f15923cbae89c00ccd56e08033caf9349313276fd3b1a3d740d89edeb0d84eeb",
   "functions": [
     {
       "id": "func/serialize_json_sidecar",
       "name": "serialize_json_sidecar",
-      "line": 16,
-      "end_line": 18,
+      "line": 18,
+      "end_line": 20,
       "hash": "6abd316e5c2380d6e8122edfb37d8a5f1346c5e4aa04787171f368ddac250f38",
       "score": {
         "killed": 1,
@@ -17,13 +17,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "e59947d71d9dc1c2a67cd41228cd866392cb7ea13b2881f43f0bfb78bd561f65"
+      "tests_digest": "2a4c6204806c695e784889dea16e94c6884c66b81f131c07e7ca260ccf08abe9"
     },
     {
       "id": "func/parse_json_text",
       "name": "parse_json_text",
-      "line": 21,
-      "end_line": 26,
+      "line": 23,
+      "end_line": 28,
       "hash": "1a7d9b4db2a4ee840940f80716b165584f7193268a0a55eaa933979b632fc3e3",
       "score": {
         "killed": 2,
@@ -32,13 +32,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "f2a5f0ef2463bb52dd6e2aedeced96a268a03a96a2dbe7d08b194bec1015adaf"
+      "tests_digest": "2fb7f3b59e4b1f92ca7b46c2ba05994158837e39e204fcb76cc22bbfc089685a"
     },
     {
       "id": "func/read_json_sidecar",
       "name": "read_json_sidecar",
-      "line": 29,
-      "end_line": 41,
+      "line": 31,
+      "end_line": 43,
       "hash": "822a22cb524f805211ab749175f146ce0abce85e2cdf9bcca5725419bba9f82c",
       "score": {
         "killed": 5,
@@ -47,14 +47,14 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "ac5a65dd7284ce336fa60dd6dd64787b0b1deadf1f2c63afe32896a9bb0163d1"
+      "tests_digest": "922f4ba94977f0eb7ce2f81d34f6f14ad3983086794b549f203d66ff44abab9e"
     },
     {
       "id": "func/write_json_sidecar",
       "name": "write_json_sidecar",
-      "line": 44,
-      "end_line": 47,
-      "hash": "470307af4424bad506c22b68ecd73afd2a049e851350ea8c9b649e67985a94bc",
+      "line": 46,
+      "end_line": 57,
+      "hash": "dd804d0eeeacbd00b4fcef09edc4e38cccb71d2b3cb067129c5d3107c913ba4d",
       "score": {
         "killed": 0,
         "survived": 0,
@@ -62,8 +62,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     }
   ],
-  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
+  "tests_fingerprint": "0dc944fad9ed4dce3bf7b4ef6fe1b1c474d5c8db9375840fe1c6977a6aa4caef"
 }

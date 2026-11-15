@@ -3,6 +3,8 @@ describe their own executor (combine_descriptions), and a batch adds each
 file's timing into one running total (MutantTiming.merge).
 """
 
+import dataclasses
+
 import pytest
 
 from mutate4py._executor import ExecutorDescription, MutantTiming, combine_descriptions
@@ -66,3 +68,11 @@ def test_merge_adds_one_files_timing_into_the_running_batch_total():
     )
 
     assert total.render() == "Time: mutants 1.50s (3), timeouts 3.00s (1), confirmation 0.25s (1 run, 1 kills)"
+
+
+@pytest.mark.unit
+def test_an_executor_description_cannot_be_changed_after_it_is_built():
+    description = ExecutorDescription(mode="forking")
+
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        description.mode = "subprocess"  # type: ignore[misc]

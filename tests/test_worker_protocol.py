@@ -10,7 +10,6 @@ same dispatch logic without paying for a real subprocess spawn.
 
 import io
 import json
-import logging
 import os
 import subprocess
 import sys
@@ -110,6 +109,12 @@ def test_encode_request_is_one_newline_terminated_json_line():
 def test_encode_request_marks_a_control_run_and_only_a_control_run():
     assert json.loads(encode_request(["-q"], 30.0, control=True)) == {"args": ["-q"], "timeout": 30.0, "control": True}
     assert "control" not in json.loads(encode_request(["-q"], 30.0, control=False))
+
+
+@pytest.mark.unit
+def test_encode_request_marks_a_fresh_interpreter_run_and_only_that_run():
+    assert json.loads(encode_request(["-q"], 30.0, fresh=True)) == {"args": ["-q"], "timeout": 30.0, "fresh": True}
+    assert "fresh" not in json.loads(encode_request(["-q"], 30.0, fresh=False))
 
 
 @pytest.mark.unit
@@ -239,6 +244,53 @@ def test_run_sends_a_control_run_to_the_worker_marked_as_one(monkeypatch):
 
 
 @pytest.mark.unit
+def test_fresh_interpreter_runs_ask_the_worker_for_a_fresh_interpreter(monkeypatch):
+    stdin = io.StringIO()
+    stdout = io.StringIO(
+        json.dumps({"ready": True})
+        + "\n"
+        + json.dumps({"status": "killed"})
+        + "\n"
+        + json.dumps({"status": "survived"})
+        + "\n"
+    )
+    monkeypatch.setattr(subprocess, "Popen", lambda argv, **kwargs: types.SimpleNamespace(stdin=stdin, stdout=stdout))
+    monkeypatch.setattr("mutate4py._worker_protocol.check_worker_pytest", lambda root: None)
+    executor = WorkerProcessExecutor(
+        worker_root="/w", guarded_path="/w/calc.py", source_root="/src", launch=ServerLaunch(forking_requested=True)
+    )
+    executor.prime()
+    fresh = executor.fresh_interpreter()
+
+    assert fresh.run(["-q"], 5.0) == "killed"
+    assert fresh.run(["-q"], 5.0, control=True) == "survived"
+
+    assert stdin.getvalue() == encode_request(["-q"], 5.0, fresh=True) + encode_request(
+        ["-q"], 5.0, control=True, fresh=True
+    )
+    assert fresh.fresh_interpreter() is fresh
+
+
+@pytest.mark.unit
+def test_fresh_interpreter_runs_describe_the_worker_they_ask(monkeypatch):
+    stdin = io.StringIO()
+    stdout = io.StringIO(
+        json.dumps({"ready": True})
+        + "\n"
+        + json.dumps({"description": {"mode": "forking", "file_mode": "swap"}})
+        + "\n"
+    )
+    monkeypatch.setattr(subprocess, "Popen", lambda argv, **kwargs: types.SimpleNamespace(stdin=stdin, stdout=stdout))
+    monkeypatch.setattr("mutate4py._worker_protocol.check_worker_pytest", lambda root: None)
+    executor = WorkerProcessExecutor(
+        worker_root="/w", guarded_path="/w/calc.py", source_root="/src", launch=ServerLaunch(forking_requested=True)
+    )
+    executor.prime()
+
+    assert executor.fresh_interpreter().describe() == ExecutorDescription(mode="forking", file_mode="swap")
+
+
+@pytest.mark.unit
 def test_describe_before_prime_is_rejected():
     executor = WorkerProcessExecutor(
         worker_root="/w", guarded_path="/w/calc.py", source_root="/src", launch=ServerLaunch(forking_requested=True)
@@ -287,7 +339,7 @@ def _fake_popen(monkeypatch, *, raises: Exception | None = None) -> list:
 @pytest.mark.parametrize("caller_pythonpath", [None, "/existing"])
 def test_prime_keeps_the_import_root_off_the_worker_pythonpath(monkeypatch, caller_pythonpath):
     """The import root is a `.pth` in the Worker venv, read after site-packages. On
-    PYTHONPATH it would shadow the project's own mutate4py (dogfood, ADR 0015), so the
+    PYTHONPATH it would shadow the project's own mutate4py (dogfood), so the
     Worker's PYTHONPATH carries only what the caller set."""
     if caller_pythonpath is None:
         monkeypatch.delenv("PYTHONPATH", raising=False)
@@ -469,6 +521,26 @@ def test_worker_process_executor_describes_the_subprocess_executor_its_worker_ru
 
 
 @pytest.mark.system
+def test_worker_process_executor_runs_a_fresh_interpreter_request_outside_its_forking_counts(tmp_path):
+    target = _write_add_sub_project(tmp_path)
+    _provision_test_worker(tmp_path)
+    executor = WorkerProcessExecutor(
+        worker_root=str(tmp_path),
+        guarded_path=str(target),
+        source_root=str(tmp_path),
+        launch=ServerLaunch(forking_requested=True),
+    )
+    executor.prime()
+    try:
+        fresh = executor.fresh_interpreter()
+        assert fresh.run(["-q", "tests/test_calc.py::test_add"], timeout=30.0) == "survived"
+        assert fresh.run(["-q", "tests/test_calc.py::test_sub_wrong"], timeout=30.0) == "killed"
+        assert executor.describe().render() == "forking (fresh import 0, swap 0, fresh interpreter 0)"
+    finally:
+        executor.close()
+
+
+@pytest.mark.system
 def test_worker_process_executor_leaves_a_control_run_out_of_its_forking_counts(tmp_path):
     """A Control run is no Mutant: the Worker's forking executor runs it but does not count it, so the
     Executor line of the report counts only the Mutants."""
@@ -606,13 +678,10 @@ def test_worker_forking_and_subprocess_parity(tmp_path):
 
 @pytest.fixture
 def restore_import_state(tmp_path):
-    """In-process pytest.main leaves the tmp project on sys.path and its conftest in sys.modules (#80).
-    `_worker_server.main` also leaves the mutate4py logger at WARNING, which silences later runs."""
+    """In-process pytest.main leaves the tmp project on sys.path and its conftest in sys.modules (#80)."""
     saved_path = list(sys.path)
     saved_modules = set(sys.modules)
-    saved_level = logging.getLogger("mutate4py").level
     yield
-    logging.getLogger("mutate4py").setLevel(saved_level)
     sys.path[:] = saved_path
     root = os.path.realpath(tmp_path) + os.sep
     for name in set(sys.modules) - saved_modules:

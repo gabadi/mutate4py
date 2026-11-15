@@ -249,7 +249,7 @@ def test_default_run_keeps_survivor_whose_line_lost_coverage(tmp_path):
 @pytest.mark.system
 def test_default_run_scores_every_function_of_a_014_sidecar(tmp_path):
     # A 0.1.4 sidecar carries no score blocks, so every function is Unscored and a default run scores
-    # all of them (ADR 0029 rule 1). g's Site is not covered, yet g is scored uncovered, not skipped:
+    # all of them. g's Site is not covered, yet g is scored uncovered, not skipped:
     # a skipped Unscored function would keep the Manifest from ever taking the no-change skip.
     src_path = str(tmp_path / "calc.py")
     with open(src_path, "w") as f:
@@ -291,7 +291,7 @@ def test_compute_manifest_diff_includes_functions_with_survivors(tmp_path):
 @pytest.mark.unit
 def test_compute_manifest_diff_includes_functions_without_a_score_block(tmp_path):
     # Source and tests are unchanged, but the stored entry carries no score block: the function is Unscored
-    # and a default run selects it (ADR 0029 rule 1).
+    # and a default run selects it.
     from mutate4py._manifest import build_manifest
     from mutate4py._manifest_storage import ManifestLocation, write_sidecar_manifest
     from mutate4py._source_loading import _compute_manifest_diff

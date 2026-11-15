@@ -19,6 +19,7 @@ from collections.abc import Sequence
 from types import FunctionType
 
 from mutate4py._code_swap import Refusal, plan_swap
+from mutate4py._executor import FileMode
 
 __all__ = [
     "SwapSource",
@@ -31,7 +32,7 @@ __all__ = [
     "swap_side",
 ]
 
-_MODES = ("fresh import", "swap", "fresh interpreter")
+_REPORTED_MODES = (FileMode.FRESH_IMPORT, FileMode.SWAP, FileMode.FRESH_INTERPRETER)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -48,7 +49,7 @@ class SwapSource:
 def swap_side(file_mode: str, guarded_path: str, ran_at_import: frozenset[int]) -> tuple[SwapSource, list]:
     """What every swap child plans from, read at prime: the clean source and the live
     functions built from it. Nothing for a file not in swap mode."""
-    if file_mode != "swap":
+    if file_mode != FileMode.SWAP:
         return SwapSource("", guarded_path, ran_at_import), []
     with open(guarded_path) as f:
         clean_source = f.read()
@@ -57,16 +58,16 @@ def swap_side(file_mode: str, guarded_path: str, ran_at_import: frozenset[int]) 
     return SwapSource(clean_source, filename, ran_at_import), live
 
 
-def child_mode(file_mode: str, source: SwapSource, guarded_path: str, live: Sequence[FunctionType]) -> str:
+def child_mode(file_mode: str, source: SwapSource, guarded_path: str, live: Sequence[FunctionType]) -> FileMode:
     """How this child runs its Mutant, from the guarded file's mode: a fresh import
     in-process, a swap (refused into a fresh interpreter by `swap_in`), or, for a
     harness file, a fresh interpreter."""
-    if file_mode == "swap":
+    if file_mode == FileMode.SWAP:
         return swap_in(source, guarded_path, live)
-    return "fresh import" if file_mode == "fresh import" else "fresh interpreter"
+    return FileMode.FRESH_IMPORT if file_mode == FileMode.FRESH_IMPORT else FileMode.FRESH_INTERPRETER
 
 
-def swap_in(source: SwapSource, guarded_path: str, live: Sequence[FunctionType]) -> str:
+def swap_in(source: SwapSource, guarded_path: str, live: Sequence[FunctionType]) -> FileMode:
     """Swap the mutated file's function bodies into `live`: "swap" when the swap
     applied, "fresh interpreter" when the planner or the live functions refused it
     (nothing is changed then)."""
@@ -75,10 +76,10 @@ def swap_in(source: SwapSource, guarded_path: str, live: Sequence[FunctionType])
     try:
         plan = plan_swap(source.clean_source, mutated, source.filename, source.ran_at_import)
     except (SyntaxError, ValueError):
-        return "fresh interpreter"
+        return FileMode.FRESH_INTERPRETER
     if isinstance(plan, Refusal) or isinstance(plan.apply(live), Refusal):
-        return "fresh interpreter"
-    return "swap"
+        return FileMode.FRESH_INTERPRETER
+    return FileMode.SWAP
 
 
 def live_functions_of(guarded_path: str) -> list[FunctionType]:
@@ -115,9 +116,9 @@ def report_mode(write_fd: int, mode: str) -> None:
     os.close(write_fd)
 
 
-def reported_mode(report: bytes) -> str:
+def reported_mode(report: bytes) -> FileMode:
     """How a child ran its Mutant, from what it wrote to its report pipe. Anything
     else (an empty report included: the child ended before it reported) counts as
     a fresh interpreter, so an in-process run is never claimed unseen."""
     mode = report.decode(errors="replace")
-    return mode if mode in _MODES else "fresh interpreter"
+    return FileMode(mode) if mode in _REPORTED_MODES else FileMode.FRESH_INTERPRETER

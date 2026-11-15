@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T05:19:28Z",
-  "module_hash": "c2914291ea069fc7c2d655e7dedbcd011d2bee87aa4c235e9bd5909ebced4f5f",
-  "source_sha256": "372f12e8986e33bf64f440a1bb420d687432d68973d4f677243e549a9c207047",
+  "tested_at": "2026-11-15T23:01:34Z",
+  "module_hash": "a2fe2c94637c9a14b5f46359807e036b5fd2f5c6325e0e5ae5f21894bf09d65a",
+  "source_sha256": "b1efc5de25150a12ef31b016974243ce88f7ee1805ee9c3f835d9eb7049c8628",
   "functions": [
     {
       "id": "func/_load_source",
@@ -17,7 +17,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_syntax_error_reason",
@@ -32,7 +32,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "927884c3c5857a213176f9bd55b6ec445b2fab212a5fa52cef804e1ca69a1913"
+      "tests_digest": "41e8df50d48172b7b5c955569792050800e54064ffe49a0c1fcdc7731489b00e"
     },
     {
       "id": "func/_report_parse_error",
@@ -47,7 +47,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_parse_pytest_args",
@@ -62,7 +62,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "1f7c5266354971b2512c50177541ab98f657a2ba6d95acb4a4c39930ec862fa5"
+      "tests_digest": "79915b04476f3444ee0c8829aee4cfb9c85bc74947d648e54cd59e2531bb05e3"
     },
     {
       "id": "func/_run_scan",
@@ -77,7 +77,22 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
+    },
+    {
+      "id": "class/BatchShare",
+      "name": "BatchShare",
+      "line": 92,
+      "end_line": 97,
+      "hash": "f6e978cb6c9bc26803a7e5ceedd121731997775426c86a397d48211997659f0e",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_run_on_file",
@@ -92,7 +107,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "ad3a9cfd5ac0e609809e29f080c6bae5df8fa769f913640c780a4ff777fa4cc5"
+      "tests_digest": "7fea489a0f21818a799b594ed5a88c8cd23f7f5e8f2ddfd0c8b5a8cc2a0e98c1"
     },
     {
       "id": "func/_needs_measurement",
@@ -107,7 +122,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "8babf9c8dad18651a9552dc0f93e47f38e60b859ff639e84d8c3e80a47c698f3"
+      "tests_digest": "ce9b03d0feedb8670db49668a2c5c23b79f67a2079cb0eedfe3b738510c9470c"
     },
     {
       "id": "func/_exit_if_skipped",
@@ -122,7 +137,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "395dfd27192b8daa3f2d4148a2a391e6a018b0c72de5e3f6a3a9d7c00e08ade4"
+      "tests_digest": "3b60529a5cca6e96df071d6b126ab88f4b41f3f8451682621515448308e6b929"
     },
     {
       "id": "func/_prepare_directory_measurement",
@@ -137,7 +152,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_report_excluded",
@@ -152,7 +167,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_collect_union_files",
@@ -167,7 +182,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "3b728ae065ead1d9b20a97500c22ba7f2a3657f6779e314730eba8da17949d1d"
+      "tests_digest": "55e3df5ed672cf22f5de1d3f9abd241519e5b21eff7b2d8a5b4db066cce8bc37"
     },
     {
       "id": "func/_run_each_file",
@@ -182,7 +197,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "62279178e4dc4038bc1393901a84c08eab936c2f1bca96ed948ff86fd2bcd985"
+      "tests_digest": "63ef8a356e7d79abf52f7c08ed606c9275cc247cc9e4cec42aadc5ad0c85719f"
     },
     {
       "id": "func/_run_files_and_exit",
@@ -197,7 +212,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "62279178e4dc4038bc1393901a84c08eab936c2f1bca96ed948ff86fd2bcd985"
+      "tests_digest": "63ef8a356e7d79abf52f7c08ed606c9275cc247cc9e4cec42aadc5ad0c85719f"
     },
     {
       "id": "func/_dispatch_batch",
@@ -212,7 +227,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_raise_if_target_excluded",
@@ -227,7 +242,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "1f7c5266354971b2512c50177541ab98f657a2ba6d95acb4a4c39930ec862fa5"
+      "tests_digest": "79915b04476f3444ee0c8829aee4cfb9c85bc74947d648e54cd59e2531bb05e3"
     },
     {
       "id": "func/_resolve_roots",
@@ -242,14 +257,14 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
       "id": "func/_dispatch",
       "name": "_dispatch",
       "line": 270,
-      "end_line": 305,
-      "hash": "6f04cdaa909aafa35ad0af05a697d783e710539e2b815dc3e2394ac253c339e3",
+      "end_line": 304,
+      "hash": "efe868c675ff510baa21b244d3c61e268248414970e81378f65c74b676f6dd3c",
       "score": {
         "killed": 3,
         "survived": 0,
@@ -257,8 +272,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "ced0e45411ebbc36853b01a42ad0296c4604d9eaa49cf6c44ce37e5a7a852aba"
+      "tests_digest": "b97fa0fc7552921cf3006ce4139a57bf390b6ec04fa1b3479a98949a3314d726"
     }
   ],
-  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
+  "tests_fingerprint": "0dc944fad9ed4dce3bf7b4ef6fe1b1c474d5c8db9375840fe1c6977a6aa4caef"
 }

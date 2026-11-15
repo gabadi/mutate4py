@@ -58,17 +58,17 @@ def _run_header_lines(path: str, stats: RunStats) -> list[str]:
 
 
 def _uncovered_block_lines(
-    all_sites: list[Site],
+    path: str,
+    sites_in_scope: list[Site],
     covered_lines: set[int],
 ) -> list[str]:
-    """Return the "Uncovered mutations:" block's lines, or [] when nothing is uncovered."""
-    uncovered = [s for s in all_sites if s.line not in covered_lines]
+    uncovered = [s for s in sites_in_scope if s.line not in covered_lines]
     if not uncovered:
         return []
     lines = ["Uncovered mutations:"]
     for s in uncovered:
         fid = f" {s.function_id}" if s.function_id else ""
-        lines.append(f"  line {s.line} {s.desc}{fid}")
+        lines.append(f"  {path}:{s.line} {s.desc}{fid}")
     return lines
 
 
@@ -214,6 +214,21 @@ def _accepted_block_lines(accepted: list[tuple[Site, str]]) -> list[str]:
         fid = f" {s.function_id}" if s.function_id else ""
         lines.append(f"  line {s.line} {s.desc}{fid} (equivalent: {reason})")
     return lines
+
+
+def _module_level_block_lines(path: str, survivors: list[Site]) -> list[str]:
+    module_level = [s for s in survivors if not s.function_id]
+    if not module_level:
+        return []
+    return [
+        "",
+        "Module-level survivors (not recorded in the Manifest):",
+        *[f"  {path}:{s.line} {s.desc}" for s in module_level],
+    ]
+
+
+def _closing_block_lines(path: str, unaccepted: list[Site], accepted: list[tuple[Site, str]]) -> list[str]:
+    return _accepted_block_lines(accepted) + _module_level_block_lines(path, unaccepted)
 
 
 def _recorded_block_lines(recorded: list[tuple[str, dict]]) -> list[str]:

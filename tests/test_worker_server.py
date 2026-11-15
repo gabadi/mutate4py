@@ -4,6 +4,7 @@ subprocess/pytest. Companion to the real-process round trips in
 test_worker_protocol.py.
 """
 
+import dataclasses
 import io
 import json
 
@@ -116,6 +117,31 @@ def test_serve_tells_the_executor_which_dispatch_is_a_control_run():
     assert executor.controls == [False, True]
 
 
+class _TwoRunnerExecutor(_RecordingExecutor):
+    def __init__(self):
+        super().__init__()
+        self.fresh = _RecordingExecutor()
+
+    def fresh_interpreter(self):
+        return self.fresh
+
+
+@pytest.mark.unit
+def test_serve_runs_a_fresh_interpreter_request_on_the_executors_fresh_interpreter():
+    executor = _TwoRunnerExecutor()
+    statuses = _drive(
+        executor,
+        ["-p", "mutate4py._django_worker_plugin"],
+        {"args": ["-q", "a"], "timeout": 5.0, "fresh": True, "control": True},
+        {"args": ["-q", "b"], "timeout": 5.0},
+        neutralise=lambda args: ["--no-cov"],
+    )
+    assert statuses == ["survived", "survived"]
+    assert executor.fresh.calls == [["-q", "a", "--no-cov", "-p", "mutate4py._django_worker_plugin"]]
+    assert executor.fresh.controls == [True]
+    assert executor.calls == [["-q", "b", "--no-cov", "-p", "mutate4py._django_worker_plugin"]]
+
+
 class _DescribingExecutor(_RecordingExecutor):
     def describe(self) -> ExecutorDescription:
         return ExecutorDescription(mode="subprocess", reason="--no-fork")
@@ -139,6 +165,7 @@ def test_serve_answers_a_describe_request_with_its_executors_description_and_run
             "fresh_import": 0,
             "swap": 0,
             "fresh_interpreter": 0,
+            "file_mode": "",
         }
     }
     assert executor.calls == []
@@ -203,3 +230,11 @@ def test_main_asks_for_the_kill_switches_in_the_workers_own_directory(monkeypatc
     assert [json.loads(line) for line in stdout.getvalue().splitlines()] == [{"ready": True}, {"status": "survived"}]
     assert asked == [(["-q"], "/the/worker/cwd")]
     assert executor.calls == [["-q", "--fake-flag"]]
+
+
+@pytest.mark.unit
+def test_the_worker_startup_args_cannot_be_changed_after_they_are_parsed():
+    args = parse_worker_argv(["/w", "/w/calc.py", "1"])
+
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        args.cwd = "/elsewhere"  # type: ignore[misc]

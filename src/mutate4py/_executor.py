@@ -9,9 +9,17 @@ know which one it has.
 """
 
 import dataclasses
+import enum
 from typing import Protocol
 
-__all__ = ["Executor", "ExecutorDescription", "MutantTiming", "combine_descriptions"]
+__all__ = ["Executor", "ExecutorDescription", "FileMode", "MutantTiming", "combine_descriptions"]
+
+
+class FileMode(enum.StrEnum):
+    HARNESS = "harness"
+    SWAP = "swap"
+    FRESH_IMPORT = "fresh import"
+    FRESH_INTERPRETER = "fresh interpreter"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -23,6 +31,7 @@ class ExecutorDescription:
     fresh_import: int = 0
     swap: int = 0
     fresh_interpreter: int = 0
+    file_mode: str = ""
 
     def mode_counts(self) -> str:
         """How many Mutants ran by each forking mode, as the Executor line spells it."""
@@ -150,3 +159,5 @@ class Executor(Protocol):
         ...
 
     def describe(self) -> ExecutorDescription: ...
+
+    def fresh_interpreter(self) -> "Executor": ...

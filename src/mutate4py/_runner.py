@@ -30,12 +30,13 @@ from mutate4py._manifest_modes import check_manifest, update_manifest
 from mutate4py._measurement import ALL, CoverageCoreRefused, Measurement, MeasurementFailed, measure_in_scratch
 from mutate4py._plugin_neutralisation import neutralising_args
 from mutate4py._report import (
-    _accepted_block_lines,
+    _closing_block_lines,
     RunStats,
     SelectionTally,
     _mutation_report_lines,
     _recorded_block_lines,
     _run_header_lines,
+    _uncovered_block_lines,
     _workers_header_lines,
     executor_block_lines,
     measurement_failure,
@@ -49,7 +50,7 @@ from mutate4py._skipped_run import recorded_survivors_kept
 from mutate4py._site_selection import (
     _select_sites,
     _should_run_parallel,
-    _uncovered_lines_if_needed,
+    _sites_in_run_scope,
 )
 from mutate4py._source_loading import (
     RunSetup,
@@ -149,8 +150,7 @@ def _prepare_baseline_and_executor(
     # A caller-supplied executor is used as-is, never re-primed: the caller owns it
     # (a fake in tests, or one primed by a longer-lived caller).
     executor = request.executor
-    # A parallel run primes one Executor per Worker, in that Worker's own process (issue 04b).
-    if executor is None and not use_parallel:
+    if executor is None:
         executor = select_executor(
             no_fork_reason=no_fork_reason,
             cwd=request.cwd,
@@ -186,8 +186,13 @@ def _select_and_prepare(request: RunMutationsRequest, setup: RunSetup, max_worke
     digests = fresh_digests(measurement, abs_source, setup.loaded.clean_source)
     apply_digest_changes(setup.loaded, digests)
 
-    covered_count, uncovered_count = partition_sites(setup.loaded.all_sites, covered_lines)
     differential = setup.loaded.manifest_exists
+    scope_sites = _sites_in_run_scope(
+        setup.loaded.all_sites,
+        setup.loaded.changed_fn_ids,
+        differential=differential,
+    )
+    covered_count, uncovered_count = partition_sites(scope_sites, covered_lines)
     _, selected_sites = _select_sites(
         setup.loaded.all_sites,
         covered_lines,
@@ -205,13 +210,7 @@ def _select_and_prepare(request: RunMutationsRequest, setup: RunSetup, max_worke
         warning_threshold=request.warning_threshold,
     )
     _print_lines(_run_header_lines(request.path, run_stats))
-    _print_lines(
-        _uncovered_lines_if_needed(
-            setup.loaded.all_sites,
-            covered_lines,
-            differential=differential,
-        )
-    )
+    _print_lines(_uncovered_block_lines(request.path, scope_sites, covered_lines))
 
     use_parallel = _should_run_parallel(max_workers, len(selected_sites))
     _print_lines(_workers_header_lines(max_workers, use_parallel=use_parallel, n_selected=len(selected_sites)))
@@ -271,6 +270,7 @@ def _mutant_exec_ctx(
         cwd=request.cwd,
         pytest_args=request.pytest_args if outcome.use_parallel else outcome.mutant_pytest_args,
         executor=outcome.executor,
+        worker_executor=request.executor if outcome.use_parallel else None,
         timeout_policy=outcome.timeout_policy,
         max_workers=outcome.max_workers,
         use_parallel=outcome.use_parallel,
@@ -347,6 +347,8 @@ def _run_loop(request: RunMutationsRequest) -> int:
             scored_run=scored_run,
             fresh_digests=outcome.fresh_digests,
             fingerprint=setup.fingerprint,
+            write_manifest=scored_run is not None,
+            original_source=setup.loaded.source,
         )
     if result.error_msg is not None:
         # .info, not .error: this has always gone to stdout, like the cov_error branch above.
@@ -390,6 +392,6 @@ def _report_run(
         request.timing_sink.merge(result.timing)
     if measured_here and outcome.measurement is not None:
         _print_lines(measurement_lines(outcome.measurement))
-    _print_lines(_accepted_block_lines(scored_run.accepted()))
+    _print_lines(_closing_block_lines(request.path, scored_run.unaccepted(), scored_run.accepted()))
     survived = len(scored_run.unaccepted()) + len(recorded)
     return scored_run_exit_code(survived, allow_survivors=request.allow_survivors)

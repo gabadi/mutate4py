@@ -218,6 +218,31 @@ def test_parallel_path_report_present(parallel_three_site_run):
 
 
 @pytest.mark.system
+def test_parallel_path_confirms_each_survivor_once(parallel_three_site_run):
+    _, output, _, _ = parallel_three_site_run
+    assert "(3 run, 0 kills)" in output
+
+
+@pytest.mark.system
+def test_parallel_path_confirms_each_survivor_in_its_workers_clone_when_the_file_is_not_fresh_imported(
+    tmp_path, monkeypatch
+):
+    import mutate4py._execution as execution_mod
+
+    _stub_provision_with_interpreter(monkeypatch)
+    monkeypatch.setattr(execution_mod, "_on_fork_server", lambda executor: False)
+    src = _make_multi_site_source(3)
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+
+    rc, output = _run_with_capture(tmp_path, src_path, src, max_workers=3)
+
+    assert rc == 3
+    assert "(3 run, 0 kills)" in output
+
+
+@pytest.mark.system
 def test_parallel_path_target_outside_cwd_error(tmp_path, monkeypatch):
     """Target file outside cwd -> error, no worker root created."""
     import tempfile
@@ -538,7 +563,7 @@ def test_narrowing_and_parallel_workers_compose_in_one_run(tmp_path, monkeypatch
             assert "worker-" in line, f"Expected worker token, forced serial: {line}"
 
 
-# ── no tests collected / usage error: the fourth ADR 0018 case (issue #55) ────
+# ── no tests collected / usage error (issue #55) ────
 
 
 def _run_with_abort_status(tmp_path, status):
@@ -596,3 +621,114 @@ def test_no_tests_collected_restores_the_source_and_removes_the_backup(tmp_path,
         final = f.read()
     assert strip_manifest(final).rstrip("\n") == src.rstrip("\n")
     assert not os.path.isfile(src_path + ".bak")
+
+
+def _run_sidecar(tmp_path, src, status):
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+    return run_mutations(
+        RunMutationsRequest(
+            path=src_path,
+            source=src,
+            pytest_args=["-q"],
+            timeout_factor=10,
+            warning_threshold=1000,
+            cwd=str(tmp_path),
+            executor=_FakeExecutor(status=status),
+            measurement=_measured(src_path, src),
+            manifest_file=True,
+        )
+    )
+
+
+@pytest.mark.unit
+def test_aborted_run_leaves_the_sidecar_as_the_last_completed_run_wrote_it(tmp_path):
+    old = _make_multi_site_source(1)
+    assert _run_sidecar(tmp_path, old, "killed") == 0
+    sidecar = tmp_path / "calc.py.manifest.json"
+    before = sidecar.read_bytes()
+
+    changed = old.replace("a > b", "a >= b")
+    assert _run_sidecar(tmp_path, changed, "no-tests-collected") == 2
+
+    assert sidecar.read_bytes() == before
+    assert (tmp_path / "calc.py").read_text() == changed
+
+
+def _run_embedded(tmp_path, src, status):
+    src_path = str(tmp_path / "calc.py")
+    return run_mutations(
+        RunMutationsRequest(
+            path=src_path,
+            source=src,
+            pytest_args=["-q"],
+            timeout_factor=10,
+            warning_threshold=1000,
+            cwd=str(tmp_path),
+            executor=_FakeExecutor(status=status),
+            measurement=_measured(src_path, src),
+        )
+    )
+
+
+@pytest.mark.unit
+def test_aborted_embed_run_leaves_the_footer_as_the_last_completed_run_wrote_it(tmp_path):
+    old = _make_multi_site_source(1)
+    (tmp_path / "calc.py").write_text(old)
+    assert _run_embedded(tmp_path, old, "killed") == 0
+    edited = (tmp_path / "calc.py").read_text().replace("a > b", "a >= b")
+    (tmp_path / "calc.py").write_text(edited)
+
+    assert _run_embedded(tmp_path, edited, "no-tests-collected") == 2
+
+    assert (tmp_path / "calc.py").read_text() == edited
+
+
+@pytest.mark.unit
+def test_aborted_embed_run_adds_no_footer_to_a_file_that_had_none(tmp_path):
+    src = _make_multi_site_source(1)
+    (tmp_path / "calc.py").write_text(src)
+
+    assert _run_embedded(tmp_path, src, "usage-error") == 2
+
+    assert (tmp_path / "calc.py").read_text() == src
+
+
+_BAD_FOOTERS = {
+    "unparsable": "# mutate4py-manifest-begin\n# {not json\n# mutate4py-manifest-end\n",
+    "multi-line": (
+        '# mutate4py-manifest-begin\n# {\n#   "version": 1,\n#   "functions": []\n# }\n# mutate4py-manifest-end\n'
+    ),
+}
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("footer", _BAD_FOOTERS.values(), ids=_BAD_FOOTERS.keys())
+def test_aborted_embed_run_leaves_a_footer_it_cannot_use_byte_for_byte(tmp_path, footer):
+    src = _make_multi_site_source(1)
+    on_disk = src + footer
+    (tmp_path / "calc.py").write_text(on_disk)
+
+    assert _run_embedded(tmp_path, on_disk, "no-tests-collected") == 2
+
+    assert (tmp_path / "calc.py").read_text() == on_disk
+
+
+@pytest.mark.unit
+def test_a_parallel_worker_failure_leaves_the_footer_as_the_last_completed_run_wrote_it(tmp_path, monkeypatch):
+    import mutate4py._runner as runner_mod
+    from mutate4py._execution import ExecutionOutcome
+
+    old = _make_multi_site_source(1)
+    (tmp_path / "calc.py").write_text(old)
+    assert _run_embedded(tmp_path, old, "killed") == 0
+    before = (tmp_path / "calc.py").read_text().replace("a > b", "a >= b")
+    (tmp_path / "calc.py").write_text(before)
+    monkeypatch.setattr(
+        runner_mod, "_execute_mutations", lambda **_kw: ExecutionOutcome(error_msg="mutation worker failed: boom")
+    )
+
+    assert _run_embedded(tmp_path, before, "killed") == 1
+
+    assert (tmp_path / "calc.py").read_text() == before

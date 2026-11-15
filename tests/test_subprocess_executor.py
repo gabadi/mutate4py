@@ -37,6 +37,12 @@ def test_describe_renders_the_subprocess_executor_with_its_reason(tmp_path):
     assert executor.describe().render() == "subprocess (--no-fork)"
 
 
+@pytest.mark.unit
+def test_a_subprocess_executor_is_its_own_fresh_interpreter():
+    executor = SubprocessExecutor(cwd="/tmp", guarded_path="/tmp/under_test.py")
+    assert executor.fresh_interpreter() is executor
+
+
 @pytest.mark.system
 def test_run_survives_when_tests_pass(tmp_path):
     cwd = _write_project(tmp_path, target_body="def add(a, b):\n    return a + b\n", test_body=_ADD_TEST_BODY)

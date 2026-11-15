@@ -8,6 +8,7 @@ entirely is failed here, with its measured duration and a duration-based
 suggestion attached to *that* failure, so the fix stays visible right where the
 test broke rather than as a separate, easy-to-ignore report."""
 
+import logging
 import multiprocessing.process
 import os
 import subprocess
@@ -44,6 +45,14 @@ def _nested_pytest_loads_only_named_plugins(request, monkeypatch):
     monkeypatch.setenv(ADDOPTS, env[ADDOPTS])
 
 
+@pytest.fixture(autouse=True)
+def _package_logger_level_survives_the_test():
+    package_logger = logging.getLogger("mutate4py")
+    level = package_logger.level
+    yield
+    package_logger.setLevel(level)
+
+
 @pytest.fixture
 def nested_pytest_loads_tach(monkeypatch):
     """For a test whose nested pytest must register tach, the fork-unsafe plugin
@@ -72,14 +81,14 @@ def pytest_runtest_makereport(item, call):
         return
     except ValueError:
         pass
-    category = next((m.name for m in item.own_markers if m.name in _CATEGORY_MARKERS), None)
-    if category is not None:
+    categories = [m.name for m in item.own_markers if m.name in _CATEGORY_MARKERS]
+    if len(categories) == 1:
         return
     suggested = "system" if call.duration >= _SYSTEM_THRESHOLD_SECONDS else "unit"
     report.outcome = "failed"
     report.longrepr = (
-        f"{item.nodeid} has no @pytest.mark.{{unit,system}} (mandatory -- see "
-        "pyproject.toml markers).\n"
+        f"{item.nodeid} has {len(categories)} of @pytest.mark.{{unit,system}}, and it needs exactly one "
+        "(mandatory -- see pyproject.toml markers).\n"
         f"Measured duration: {call.duration:.3f}s -> suggested: @pytest.mark.{suggested}\n"
         "(system is a manual call, not duration-based: only for a test that runs real processes "
         "(a fork server, worker servers, nested pytest, a spawned interpreter), outside code mutation and coverage)"

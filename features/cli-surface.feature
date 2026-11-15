@@ -55,7 +55,7 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   # CONSTRAINTS:
   #   - Positive-int flags (--mutation-warning, --timeout-factor, --max-workers) require
   #     an integer >= 1; non-integer or <= 0 is a usage error (parsePositiveInt).
-  #   - Mutual exclusion (fail-loud, never silent-precedence; ADR 0008):
+  #   - Mutual exclusion (fail-loud, never silent-precedence):
   #       * --scan and --update-manifest: exclusive of each other AND of every execution
   #         option (non-default --timeout-factor, a non-empty --pytest-args,
   #         --max-workers).

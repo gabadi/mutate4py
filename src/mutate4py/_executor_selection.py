@@ -4,9 +4,9 @@ eligible for this process, the subprocess executor otherwise.
 Eligibility is a property of *this interpreter* (its platform, its pytest,
 the plugins its prime session registers), so the choice is made once per
 process attempting it: a Worker server's own process (`_worker_server.py`),
-whether it is one Worker of a parallel run or the fork server a serial run
-starts over the project tree. The orchestrator itself never primes a forking
-executor. See tach.toml for why this module may not sit in a layer above
+whether it is one Worker of a parallel run or the fork server the orchestrator
+starts over the project tree, for a serial run and a parallel one. The
+orchestrator itself never primes a forking executor. See tach.toml for why this module may not sit in a layer above
 `execution_backends`.
 """
 
@@ -40,8 +40,8 @@ def select_executor(
     pytest_args: Sequence[str] = (),
     ran_at_import: frozenset[int] = frozenset(),
 ) -> Executor:
-    """Pick the executor for a serial run the caller supplied none for (a parallel
-    run primes one in each Worker's own process instead): a primed fork server
+    """Pick the executor for a run the caller supplied none for (a parallel run also
+    primes one in each Worker's own process): a primed fork server
     when the forking executor is wanted and this platform can fork; a primed
     subprocess executor otherwise. no_fork_reason is None
     when the forking executor is wanted; otherwise it is the reason the

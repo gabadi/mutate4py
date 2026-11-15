@@ -119,6 +119,57 @@ def test_nested_constructs_fold_into_outer(src):
     assert all(s.function_id == "func/outer" for s in sites)
 
 
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "src,expected_id",
+    [
+        ("class C:\n    LIMIT = 2 > 1\n", "class/C"),
+        ("@wrap(1 > 0)\nclass C:\n    pass\n", "class/C"),
+        ("class Outer:\n    class Inner:\n        LIMIT = 2 > 1\n", "class/Outer.Inner"),
+        ("class Outer:\n    class Inner:\n        pass\n    LIMIT = 2 > 1\n", "class/Outer"),
+    ],
+)
+def test_a_site_in_a_class_body_belongs_to_that_class(src, expected_id):
+    assert scan(src)[-1].function_id == expected_id
+
+
+@pytest.mark.unit
+def test_a_site_in_a_nested_class_of_each_of_two_classes_gets_its_own_id():
+    sites = scan("class A:\n    class Meta:\n        X = 1 > 0\n\n\nclass B:\n    class Meta:\n        X = 2 > 1\n")
+    assert {s.line: s.function_id for s in sites if s.desc.endswith("> 0") or s.desc.endswith("> 1")} == {
+        3: "class/A.Meta",
+        8: "class/B.Meta",
+    }
+
+
+@pytest.mark.unit
+def test_a_site_in_a_method_of_a_nested_class_gets_the_id_of_its_parent_chain():
+    src = (
+        "class A:\n    class Meta:\n        def f(self):\n            return 1 > 0\n\n\n"
+        "class B:\n    class Meta:\n        def f(self):\n            return 2 > 1\n"
+    )
+    sites = scan(src)
+    assert {s.line: s.function_id for s in sites if s.desc.endswith("> 0") or s.desc.endswith("> 1")} == {
+        4: "func/A.Meta.f",
+        10: "func/B.Meta.f",
+    }
+
+
+@pytest.mark.unit
+def test_a_site_in_a_method_still_belongs_to_the_method_not_its_class():
+    sites = scan("class C:\n    LIMIT = 2 > 1\n    def m(self):\n        return 3 > 2\n")
+    assert {s.line: s.function_id for s in sites if s.desc.startswith("2 >") or s.desc.startswith("3 >")} == {
+        2: "class/C",
+        4: "func/C.m",
+    }
+
+
+@pytest.mark.unit
+def test_a_class_inside_a_function_folds_into_the_function():
+    sites = scan("def f():\n    class C:\n        LIMIT = 2 > 1\n")
+    assert {s.function_id for s in sites} == {"func/f"}
+
+
 # ── Large integer literals are excluded ───────────────────────────────────────
 
 
@@ -229,14 +280,14 @@ def test_negative_literal_yields_two_sites():
 
 @pytest.mark.unit
 def test_negative_zero_yields_only_constant_site():
-    # ADR 0024 (zero literals): unary minus on a numeric zero literal is equivalent, so no unary site.
+    # Unary minus on a numeric zero literal is equivalent, so no unary site.
     assert [(s.orig_text, s.mutant_text) for s in scan("x = -0")] == [("0", "1")]
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize("expr", ["x = -0.0", "x = -0j"])
 def test_negative_float_and_complex_zero_yield_no_site(expr):
-    # ADR 0024 (zero literals): the zero exclusion covers every numeric zero literal, not only int 0.
+    # The zero exclusion covers every numeric zero literal, not only int 0.
     assert scan(expr) == []
 
 

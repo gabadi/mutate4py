@@ -1,15 +1,15 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T05:21:57Z",
-  "module_hash": "8e3a6461a8b8c2a37dbdac33268650bc3c74ff2db0949641b3e97a94d6b310c8",
-  "source_sha256": "6e5d876f3f072dba98656b479128577f990b9a8d4d4d39994536cb33c6a6bcfe",
+  "tested_at": "2026-11-15T23:26:53Z",
+  "module_hash": "847ceaff0783c3e269330d8555b1213c5abaed09be3f0230756214dd19cb7597",
+  "source_sha256": "4725241b9323307b16e45d8a811365fb1b896d2653bc4a4bf407b4a534ba6a82",
   "functions": [
     {
       "id": "func/function_unit_id",
       "name": "function_unit_id",
-      "line": 6,
-      "end_line": 16,
-      "hash": "cd7db1047a88c7306b9e5d4769090de1665329ead7a6b9449756562491ee73c1",
+      "line": 7,
+      "end_line": 14,
+      "hash": "ff5dc90963ff4b8ca9469730063f2c2edfc85ce0495d2fff9eccb55af5d16c59",
       "score": {
         "killed": 0,
         "survived": 0,
@@ -17,8 +17,53 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
+    },
+    {
+      "id": "func/class_unit_id",
+      "name": "class_unit_id",
+      "line": 17,
+      "end_line": 18,
+      "hash": "8e1c6cfa908949d4cf801bdb11492fb22ba787bbc09b08a9eeee754e49e7f437",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
+    },
+    {
+      "id": "func/enclosing_class_names",
+      "name": "enclosing_class_names",
+      "line": 21,
+      "end_line": 22,
+      "hash": "f48428d2239ff1b505f29a5743f0db6307e8bb9faac9041c7ebe25869b0e614f",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
+    },
+    {
+      "id": "func/class_body_unit_id",
+      "name": "class_body_unit_id",
+      "line": 25,
+      "end_line": 27,
+      "hash": "561e2bfd9ae0330afdcadd68ae2d88a2b77954c0a16a4e1abdb59cd51f272296",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     }
   ],
-  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
+  "tests_fingerprint": "eb683dcf74d1ca7acea44ba3c3c038ca5884aef794fdcd6b3c5f8f8a6252bb70"
 }

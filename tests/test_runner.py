@@ -12,7 +12,7 @@ from ._pytest_project_helpers import (
 from ._measurement_helpers import measurement_for
 from mutate4py._discovery import discover_sites
 from mutate4py._measurement import Measurement
-from mutate4py._manifest import build_manifest, embed_manifest, strip_manifest
+from mutate4py._manifest import build_manifest, embed_manifest, extract_manifest, strip_manifest
 from mutate4py._runner import (
     RunMutationsRequest,
     check_manifest,
@@ -305,6 +305,55 @@ def test_run_mutations_refreshes_tested_at_on_scored_run_over_unscored_manifest(
     assert result_manifest["functions"][0]["survivors"] == [{"line": 2, "desc": "a > b -> a >= b"}]
 
 
+def _survivor_run(tmp_path, src):
+    import io
+    from contextlib import redirect_stdout
+
+    src_path = str(tmp_path / "calc.py")
+    (tmp_path / "calc.py").write_text(src)
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        rc = run_mutations(
+            RunMutationsRequest(
+                path=src_path,
+                source=src,
+                measurement=_measured(src_path, [s.line for s in discover_sites(src)]),
+                pytest_args=write_always_passing_pytest_project(str(tmp_path)),
+                timeout_factor=10,
+                warning_threshold=1000,
+                cwd=str(tmp_path),
+            )
+        )
+    return src_path, rc, buf.getvalue()
+
+
+@pytest.mark.system
+def test_a_class_body_survivor_is_recorded_under_the_class_and_check_manifest_fails_on_it(tmp_path):
+    src = "class Box:\n    LIMIT = 2 > 1\n\n\ndef f(a, b):\n    return a > b\n"
+
+    src_path, rc, output = _survivor_run(tmp_path, src)
+
+    entries = {fn["id"]: fn for fn in extract_manifest((tmp_path / "calc.py").read_text())[0]["functions"]}
+    assert rc == 3
+    assert {s["line"] for s in entries["class/Box"]["survivors"]} == {2}
+    assert [s["line"] for s in entries["func/f"]["survivors"]] == [6]
+    assert check_manifest(path=src_path, source=(tmp_path / "calc.py").read_text()) == 1
+    assert "Module-level survivors" not in output
+
+
+@pytest.mark.system
+def test_a_module_level_survivor_is_reported_by_file_and_line_and_is_not_recorded(tmp_path):
+    src = "LIMIT = 2 > 1\n\n\ndef f(a, b):\n    return a > b\n"
+
+    src_path, rc, output = _survivor_run(tmp_path, src)
+
+    entries = {fn["id"]: fn for fn in extract_manifest((tmp_path / "calc.py").read_text())[0]["functions"]}
+    assert rc == 3
+    assert "Module-level survivors (not recorded in the Manifest):" in output
+    assert f"  {src_path}:1 2 > 1 -> 2 >= 1" in output
+    assert list(entries) == ["func/f"]
+
+
 @pytest.mark.system
 def test_run_mutations_header_counts(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
@@ -346,7 +395,7 @@ def test_run_mutations_header_counts(tmp_path):
 @pytest.mark.system
 def test_run_mutations_prints_uncovered_block_for_uncovered_sites(tmp_path):
     """Pins the exact "Uncovered mutations:" block text through run_mutations —
-    gate 14 turned its production (_uncovered_lines_if_needed) from a print into
+    gate 14 turned its production (_uncovered_block_lines) from a print into
     a return, and _select_and_prepare's _print_lines(...) wrapping must still
     produce byte-for-byte the same output as before that change.
     """
@@ -377,7 +426,61 @@ def test_run_mutations_prints_uncovered_block_for_uncovered_sites(tmp_path):
         )
     output = buf.getvalue()
     assert "Uncovered mutations:" in output
-    assert f"  line {sites[1].line} {sites[1].desc} {sites[1].function_id}" in output
+    assert f"  {src_path}:{sites[1].line} {sites[1].desc} {sites[1].function_id}" in output
+
+
+def _differential_run_after_editing_f(tmp_path, covered_after_edit):
+    src = "def f(a, b):\n    return a > b\n\n\ndef g(a, b):\n    return a < b\n"
+    src_path = str(tmp_path / "calc.py")
+    (tmp_path / "calc.py").write_text(src)
+    pytest_args = write_always_passing_pytest_project(str(tmp_path))
+
+    def run(source, covered):
+        import io
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            run_mutations(
+                RunMutationsRequest(
+                    path=src_path,
+                    source=source,
+                    measurement=_measured(src_path, covered),
+                    pytest_args=pytest_args,
+                    timeout_factor=10,
+                    warning_threshold=1000,
+                    cwd=str(tmp_path),
+                )
+            )
+        return buf.getvalue()
+
+    run(src, [s.line for s in discover_sites(src)])
+    edited = src.replace("return a > b", "return a >= b")
+    (tmp_path / "calc.py").write_text(embed_manifest(edited, extract_manifest((tmp_path / "calc.py").read_text())[0]))
+    sites = discover_sites(edited)
+    changed_site = next(s for s in sites if s.function_id.endswith("/f"))
+    unchanged_site = next(s for s in sites if s.function_id.endswith("/g"))
+    covered = [unchanged_site.line] if covered_after_edit == "g" else []
+    return src_path, changed_site, unchanged_site, run((tmp_path / "calc.py").read_text(), covered)
+
+
+@pytest.mark.system
+def test_a_differential_run_lists_the_uncovered_sites_of_the_changed_functions_only(tmp_path):
+    src_path, changed_site, unchanged_site, output = _differential_run_after_editing_f(tmp_path, "none")
+
+    assert "Manifest exists: true" in output
+    assert "Uncovered mutation sites: 1" in output
+    assert f"  {src_path}:{changed_site.line} {changed_site.desc} {changed_site.function_id}" in output
+    assert f"{src_path}:{unchanged_site.line}" not in output
+
+
+@pytest.mark.system
+def test_a_differential_run_header_counts_covered_and_uncovered_sites_in_the_run_scope(tmp_path):
+    _, _, _, output = _differential_run_after_editing_f(tmp_path, "g")
+
+    assert "Total mutation sites: 2" in output
+    assert "Covered mutation sites: 0" in output
+    assert "Uncovered mutation sites: 1" in output
 
 
 @pytest.mark.system
@@ -521,6 +624,30 @@ def test_check_manifest_fast_path_current_returns_0(tmp_path, capsys):
     rc = check_manifest(path=path, source=source_with_manifest)
 
     assert rc == 0
+    assert f"Manifest current: {path}" in capsys.readouterr().out
+
+
+@pytest.mark.unit
+def test_check_manifest_reports_stale_a_manifest_of_an_unchanged_source_that_lacks_its_class_entries(tmp_path, capsys):
+    src = "class Box:\n    LIMIT = 2\n\n\ndef f(a, b):\n    return a > b\n"
+    manifest = build_manifest(src, tested_at="2020-01-01T00:00:00Z")
+    manifest["functions"] = [fn for fn in manifest["functions"] if not fn["id"].startswith("class/")]
+    p = tmp_path / "mod.py"
+    p.write_text(embed_manifest(src, manifest))
+
+    rc = check_manifest(path=str(p), source=p.read_text())
+
+    assert rc == 1
+    assert f"Manifest stale: {p}" in capsys.readouterr().out
+
+
+@pytest.mark.unit
+def test_check_manifest_reports_current_a_manifest_of_an_unchanged_source_with_its_class_entries(tmp_path, capsys):
+    src = "class Box:\n    LIMIT = 2\n\n\ndef f(a, b):\n    return a > b\n"
+    path, source_with_manifest = _source_with_current_manifest(tmp_path, src)
+    capsys.readouterr()
+
+    assert check_manifest(path=path, source=source_with_manifest) == 0
     assert f"Manifest current: {path}" in capsys.readouterr().out
 
 

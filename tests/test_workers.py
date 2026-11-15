@@ -14,6 +14,7 @@ from mutate4py._executor import ExecutorDescription
 from mutate4py._test_dispatch import MutantPlan, NoTestsCollectedError
 from mutate4py._worker_protocol import ServerLaunch, WorkerProcessError, check_worker_python
 from mutate4py._worker_provision import _copy_tree, _link_import_root
+from mutate4py._worker_results import _summarize_results
 from mutate4py._workers import (
     SiteAssignment,
     WorkerFailureError,
@@ -25,7 +26,6 @@ from mutate4py._workers import (
     _provision_worker,
     _provision_workers,
     _run_one_site,
-    _summarize_results,
 )
 
 from ._scripted_executor import ScriptedExecutor
@@ -391,7 +391,7 @@ def test_link_import_root_links_the_package_outside_the_worker_tree(tmp_path, mo
 def test_link_import_root_writes_a_pth_file_into_the_worker_venv_after_its_own_entries(tmp_path, monkeypatch):
     """The import root is a `.pth` in the Worker venv's purelib, probed under the Worker's
     own interpreter. The name sorts after the editable install's `_<name>.pth`, so the
-    project's own mutate4py wins when both exist (ADR 0015, dogfood)."""
+    project's own mutate4py wins when both exist (dogfood)."""
     worker_root = tmp_path / "run" / "worker-1"
     worker_root.mkdir(parents=True)
     package_dir = tmp_path / "src" / "mutate4py"

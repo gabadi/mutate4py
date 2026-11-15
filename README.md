@@ -36,7 +36,7 @@ Nothing has to be generated first. Each scored run takes its own **Measurement**
 before any Mutant runs: one pytest session under coverage.py, which gives the unmutated
 pass requirement, the coverage gate and the test map (ADR 0027). If your suite has slow
 tests that mutation should not run, select the rest with `--pytest-args`; this
-repository's own selection is `-m unit` (ADR 0023).
+repository's own selection is `-m unit`.
 
 See `mutate4py --help` for the full flag set, and the flags table below for the ones
 that shape a scored run.
@@ -70,7 +70,7 @@ patterns, expanded with `glob.glob(..., recursive=True)`:
 mutate4py 'src/**/*.py' --check-manifest
 ```
 
-How many paths that resolves to decides the run shape (ADR 0017): **one**
+How many paths that resolves to decides the run shape: **one**
 path runs exactly like today (single-file or directory dispatch); **two or
 more** run as a single **union batch** — one Measurement, one exit code, `.py`
 files under every root deduped by realpath:
@@ -188,16 +188,14 @@ line. A `static` outcome — the line ran only under coverage's whole-run contex
 module-level constants, imports, or class headers — is not a narrowing failure: that
 Mutant runs the full test set verbatim. A run with several `static` Mutants will show a
 longer tail than a fully narrowed one; that's expected, not a defect. The report prints
-`Test selection: narrowed <n>, static <k>`. See
-[ADR 0018](docs/adr/0018-test-selection-three-case-no-silent-fallback.md) for the two
-outcomes.
+`Test selection: narrowed <n>, static <k>`.
 
 **Survivor confirmation.** A narrowed run can miss a killing test that matters only
 through state it reads. So before a Survivor is reported, it is re-run with the full test
-set, in a fresh interpreter through the subprocess executor. It counts only if it survives
-that run too; a kill, or a timeout, folds into killed (ADR 0011). Accepted equivalents are
+set: on the fork server when the guarded file is fresh imported, else in a fresh
+interpreter. It counts only if it survives that run too; a kill, or a timeout, folds into killed (ADR 0011). Accepted equivalents are
 not confirmed. The `Time:` line shows the cost as
-`confirmation <s> (<n> run, <k> kills)`. See ADR 0018 (amendment #97) and
+`confirmation <s> (<n> run, <k> kills)`. See [ADR 0018](docs/adr/0018-test-selection-three-case-no-silent-fallback.md) and
 [ADR 0028](docs/adr/0028-fork-server-harness-mode-and-swap-mode.md).
 
 ## Tests digest and the rerun skip rule
@@ -222,9 +220,7 @@ and reports the recorded Survivors on the same terms. A run with no Manifest re-
 every function (`--mutate-all` was removed by spec #115).
 
 `--check-manifest` checks hashes, recorded Survivors and equivalent markers, not digests:
-it runs no test, so it cannot recompute one, and a stale digest does not fail it. See
-[ADR 0029](docs/adr/0029-per-function-tests-digest-and-skip-rule.md) and
-[ADR 0026](docs/adr/0026-survivors-fail-the-run-and-stay-in-the-manifest.md).
+it runs no test, so it cannot recompute one, and a stale digest does not fail it.
 
 ## Timeouts
 
@@ -298,7 +294,7 @@ orchestrator's state never reaches a Mutant. Each child runs its Mutant one of t
 The **subprocess executor** runs one fresh `pytest` process per Mutant. `--no-fork` forces
 it. It is also the whole-run fallback wherever forking is impossible or unsafe (no
 `os.fork`, pytest not importable, a fork-unsafe plugin such as tach), and it runs every
-Survivor confirmation. The `Executor:` line in the report says which ran, and how many
+Survivor confirmation of a swap or harness file. The `Executor:` line in the report says which ran, and how many
 Mutants ran each way. See [ADR 0028](docs/adr/0028-fork-server-harness-mode-and-swap-mode.md).
 
 ## Django projects

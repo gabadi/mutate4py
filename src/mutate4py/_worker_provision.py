@@ -89,7 +89,7 @@ _DISTRIBUTIONS_PROBE = (
 
 
 def check_worker_distributions(worker_root: str, required: frozenset[str]) -> None:
-    """Refuse a Worker venv missing a distribution the project environment holds (ADR 0015).
+    """Refuse a Worker venv missing a distribution the project environment holds.
     `uv sync` installs default groups only, so without this check the Baseline and the
     Mutants could run under different dependencies. An empty `required` skips the probe."""
     if not required:
@@ -128,7 +128,7 @@ def _provision_venv(worker_root: str, required: frozenset[str]) -> None:
 
 
 def _required_worker_distributions(real_cwd: str) -> frozenset[str]:
-    """The distributions every Worker venv must hold (ADR 0015): the project environment's
+    """The distributions every Worker venv must hold: the project environment's
     when the orchestrator runs under that `.venv`, else none (mutate4py's own venv, as in
     the parallel-workers-15 acceptance scenario). mutate4py itself is never required."""
     if os.path.realpath(sys.prefix) != os.path.realpath(os.path.join(real_cwd, ".venv")):

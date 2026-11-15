@@ -1,14 +1,29 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T12:54:49Z",
-  "module_hash": "0d1080e1bf407a3d6d4b428af2300c21b69d2a0ab3862539c53a7252e6843888",
-  "source_sha256": "7dea65405880ec3150b237a9dab1bd11891ccf7e2c7c662f77292cf3ff05a35d",
+  "tested_at": "2026-11-15T23:02:06Z",
+  "module_hash": "1b293d27d855c451e6d2865517368ff6a9df99802229808e250b46f86df799f2",
+  "source_sha256": "8d6573d28df732952b127555dd88410d5f179945a21d398e96c8ed3680e15fff",
   "functions": [
+    {
+      "id": "class/MutantExecCtx",
+      "name": "MutantExecCtx",
+      "line": 38,
+      "end_line": 59,
+      "hash": "2e0c2cb0c29a41900ce3cff4778799b5c7bed7c6c4638dfff1e3b247f802372f",
+      "score": {
+        "killed": 3,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "f792a9f9440219c9e54ea560cab55f555dcb1db8100fb7a0acab77fe25f9caf5"
+    },
     {
       "id": "func/_run_mutation_loop",
       "name": "_run_mutation_loop",
-      "line": 59,
-      "end_line": 109,
+      "line": 62,
+      "end_line": 112,
       "hash": "6f489cac0a3fcf6e5bab1608a78ade71c9e58895b27eaa9b4329b39c9d9e2add",
       "score": {
         "killed": 12,
@@ -17,14 +32,14 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "26847d12f48eb35ef1deefcb23ad12089b9464e11a68ea08a2bc45e00b11c950"
+      "tests_digest": "66633d44462020f8ef7eb84ac5baf1214c6a0f1eb957f44d50e37a8153a662d4"
     },
     {
       "id": "func/_run_parallel_workers",
       "name": "_run_parallel_workers",
-      "line": 112,
-      "end_line": 149,
-      "hash": "ddbe82bc5bec84798b0a6a42b41a770fc4cd51e257b9b82776f2003d49462da9",
+      "line": 115,
+      "end_line": 153,
+      "hash": "7062ac081a3b0ea77574bcc37da10ec9b5d9c6a87254561f2987968c8766b09d",
       "score": {
         "killed": 0,
         "survived": 0,
@@ -32,29 +47,44 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "d00c757fde26178e92946eb4873e2a4b094ca1853ba8a72fb4efc9bc67adafce"
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
     },
     {
-      "id": "func/_confirm_survivors",
-      "name": "_confirm_survivors",
-      "line": 171,
-      "end_line": 207,
-      "hash": "528a2ec4687b963d03f3caee093179d0e4ebdd7fbdf34f5f79a01709f37f427e",
+      "id": "class/ExecutionOutcome",
+      "name": "ExecutionOutcome",
+      "line": 157,
+      "end_line": 172,
+      "hash": "b3742d8413e5e449378405a29234e02a31096fa86c339a5dd7a49b5f3fc84d80",
       "score": {
-        "killed": 6,
+        "killed": 2,
         "survived": 0,
         "uncovered": 0
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "26847d12f48eb35ef1deefcb23ad12089b9464e11a68ea08a2bc45e00b11c950"
+      "tests_digest": "f792a9f9440219c9e54ea560cab55f555dcb1db8100fb7a0acab77fe25f9caf5"
     },
     {
-      "id": "func/_execute_mutations",
-      "name": "_execute_mutations",
-      "line": 210,
-      "end_line": 247,
-      "hash": "ab69dad8974e3dc70f464054596cc774c18a343d05aa889ac1cfdb46747fc36d",
+      "id": "func/_confirm_survivors",
+      "name": "_confirm_survivors",
+      "line": 175,
+      "end_line": 185,
+      "hash": "e7e264da341774d9152740e76d1af6d44f769b50be694fae916ba22db209bb3a",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
+    },
+    {
+      "id": "func/_on_fork_server",
+      "name": "_on_fork_server",
+      "line": 188,
+      "end_line": 189,
+      "hash": "90407270e88339729f16ffeed1407d32cbf13d5a145cadf425816cb81473b022",
       "score": {
         "killed": 1,
         "survived": 0,
@@ -62,8 +92,53 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "4c9ed4dcfe1f7284f12903a6fe73ad8519dad98f6c28f0c5ad02bf2e4a241cdd"
+      "tests_digest": "66633d44462020f8ef7eb84ac5baf1214c6a0f1eb957f44d50e37a8153a662d4"
+    },
+    {
+      "id": "func/_confirmation_executor",
+      "name": "_confirmation_executor",
+      "line": 192,
+      "end_line": 195,
+      "hash": "1b1dcd164ae834cae1a74ab0abea6aa59326f25baa9a21bb5641d8c9e9db43fb",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
+    },
+    {
+      "id": "func/_confirmation_in_clones",
+      "name": "_confirmation_in_clones",
+      "line": 198,
+      "end_line": 201,
+      "hash": "a83aad5f9fdb55c95bced67de788b7b3bbb965c24c2fb0e7ec8acb83c450a15f",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
+    },
+    {
+      "id": "func/_execute_mutations",
+      "name": "_execute_mutations",
+      "line": 204,
+      "end_line": 247,
+      "hash": "bdc28d56945853919152f5c52db72872d9af6e87b2ce76068856a4916cec32db",
+      "score": {
+        "killed": 2,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "66633d44462020f8ef7eb84ac5baf1214c6a0f1eb957f44d50e37a8153a662d4"
     }
   ],
-  "tests_fingerprint": "25ae60bbb800f9d6710a8e13285b1dcacf8cf632ef0d5b1e6e12cbba25d7a607"
+  "tests_fingerprint": "0dc944fad9ed4dce3bf7b4ef6fe1b1c474d5c8db9375840fe1c6977a6aa4caef"
 }

@@ -102,6 +102,11 @@ def test_tests_for_line_names_the_reaching_tests_sorted_when_narrowed():
 
 
 @pytest.mark.unit
+def test_rootdir_is_the_pytest_rootdir_the_node_ids_are_relative_to():
+    assert measurement_from(_data({}), _record(rootdir="/proj/member"), wall=1.0).rootdir == "/proj/member"
+
+
+@pytest.mark.unit
 def test_tests_for_line_is_static_with_no_tests_when_only_import_time_reached_it():
     m = measurement_from(_data({"": [1]}), _record(), wall=1.0)
 

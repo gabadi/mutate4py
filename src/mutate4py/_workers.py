@@ -22,17 +22,33 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable
 
 from mutate4py._discovery import Site, apply_mutant
-from mutate4py._executor import Executor, ExecutorDescription, combine_descriptions
+from mutate4py._executor import Executor, MutantTiming
 from mutate4py._plugin_neutralisation import disabled_plugin_args
 from mutate4py._worker_results import (
     ParallelRunResult,
+    WorkerGroupOutcome,
     _assign_sites_to_workers,
+    _build_result,
     _drop_one_result_if_injected,
-    _summarize_results,
-    _summarize_selection,
-    _summarize_timing,
 )
-from mutate4py._test_dispatch import ControlRuns, ControlTarget, MutantPlan, PlanInputs, TimeoutPolicy, plan_sites
+from mutate4py._test_dispatch import (
+    ControlRuns,
+    ControlTarget,
+    MutantPlan,
+    PlanInputs,
+    ConfirmationResult,
+    SurvivorConfirmation,
+    TimeoutPolicy,
+    confirm_survivors,
+    plan_sites,
+)
+from mutate4py._worker_lifecycle import (
+    ParallelRunError,
+    WorkerFailureError,
+    _close_worker_executor,
+    _describe_worker_executor,
+    _prime_worker_executor,
+)
 from mutate4py._worker_protocol import ServerLaunch, WorkerProcessError, WorkerProcessExecutor
 from mutate4py._worker_provision import (
     _copy_tree,
@@ -67,6 +83,7 @@ class WorkerRunSettings:
     on_result: Callable
     abs_source_path: str = ""
     controls: ControlRuns = dataclasses.field(default_factory=ControlRuns)
+    confirmation: SurvivorConfirmation | None = None
 
 
 @dataclasses.dataclass
@@ -84,6 +101,7 @@ class ParallelRunRequest:
     forking_requested: bool = True
     positionals: tuple[str, ...] = ()
     ran_at_import: frozenset[int] = frozenset()  # the guarded file's, for swap mode
+    confirmation: SurvivorConfirmation | None = None
     # Test-injection seam: when set, every Worker shares this one
     # Executor instead of provisioning a real WorkerProcessExecutor — makes
     # narrowed/static dispatch, per-Worker Site assignment, and
@@ -105,14 +123,6 @@ class _WorkerDispatchPlan:
     plans: list[MutantPlan]
     settings: WorkerRunSettings
     n_workers: int
-
-
-class ParallelRunError(Exception):
-    pass
-
-
-class WorkerFailureError(ParallelRunError):
-    pass
 
 
 def _provision_worker(worker_root: str, required: frozenset[str]) -> None:
@@ -221,43 +231,31 @@ def _provision_workers(run_root: str, n_workers: int, real_cwd: str) -> list[str
     return worker_roots
 
 
-def _prime_worker_executor(executor: Executor, worker_idx: int) -> None:
-    """Prime this Worker's executor, restating a protocol failure as the
-    Worker failure the run loop reports."""
+def _confirm_worker_survivors(
+    worker_results: list[dict], executor: Executor, worker_file_path: str, settings: WorkerRunSettings
+) -> tuple[ConfirmationResult, MutantTiming]:
+    survivors = [r["site"] for r in worker_results if r["status"] == "survived"]
+    if not survivors:
+        return ConfirmationResult([], 0, 0), MutantTiming()
+    target = ControlTarget(
+        worker_file_path, settings.clean_source, executor.fresh_interpreter(), settings.abs_source_path
+    )
+    timing = MutantTiming()
     try:
-        executor.prime()
+        return confirm_survivors(survivors, target, settings.confirmation, timing), timing
     except WorkerProcessError as e:
-        raise WorkerFailureError(f"worker-{worker_idx} could not start: {e}") from e
+        raise WorkerFailureError(f"confirmation in {worker_file_path} failed: {e}") from e
 
 
-def _describe_worker_executor(executor: Executor, worker_idx: int) -> ExecutorDescription:
-    """Ask this Worker's primed executor how it runs its Mutants, restating a
-    protocol failure as the Worker failure the run loop reports."""
-    try:
-        return executor.describe()
-    except WorkerProcessError as e:
-        raise WorkerFailureError(f"worker-{worker_idx} could not describe its executor: {e}") from e
-
-
-def _close_worker_executor(executor: Executor) -> None:
-    """Close the executor if it has anything to close: `Executor` does not
-    require close(), and the injected test executor has none."""
-    close = getattr(executor, "close", None)
-    if close is not None:
-        close()
-
-
-def _dispatch_worker_groups(plan: _WorkerDispatchPlan) -> tuple[list[dict], list[ExecutorDescription]]:
+def _dispatch_worker_groups(plan: _WorkerDispatchPlan) -> list[WorkerGroupOutcome]:
     """Prime each Worker's executor once, describe it, run its whole assignment
-    sequentially (same file path), then close it — the executor is alive
-    from priming to the end of that Worker's share of the run. Workers
-    dispatch across plan.n_workers threads. Returns the results and, ordered
-    by Worker index, the description each Worker that ran Mutants gave."""
+    sequentially (same file path), confirm its Survivors when the plan asks, then
+    close it — the executor is alive from priming to the end of that Worker's
+    share of the run. Workers dispatch across plan.n_workers threads. Returns,
+    ordered by Worker index, the outcome of each Worker that ran Mutants."""
     short_fail = os.environ.get("_MUTATE4PY_TEST_WORKER_SHORT_RESULT") == "1"
 
-    def _run_worker_group(
-        worker_idx: int, assignments: list[tuple[int, Site, int]]
-    ) -> tuple[list[dict], ExecutorDescription]:
+    def _run_worker_group(worker_idx: int, assignments: list[tuple[int, Site, int]]) -> WorkerGroupOutcome:
         executor = plan.executors[worker_idx - 1]
         worker_root = plan.worker_roots[worker_idx - 1]
         worker_file_path = os.path.join(worker_root, plan.source_rel)
@@ -280,22 +278,26 @@ def _dispatch_worker_groups(plan: _WorkerDispatchPlan) -> tuple[list[dict], list
                 )
                 for (_, site, site_idx) in assignments
             ]
+            outcome = WorkerGroupOutcome(
+                _drop_one_result_if_injected(worker_results, short_fail=short_fail), description
+            )
+            if plan.settings.confirmation is not None:
+                outcome.confirmation, outcome.confirmation_timing = _confirm_worker_survivors(
+                    worker_results, executor, worker_file_path, plan.settings
+                )
         finally:
             _close_worker_executor(executor)
-        return _drop_one_result_if_injected(worker_results, short_fail=short_fail), description
+        return outcome
 
-    results: list[dict] = []
-    descriptions: dict[int, ExecutorDescription] = {}
+    outcomes: dict[int, WorkerGroupOutcome] = {}
     with ThreadPoolExecutor(max_workers=plan.n_workers) as executor_pool:
         futures = {
             executor_pool.submit(_run_worker_group, worker_idx, assignments): worker_idx
             for worker_idx, assignments in plan.by_worker.items()
         }
         for future in as_completed(futures):
-            worker_results, description = future.result()
-            results.extend(worker_results)
-            descriptions[futures[future]] = description
-    return results, [descriptions[worker_idx] for worker_idx in sorted(descriptions)]
+            outcomes[futures[future]] = future.result()
+    return [outcomes[worker_idx] for worker_idx in sorted(outcomes)]
 
 
 def _plan_inputs(request: ParallelRunRequest) -> PlanInputs:
@@ -314,7 +316,23 @@ def _run_settings(request: ParallelRunRequest) -> WorkerRunSettings:
         clean_source=request.clean_source,
         on_result=request.on_result,
         abs_source_path=request.abs_source_path,
+        confirmation=request.confirmation,
     )
+
+
+def _locate_source(request: ParallelRunRequest) -> tuple[str, str]:
+    real_source = os.path.realpath(request.source_path)
+    real_cwd = os.path.realpath(request.cwd)
+    if not real_source.startswith(real_cwd + os.sep):
+        raise ParallelRunError(f"target file must be inside working directory: {request.source_path}")
+    return real_cwd, os.path.relpath(real_source, real_cwd)
+
+
+def _collected_results(groups: list[WorkerGroupOutcome], expected: int) -> list[dict]:
+    results = [r for group in groups for r in group.results]
+    if len(results) != expected:
+        raise ParallelRunError(f"mutation workers stopped after {len(results)}/{expected} results")
+    return sorted(results, key=lambda r: r["site_idx"])
 
 
 def run_parallel(request: ParallelRunRequest) -> ParallelRunResult:
@@ -331,14 +349,9 @@ def run_parallel(request: ParallelRunRequest) -> ParallelRunResult:
     Raises ParallelRunError if collected results != selected site count.
     A NoTestsCollectedError (case 4) propagates uncaught.
     """
-    real_source = os.path.realpath(request.source_path)
-    real_cwd = os.path.realpath(request.cwd)
-    if not real_source.startswith(real_cwd + os.sep):
-        raise ParallelRunError(f"target file must be inside working directory: {request.source_path}")
-
+    real_cwd, source_rel = _locate_source(request)
     selected_sites = request.selected_sites
     n_workers = min(request.max_workers, len(selected_sites))
-    source_rel = os.path.relpath(real_source, real_cwd)
     run_root = os.path.join(real_cwd, ".mutate4py", "workers", f"run-{os.getpid()}-{time.monotonic_ns()}")
 
     try:
@@ -358,7 +371,7 @@ def run_parallel(request: ParallelRunRequest) -> ParallelRunResult:
             injected_executor=request.executor,
             source_root=real_cwd,
         )
-        results, descriptions = _dispatch_worker_groups(
+        groups = _dispatch_worker_groups(
             _WorkerDispatchPlan(
                 by_worker=by_worker,
                 worker_roots=worker_roots,
@@ -371,19 +384,8 @@ def run_parallel(request: ParallelRunRequest) -> ParallelRunResult:
             )
         )
 
-        if len(results) != len(selected_sites):
-            raise ParallelRunError(f"mutation workers stopped after {len(results)}/{len(selected_sites)} results")
-
-        results.sort(key=lambda r: r["site_idx"])
-        counts, survivors = _summarize_results(results)
-        selection_counts = _summarize_selection(results) if request.selection_source is not None else None
-        return ParallelRunResult(
-            counts=counts,
-            survivors=survivors,
-            selection_counts=selection_counts,
-            timing=_summarize_timing(results),
-            executor_description=combine_descriptions(descriptions),
-        )
+        results = _collected_results(groups, len(selected_sites))
+        return _build_result(groups, results, with_selection=request.selection_source is not None)
 
     finally:
         shutil.rmtree(run_root, ignore_errors=True)

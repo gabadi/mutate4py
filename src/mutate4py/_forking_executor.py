@@ -1,5 +1,5 @@
-"""Forking executor, primed inside a Worker server: the fork server a serial
-run starts over the project tree, or one Worker of a parallel run. The
+"""Forking executor, primed inside a Worker server: the fork server the
+orchestrator starts over the project tree, or one Worker of a parallel run. The
 orchestrator never primes one itself (`_executor_selection.select_executor`).
 
 A parent process primes pytest/plugins/framework setup once (running a
@@ -48,8 +48,9 @@ from typing import Callable
 
 from mutate4py._bytecode_cache import invalidate_bytecode_cache
 from mutate4py._cmd import classify_exit_code
-from mutate4py._executor import ExecutorDescription
+from mutate4py._executor import ExecutorDescription, FileMode
 from mutate4py._plugin_neutralisation import neutralising_args
+from mutate4py._subprocess_executor import SubprocessExecutor
 from mutate4py._fork_child import SwapSource, child_mode, read_report, report_mode, reported_mode, swap_side
 
 __all__ = [
@@ -116,20 +117,24 @@ def loaded_files(modules: Mapping[str, object]) -> set[str]:
     return {os.path.realpath(mod_file) for mod_file in files if mod_file}
 
 
-def file_mode(guarded_path: str, *, harness_files: set[str], loaded_after_prime: set[str]) -> str:
+def file_mode(guarded_path: str, *, harness_files: set[str], loaded_after_prime: set[str]) -> FileMode:
     """How each child gets the guarded file's mutated code: "harness" when it is
     one of the process's own modules from before prime, "swap" when prime
     imported it, "fresh import" otherwise. Both sets hold real paths."""
     real = os.path.realpath(guarded_path)
     if real in harness_files:
-        return "harness"
+        return FileMode.HARNESS
     if real in loaded_after_prime:
-        return "swap"
-    return "fresh import"
+        return FileMode.SWAP
+    return FileMode.FRESH_IMPORT
 
 
 # The child entry point each mode runs pytest with: in-process, or exec'd fresh.
-_CHILD_ENTRY = {"fresh import": "_run_child", "swap": "_run_child", "fresh interpreter": "_exec_fresh_interpreter"}
+_CHILD_ENTRY = {
+    FileMode.FRESH_IMPORT: "_run_child",
+    FileMode.SWAP: "_run_child",
+    FileMode.FRESH_INTERPRETER: "_exec_fresh_interpreter",
+}
 
 
 class _PluginRecorder:
@@ -162,8 +167,8 @@ class ForkingExecutor:
         self._guarded_path = guarded_path
         self._prime_args = list(prime_args)
         self._ran_at_import = ran_at_import
-        self._mode: str | None = None
-        self._counts = {"fresh import": 0, "swap": 0, "fresh interpreter": 0}
+        self._mode: FileMode | None = None
+        self._counts = {FileMode.FRESH_IMPORT: 0, FileMode.SWAP: 0, FileMode.FRESH_INTERPRETER: 0}
         # Swap mode only, set at prime: the clean side of every swap and the live
         # functions prime's import built from it.
         self._swap_source = SwapSource("", guarded_path, ran_at_import)
@@ -172,10 +177,14 @@ class ForkingExecutor:
     def describe(self) -> ExecutorDescription:
         return ExecutorDescription(
             mode="forking",
-            fresh_import=self._counts["fresh import"],
-            swap=self._counts["swap"],
-            fresh_interpreter=self._counts["fresh interpreter"],
+            fresh_import=self._counts[FileMode.FRESH_IMPORT],
+            swap=self._counts[FileMode.SWAP],
+            fresh_interpreter=self._counts[FileMode.FRESH_INTERPRETER],
+            file_mode=self._mode or "",
         )
+
+    def fresh_interpreter(self) -> SubprocessExecutor:
+        return SubprocessExecutor(self._cwd, self._guarded_path)
 
     def prime(self) -> None:
         try:

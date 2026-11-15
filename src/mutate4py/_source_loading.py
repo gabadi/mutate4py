@@ -62,7 +62,7 @@ def _compute_manifest_diff(source: str, loc: ManifestLocation) -> ManifestDiff:
     changed_fn_ids also holds every function with recorded survivors and no tests
     digest: such a function is not current, so the next default run retries it
     even when its hash is unchanged. It also holds every function whose accepted
-    survivor lost its marker, and every Unscored function (ADR 0029 rule 1), which a
+    survivor lost its marker, and every Unscored function, which a
     default run scores. The "Changed mutation sites" count includes those Sites too.
     A run scores a changed function even when no covered Site reaches it. Functions whose
     stored tests digest changed join changed_fn_ids later, once the Measurement has run
@@ -81,6 +81,21 @@ def _compute_manifest_diff(source: str, loc: ManifestLocation) -> ManifestDiff:
     return ManifestDiff(clean_source, existing_manifest, manifest_exists, changed_fn_ids, tested_at)
 
 
+def _write_final_source(
+    clean_source: str,
+    manifest: dict | None,
+    loc: ManifestLocation,
+    *,
+    write_manifest: bool,
+    original_source: str | None,
+) -> None:
+    if write_manifest or loc.manifest_file or original_source is None:
+        _write_manifest_output(clean_source, manifest, loc, write_manifest=write_manifest)
+        return
+    with open(loc.path, "w") as f:
+        f.write(original_source)
+
+
 def _finalize_source(  # noqa: PLR0913 - keeps the positional contract tests/test_source_loading.py relies on
     clean_source: str,
     tested_at: str,
@@ -91,7 +106,9 @@ def _finalize_source(  # noqa: PLR0913 - keeps the positional contract tests/tes
     scored_run: ScoredRun | None = None,
     fresh_digests: dict[str, str] | None = None,
     fingerprint: str | None = None,
-) -> dict:
+    write_manifest: bool = True,
+    original_source: str | None = None,
+) -> dict | None:
     # Unlike update_manifest, the write can't be skipped outright: a run with
     # selected sites leaves the last-tested mutant on disk (the per-site loop
     # never reverts), so clean_source must always be restored. Only the
@@ -104,10 +121,14 @@ def _finalize_source(  # noqa: PLR0913 - keeps the positional contract tests/tes
     # Every completed scored run records the fingerprint it measured, even one that wrote no score block (spec 5b).
     # A run with no scored run (an errored one, or an unscored caller) keeps the stored one.
     recorded = fingerprint if scored_run is not None else None
-    manifest_to_embed = reconcile_manifest(
-        existing_manifest, candidate_manifest, scores, fresh_digests=fresh_digests, fingerprint=recorded
+    manifest_to_embed = existing_manifest
+    if write_manifest:
+        manifest_to_embed = reconcile_manifest(
+            existing_manifest, candidate_manifest, scores, fresh_digests=fresh_digests, fingerprint=recorded
+        )
+    _write_final_source(
+        clean_source, manifest_to_embed, loc, write_manifest=write_manifest, original_source=original_source
     )
-    _write_manifest_output(clean_source, manifest_to_embed, loc)
     if os.path.isfile(bak_path):
         os.remove(bak_path)
     return manifest_to_embed
@@ -117,6 +138,7 @@ def _finalize_source(  # noqa: PLR0913 - keeps the positional contract tests/tes
 class LoadedSource:
     """The stripped source plus everything diffed against its prior manifest."""
 
+    source: str
     clean_source: str
     existing_manifest: dict | None
     manifest_exists: bool
@@ -134,6 +156,7 @@ def _load_clean_source(bak_path: str, source: str, loc: ManifestLocation) -> Loa
     diff = _compute_manifest_diff(source, loc)
     all_sites = discover_sites(diff.clean_source)
     return LoadedSource(
+        source=source,
         clean_source=diff.clean_source,
         existing_manifest=diff.existing_manifest,
         manifest_exists=diff.manifest_exists,

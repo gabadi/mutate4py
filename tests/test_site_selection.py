@@ -4,8 +4,24 @@ from mutate4py._discovery import Site
 from mutate4py._site_selection import (
     _select_sites,
     _should_run_parallel,
+    _sites_in_run_scope,
 )
 import pytest
+
+
+# ── _sites_in_run_scope ───────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_a_full_run_has_every_site_in_scope():
+    sites = [_make_site(0, 1, "func/f"), _make_site(1, 2, "func/g"), _make_site(2, 3, "")]
+    assert _sites_in_run_scope(sites, set(), differential=False) == sites
+
+
+@pytest.mark.unit
+def test_a_differential_run_has_only_the_sites_of_the_changed_functions_in_scope():
+    sites = [_make_site(0, 1, "func/f"), _make_site(1, 2, "func/g"), _make_site(2, 3, "")]
+    assert _sites_in_run_scope(sites, {"func/g"}, differential=True) == [sites[1]]
 
 
 # ── _select_sites ─────────────────────────────────────────────────────────────

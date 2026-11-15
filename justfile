@@ -89,8 +89,8 @@ LOG := "check.log"
 
 # Test selection for `mutate`'s scored runs (#98): unit tests only. `system`
 # tests are coverage-blind and excluded too, so a Mutant that only a system
-# test kills is scored a Survivor; the fix is a unit test that kills it (ADR
-# 0023). `-p no:tach` skips tach's pytest plugin, which re-runs its impact
+# test kills is scored a Survivor; the fix is a unit test that kills it.
+# `-p no:tach` skips tach's pytest plugin, which re-runs its impact
 # analysis uncached on every subprocess spawn (~1-1.3s per Mutant, issue #26);
 # `tach check` already covers it in the `lint` gate.
 MUTATE_PYTEST_ARGS := "-p no:tach -m unit"
@@ -220,7 +220,7 @@ format:
 
 # Two gates so a slow or flaky test shows up as itself rather than as "tests
 # took a while": `test-unit` runs the fast set (issue #71), and `test-system`
-# runs the `system` tests, which start real processes (ADR 0023).
+# runs the `system` tests, which start real processes.
 #
 # Coverage is measured on `test-unit` ALONE: it writes the data, emits
 # lcov.info, and applies the threshold, so both the coverage gate and the CRAP
@@ -228,7 +228,6 @@ format:
 # --no-cov and writes no coverage data at all. Deliberate: system tests run
 # real subprocess/fork execution through mutate4py's own Executor, work the
 # Measurement cannot see, so counting it in a unit metric would mislead.
-# Reasoning and evidence: docs/adr/0023-unit-component-integration-test-split.md.
 #
 # .coverage holds plain line data, with no per-test contexts: nothing in `check`
 # reads them since `context-deselection` and the test-context db went (#98), so
@@ -244,7 +243,7 @@ test-unit:
 
 # Real processes: a fork server, worker servers, nested pytest runs and a
 # spawned interpreter. Outside code mutation and coverage, so it runs with
-# --no-cov and no scored run's test set includes it (ADR 0023). `-p no:tach`
+# --no-cov and no scored run's test set includes it. `-p no:tach`
 # as in MUTATE_PYTEST_ARGS: the tests that need tach re-enable it themselves.
 # Runs under pytest-xdist (`-n auto`), which assumes the tests are independent
 # of one another; a failure only under xdist is a shared-state bug to fix.
@@ -308,7 +307,7 @@ mutate-sample:
 # MUTATE_PYTEST_ARGS (declared above the gates) selects unit tests only.
 # `system` tests are coverage-blind (see `test-system`), so a Mutant only a
 # system test kills scores as a Survivor; the fix is a unit test that kills it
-# (ADR 0023). `{{args}}` can override with an explicit --pytest-args, which
+# `{{args}}` can override with an explicit --pytest-args, which
 # changes this run's selection scope. `-p no:tach` skips tach's pytest plugin,
 # which re-runs its impact analysis uncached on every subprocess spawn (~1-1.3s
 # per mutant, issue #26); `tach check` already covers it in the `lint` gate.
@@ -328,7 +327,7 @@ mutate path *args:
     exit "$status"
 
 # `mutate` on a scratch copy of the tree with no Manifest for any src/ file, so every
-# function is Unscored and a default run scores all of them (ADR 0029 rule 1). The
+# function is Unscored and a default run scores all of them. The
 # benchmark recipes use it: a run on the real tree would score only what changed and
 # skip the rest. The copy omits .git, .venv, the worktrees and the src/ sidecars; the
 # real tree and its sidecars are never touched. The scratch run reuses the real .venv

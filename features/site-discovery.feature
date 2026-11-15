@@ -29,7 +29,7 @@ Feature: Mutation site discovery and the --scan count surface
   #     in/not in, and/or, unary not and unary -, True/False, integer 0/1.
   #     `*`→`/` only (never `/`→`*`).
   #   - Excluded — NO site emitted: augmented assignment (+=, -=), unary `-` on a
-  #     numeric zero literal (-0, -0.0, -0j; ADR 0024), any cross-coercion-family
+  #     numeric zero literal (-0, -0.0, -0j), any cross-coercion-family
   #     swap, integer literals other than 0 and 1.
   #   - A site outside any function has an empty FunctionID and is still counted.
   #   - Nested def / lambda sites fold into the enclosing named unit (not separate units).

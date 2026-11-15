@@ -36,7 +36,7 @@ Feature: The mutation run loop and report
   #     Manifest exists: <true|false>
   #     Selected mutation sites: <s>
   #     [Warning: <n> mutation sites exceeds threshold <m>.]            (only when n > m)
-  #     [Uncovered mutations: / "  line <L> <desc> <functionID>" ...]   (only when not differential)
+  #     [Uncovered mutations: / "  <file>:<L> <desc> <functionID>" ...]  (the Run scope's uncovered sites)
   #     [i/total] <status> line <L> <orig> -> <mutant>: <functionID>    (one per selected site)
   #     (blank line)
   #     Mutation Report
@@ -197,17 +197,17 @@ Feature: The mutation run loop and report
       | has         | is             | changed-function |
       | has not     | is not         | all-covered      |
 
-  # run-loop-7: the uncovered block prints only on a non-differential run
-  Scenario Outline: the uncovered block visibility follows the differential switch
+  # run-loop-7: the uncovered block prints on a differential and on a full run alike
+  Scenario Outline: the uncovered block prints whatever the differential switch
     Given the file "<hasManifest>" an existing manifest
     And there is at least one uncovered site
     When I run mutate4py mutating that file
     Then an "Uncovered mutations:" block "<visibility>" printed
 
     Examples:
-      | hasManifest | visibility  |
-      | has not     | is          |
-      | has         | is not      |
+      | hasManifest | visibility |
+      | has not     | is         |
+      | has         | is         |
 
   # run-loop-8: the header reports the six counts with no workers line
   Scenario: the run header prints the count lines and never a workers line

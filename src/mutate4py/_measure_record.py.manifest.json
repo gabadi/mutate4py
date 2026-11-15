@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T05:24:30Z",
-  "module_hash": "cf81fbb69402be58b6dc518f70873ff06538350c0df22499992949185c98749b",
-  "source_sha256": "5cfb24ca3dd6f985368be9d1703d787ab7540d4618b1432365a7026b6e438bcd",
+  "tested_at": "2026-11-15T21:54:30Z",
+  "module_hash": "956022165ef4b0357d8c88032d2f83215868de291f1667fe099a0276e3333a14",
+  "source_sha256": "90ce92d1a537e45551830c9681baf3b49cbe16467448e134f8bfa9268fd32737",
   "functions": [
     {
       "id": "func/core_from_sys_info",
       "name": "core_from_sys_info",
-      "line": 34,
-      "end_line": 39,
+      "line": 35,
+      "end_line": 40,
       "hash": "7117b7321f04157804ffd06dccc2f529a190cf496107062632eed88bbb69a9f8",
       "score": {
         "killed": 0,
@@ -17,13 +17,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/file_of_test",
       "name": "file_of_test",
-      "line": 42,
-      "end_line": 44,
+      "line": 43,
+      "end_line": 45,
       "hash": "191869ffbf30844d7a3087aaa57ceed682c4d571a91c82ceb1d8016a4e349d59",
       "score": {
         "killed": 2,
@@ -32,14 +32,14 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "418d093f83b35744921154291c83de6f4761fdd49422efa4b2659283c3d24a0d"
+      "tests_digest": "ea6c954ad1305ee70f2015b6d6a2305e9ef6215aa904313d6f59c846775db6c4"
     },
     {
-      "id": "func/_test_roots",
-      "name": "_test_roots",
-      "line": 104,
-      "end_line": 112,
-      "hash": "081971c2ec7ba7c7d30acec0d7b535b0f26aa3704e2911f1ffb0b21665998bad",
+      "id": "class/Timing",
+      "name": "Timing",
+      "line": 49,
+      "end_line": 53,
+      "hash": "74b364f784f64d98a2570fcfad7c27f7d7fc6b0b4126ca80bbe2476e79cfca1b",
       "score": {
         "killed": 1,
         "survived": 0,
@@ -47,14 +47,74 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "3c7603a138ca3b4edde8e68263e37388ebcd6de8e21e515192b09370873c02fc"
+      "tests_digest": "ea6c954ad1305ee70f2015b6d6a2305e9ef6215aa904313d6f59c846775db6c4"
+    },
+    {
+      "id": "class/FixtureSetup",
+      "name": "FixtureSetup",
+      "line": 57,
+      "end_line": 64,
+      "hash": "4f92091fdb1f13f3c14545dafabd9065ec01c7ccd651bef5547458994a1fc3de",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ea6c954ad1305ee70f2015b6d6a2305e9ef6215aa904313d6f59c846775db6c4"
+    },
+    {
+      "id": "class/SessionFacts",
+      "name": "SessionFacts",
+      "line": 68,
+      "end_line": 80,
+      "hash": "c6028e6d2a4a088480de930ff95624d895b732619f4275c02ae8e36ba335b6b6",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ea6c954ad1305ee70f2015b6d6a2305e9ef6215aa904313d6f59c846775db6c4"
+    },
+    {
+      "id": "class/MeasureRecord",
+      "name": "MeasureRecord",
+      "line": 84,
+      "end_line": 102,
+      "hash": "139ba1133e5a54379e5853318e543bee70bd7a93d497c32101057bf7e9c28f22",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ea6c954ad1305ee70f2015b6d6a2305e9ef6215aa904313d6f59c846775db6c4"
+    },
+    {
+      "id": "func/test_roots",
+      "name": "test_roots",
+      "line": 105,
+      "end_line": 113,
+      "hash": "86e38c2d02f6ef8ef368ab18afa73ede798f9bda4db7918694bff274132a4c2e",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a84a78da291b78a52a0fcbd0bf508092b3c78734ad5e9018ddd6da0841200b7c"
     },
     {
       "id": "func/_support_modules",
       "name": "_support_modules",
-      "line": 115,
-      "end_line": 122,
-      "hash": "bd698360ac0ef742d13fbcef8ac4489979e18f28f4b4f47a14b6bfecb6e8c9e7",
+      "line": 116,
+      "end_line": 123,
+      "hash": "653be51dfb658c615ce78c3b31c9d5023551992a7f63c64f3a1af13c00185459",
       "score": {
         "killed": 2,
         "survived": 0,
@@ -62,13 +122,28 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "3c7603a138ca3b4edde8e68263e37388ebcd6de8e21e515192b09370873c02fc"
+      "tests_digest": "0bc5bef568dbdd3335bbf61ef136b17065250c27ba48cdda26c12d26dc5fc570"
+    },
+    {
+      "id": "class/SessionLog",
+      "name": "SessionLog",
+      "line": 127,
+      "end_line": 175,
+      "hash": "ba901075c66ff24743c2d9a37e748de7bba9a4300aa10706b9188a91d997c429",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/SessionLog.test_started",
       "name": "test_started",
-      "line": 135,
-      "end_line": 138,
+      "line": 136,
+      "end_line": 139,
       "hash": "cb21d1a158dddbfbce474f7498dbca9a9e8db74c3bc618d788957b28b0c59774",
       "score": {
         "killed": 0,
@@ -77,13 +152,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/SessionLog.test_phase",
       "name": "test_phase",
-      "line": 140,
-      "end_line": 143,
+      "line": 141,
+      "end_line": 144,
       "hash": "f174f88ad7f24d75de4c51788f138fb020cc8e0fa614979dba09c9a17d8eb55d",
       "score": {
         "killed": 0,
@@ -92,13 +167,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/SessionLog.collection_failed",
       "name": "collection_failed",
-      "line": 145,
-      "end_line": 146,
+      "line": 146,
+      "end_line": 147,
       "hash": "085525721e70cd143e9d3aafcc5e7d976e698d98dfc3fff7af28f848a43816b4",
       "score": {
         "killed": 0,
@@ -107,13 +182,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/SessionLog.fixture_set_up",
       "name": "fixture_set_up",
-      "line": 148,
-      "end_line": 149,
+      "line": 149,
+      "end_line": 150,
       "hash": "b6625a2fe2ca82f878f94c6bdec9443903e7bddc9961d367fdb33ffa4dfef5c9",
       "score": {
         "killed": 0,
@@ -122,13 +197,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/SessionLog._fail",
       "name": "_fail",
-      "line": 151,
-      "end_line": 153,
+      "line": 152,
+      "end_line": 154,
       "hash": "7274d62df8a31a35893cfe8fc349634b3c08dc00f026ae9806951e6aff159103",
       "score": {
         "killed": 1,
@@ -137,13 +212,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "da1fc3c512d52d7862c98ce5b9fe89c85f0c202ef72f34738749043a5269695c"
+      "tests_digest": "f9c47dcc017721af33515a158c9ff4282dc118e78dfae3f585cebb7bccce14ca"
     },
     {
       "id": "func/SessionLog.finish",
       "name": "finish",
-      "line": 155,
-      "end_line": 174,
+      "line": 156,
+      "end_line": 175,
       "hash": "8bda8aa78a449f194878d4fd393cb0331b933d49bb3ce518bc4736fabeb61c8a",
       "score": {
         "killed": 1,
@@ -152,13 +227,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "da1fc3c512d52d7862c98ce5b9fe89c85f0c202ef72f34738749043a5269695c"
+      "tests_digest": "f9c47dcc017721af33515a158c9ff4282dc118e78dfae3f585cebb7bccce14ca"
     },
     {
       "id": "func/dump_record",
       "name": "dump_record",
-      "line": 177,
-      "end_line": 178,
+      "line": 178,
+      "end_line": 179,
       "hash": "404f4aa1f34ad6495147875245b4ff5d94a6d8345e358b021f27b38f7b35e0a5",
       "score": {
         "killed": 0,
@@ -167,13 +242,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/load_record",
       "name": "load_record",
-      "line": 181,
-      "end_line": 196,
+      "line": 182,
+      "end_line": 197,
       "hash": "6a19193f16d8533a9946d5b74ef1a4229225ace1787529d12b2334cd21473d87",
       "score": {
         "killed": 0,
@@ -182,8 +257,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     }
   ],
-  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
+  "tests_fingerprint": "cbf5e43b095b8d37a686182df6e665c038f959cfad322098fafde582c58f5ead"
 }

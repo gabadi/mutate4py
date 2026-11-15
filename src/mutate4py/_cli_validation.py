@@ -20,7 +20,7 @@ class ValidationError(Exception):
         self.exit_code = exit_code
 
 
-# The flags removed in 0.3.0 (ADR 0008, 0021, 0022 superseded; spec #89): the run
+# The flags removed in 0.3.0 (spec #89): the run
 # measures coverage itself and re-scores only what changed, so each is refused rather
 # than silently ignored. The reason is the tail of the refusal message.
 _REMOVED_FLAGS = (
@@ -87,7 +87,7 @@ def _check_no_run_mode_specific_incompatibilities(args: argparse.Namespace) -> N
 
 
 def _validate_mutual_exclusions(args: argparse.Namespace) -> None:
-    """Raise on illegal flag combinations (ADR 0008, 0014)."""
+    """Raise on illegal flag combinations."""
     no_run = [
         ("--scan", args.scan),
         ("--update-manifest", args.update_manifest),
@@ -147,7 +147,7 @@ def _running_identity(running_prefix: str | None, sys_path: list[str] | None) ->
 
 def _is_running_env(env: str, running: str, path_entries: set[str]) -> bool:
     """True when `env` is the running environment: its prefix, or a `uv run --with`
-    overlay whose sys.path holds the env's site-packages (ADR 0025)."""
+    overlay whose sys.path holds the env's site-packages."""
     return running == os.path.realpath(env) or bool(path_entries & _site_packages_dirs(env))
 
 

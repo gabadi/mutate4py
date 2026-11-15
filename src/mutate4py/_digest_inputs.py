@@ -11,11 +11,13 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 
 from mutate4py._measure_record import MeasureRecord
+from mutate4py._sidecar_io import SIDECAR_SUFFIX
 from mutate4py._tests_digest import DigestInputs
 
 __all__ = ["digest_inputs_from"]
 
 _LOCKFILE = "uv.lock"
+_TEST_FOLDER_NAMES = frozenset({"tests", "test"})
 
 
 def digest_inputs_from(record: MeasureRecord, reach: Mapping[str, Mapping[int, frozenset[str]]]) -> DigestInputs:
@@ -46,7 +48,51 @@ def _support_files(record: MeasureRecord, rootdir: str) -> set[str]:
         support.add(_relative(record.inipath, rootdir))
     if os.path.isfile(os.path.join(rootdir, _LOCKFILE)):
         support.add(_LOCKFILE)
-    return support
+    return support | _data_files(record, rootdir)
+
+
+def _data_files(record: MeasureRecord, rootdir: str) -> set[str]:
+    return {_relative(path, rootdir) for root in _test_folders(record, rootdir) for path in _data_paths(root)}
+
+
+def _test_folders(record: MeasureRecord, rootdir: str) -> set[str]:
+    return {
+        folder
+        for test_file in record.test_files
+        if (folder := _test_folder(os.path.realpath(test_file), rootdir)) is not None
+    }
+
+
+def _test_folder(test_file: str, rootdir: str) -> str | None:
+    directory = os.path.dirname(test_file)
+    named = None
+    candidate = directory
+    while candidate.startswith(rootdir + os.sep):
+        if os.path.basename(candidate) in _TEST_FOLDER_NAMES:
+            named = candidate
+        candidate = os.path.dirname(candidate)
+    if named is not None:
+        return named
+    return directory if directory.startswith(rootdir + os.sep) else None
+
+
+def _data_paths(root: str) -> list[str]:
+    return [
+        os.path.join(directory, name)
+        for directory, names in _walk_visible(root)
+        for name in names
+        if _is_data_name(name)
+    ]
+
+
+def _is_data_name(name: str) -> bool:
+    return not (name.endswith(".py") or name.endswith(SIDECAR_SUFFIX) or name.startswith("."))
+
+
+def _walk_visible(root: str) -> Iterable[tuple[str, list[str]]]:
+    for directory, subdirectories, names in os.walk(root):
+        subdirectories[:] = [name for name in subdirectories if name != "__pycache__" and not name.startswith(".")]
+        yield directory, names
 
 
 def _relative(path: str, rootdir: str) -> str:

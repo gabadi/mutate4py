@@ -300,6 +300,42 @@ def test_a_file_outside_the_test_roots_re_scores_nothing_once_a_digest_is_stored
 
 
 @pytest.mark.system
+def test_an_edit_to_a_non_python_file_under_the_tests_re_scores_every_function(tmp_path, caplog):
+    caplog.set_level(logging.INFO)
+    src_path = _write_two_function_project(tmp_path)
+    _write_files(tmp_path, {"tests/data/rates.json": '{"rate": 1}\n'})
+    _run(src_path, FakeExecutor("killed"), manifest_file=False)
+    first = _digests(src_path)
+    _write_files(tmp_path, {"tests/data/rates.json": '{"rate": 2}\n'})
+    caplog.clear()
+
+    rc = _run(src_path, FakeExecutor("killed"), manifest_file=False)
+
+    assert rc == 0
+    assert _rescored_ids(caplog) == {"func/f", "func/g"}
+    second = _digests(src_path)
+    assert second["func/f"] != first["func/f"]
+    assert second["func/g"] != first["func/g"]
+
+
+@pytest.mark.system
+def test_an_edit_to_a_non_python_file_outside_the_tests_re_scores_nothing(tmp_path, caplog):
+    caplog.set_level(logging.INFO)
+    src_path = _write_two_function_project(tmp_path)
+    _write_files(tmp_path, {"config/rates.json": '{"rate": 1}\n'})
+    _run(src_path, FakeExecutor("killed"), manifest_file=False)
+    first = _digests(src_path)
+    _write_files(tmp_path, {"config/rates.json": '{"rate": 2}\n'})
+    caplog.clear()
+
+    rc = _run(src_path, FakeExecutor("killed"), manifest_file=False)
+
+    assert rc == 0
+    assert _rescored_ids(caplog) == set()
+    assert _digests(src_path) == first
+
+
+@pytest.mark.system
 def test_an_unrelated_test_edit_re_scores_nothing(tmp_path, caplog):
     caplog.set_level(logging.INFO)
     src_path = _write_two_function_project(tmp_path)

@@ -104,3 +104,11 @@ def test_a_malformed_pyproject_declares_no_roots_and_does_not_fall_through(tmp_p
     (tmp_path / "tox.ini").write_text("[pytest]\ntestpaths = tests\n")
 
     assert configured_testpaths(str(tmp_path)) == []
+
+
+@pytest.mark.unit
+def test_a_double_star_testpaths_glob_reaches_a_directory_nested_two_levels_down(tmp_path):
+    _dirs(tmp_path, "pkg/a/b/tests")
+    (tmp_path / "pytest.ini").write_text("[pytest]\ntestpaths = pkg/**/tests\n")
+
+    assert configured_testpaths(str(tmp_path)) == [str(tmp_path / "pkg" / "a" / "b" / "tests")]

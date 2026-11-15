@@ -15,7 +15,7 @@ from mutate4py._execution import (
 )
 from mutate4py._executor import ExecutorDescription, MutantTiming
 from mutate4py._subprocess_executor import SubprocessExecutor
-from mutate4py._test_dispatch import TimeoutPolicy
+from mutate4py._test_dispatch import ConfirmationResult, MutantPlan, SurvivorConfirmation, TimeoutPolicy
 from mutate4py._workers import ParallelRunResult
 
 from ._scripted_executor import ScriptedExecutor
@@ -54,8 +54,9 @@ def _policy(timeout: float) -> TimeoutPolicy:
 
 
 class _FakeSelectionSource:
-    def __init__(self, outcome, node_ids=()):
+    def __init__(self, outcome, node_ids=(), *, rootdir):
         self._result = (outcome, list(node_ids))
+        self.rootdir = rootdir
 
     def tests_for_line(self, source_path, line):
         return self._result
@@ -109,7 +110,7 @@ def _loop_over_two_sites(tmp_path, selection_source):
 @pytest.mark.unit
 def test_run_mutation_loop_tallies_narrowed_selections(tmp_path):
     _, _, selection_counts = _loop_over_two_sites(
-        tmp_path, _FakeSelectionSource("narrowed", ["tests/test_calc.py::test_f"])
+        tmp_path, _FakeSelectionSource("narrowed", ["tests/test_calc.py::test_f"], rootdir=str(tmp_path))
     )
     assert selection_counts == {"narrowed": 2, "static": 0}
 
@@ -118,7 +119,7 @@ def test_run_mutation_loop_tallies_narrowed_selections(tmp_path):
 @pytest.mark.parametrize("outcome", ["static", "uncovered"])
 def test_run_mutation_loop_tallies_static_selections(tmp_path, outcome):
     """A line no test owns (static) and a line no test reached (uncovered) both run the full set, tallied static."""
-    _, _, selection_counts = _loop_over_two_sites(tmp_path, _FakeSelectionSource(outcome))
+    _, _, selection_counts = _loop_over_two_sites(tmp_path, _FakeSelectionSource(outcome, rootdir=str(tmp_path)))
     assert selection_counts == {"narrowed": 0, "static": 2}
 
 
@@ -146,6 +147,35 @@ def test_run_mutation_loop_calls_executor_with_planned_args_and_timeout(tmp_path
 
 
 @pytest.mark.unit
+def test_run_mutation_loop_dispatches_node_ids_rebased_from_the_rootdir_to_the_run_directory(tmp_path):
+    member = tmp_path / "member"
+    (member / "tests").mkdir(parents=True)
+    (member / "tests" / "test_calc.py").write_text("")
+    src = "def f(a, b):\n    return a > b\n"
+    src_file = member / "calc.py"
+    src_file.write_text(src)
+    executor = _FakeExecutor(status="killed")
+
+    _run_mutation_loop(
+        selected_sites=discover_sites(src),
+        clean_source=src,
+        ctx=MutantExecCtx(
+            path=str(src_file),
+            cwd=str(member),
+            pytest_args=["-q"],
+            executor=executor,
+            timeout_policy=_policy(7.5),
+            selection_source=_FakeSelectionSource(
+                "narrowed", ["member/tests/test_calc.py::test_f"], rootdir=str(tmp_path)
+            ),
+            abs_source_path=str(src_file),
+        ),
+    )
+
+    assert executor.calls == [(["-q", "tests/test_calc.py::test_f"], 7.5)]
+
+
+@pytest.mark.unit
 def test_run_mutation_loop_unrecognized_selection_outcome_aborts_before_applying_the_mutant(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_file = tmp_path / "calc.py"
@@ -160,7 +190,7 @@ def test_run_mutation_loop_unrecognized_selection_outcome_aborts_before_applying
                 pytest_args=[],
                 executor=_FakeExecutor(),
                 timeout_policy=_policy(5.0),
-                selection_source=_FakeSelectionSource("bogus"),
+                selection_source=_FakeSelectionSource("bogus", rootdir=str(tmp_path)),
                 abs_source_path=str(src_file),
             ),
         )
@@ -382,7 +412,9 @@ def test_run_mutation_loop_aborts_before_applying_the_mutant_when_a_node_id_file
     that Site's Mutant runs, so the result never depends on how the Mutant timeout compares with pytest
     start-up."""
     ctx, executor = _loop_ctx(
-        tmp_path, [], selection_source=_FakeSelectionSource("narrowed", ["tests/test_gone.py::t"])
+        tmp_path,
+        [],
+        selection_source=_FakeSelectionSource("narrowed", ["tests/test_gone.py::t"], rootdir=str(tmp_path)),
     )
 
     with pytest.raises(NoTestsCollectedError, match="tests/test_gone.py::t"):
@@ -401,6 +433,8 @@ def test_run_mutation_loop_plans_one_site_at_a_time_so_an_earlier_sites_mutant_r
     by_line = {2: ("static", []), 6: ("narrowed", ["tests/test_gone.py::t"])}
 
     class _PerLineSelection:
+        rootdir = str(tmp_path)
+
         def tests_for_line(self, source_path, line):
             return by_line[line]
 
@@ -501,13 +535,13 @@ def test_confirm_survivors_a_full_set_kill_removes_the_survivor(tmp_path):
 
 @pytest.mark.unit
 def test_confirm_survivors_times_each_confirmation_run_into_the_timing(tmp_path, monkeypatch):
-    import mutate4py._execution as execution_mod
+    import mutate4py._test_dispatch as dispatch_mod
 
     src = "def f(a, b):\n    return a > b\n"
     src_file = tmp_path / "calc.py"
     src_file.write_text(src)
     site = discover_sites(src)[0]
-    monkeypatch.setattr(execution_mod, "time", _StepClock([10.0, 12.0]))
+    monkeypatch.setattr(dispatch_mod, "time", _StepClock([10.0, 12.0]))
     ctx = _confirm_ctx(tmp_path, src_file)
 
     _confirm_survivors([site], src, ctx, _FakeExecutor(status="timeout"))
@@ -673,7 +707,7 @@ def test_parallel_outcome_carries_the_workers_description_and_their_mutants_timi
             path=str(src_file),
             cwd=str(tmp_path),
             pytest_args=["-q"],
-            executor=None,
+            executor=_FakeExecutor(),
             timeout_policy=_policy(7.5),
             max_workers=2,
             use_parallel=True,
@@ -684,3 +718,153 @@ def test_parallel_outcome_carries_the_workers_description_and_their_mutants_timi
 
     assert outcome.executor_description == ExecutorDescription(mode="forking", fresh_import=3)
     assert (outcome.timing.mutants_count, outcome.timing.mutants_seconds) == (1, 2.0)
+
+
+class _ForkServerFake(_FakeExecutor):
+    def __init__(self, file_mode):
+        super().__init__(status="survived")
+        self._file_mode = file_mode
+
+    def describe(self):
+        return ExecutorDescription(mode="forking", file_mode=self._file_mode)
+
+
+def _serial_run_confirming_on(tmp_path, monkeypatch, *, fork, fresh):
+    import mutate4py._execution as execution_mod
+
+    src = "def f(a, b):\n    return a > b\n"
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(src)
+    monkeypatch.setattr(execution_mod, "SubprocessExecutor", lambda cwd, guarded_path: fresh)
+    return _execute_mutations(
+        selected_sites=discover_sites(src),
+        clean_source=src,
+        ctx=MutantExecCtx(
+            path=str(src_file),
+            cwd=str(tmp_path),
+            pytest_args=["-q"],
+            executor=fork,
+            timeout_policy=_policy(7.5),
+            abs_source_path=str(src_file),
+            confirm_args=list(FULL_SET),
+        ),
+    )
+
+
+@pytest.mark.unit
+def test_serial_fresh_import_survivors_are_confirmed_on_the_fork_server(tmp_path, monkeypatch):
+    fork = _ForkServerFake(file_mode="fresh import")
+    fresh = _FakeExecutor()
+
+    _serial_run_confirming_on(tmp_path, monkeypatch, fork=fork, fresh=fresh)
+
+    assert (list(FULL_SET), 7.5) in fork.calls
+    assert fresh.calls == []
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("file_mode", ["swap", "harness"])
+def test_serial_swap_and_harness_survivors_are_confirmed_in_a_fresh_interpreter(tmp_path, monkeypatch, file_mode):
+    fork = _ForkServerFake(file_mode=file_mode)
+    fresh = _FakeExecutor()
+
+    _serial_run_confirming_on(tmp_path, monkeypatch, fork=fork, fresh=fresh)
+
+    assert fresh.calls
+    assert all(call == (list(FULL_SET), 7.5) for call in fresh.calls)
+    assert (list(FULL_SET), 7.5) not in fork.calls
+
+
+def _parallel_run_confirming(tmp_path, monkeypatch, *, orchestrator, worker_confirmation=None, worker_executor=None):
+    import mutate4py._workers as workers_mod
+
+    src = "def f(a, b):\n    return a > b\n"
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(src)
+    sites = discover_sites(src)
+    requests = []
+
+    def run_parallel(request):
+        requests.append(request)
+        result = _parallel_result({"killed": 0, "timeout": 0, "survived": 1}, survivors=sites)
+        if request.confirmation is not None:
+            result.confirmation = worker_confirmation or ConfirmationResult(still=sites, runs=1, kills=0)
+        return result
+
+    monkeypatch.setattr(workers_mod, "run_parallel", run_parallel)
+    outcome = _execute_mutations(
+        selected_sites=sites,
+        clean_source=src,
+        ctx=MutantExecCtx(
+            path=str(src_file),
+            cwd=str(tmp_path),
+            pytest_args=["-q"],
+            executor=orchestrator,
+            worker_executor=worker_executor,
+            timeout_policy=_policy(7.5),
+            max_workers=2,
+            use_parallel=True,
+            abs_source_path=str(src_file),
+            confirm_args=list(FULL_SET),
+            markers={9: "category"},
+        ),
+    )
+    return outcome, requests, sites
+
+
+@pytest.mark.unit
+def test_parallel_fresh_import_survivors_are_confirmed_on_the_orchestrators_fork_server(tmp_path, monkeypatch):
+    fork = _ForkServerFake(file_mode="fresh import")
+
+    outcome, requests, _ = _parallel_run_confirming(tmp_path, monkeypatch, orchestrator=fork)
+
+    assert requests[0].confirmation is None
+    assert (list(FULL_SET), 7.5) in fork.calls
+    assert (outcome.confirmation_runs, outcome.confirmation_kills) == (1, 0)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("file_mode", ["swap", "harness", ""])
+def test_parallel_swap_and_harness_survivors_are_left_to_the_workers_to_confirm_in_their_clones(
+    tmp_path, monkeypatch, file_mode
+):
+    fork = _ForkServerFake(file_mode=file_mode)
+
+    _, requests, _ = _parallel_run_confirming(tmp_path, monkeypatch, orchestrator=fork)
+
+    assert requests[0].confirmation == SurvivorConfirmation(
+        plan=MutantPlan(list(FULL_SET), 7.5, None), markers={9: "category"}
+    )
+
+
+@pytest.mark.unit
+def test_parallel_outcome_takes_the_survivors_the_workers_confirmed_without_a_second_confirmation(
+    tmp_path, monkeypatch
+):
+    fork = _ForkServerFake(file_mode="swap")
+    confirmed = ConfirmationResult(still=[], runs=1, kills=1)
+
+    outcome, _, _ = _parallel_run_confirming(tmp_path, monkeypatch, orchestrator=fork, worker_confirmation=confirmed)
+
+    assert outcome.survivors == []
+    assert outcome.counts == {"killed": 1, "timeout": 0, "survived": 0}
+    assert (outcome.confirmation_runs, outcome.confirmation_kills) == (1, 1)
+    assert fork.calls == []
+
+
+@pytest.mark.unit
+def test_parallel_workers_run_the_executor_a_caller_supplied_and_never_the_orchestrators(tmp_path, monkeypatch):
+    seam = _FakeExecutor()
+
+    _, requests, _ = _parallel_run_confirming(
+        tmp_path, monkeypatch, orchestrator=_ForkServerFake(file_mode="swap"), worker_executor=seam
+    )
+
+    assert requests[0].executor is seam
+
+
+@pytest.mark.unit
+def test_parallel_workers_get_no_executor_unless_a_caller_supplied_one(tmp_path, monkeypatch):
+    _, requests, _ = _parallel_run_confirming(tmp_path, monkeypatch, orchestrator=_ForkServerFake(file_mode="swap"))
+
+    assert requests[0].executor is None

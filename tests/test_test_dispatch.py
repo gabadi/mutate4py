@@ -44,8 +44,9 @@ def _policy() -> TimeoutPolicy:
 
 
 class _FakeSelectionSource:
-    def __init__(self, outcome, node_ids=()):
+    def __init__(self, outcome, node_ids=(), *, rootdir):
         self._result = (outcome, list(node_ids))
+        self.rootdir = rootdir
 
     def tests_for_line(self, source_path, line):
         return self._result
@@ -82,14 +83,14 @@ def test_plan_without_a_selection_source_runs_full_args_with_no_selection(projec
 
 @pytest.mark.unit
 def test_plan_narrows_to_covering_tests(project):
-    source = _FakeSelectionSource("narrowed", [GT])
+    source = _FakeSelectionSource("narrowed", [GT], rootdir=project)
     assert _plan(project, source) == MutantPlan(args=["-q", GT], timeout=6.0, selection="narrowed")
 
 
 @pytest.mark.unit
 def test_plan_narrowed_replaces_an_explicit_positional_path_with_the_node_ids(project):
     """A positional test path would otherwise run the whole path beside the node ids (issue #96)."""
-    source = _FakeSelectionSource("narrowed", [GT])
+    source = _FakeSelectionSource("narrowed", [GT], rootdir=project)
     assert _plan(project, source, pytest_args=("-q", "tests"), positionals=("tests",)) == MutantPlan(
         args=["-q", GT], timeout=6.0, selection="narrowed"
     )
@@ -98,7 +99,7 @@ def test_plan_narrowed_replaces_an_explicit_positional_path_with_the_node_ids(pr
 @pytest.mark.unit
 def test_plan_keeps_an_option_value_spelled_like_a_positional(project):
     """`-k tests` filters by name; only the bare `tests` after it is the positional."""
-    source = _FakeSelectionSource("narrowed", [GT])
+    source = _FakeSelectionSource("narrowed", [GT], rootdir=project)
     assert _plan(project, source, pytest_args=("-k", "tests", "tests"), positionals=("tests",)) == MutantPlan(
         args=["-k", "tests", GT], timeout=6.0, selection="narrowed"
     )
@@ -106,7 +107,7 @@ def test_plan_keeps_an_option_value_spelled_like_a_positional(project):
 
 @pytest.mark.unit
 def test_plan_with_no_positionals_keeps_every_arg_when_narrowing(project):
-    source = _FakeSelectionSource("narrowed", [GT])
+    source = _FakeSelectionSource("narrowed", [GT], rootdir=project)
     assert _plan(project, source, pytest_args=("-k", "tests")) == MutantPlan(
         args=["-k", "tests", GT], timeout=6.0, selection="narrowed"
     )
@@ -114,14 +115,16 @@ def test_plan_with_no_positionals_keeps_every_arg_when_narrowing(project):
 
 @pytest.mark.unit
 def test_plan_static_line_runs_full_args(project):
-    assert _plan(project, _FakeSelectionSource("static")) == MutantPlan(args=["-q"], timeout=15.0, selection="static")
+    assert _plan(project, _FakeSelectionSource("static", rootdir=project)) == MutantPlan(
+        args=["-q"], timeout=15.0, selection="static"
+    )
 
 
 @pytest.mark.unit
 def test_plan_static_line_keeps_the_positional_path(project):
     """A static Mutant runs the full set exactly as the run was asked to."""
     assert _plan(
-        project, _FakeSelectionSource("static"), pytest_args=("-q", "tests"), positionals=("tests",)
+        project, _FakeSelectionSource("static", rootdir=project), pytest_args=("-q", "tests"), positionals=("tests",)
     ) == MutantPlan(args=["-q", "tests"], timeout=15.0, selection="static")
 
 
@@ -129,7 +132,7 @@ def test_plan_static_line_keeps_the_positional_path(project):
 def test_plan_uncovered_line_runs_full_args_tallied_as_static(project):
     """An uncovered line (a Coverage gate flagged it, the Measurement did not reach it) runs the
     full set, tallied as "static": the Measurement has no covering test to name for it."""
-    assert _plan(project, _FakeSelectionSource("uncovered")) == MutantPlan(
+    assert _plan(project, _FakeSelectionSource("uncovered", rootdir=project)) == MutantPlan(
         args=["-q"], timeout=15.0, selection="static"
     )
 
@@ -140,7 +143,7 @@ def test_plan_unrecognized_outcome_raises(outcome, project):
     """No outcome may fall through to a full-suite run counted as narrowed. The retired
     db outcomes (under-listed, line-absent, file-absent) are unrecognized now, so they refuse too."""
     with pytest.raises(ValueError, match="unrecognized selection outcome") as excinfo:
-        _plan(project, _FakeSelectionSource(outcome), pytest_args=())
+        _plan(project, _FakeSelectionSource(outcome, rootdir=project), pytest_args=())
     assert f"{SRC}:2" in str(excinfo.value)
 
 
@@ -153,8 +156,8 @@ def test_the_full_set_is_budgeted_as_none_and_a_narrowed_mutant_by_its_node_ids(
         return 1.0
 
     policy = TimeoutPolicy(factor=1.0, min_timeout=0.0, overhead=0.0, budget_of=recording_budget)
-    _plan(project, _FakeSelectionSource("narrowed", [GT]), timeout_policy=policy)
-    _plan(project, _FakeSelectionSource("static"), timeout_policy=policy)
+    _plan(project, _FakeSelectionSource("narrowed", [GT], rootdir=project), timeout_policy=policy)
+    _plan(project, _FakeSelectionSource("static", rootdir=project), timeout_policy=policy)
 
     assert budgeted == [frozenset({GT}), None]
 
@@ -162,7 +165,7 @@ def test_the_full_set_is_budgeted_as_none_and_a_narrowed_mutant_by_its_node_ids(
 @pytest.mark.unit
 def test_plan_timeout_adds_the_per_mutant_overhead_to_the_budget(project):
     policy = TimeoutPolicy(factor=3.0, min_timeout=1.0, overhead=0.5, budget_of=_budget_of)
-    assert _plan(project, _FakeSelectionSource("narrowed", [GT]), timeout_policy=policy).timeout == 6.5
+    assert _plan(project, _FakeSelectionSource("narrowed", [GT], rootdir=project), timeout_policy=policy).timeout == 6.5
 
 
 @pytest.mark.unit
@@ -208,10 +211,8 @@ def test_confirm_plan_timeout_adds_the_per_mutant_overhead_to_the_full_set_budge
 
 
 @pytest.mark.unit
-def test_plan_narrowed_aborts_when_a_node_id_names_a_file_that_is_not_under_the_run_directory(project):
-    """The Measurement records node ids relative to its pytest rootdir. From any other directory pytest
-    exits 4 on them, so the plan aborts before the Site's Mutant, not by a race with the Mutant timeout."""
-    source = _FakeSelectionSource("narrowed", ["member/tests/test_calc.py::test_gt"])
+def test_plan_narrowed_aborts_when_a_node_id_names_a_file_that_does_not_exist_under_the_rootdir(project):
+    source = _FakeSelectionSource("narrowed", ["member/tests/test_calc.py::test_gt"], rootdir=project)
     with pytest.raises(NoTestsCollectedError) as excinfo:
         _plan(project, source)
     message = str(excinfo.value)
@@ -221,15 +222,80 @@ def test_plan_narrowed_aborts_when_a_node_id_names_a_file_that_is_not_under_the_
 
 
 @pytest.mark.unit
+def test_plan_narrowed_from_a_directory_below_the_rootdir_rebases_the_node_ids_to_that_directory(tmp_path):
+    member = tmp_path / "member"
+    (member / "tests").mkdir(parents=True)
+    (member / "tests" / "test_calc.py").write_text("def test_gt():\n    assert True\n")
+    source = _FakeSelectionSource("narrowed", ["member/tests/test_calc.py::test_gt"], rootdir=str(tmp_path))
+
+    plan = _plan(str(member), source)
+
+    assert plan.args == ["-q", "tests/test_calc.py::test_gt"]
+    assert plan.selection == "narrowed"
+
+
+@pytest.mark.unit
+def test_plan_narrowed_from_a_directory_above_the_rootdir_rebases_the_node_ids_to_that_directory(tmp_path):
+    member = tmp_path / "member"
+    (member / "tests").mkdir(parents=True)
+    (member / "tests" / "test_calc.py").write_text("def test_gt():\n    assert True\n")
+    source = _FakeSelectionSource("narrowed", [GT], rootdir=str(member))
+
+    assert _plan(str(tmp_path), source).args == ["-q", "member/tests/test_calc.py::test_gt"]
+
+
+@pytest.mark.unit
+def test_plan_narrowed_keeps_a_parametrized_test_part_whole_when_it_rebases(tmp_path):
+    member = tmp_path / "member"
+    (member / "tests").mkdir(parents=True)
+    (member / "tests" / "test_calc.py").write_text("")
+    node_id = "member/tests/test_calc.py::test_gt[a/b::c]"
+    source = _FakeSelectionSource("narrowed", [node_id], rootdir=str(tmp_path))
+
+    assert _plan(str(member), source).args == ["-q", "tests/test_calc.py::test_gt[a/b::c]"]
+
+
+@pytest.mark.unit
+def test_plan_narrowed_budgets_the_timeout_on_the_node_ids_as_the_measurement_recorded_them(tmp_path):
+    member = tmp_path / "member"
+    (member / "tests").mkdir(parents=True)
+    (member / "tests" / "test_calc.py").write_text("")
+    budgeted = []
+
+    def recording_budget(node_ids):
+        budgeted.append(node_ids)
+        return 1.0
+
+    policy = TimeoutPolicy(factor=1.0, min_timeout=0.0, overhead=0.0, budget_of=recording_budget)
+    source = _FakeSelectionSource("narrowed", ["member/tests/test_calc.py::test_gt"], rootdir=str(tmp_path))
+
+    _plan(str(member), source, timeout_policy=policy)
+
+    assert budgeted == [frozenset({"member/tests/test_calc.py::test_gt"})]
+
+
+@pytest.mark.unit
+def test_plan_narrowed_through_a_symlinked_run_directory_rebases_the_same(tmp_path):
+    member = tmp_path / "member"
+    (member / "tests").mkdir(parents=True)
+    (member / "tests" / "test_calc.py").write_text("")
+    link = tmp_path / "link"
+    link.symlink_to(member)
+    source = _FakeSelectionSource("narrowed", ["member/tests/test_calc.py::test_gt"], rootdir=str(tmp_path))
+
+    assert _plan(str(link), source).args == ["-q", "tests/test_calc.py::test_gt"]
+
+
+@pytest.mark.unit
 def test_plan_narrowed_checks_every_node_id_not_only_the_first(project):
-    source = _FakeSelectionSource("narrowed", [GT, "tests/test_gone.py::test_gt"])
+    source = _FakeSelectionSource("narrowed", [GT, "tests/test_gone.py::test_gt"], rootdir=project)
     with pytest.raises(NoTestsCollectedError, match="tests/test_gone.py::test_gt"):
         _plan(project, source)
 
 
 @pytest.mark.unit
 def test_plan_static_line_names_no_node_id_so_no_path_is_checked(tmp_path):
-    assert _plan(str(tmp_path), _FakeSelectionSource("static")) == MutantPlan(
+    assert _plan(str(tmp_path), _FakeSelectionSource("static", rootdir=str(tmp_path))) == MutantPlan(
         args=["-q"], timeout=15.0, selection="static"
     )
 
@@ -262,7 +328,7 @@ def test_settle_leaves_a_classification_that_is_not_exit_4_or_5_alone_and_runs_n
 @pytest.mark.unit
 def test_settle_counts_a_mutant_that_ends_abnormally_as_killed_and_runs_no_control(tmp_path):
     """Exit 2 or 3, a signal, a pytest that did not start: the Executor says `errored`. For a Mutant
-    that is a kill (ADR 0011), and it is no exit 4 or 5 that a Control run must explain."""
+    that is a kill, and it is no exit 4 or 5 that a Control run must explain."""
     settled, executor = _settle(tmp_path, "errored")
     assert settled == "killed"
     assert executor.calls == []

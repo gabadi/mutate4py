@@ -1,4 +1,4 @@
-"""Process exit codes and the batch severity order (ADR 0018, ADR 0026)."""
+"""Process exit codes and the batch severity order."""
 
 EXIT_OK = 0
 EXIT_FAILURE = 1

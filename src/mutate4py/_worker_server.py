@@ -108,7 +108,8 @@ def _serve(
             outstream.write(json.dumps({"description": dataclasses.asdict(executor.describe())}) + "\n")
         else:
             args = [*request["args"], *neutralise(request["args"]), *plugin_args]
-            status = executor.run(args, request["timeout"], control=request.get("control", False))
+            runner = executor.fresh_interpreter() if request.get("fresh") else executor
+            status = runner.run(args, request["timeout"], control=request.get("control", False))
             outstream.write(json.dumps({"status": status}) + "\n")
         outstream.flush()
 

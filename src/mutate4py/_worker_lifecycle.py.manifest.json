@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "tested_at": "2026-11-15T22:02:56Z",
+  "module_hash": "ec2ab5830d91716fad243f3bf04f0704dedfcb52ee13e28f8213699286acd419",
+  "source_sha256": "684393cdaa2c18d93d13312eeec0de3ce2b0476cce20571e87cccd0f64e8a1bc",
+  "functions": [
+    {
+      "id": "class/ParallelRunError",
+      "name": "ParallelRunError",
+      "line": 13,
+      "end_line": 14,
+      "hash": "2a9702b03405ad468517984a7cb55a420035cd344a781480aee063849c49617e",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+    },
+    {
+      "id": "class/WorkerFailureError",
+      "name": "WorkerFailureError",
+      "line": 17,
+      "end_line": 18,
+      "hash": "17ac58b75fc3e72ccc53b62d3c81633237767e73ffc7ab3ada3233a3ca982f02",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+    },
+    {
+      "id": "func/_prime_worker_executor",
+      "name": "_prime_worker_executor",
+      "line": 21,
+      "end_line": 27,
+      "hash": "efb2a3c97a62c28bd8922d0a30bc762854224e3a3bac5f434f751fc1e1e41f4e",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+    },
+    {
+      "id": "func/_describe_worker_executor",
+      "name": "_describe_worker_executor",
+      "line": 30,
+      "end_line": 36,
+      "hash": "6a4b92731b61aa97f4a173b87511eb637e5886d7175584ee5b9aeab096b3266c",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+    },
+    {
+      "id": "func/_close_worker_executor",
+      "name": "_close_worker_executor",
+      "line": 39,
+      "end_line": 44,
+      "hash": "f7e103b8830a98cdd5ccb02b20aa7163a01d4886b672ea07bdc06aa929a525d2",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ab733a46d31a892b731ab45e8aecf36f5f614dae5962a210cdf837a301818167"
+    }
+  ],
+  "tests_fingerprint": "cbf5e43b095b8d37a686182df6e665c038f959cfad322098fafde582c58f5ead"
+}

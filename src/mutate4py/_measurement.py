@@ -172,6 +172,10 @@ class Measurement:
         return self._record.collected
 
     @property
+    def rootdir(self) -> str:
+        return self._record.rootdir
+
+    @property
     def positional_args(self) -> tuple[str, ...]:
         """pytest's parsed positional arguments, which a narrowed run replaces."""
         return self._record.args

@@ -25,6 +25,7 @@ __all__ = [
     "dump_record",
     "load_record",
     "file_of_test",
+    "test_roots",
 ]
 
 _TRACER_CORES = {"CTracer": "ctrace", "PyTracer": "pytrace", "SysMonitor": "sysmon"}
@@ -101,7 +102,7 @@ class MeasureRecord:
     support_modules: tuple[str, ...]
 
 
-def _test_roots(test_files: Iterable[str], rootdir: str) -> set[str]:
+def test_roots(test_files: Iterable[str], rootdir: str) -> set[str]:
     """The directory of each test file and its ancestors, stopping below rootdir."""
     roots = set()
     for test_file in test_files:
@@ -113,7 +114,7 @@ def _test_roots(test_files: Iterable[str], rootdir: str) -> set[str]:
 
 
 def _support_modules(facts: SessionFacts, conftests: tuple[str, ...]) -> tuple[str, ...]:
-    roots = _test_roots(facts.test_files, facts.rootdir)
+    roots = test_roots(facts.test_files, facts.rootdir)
     excluded = set(facts.test_files) | set(facts.deselected_files) | set(conftests)
     return tuple(
         sorted(

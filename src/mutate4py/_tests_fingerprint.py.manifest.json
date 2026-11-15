@@ -1,9 +1,24 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T13:16:44Z",
+  "tested_at": "2026-11-15T22:02:29Z",
   "module_hash": "cefcb66eb8f8316efd845dde2351c68a85ee8a784f9e5e2b8102b6289dfa7fa5",
   "source_sha256": "4848b8b523bdb3fdaf234fdee153e137135e6e98d6ce1ef6fc57c909ae86636e",
   "functions": [
+    {
+      "id": "class/TargetFacts",
+      "name": "TargetFacts",
+      "line": 46,
+      "end_line": 57,
+      "hash": "9cac54210d27bc0147113b50d839296508892f928c07fc084e8e2d8d30cd2dd9",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ea6c954ad1305ee70f2015b6d6a2305e9ef6215aa904313d6f59c846775db6c4"
+    },
     {
       "id": "func/_target_skippable",
       "name": "_target_skippable",
@@ -17,7 +32,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "fdc30d2cc7e83c5ae250e66914df7d86be59679f651f9903a25832287a48fb8e"
+      "tests_digest": "bc41c7b5c51c2d78da01b3c92508d8264ed07796a188a9381e6e6fbaf8303349"
     },
     {
       "id": "func/can_skip_measurement",
@@ -32,7 +47,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "fdc30d2cc7e83c5ae250e66914df7d86be59679f651f9903a25832287a48fb8e"
+      "tests_digest": "bc41c7b5c51c2d78da01b3c92508d8264ed07796a188a9381e6e6fbaf8303349"
     },
     {
       "id": "func/_hashable",
@@ -47,7 +62,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "d3e1683a70c144fa070d3ae8baf465ccd8f62fe2f1b322094e335bee799ecfcd"
+      "tests_digest": "48683b075ff1257c3ce3106ba714e6062865c4762c6e40ea3d6ce0d1598543b8"
     },
     {
       "id": "func/_file_sha",
@@ -62,7 +77,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/_py_inputs",
@@ -77,7 +92,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/_file_input",
@@ -92,7 +107,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/_root_inputs",
@@ -107,7 +122,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/_existing_file_input",
@@ -122,7 +137,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/_pyproject_pytest_table",
@@ -137,7 +152,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "c7293e3ab3af2d9103c89b68bcdf1dfe2d564231e93f782c4ffa2b0f58b953c3"
+      "tests_digest": "7289c33da4b971d022a936ad65c2e59c9adfcfc09c46e50902d1e9a7573cfc1b"
     },
     {
       "id": "func/_config_inputs",
@@ -152,7 +167,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/_explicit_config_inputs",
@@ -167,7 +182,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/_config_dirs",
@@ -182,7 +197,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/_conftest_inputs",
@@ -197,7 +212,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/_config_and_lock_inputs",
@@ -212,7 +227,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/_mutate4py_version",
@@ -227,7 +242,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/fingerprint_inputs",
@@ -242,7 +257,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/_digest",
@@ -257,7 +272,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/tests_fingerprint",
@@ -272,8 +287,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     }
   ],
-  "tests_fingerprint": "f91a5c3bed9d8084ceb884e20b4b6a86dee437760ddb24bc9ab3d0586ff46a5d"
+  "tests_fingerprint": "cbf5e43b095b8d37a686182df6e665c038f959cfad322098fafde582c58f5ead"
 }

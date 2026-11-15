@@ -6,8 +6,8 @@ import json
 import re
 from collections import Counter
 
-from mutate4py._ids import function_unit_id
 from mutate4py._sidecar_io import parse_json_text
+from mutate4py._unit_extraction import ast_sha256, extract_units
 
 _BEGIN = "# mutate4py-manifest-begin"
 _END = "# mutate4py-manifest-end"
@@ -73,10 +73,6 @@ def extract_manifest(source: str) -> tuple[dict | None, bool]:
         return None, False
     parts = [p for line in block.splitlines() if (p := _uncomment_line(line))]
     return parse_json_text(" ".join(parts))
-
-
-def _sha256_ast(node: ast.AST) -> str:
-    return hashlib.sha256(ast.unparse(node).encode()).hexdigest()
 
 
 def source_sha256(source: str) -> str:
@@ -145,7 +141,7 @@ def _fields_for(
     while its hash is unchanged, else None (changed or new, so unscored).
 
     A rescored function takes the fresh tests digest. A kept entry with no
-    digest adopts the fresh one when it has no survivors (ADR 0026). A stored
+    digest adopts the fresh one when it has no survivors. A stored
     digest is kept even when it differs from the fresh one.
     """
     fid = fn["id"]
@@ -185,7 +181,7 @@ def reconcile_manifest(
     otherwise the stored tests_fingerprint is kept, so a run that records no scores never claims one.
 
     Returns existing itself when nothing but tested_at or source_sha256 would
-    change (ADR 0006), so callers detect "unchanged" by identity.
+    change, so callers detect "unchanged" by identity.
     """
     base = existing or {}
     prior = {fn["id"]: fn for fn in base.get("functions", [])}
@@ -209,7 +205,7 @@ def _carry_entry(
 
 
 def _unchanged(existing: dict | None, merged: dict) -> bool:
-    """True when merged differs from existing only in tested_at or source_sha256 (ADR 0006).
+    """True when merged differs from existing only in tested_at or source_sha256.
 
     Scores and the tests fingerprint must match too.
     """
@@ -240,7 +236,8 @@ def functions_with_unmarked_acceptances(manifest: dict | None, current: dict, ma
     That covers a marker removed, its reason reworded, or one of several
     same-reason markers removed. markers maps line -> reason for the current
     source. A marker counts for a function when it sits inside that function's
-    current span, so a function whose code merely moved keeps its acceptance.
+    current span and outside the units nested in it, so a function whose code
+    merely moved keeps its acceptance and a method's marker never counts for its class.
     None gives an empty set.
     """
     if manifest is None:
@@ -249,12 +246,13 @@ def functions_with_unmarked_acceptances(manifest: dict | None, current: dict, ma
     return {
         fn["id"]
         for fn in manifest["functions"]
-        if fn["id"] in current_by_id and _acceptance_unmarked(fn, current_by_id[fn["id"]], markers)
+        if fn["id"] in current_by_id
+        and _acceptance_unmarked(fn, current_by_id[fn["id"]], current["functions"], markers)
     }
 
 
-def _acceptance_unmarked(fn: dict, cur: dict, markers: dict[int, str]) -> bool:
-    """True when cur's span holds fewer markers of some accepted reason than fn's accepted survivors need.
+def _acceptance_unmarked(fn: dict, cur: dict, units: list[dict], markers: dict[int, str]) -> bool:
+    """True when cur's own lines hold fewer markers of some accepted reason than fn's accepted survivors need.
 
     A marker accepts every survivor on its line, so each distinct (line, reason)
     needs one marker of that reason. Two same-reason survivors on two lines need
@@ -263,14 +261,24 @@ def _acceptance_unmarked(fn: dict, cur: dict, markers: dict[int, str]) -> bool:
     accepted = (_scored_fields(fn) or {}).get("accepted")
     if not accepted:
         return False
-    found = _markers_in_span(cur, markers)
+    found = _markers_on_own_lines(cur, units, markers)
     needed = Counter(reason for _, reason in {(a["line"], a["reason"]) for a in accepted})
     return any(count > found[reason] for reason, count in needed.items())
 
 
-def _markers_in_span(cur: dict, markers: dict[int, str]) -> Counter[str]:
-    """Per reason, the markers that sit inside cur's line span."""
-    return Counter(reason for line, reason in markers.items() if cur["line"] <= line <= cur["end_line"])
+def _is_nested_in(unit: dict, cur: dict) -> bool:
+    return unit["id"] != cur["id"] and cur["line"] <= unit["line"] and unit["end_line"] <= cur["end_line"]
+
+
+def _on_own_lines(cur: dict, nested: list[dict], line: int) -> bool:
+    return cur["line"] <= line <= cur["end_line"] and not any(
+        unit["line"] <= line <= unit["end_line"] for unit in nested
+    )
+
+
+def _markers_on_own_lines(cur: dict, units: list[dict], markers: dict[int, str]) -> Counter[str]:
+    nested = [unit for unit in units if _is_nested_in(unit, cur)]
+    return Counter(reason for line, reason in markers.items() if _on_own_lines(cur, nested, line))
 
 
 def has_accepted_survivors(manifest: dict) -> bool:
@@ -298,8 +306,8 @@ def build_manifest(source: str, *, tested_at: str) -> dict:
     fast path; not part of manifests_structurally_equal.
     """
     tree = ast.parse(source)
-    module_hash = _sha256_ast(tree)
-    functions = _extract_functions(tree)
+    module_hash = ast_sha256(tree)
+    functions = extract_units(tree)
 
     return {
         "version": 1,
@@ -308,36 +316,6 @@ def build_manifest(source: str, *, tested_at: str) -> dict:
         "source_sha256": source_sha256(source),
         "functions": functions,
     }
-
-
-def _extract_functions(tree: ast.Module) -> list[dict]:
-    """Extract outermost named function units with their id, name, line, end_line, hash."""
-    results = []
-    stack: list[tuple[ast.AST, ast.AST | None, bool]] = [(tree, None, False)]
-    while stack:
-        node, parent, inside_fn = stack.pop()
-
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            if not inside_fn:
-                fid = function_unit_id(node, parent)
-                results.append(
-                    {
-                        "id": fid,
-                        "name": node.name,
-                        "line": node.lineno,
-                        "end_line": node.end_lineno,
-                        "hash": _sha256_ast(node),
-                    }
-                )
-            for child in ast.iter_child_nodes(node):
-                stack.append((child, node, True))
-        else:
-            for child in ast.iter_child_nodes(node):
-                stack.append((child, node, inside_fn))
-
-    # Sort by line for determinism
-    results.sort(key=lambda f: f["line"])
-    return results
 
 
 def diff_manifests(previous: dict | None, current: dict) -> set[str]:

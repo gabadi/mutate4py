@@ -1,18 +1,19 @@
 """Unit tests for _plugin_neutralisation.py: the decision table of which kill switches a run keeps.
 
-A switch is dropped only when the child pytest provably does not load its plugin (ADR 0020, amended,
-#127): autoload is off and no source names the plugin, or `-p no:<entry point>` blocks it. Every other
+A switch is dropped only when the child pytest provably does not load its plugin (#127):
+autoload is off and no source names the plugin, or `-p no:<entry point>` blocks it. Every other
 case keeps the switch, so a source this module cannot read ends in a loud exit 4, never in a silent
 wrong score. Each test builds a throwaway project in `tmp_path`; the inifile there bounds the conftest
 search to the project.
 """
 
+import dataclasses
 import os
 import stat
 
 import pytest
 
-from mutate4py._plugin_neutralisation import neutralising_args
+from mutate4py._plugin_neutralisation import _Plugin, neutralising_args
 
 _COV = "--no-cov"
 _BENCH = "--benchmark-disable"
@@ -440,3 +441,11 @@ def test_disabled_plugin_args_ignores_a_trailing_bare_p():
     from mutate4py._plugin_neutralisation import disabled_plugin_args
 
     assert disabled_plugin_args(["tests", "-p"]) == []
+
+
+@pytest.mark.unit
+def test_a_kill_switch_plugin_cannot_be_changed_after_it_is_built():
+    plugin = _Plugin("pytest_cov", "--no-cov", "pytest_cov", ("pytest_cov",))
+
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        plugin.module = "other"  # type: ignore[misc]

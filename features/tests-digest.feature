@@ -1,10 +1,8 @@
 Feature: A scored function stays proven while the tests that reach it do not change
 
   # TRACKING: Issue #88 (acceptance criteria); Issue #106 (skip rule, recorded Survivors)
-  #           docs/adr/0029-per-function-tests-digest-and-skip-rule.md (digest inputs,
-  #           Site-lines-only, skip rule, adoption, accepted gaps); docs/adr/0022 (the
-  #           counter-examples a narrow input set got wrong); docs/adr/0026
-  #           (Survivors fail the run).
+  #           docs/adr/0029-per-function-tests-digest-and-skip-rule.md;
+  #           docs/adr/0026 (Survivors fail the run).
   #
   # CONTRACT:
   #   command: mutate4py <file-or-dir> --pytest-args <args> [--allow-survivors]
@@ -26,9 +24,9 @@ Feature: A scored function stays proven while the tests that reach it do not cha
   #     defines the function (def, decorator) is not a Site line.
   #   - A support file under a test root (a factory, a helper in a sibling directory)
   #     is a run-level input: it sits in every function's digest, because the digest
-  #     cannot tell which test imports it without guessing from directory shape
-  #     (ADR 0022). An edit to one re-scores every scored function.
-  #   - A helper outside every test root is not a digest input (ADR 0029, accepted gap).
+  #     cannot tell which test imports it without guessing from directory shape.
+  #     An edit to one re-scores every scored function.
+  #   - A helper outside every test root is not a digest input.
   #   - An entry without a stored digest and without Survivors adopts the fresh digest
   #     with no re-score.
 
@@ -46,7 +44,7 @@ Feature: A scored function stays proven while the tests that reach it do not cha
     And mutate4py is run again
     Then no function is re-scored
 
-  # ── #88 AC: each ADR 0022 counter-example invalidates the proofs it affects ─────
+  # ── #88 AC: each narrow-input counter-example invalidates the proofs it affects ─────
 
   Scenario: an edit to a conftest above a covering test re-scores that test's functions
     Given a project of five modules, each with its own tests, scored once

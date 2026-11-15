@@ -1,5 +1,6 @@
 """Unit tests for mutate4py CLI entry point (__main__)."""
 
+import logging
 import os
 import sys
 
@@ -132,7 +133,7 @@ def test_scan_report_sidecar_manifest_reports_exists_true(tmp_path):
 
 @pytest.mark.unit
 def test_scan_report_counts_every_site_of_an_unscored_manifest_as_changed(tmp_path):
-    # A Manifest with no score block is Unscored, and a default run scores it (ADR 0029 rule 1), so the scan
+    # A Manifest with no score block is Unscored, and a default run scores it, so the scan
     # report counts its sites as changed even though the source did not move.
     from mutate4py._runner import update_manifest
 
@@ -406,3 +407,12 @@ def test_mutation_warning_threshold_comparison_is_numeric(tmp_path, capsys):
         m.main()
     out = capsys.readouterr().out
     assert "Warning" not in out
+
+
+@pytest.mark.unit
+def test_the_package_logger_does_not_pass_its_records_to_the_root_logger():
+    import mutate4py
+
+    mutate4py._configure_logging()
+
+    assert logging.getLogger("mutate4py").propagate is False

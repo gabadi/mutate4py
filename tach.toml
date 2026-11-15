@@ -127,9 +127,14 @@ layer = "domain"
 depends_on = []
 
 [[modules]]
-path = "mutate4py._manifest"
+path = "mutate4py._unit_extraction"
 layer = "domain"
 depends_on = []
+
+[[modules]]
+path = "mutate4py._manifest"
+layer = "domain"
+depends_on = ["mutate4py._unit_extraction"]
 
 # The functions whose stored tests digest a run's fresh digests change (#106). Split from
 # `_manifest`, which sits at its size cap (tests/test_module_size_guard.py).
@@ -138,7 +143,7 @@ path = "mutate4py._digest_changes"
 layer = "domain"
 depends_on = ["mutate4py._manifest"]
 
-# The functions a run scores because no stored score block covers them (ADR 0029 rule 1, spec #115).
+# The functions a run scores because no stored score block covers them (spec #115).
 # Split from `_manifest`, which sits at its size cap (tests/test_module_size_guard.py).
 [[modules]]
 path = "mutate4py._unscored"
@@ -169,7 +174,7 @@ depends_on = []
 [[modules]]
 path = "mutate4py._digest_inputs"
 layer = "domain"
-depends_on = ["mutate4py._tests_digest"]
+depends_on = ["mutate4py._tests_digest", "mutate4py._sidecar_io"]
 
 # The fresh digest of each function in a measured file (#105): reads the Measurement's
 # reach, so it sits beside it in `baseline`.
@@ -275,7 +280,17 @@ depends_on = []
 [[modules]]
 path = "mutate4py._workers"
 layer = "execution_backends"
-depends_on = ["mutate4py._worker_protocol", "mutate4py._worker_provision", "mutate4py._worker_results"]
+depends_on = [
+    "mutate4py._worker_lifecycle",
+    "mutate4py._worker_protocol",
+    "mutate4py._worker_provision",
+    "mutate4py._worker_results",
+]
+
+[[modules]]
+path = "mutate4py._worker_lifecycle"
+layer = "execution_backends"
+depends_on = ["mutate4py._worker_protocol"]
 
 [[modules]]
 path = "mutate4py._worker_results"
@@ -290,7 +305,7 @@ depends_on = ["mutate4py._worker_protocol"]
 [[modules]]
 path = "mutate4py._forking_executor"
 layer = "execution_backends"
-depends_on = ["mutate4py._fork_child"]
+depends_on = ["mutate4py._fork_child", "mutate4py._subprocess_executor"]
 
 [[modules]]
 path = "mutate4py._fork_child"

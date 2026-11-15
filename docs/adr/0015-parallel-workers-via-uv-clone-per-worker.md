@@ -1,42 +1,11 @@
 # Parallel workers use clone-per-worker, because PEP 660 breaks the upstream model
 
-**Status:** accepted · mechanism still current; worker *execution* superseded (below)
+Each Worker is a tree copy of the project with its own `uv` venv, under `.mutate4py/workers/`.
 
-Three parallel mechanisms exist in the Python mutation ecosystem:
+## Considered Options
 
-1. **mutate4go's own** — copy the project tree per worker, run tests with
-   `cwd = workerRoot`. **Unsound in Python.** PEP 660 editable installs pin an
-   absolute path to the original source that `cwd`/`sys.path` cannot redirect
-   (mutmut v3 #456). This is why the upstream model cannot be ported verbatim —
-   the single most load-bearing fact in this file.
-2. **clone-per-worker (cosmic-ray)** — each worker is an isolated copy with its own
-   resolved environment, mutating its *own* file. Editable-install-proof by
-   construction.
-3. **bytecode-spoof (mutatest)** — write the mutant as `__pycache__` bytecode with a
-   spoofed mtime. Editable-proof, but a *different mutation engine*: adopting it
-   means discarding the byte-offset splice/restore core and its crash-safety.
-
-**Decision: mechanism 2, provisioned with `uv`.** The original objection to
-clone-per-worker was per-worker `git clone` + `pip install` cost; `uv venv` is
-near-instant and installs hardlink from a shared cache, which removes it. The
-byte-splice engine survives intact.
-
-Worker copies are **tree copies**, not clones, so they work outside a git repo and
-capture uncommitted edits. They live under
-`.mutate4py/workers/run-<pid>-<nanos>/worker-<k>/`; the whole run root is removed at
-the end. Worker copies recreate symlinks rather than following them: relative when the target is inside the project, absolute outside it.
-
-## Superseded: how a worker executes
-
-Resolution 1 of this ADR originally said each worker runs the user's test command
-*verbatim* with `cwd = worker-root`, relying on the worker's own venv to resolve
-imports. **That is no longer how it works:** each Worker spawns, under its own `.venv/bin/python`, a persistent `_worker_server.py` holding one primed `Executor` and dispatches Mutants to it over a pipe.
-Plugin kill switches are computed there, and a Worker venv without pytest fails at priming rather than classifying its Mutants.
-The `uv venv`/`uv sync` provisioning above is unchanged; the per-Mutant execution path is not.
-A Worker venv must hold every distribution the project environment holds, or the run fails at provisioning.
-
-**Rejected:** mechanism 1 (unsound); mechanism 3 (discards the byte-splice engine);
-`git clone` granularity (needs a repo, misses uncommitted edits); wrapping the user
-command in `uv run` (prescribes the runner, double-wraps); graceful-degrade on
-worker failure (non-deterministic, under-reports survivors — failure is strict
-all-or-nothing, with no `Mutation Report` printed).
+- **mutate4go's model: copy the tree and run the tests with `cwd` set to the copy.** A PEP 660 editable install pins an absolute path to the original source, and `cwd` or `sys.path` cannot redirect it (mutmut v3 #456).
+- **Bytecode spoof (mutatest): write the Mutant as `__pycache__` bytecode with a spoofed mtime.** It is a different mutation engine. It discards the byte-offset splice and restore, and its crash safety.
+- **A `git clone` per Worker.** It needs a git repository and misses uncommitted edits.
+- **Start each Worker through `uv run`.** It prescribes the runner and wraps it two times.
+- **Continue when a Worker fails.** The result is not deterministic and reports too few Survivors. A Worker failure fails the run, with no Mutation Report.

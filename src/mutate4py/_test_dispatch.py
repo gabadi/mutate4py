@@ -14,22 +14,26 @@ moving it.
 import dataclasses
 import logging
 import os
-from collections.abc import Callable
+import time
+from collections.abc import Callable, Mapping
 
-from mutate4py._discovery import Site
-from mutate4py._executor import Executor
+from mutate4py._discovery import Site, apply_mutant
+from mutate4py._executor import Executor, MutantTiming
 from mutate4py._pytest_argv import POSITIONAL, token_roles
 
 __all__ = [
     "NO_TESTS_HINT",
     "ControlRuns",
+    "ConfirmationResult",
     "ControlTarget",
     "MutantPlan",
     "NoTestsCollectedError",
     "PlanInputs",
+    "SurvivorConfirmation",
     "TimeoutPolicy",
     "_log_dispatch_abort",
     "confirm_plan",
+    "confirm_survivors",
     "plan_mutant",
     "plan_sites",
 ]
@@ -209,14 +213,18 @@ class ControlRuns:
         return "killed"
 
 
-def _check_node_ids_resolve(node_ids: list[str], cwd: str, where: str) -> None:
-    """Raise NoTestsCollectedError if a node id names a file that does not exist under cwd."""
+def _rebased_node_ids(node_ids: list[str], rootdir: str, cwd: str, where: str) -> list[str]:
+    real_rootdir, real_cwd = os.path.realpath(rootdir), os.path.realpath(cwd)
+    rebased = []
     for node_id in node_ids:
-        if not os.path.exists(os.path.join(cwd, node_id.split("::", 1)[0])):
+        file, separator, test = node_id.partition("::")
+        from_cwd = os.path.relpath(os.path.join(real_rootdir, file), real_cwd)
+        if not os.path.exists(os.path.join(real_cwd, from_cwd)):
             raise NoTestsCollectedError(
-                f"{where}: pytest would exit 4 on node id {node_id}: its file is not under {cwd}. "
-                "Node ids are relative to the pytest rootdir: run mutate4py from there"
+                f"{where}: pytest would exit 4 on node id {node_id}: {os.path.join(rootdir, file)} does not exist"
             )
+        rebased.append(f"{from_cwd}{separator}{test}")
+    return rebased
 
 
 def plan_mutant(site: Site, inputs: PlanInputs) -> MutantPlan:
@@ -231,9 +239,11 @@ def plan_mutant(site: Site, inputs: PlanInputs) -> MutantPlan:
     tallied as "static".
 
     The Measurement records node ids relative to its pytest rootdir, and pytest resolves
-    them from the directory it runs in. A node id whose file does not exist under
-    `inputs.cwd` is a pytest exit 4 for every Mutant, so it raises NoTestsCollectedError here,
-    before that Site's Mutant is dispatched: left to the Mutant, that exit races the Mutant timeout.
+    them from the directory it runs in (`inputs.cwd`). A narrowed Mutant's argv carries each
+    node id rebased to `inputs.cwd`; its timeout is budgeted on the ids as recorded. A node id
+    whose file does not exist is a pytest exit 4 for every Mutant, so it raises
+    NoTestsCollectedError here, before that Site's Mutant is dispatched: left to the Mutant,
+    that exit races the Mutant timeout.
     The serial loop plans one Site at a time, so Mutants of earlier Sites have run by then;
     a parallel run plans every Site before it provisions a Worker.
     """
@@ -241,9 +251,10 @@ def plan_mutant(site: Site, inputs: PlanInputs) -> MutantPlan:
         return MutantPlan(list(inputs.pytest_args), inputs.timeout_policy.timeout_for(None), None)
     outcome, node_ids = inputs.selection_source.tests_for_line(inputs.abs_source_path, site.line)
     if outcome == "narrowed":
-        _check_node_ids_resolve(node_ids, inputs.cwd, f"{inputs.abs_source_path}:{site.line}")
+        where = f"{inputs.abs_source_path}:{site.line}"
+        rebased = _rebased_node_ids(node_ids, inputs.selection_source.rootdir, inputs.cwd, where)
         return MutantPlan(
-            [*_without_positionals(inputs.pytest_args, inputs.positionals), *node_ids],
+            [*_without_positionals(inputs.pytest_args, inputs.positionals), *rebased],
             inputs.timeout_policy.timeout_for(frozenset(node_ids)),
             "narrowed",
         )
@@ -263,6 +274,53 @@ def confirm_plan(pytest_args: list[str], timeout_policy: TimeoutPolicy) -> Mutan
     full set. Confirmation is never narrowed, so its selection tally is None.
     """
     return MutantPlan(list(pytest_args), timeout_policy.timeout_for(None), None)
+
+
+@dataclasses.dataclass(frozen=True)
+class SurvivorConfirmation:
+    plan: MutantPlan
+    markers: Mapping[int, str]
+
+
+@dataclasses.dataclass(frozen=True)
+class ConfirmationResult:
+    still: list[Site]
+    runs: int
+    kills: int
+
+
+def confirm_survivors(
+    survivors: list[Site], target: ControlTarget, confirmation: SurvivorConfirmation, timing: MutantTiming
+) -> ConfirmationResult:
+    """Re-run each Survivor with the full test set through `target`; the result holds those still surviving.
+
+    A Survivor ran with only the tests that cover its line, which can miss a test
+    that reads state a covering test left behind (a memoised body), so it counts
+    only once the full set lets it through. A Survivor on an equivalent-marker line
+    is accepted by design and is not re-run. The Mutant is spliced into target.path
+    as the serial loop splices it. A kill or a timeout under the full set both
+    fold into killed (ADR 0011).
+    """
+    controls = ControlRuns()
+    still: list[Site] = []
+    runs = kills = 0
+    for site in survivors:
+        if site.line in confirmation.markers:
+            still.append(site)
+            continue
+        with open(target.path, "w") as f:
+            f.write(apply_mutant(target.clean_source, site))
+        started = time.monotonic()
+        status = target.executor.run(confirmation.plan.args, confirmation.plan.timeout)
+        elapsed = time.monotonic() - started
+        status = controls.settle(status, confirmation.plan, site, target)
+        runs += 1
+        timing.record_confirmation(status, elapsed)
+        if status in ("killed", "timeout"):
+            kills += 1
+        else:
+            still.append(site)
+    return ConfirmationResult(still, runs, kills)
 
 
 def plan_sites(sites: list[Site], inputs: PlanInputs) -> list[MutantPlan]:

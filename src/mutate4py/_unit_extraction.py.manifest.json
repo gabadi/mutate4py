@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "tested_at": "2026-11-15T23:27:07Z",
+  "module_hash": "552fe51b427031026e227b0eb1817cd96ae2bc547c193e76f3063353a0de6a9b",
+  "source_sha256": "5d78294b3fe0b9e591dc383505f03a03cab13c5ea485ace38c18e898dec946cf",
+  "functions": [
+    {
+      "id": "func/ast_sha256",
+      "name": "ast_sha256",
+      "line": 13,
+      "end_line": 14,
+      "hash": "47f88cbfdcb8006d8338bb30168353114b14dc1dada0bed4de5e8f2abbb36345",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
+    },
+    {
+      "id": "func/_class_body",
+      "name": "_class_body",
+      "line": 17,
+      "end_line": 20,
+      "hash": "95190e67c1814fab124ce41aa2a9ac06b300c94fd3587cd0bc706bb2604ca329",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "3d8fb1efb7006044cfd726216d6a1df34d872fc54e718b73214bf7322c78ea4c"
+    },
+    {
+      "id": "func/_unit",
+      "name": "_unit",
+      "line": 23,
+      "end_line": 24,
+      "hash": "2b733a519dd0fb1f7c76c6ff5aaca933cedc31938f051b53737c4d7623700b51",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
+    },
+    {
+      "id": "func/_own_unit",
+      "name": "_own_unit",
+      "line": 27,
+      "end_line": 34,
+      "hash": "4816adbe4f3ce6b2a3c7257fc42979c917e380821a02868fa4806d375d81fdef",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "6ac767738e293befb4914312086dd65007207a3d07e6d8073723000e3c94f07f"
+    },
+    {
+      "id": "func/extract_units",
+      "name": "extract_units",
+      "line": 37,
+      "end_line": 50,
+      "hash": "9566e10caf135562f9a9c60069918ef29de768d8a1fc17005489507cd614e28f",
+      "score": {
+        "killed": 3,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "bccc465a58c640662132cc5cd853976e9552f119d333a9e181616c341a038258"
+    }
+  ],
+  "tests_fingerprint": "eb683dcf74d1ca7acea44ba3c3c038ca5884aef794fdcd6b3c5f8f8a6252bb70"
+}

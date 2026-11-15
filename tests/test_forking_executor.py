@@ -633,3 +633,33 @@ def test_wait_for_child_timeout_sigkills_the_child_and_reaps_it(monkeypatch):
     assert _wait_for_child(_FAKE_CHILD, timeout=1.0) == "timeout"
     assert kills == [(_FAKE_CHILD, signal.SIGKILL)]
     assert waits[-1] == (_FAKE_CHILD, 0)  # the blocking reap after SIGKILL
+
+
+@pytest.mark.system
+def test_describe_names_the_file_mode_prime_settled_on_for_the_guarded_file(tmp_path):
+    cwd, target = _write_fixture_project(
+        tmp_path,
+        target_body="def add(a, b):\n    return a + b\n",
+        test_body=_ADD_TEST_BODY,
+    )
+    executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
+    executor.prime()
+    assert executor.describe().file_mode == "fresh import"
+
+
+@pytest.mark.unit
+def test_fresh_interpreter_is_a_subprocess_executor_over_the_same_tree_and_file(tmp_path):
+    from mutate4py._subprocess_executor import SubprocessExecutor
+
+    guarded = str(tmp_path / "calc.py")
+    fresh = ForkingExecutor(cwd=str(tmp_path), guarded_path=guarded).fresh_interpreter()
+
+    assert isinstance(fresh, SubprocessExecutor)
+    assert (fresh._cwd, fresh._guarded_path) == (str(tmp_path), guarded)
+
+
+@pytest.mark.unit
+def test_an_executor_that_has_not_primed_describes_an_empty_file_mode(tmp_path):
+    executor = ForkingExecutor(cwd=str(tmp_path), guarded_path=str(tmp_path / "calc.py"), prime_args=_NO_TACH)
+
+    assert executor.describe().file_mode == ""
