@@ -223,8 +223,9 @@ def _conftest_chain(root: str, bounds: list[str] | None) -> list[str]:
     """The directories above `root`, nearest first, whose conftest pytest loads.
 
     pytest skips a directory only when it is strictly above `confcutdir` (`_is_in_confcutdir`,
-    config/__init__.py:682, :703-704). A bound at or below `root` therefore leaves no ancestor, and a
-    bound beside the chain skips none. With several bounds, a directory is kept when any keeps it.
+    config/__init__.py:682, :703-704). A bound at or below `root` therefore leaves no ancestor. A bound
+    beside the chain skips only the ancestors it shares with the chain that are strictly above it. With
+    several bounds, a directory is kept when any keeps it.
     """
     directories = ancestors(os.path.dirname(os.path.abspath(root)))
     if not bounds:
