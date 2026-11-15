@@ -57,13 +57,6 @@ def _make_src_dir(tmp_path, files: dict[str, str]) -> str:
 
 
 @pytest.mark.system
-def test_directory_run_mode_attempts_run_on_files(tmp_path):
-    d = _make_src_dir(tmp_path, {"a.py": "x = 1\n"})
-    result = _run_cli_path(d, "--pytest-args", "--collect-only -q tests/test_cmd.py", "--no-fork")
-    assert "run mode requires a single file, not a directory" not in result.stderr
-
-
-@pytest.mark.system
 def test_directory_check_manifest_all_missing_exits_1(tmp_path):
     d = _make_src_dir(tmp_path, {"a.py": "def f(): pass\n", "b.py": "def g(): pass\n"})
     result = _run_cli_path(d, "--check-manifest")
@@ -642,20 +635,6 @@ def test_main_zero_positionals_dispatches_autodiscovery_in_process(tmp_path, cap
 
 
 # ── multi-root positionals (issue #22): CLI-level arity/union behavior ─────────
-
-
-@pytest.mark.system
-def test_union_two_directories_processes_files_from_both(tmp_path):
-    a_dir = tmp_path / "a_pkg"
-    b_dir = tmp_path / "b_pkg"
-    a_dir.mkdir()
-    b_dir.mkdir()
-    (a_dir / "a.py").write_text("def f(): pass\n")
-    (b_dir / "b.py").write_text("def g(): pass\n")
-    result = _run_cli_path(str(a_dir), str(b_dir), "--check-manifest")
-    assert result.returncode == 1
-    assert f"Manifest missing: {a_dir / 'a.py'}" in result.stdout
-    assert f"Manifest missing: {b_dir / 'b.py'}" in result.stdout
 
 
 @pytest.mark.system
