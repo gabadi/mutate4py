@@ -3,7 +3,7 @@
 `--no-cov` is a pytest usage error unless pytest-cov is loaded in the pytest that receives it, and a
 pytest-cov that is loaded but not told `--no-cov` pauses the Measurement's collector, which scores every
 Mutant Uncovered with exit 0. So mutate4py drops the switch only when the child provably does not load
-the plugin, and keeps it whenever a source it reads names the plugin (ADR 0020, amended).
+the plugin, and keeps it whenever a source it reads names the plugin.
 
 Each test drives the real CLI in a throwaway project. The environment is built from the helpers the
 other nested-pytest tests use (acceptance/steps/nested_pytest_helpers.py), with PYTEST_ADDOPTS cleared

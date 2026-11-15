@@ -143,7 +143,7 @@ path = "mutate4py._digest_changes"
 layer = "domain"
 depends_on = ["mutate4py._manifest"]
 
-# The functions a run scores because no stored score block covers them (ADR 0029 rule 1, spec #115).
+# The functions a run scores because no stored score block covers them (spec #115).
 # Split from `_manifest`, which sits at its size cap (tests/test_module_size_guard.py).
 [[modules]]
 path = "mutate4py._unscored"

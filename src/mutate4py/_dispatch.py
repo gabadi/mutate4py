@@ -279,8 +279,7 @@ def _dispatch(args: argparse.Namespace) -> None:
     file that aliases another file in the same walk now keeps only one of
     them, where both used to be kept. Narrow (requires an in-tree symlink
     alias) and arguably a correctness fix (multi-root batches already
-    deduped this way), but it is a real deviation from ADR 0017's
-    byte-for-byte framing, so it's called out here rather than silently.
+    deduped this way), but it is a real deviation, so it's called out here rather than silently.
     """
     args.pytest_args = _parse_pytest_args(args.pytest_args)
     roots, args.prune_dirs = _resolve_roots(args)

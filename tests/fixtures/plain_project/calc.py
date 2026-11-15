@@ -1,4 +1,4 @@
-"""Plain module for the `uv run --with` overlay regression (ADR 0025).
+"""Plain module for the `uv run --with` overlay regression.
 The test imports it through pytest.ini's pythonpath, not a package."""
 
 

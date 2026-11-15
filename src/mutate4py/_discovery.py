@@ -295,7 +295,7 @@ def _constant_is_mutable(node: ast.Constant) -> bool:
 
 
 def _is_zero_negation(node: ast.UnaryOp) -> bool:
-    """ADR 0024 (zero literals): unary minus on a numeric zero literal is equivalent, so no site."""
+    """Unary minus on a numeric zero literal is equivalent, so no site."""
     operand = node.operand
     return (
         isinstance(node.op, ast.USub)

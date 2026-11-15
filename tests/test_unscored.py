@@ -1,4 +1,4 @@
-"""unscored_functions: the functions a run scores because no stored score block covers them (ADR 0029 rule 1)."""
+"""unscored_functions: the functions a run scores because no stored score block covers them."""
 
 import pytest
 

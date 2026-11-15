@@ -339,7 +339,7 @@ def _fake_popen(monkeypatch, *, raises: Exception | None = None) -> list:
 @pytest.mark.parametrize("caller_pythonpath", [None, "/existing"])
 def test_prime_keeps_the_import_root_off_the_worker_pythonpath(monkeypatch, caller_pythonpath):
     """The import root is a `.pth` in the Worker venv, read after site-packages. On
-    PYTHONPATH it would shadow the project's own mutate4py (dogfood, ADR 0015), so the
+    PYTHONPATH it would shadow the project's own mutate4py (dogfood), so the
     Worker's PYTHONPATH carries only what the caller set."""
     if caller_pythonpath is None:
         monkeypatch.delenv("PYTHONPATH", raising=False)

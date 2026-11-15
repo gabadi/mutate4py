@@ -37,7 +37,7 @@ testpaths = ["tests"]
 addopts = "--tb=short --strict-markers --ignore=tests/fixtures"
 markers = [
     "unit: fast, fully isolated test; no real subprocess/fork execution. Runs in the test-unit gate, which is also where the coverage measurement is taken.",
-    "system: real processes (a fork server, worker servers, nested pytest, a spawned interpreter), so it is slow. The Measurement cannot see this work, so it is outside code mutation and coverage: no scored run's test set includes it (ADR 0023, ADR 0027). Runs in the test-system gate.",
+    "system: real processes (a fork server, worker servers, nested pytest, a spawned interpreter), so it is slow. The Measurement cannot see this work, so it is outside code mutation and coverage: no scored run's test set includes it (ADR 0027). Runs in the test-system gate.",
 ]
 
 [tool.coverage.run]

@@ -1,8 +1,7 @@
 """Neutralises the pytest plugins a Mutant run definitionally cannot use.
 
-Why each plugin gets its own kill switch (`--no-cov`) and never `-p no:<name>`, why every flag is gated
-on the plugin being importable, when the switch is dropped because the child pytest will not load the
-plugin (and why the default is to keep it), and why no other plugin is touched:
+Why each plugin gets its own kill switch (`--no-cov`) and never `-p no:<name>`, and why no other plugin
+is touched:
 `docs/adr/0020-single-execution-model-and-plugin-neutralisation.md`.
 Read it before adding, removing, or unguarding an entry in `_KNOWN_PLUGINS`.
 """
@@ -58,7 +57,7 @@ def neutralising_args(
     A flag is a pytest usage error (exit 4, "unrecognized arguments") in a pytest that does not load its
     plugin, and a plugin that is loaded but not told to stand down corrupts the Measurement: pytest-cov's
     Coverage pauses the Measurement's collector, so every Mutant scores Uncovered with exit 0. The second
-    failure is silent, the first is loud, so the rule is: when unsure, keep the switch (ADR 0020, amended).
+    failure is silent, the first is loud, so the rule is: when unsure, keep the switch.
     A switch is dropped only when `_Session.loads` proves the child pytest, started in `cwd` with
     `pytest_args` and `environ`, does not load the plugin.
     """

@@ -3,8 +3,8 @@ Feature: Per-mutant test selection and directory run mode
   # TRACKING: Issue #15 — directory run mode
   #           Issue #27 — per-mutant selection, no silent full-suite fallback
   #           docs/adr/0027-single-session-ctrace-measurement-unit-only-scoring.md
-  #           (the Measurement and its Test map); docs/adr/0018 (the selection
-  #           rules and the no-tests hint); CONTEXT.md "Test selection".
+  #           (the Measurement and its Test map); docs/adr/0018 (the no-tests
+  #           abort); CONTEXT.md "Test selection".
   #
   # CONTRACT:
   #   command: mutate4py <file-or-dir> [other flags]

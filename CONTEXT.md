@@ -73,7 +73,7 @@ _Avoid_: ignored, suppressed
 
 **Unscored**:
 A Function unit with no stored entry, or whose Manifest entry has no `score` (written before
-0.1.5, or never scored by a run). A default run scores it (ADR 0029 rule 1). `--check-manifest` judges it on hashes alone.
+0.1.5, or never scored by a run). A default run scores it. `--check-manifest` judges it on hashes alone.
 _Avoid_: clean
 
 ### Coverage

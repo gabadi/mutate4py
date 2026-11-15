@@ -360,7 +360,7 @@ def _make_site_packages(env: str) -> str:
 def test_check_project_env_uv_run_overlay_passes_when_project_site_packages_on_sys_path(tmp_path):
     """`uv run --with <path>` runs under a temporary overlay prefix, but it puts
     the project's site-packages on sys.path: that overlay is the project
-    environment (ADR 0025)."""
+    environment."""
     root = tmp_path / "proj"
     env = _make_project(root, venv=True)
     site = _make_site_packages(env)

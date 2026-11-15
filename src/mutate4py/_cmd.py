@@ -26,8 +26,8 @@ def classify_exit_code(returncode: int) -> str:
 
     Only exit 0 and exit 1 show that pytest ran tests. Any other code (2 interrupted,
     3 internal error, a code a shell or a forked child leaves) is "errored": it shows
-    nothing about the tests, so a Control run it ends clears no argv (ADR 0018).
-    For a Mutant, `errored` still counts as killed (ADR 0011).
+    nothing about the tests, so a Control run it ends clears no argv.
+    For a Mutant, `errored` still counts as killed.
     """
     if returncode == 0:
         return "survived"

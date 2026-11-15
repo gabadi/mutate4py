@@ -1,4 +1,4 @@
-"""A Mutant that breaks the module at import is killed, on every Executor (ADR 0018, 0.3.1 amendment).
+"""A Mutant that breaks the module at import is killed, on every Executor (ADR 0018).
 
 The conftest imports the module under test. A Mutant that raises at import fails that import, so
 pytest exits 4 ("ImportError while loading conftest") before it runs a test. The Mutant caused

@@ -1,4 +1,4 @@
-"""System regression for the `uv run --with` overlay (ADR 0025): the
+"""System regression for the `uv run --with` overlay: the
 command the foreign-interpreter guard recommends must be accepted in a project
 that has its own `.venv`.
 

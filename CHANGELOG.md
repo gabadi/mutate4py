@@ -8,8 +8,7 @@
   fork server with the run's prime arguments and confirms a Survivor of a "fresh import" file
   there, as a serial run does. A Survivor of a file that a Worker swaps or runs in its harness
   is confirmed in a fresh interpreter, inside the Worker that ran it, before the Worker closes.
-  Before, a parallel run confirmed every Survivor in a new interpreter. Amends ADR 0018 and
-  ADR 0028.
+  Before, a parallel run confirmed every Survivor in a new interpreter. Amends ADR 0018.
 - A run that aborts writes nothing. The Manifest sidecar is written atomically, and an aborted
   run leaves it as the last finished run wrote it. An embedded Manifest footer is left as it
   was too: an aborted run in embed mode neither adds a footer nor updates one. A failure of a
@@ -21,11 +20,11 @@
   The first run on a file with a class re-scores the class, and `--check-manifest` reports the
   file stale until a run or `--update-manifest` adds the class entries. A Survivor outside every
   function and class is still not recorded; the report now prints each one as `file:line` under
-  "Module-level survivors (not recorded in the Manifest):". Amends ADR 0001 and ADR 0026.
+  "Module-level survivors (not recorded in the Manifest):".
 - A run started in a directory other than the pytest rootdir no longer aborts. The Measurement
   now exposes its rootdir, and the plan rebases the node ids of a narrowed Mutant from the rootdir
   to the run directory. The timeout is still budgeted on the ids as the Measurement recorded
-  them. A node id whose file does not exist still aborts the run with exit 2. Amends ADR 0018.
+  them. A node id whose file does not exist still aborts the run with exit 2.
 - The tests digest now includes every file that does not end in `.py` under the test folders
   (fixture JSON, golden files, tables). Before, an edit to such a file left a stored proof
   current. The file is shared by every function, so an edit to one re-scores the whole file;

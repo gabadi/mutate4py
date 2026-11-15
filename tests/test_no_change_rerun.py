@@ -1,7 +1,7 @@
 """No-change rerun (design #89 §5b): a rerun whose code and tests are unchanged since a scored run
 skips its Measurement and its Mutants, prints the Survivors the stored Manifest records, writes
 nothing, and exits as the scored run did. A changed test file runs the Mutants again, and a default
-run scores every Unscored function (ADR 0029 rule 1), so a 0.1.4 sidecar is scored once and then skips.
+run scores every Unscored function, so a 0.1.4 sidecar is scored once and then skips.
 
 Each test drives the real CLI in a throwaway project, so every run is a real scored or skipped run.
 """

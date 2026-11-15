@@ -563,7 +563,7 @@ def test_narrowing_and_parallel_workers_compose_in_one_run(tmp_path, monkeypatch
             assert "worker-" in line, f"Expected worker token, forced serial: {line}"
 
 
-# ── no tests collected / usage error: the fourth ADR 0018 case (issue #55) ────
+# ── no tests collected / usage error (issue #55) ────
 
 
 def _run_with_abort_status(tmp_path, status):

@@ -141,7 +141,7 @@ def _fields_for(
     while its hash is unchanged, else None (changed or new, so unscored).
 
     A rescored function takes the fresh tests digest. A kept entry with no
-    digest adopts the fresh one when it has no survivors (ADR 0026). A stored
+    digest adopts the fresh one when it has no survivors. A stored
     digest is kept even when it differs from the fresh one.
     """
     fid = fn["id"]
@@ -181,7 +181,7 @@ def reconcile_manifest(
     otherwise the stored tests_fingerprint is kept, so a run that records no scores never claims one.
 
     Returns existing itself when nothing but tested_at or source_sha256 would
-    change (ADR 0006), so callers detect "unchanged" by identity.
+    change, so callers detect "unchanged" by identity.
     """
     base = existing or {}
     prior = {fn["id"]: fn for fn in base.get("functions", [])}
@@ -205,7 +205,7 @@ def _carry_entry(
 
 
 def _unchanged(existing: dict | None, merged: dict) -> bool:
-    """True when merged differs from existing only in tested_at or source_sha256 (ADR 0006).
+    """True when merged differs from existing only in tested_at or source_sha256.
 
     Scores and the tests fingerprint must match too.
     """

@@ -6,8 +6,7 @@
 Feature: Measurement as coverage, the core refusal, removed flags
 
   # TRACKING: F3 (coverage-gate) — docs/adr/0027-single-session-ctrace-measurement-unit-only-scoring.md;
-  #           docs/adr/0007-coverage-default-path-and-line-only-gate.md (the line-only gate);
-  #           docs/adr/0008-coverage-flags-pairwise-exclusive.md (superseded: the flags are removed)
+  #           docs/adr/0007-coverage-default-path-and-line-only-gate.md (the line-only gate)
   #
   # CONTRACT:
   #   command: mutate4py <file> --pytest-args ARGS

@@ -47,9 +47,9 @@ Feature: Parallel worker execution for --max-workers
   #     .mutate4py/workers/run-<pid>-<nanos>/worker-<k>/, with its own uv-provisioned
   #     venv; it runs pytest with the run's --pytest-args verbatim, no shell,
   #     with cwd = worker-root. No
-  #     "uv pip install -e", no "uv run" wrapping (ADR 0015 resolution 1).
+  #     "uv pip install -e", no "uv run" wrapping.
   #   - The copy skips .git, __pycache__, .venv, .pytest_cache, .mypy_cache,
-  #     .ruff_cache, and the .mutate4py/ worker dir itself (ADR 0015 resolution 3).
+  #     .ruff_cache, and the .mutate4py/ worker dir itself.
   #   - Classification (killed / survived / timeout) is identical to the serial path for
   #     the same mutant; only isolation and the worker-<k> token differ.
   #   - Per-mutant lines print in arrival order (workers finish out of sequence); the

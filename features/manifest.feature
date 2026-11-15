@@ -5,8 +5,7 @@
 
 Feature: Manifest embed, extract, diff, and the --update-manifest mode
 
-  # TRACKING: F2 (manifest) — docs/adr/0005-manifest-hash-is-ast-unparse.md;
-  #           docs/adr/0006-update-manifest-idempotent.md
+  # TRACKING: F2 (manifest) — docs/adr/0005-manifest-hash-is-ast-unparse.md
   #
   # CONTRACT:
   #   Manifest core (embed / extract / diff):
@@ -42,7 +41,7 @@ Feature: Manifest embed, extract, diff, and the --update-manifest mode
   #     is changed; a removed id (in previous, not current) is dropped.
   #   - module_hash is a top-level field; it is NOT part of the per-function diff set.
   #   - --update-manifest is idempotent: it writes (and bumps tested_at) only when the
-  #     freshly-built functions/module_hash differ from the embedded manifest (ADR 0006).
+  #     freshly-built functions/module_hash differ from the embedded manifest.
   #
   # SEQUENCING: none
   #

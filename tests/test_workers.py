@@ -391,7 +391,7 @@ def test_link_import_root_links_the_package_outside_the_worker_tree(tmp_path, mo
 def test_link_import_root_writes_a_pth_file_into_the_worker_venv_after_its_own_entries(tmp_path, monkeypatch):
     """The import root is a `.pth` in the Worker venv's purelib, probed under the Worker's
     own interpreter. The name sorts after the editable install's `_<name>.pth`, so the
-    project's own mutate4py wins when both exist (ADR 0015, dogfood)."""
+    project's own mutate4py wins when both exist (dogfood)."""
     worker_root = tmp_path / "run" / "worker-1"
     worker_root.mkdir(parents=True)
     package_dir = tmp_path / "src" / "mutate4py"

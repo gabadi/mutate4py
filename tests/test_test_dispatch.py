@@ -328,7 +328,7 @@ def test_settle_leaves_a_classification_that_is_not_exit_4_or_5_alone_and_runs_n
 @pytest.mark.unit
 def test_settle_counts_a_mutant_that_ends_abnormally_as_killed_and_runs_no_control(tmp_path):
     """Exit 2 or 3, a signal, a pytest that did not start: the Executor says `errored`. For a Mutant
-    that is a kill (ADR 0011), and it is no exit 4 or 5 that a Control run must explain."""
+    that is a kill, and it is no exit 4 or 5 that a Control run must explain."""
     settled, executor = _settle(tmp_path, "errored")
     assert settled == "killed"
     assert executor.calls == []

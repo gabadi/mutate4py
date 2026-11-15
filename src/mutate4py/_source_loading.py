@@ -62,7 +62,7 @@ def _compute_manifest_diff(source: str, loc: ManifestLocation) -> ManifestDiff:
     changed_fn_ids also holds every function with recorded survivors and no tests
     digest: such a function is not current, so the next default run retries it
     even when its hash is unchanged. It also holds every function whose accepted
-    survivor lost its marker, and every Unscored function (ADR 0029 rule 1), which a
+    survivor lost its marker, and every Unscored function, which a
     default run scores. The "Changed mutation sites" count includes those Sites too.
     A run scores a changed function even when no covered Site reaches it. Functions whose
     stored tests digest changed join changed_fn_ids later, once the Measurement has run

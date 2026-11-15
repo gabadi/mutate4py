@@ -1,7 +1,7 @@
 """Unit tests for _plugin_neutralisation.py: the decision table of which kill switches a run keeps.
 
-A switch is dropped only when the child pytest provably does not load its plugin (ADR 0020, amended,
-#127): autoload is off and no source names the plugin, or `-p no:<entry point>` blocks it. Every other
+A switch is dropped only when the child pytest provably does not load its plugin (#127):
+autoload is off and no source names the plugin, or `-p no:<entry point>` blocks it. Every other
 case keeps the switch, so a source this module cannot read ends in a loud exit 4, never in a silent
 wrong score. Each test builds a throwaway project in `tmp_path`; the inifile there bounds the conftest
 search to the project.

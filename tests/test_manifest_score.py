@@ -537,7 +537,7 @@ def test_functions_with_changed_digest_names_a_stored_digest_that_differs():
 
 @pytest.mark.unit
 def test_functions_with_changed_digest_ignores_an_entry_without_a_stored_digest():
-    """No stored digest is adoption (ADR 0026 precedent), not a change."""
+    """No stored digest is adoption, not a change."""
     from mutate4py._digest_changes import functions_with_changed_digest
 
     manifest = _scored(SRC)

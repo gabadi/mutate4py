@@ -258,14 +258,14 @@ def test_negative_literal_yields_two_sites():
 
 @pytest.mark.unit
 def test_negative_zero_yields_only_constant_site():
-    # ADR 0024 (zero literals): unary minus on a numeric zero literal is equivalent, so no unary site.
+    # Unary minus on a numeric zero literal is equivalent, so no unary site.
     assert [(s.orig_text, s.mutant_text) for s in scan("x = -0")] == [("0", "1")]
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize("expr", ["x = -0.0", "x = -0j"])
 def test_negative_float_and_complex_zero_yield_no_site(expr):
-    # ADR 0024 (zero literals): the zero exclusion covers every numeric zero literal, not only int 0.
+    # The zero exclusion covers every numeric zero literal, not only int 0.
     assert scan(expr) == []
 
 

@@ -15,7 +15,7 @@ class ScoredRun:
     score must stay as it was.
 
     recorded_survivors holds the (function id, line, desc) survivors the Manifest recorded before this run.
-    changed_fn_ids holds the functions the run re-scores (ADR 0029 rule 1): a run scores one even when no
+    changed_fn_ids holds the functions the run re-scores: a run scores one even when no
     covered Site reaches it. A changed function's stored score is stale, and an Unscored one has none, so
     leaving it unscored would cost a second run before the skip returns.
     """

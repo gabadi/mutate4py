@@ -1,4 +1,4 @@
-"""Unit tests for Worker venv distribution parity and uv pinning (ADR 0015)."""
+"""Unit tests for Worker venv distribution parity and uv pinning."""
 
 import json
 import os
