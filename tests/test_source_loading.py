@@ -212,3 +212,28 @@ def test_finalize_source_bumps_tested_at_when_existing_manifest_differs(tmp_path
     manifest_line = [ln for ln in content.splitlines() if ln.startswith("# {")][0]
     manifest = json.loads(manifest_line[2:])
     assert manifest["tested_at"] == new_tested_at
+
+
+@pytest.mark.unit
+def test_finalize_source_without_write_manifest_restores_the_source_and_keeps_the_sidecar(tmp_path):
+    src = "def f(a, b):\n    return a > b\n"
+    src_path = str(tmp_path / "f.py")
+    bak_path = src_path + ".bak"
+    sidecar_path = src_path + ".manifest.json"
+    with open(src_path, "w") as f:
+        f.write("def f(a, b):\n    return a >= b\n")
+    with open(sidecar_path, "w") as f:
+        f.write("previous sidecar")
+
+    _finalize_source(
+        src,
+        "2026-01-01T00:00:00Z",
+        bak_path,
+        ManifestLocation(path=src_path, manifest_file=True),
+        write_manifest=False,
+    )
+
+    with open(src_path) as f:
+        assert f.read() == src
+    with open(sidecar_path) as f:
+        assert f.read() == "previous sidecar"

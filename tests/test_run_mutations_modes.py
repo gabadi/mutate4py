@@ -596,3 +596,36 @@ def test_no_tests_collected_restores_the_source_and_removes_the_backup(tmp_path,
         final = f.read()
     assert strip_manifest(final).rstrip("\n") == src.rstrip("\n")
     assert not os.path.isfile(src_path + ".bak")
+
+
+def _run_sidecar(tmp_path, src, status):
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+    return run_mutations(
+        RunMutationsRequest(
+            path=src_path,
+            source=src,
+            pytest_args=["-q"],
+            timeout_factor=10,
+            warning_threshold=1000,
+            cwd=str(tmp_path),
+            executor=_FakeExecutor(status=status),
+            measurement=_measured(src_path, src),
+            manifest_file=True,
+        )
+    )
+
+
+@pytest.mark.unit
+def test_aborted_run_leaves_the_sidecar_as_the_last_completed_run_wrote_it(tmp_path):
+    old = _make_multi_site_source(1)
+    assert _run_sidecar(tmp_path, old, "killed") == 0
+    sidecar = tmp_path / "calc.py.manifest.json"
+    before = sidecar.read_bytes()
+
+    changed = old.replace("a > b", "a >= b")
+    assert _run_sidecar(tmp_path, changed, "no-tests-collected") == 2
+
+    assert sidecar.read_bytes() == before
+    assert (tmp_path / "calc.py").read_text() == changed

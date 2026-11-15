@@ -1,6 +1,7 @@
 """Unit tests for _sidecar_io.py (dict-shaped JSON sidecar files)."""
 
 import json
+import os
 
 from mutate4py._sidecar_io import (
     parse_json_text,
@@ -91,3 +92,35 @@ def test_write_json_sidecar_overwrites_previous_content(tmp_path):
     result, _ = read_json_sidecar(p)
 
     assert result["functions"] == [{"id": "func/new"}]
+
+
+@pytest.mark.unit
+def test_write_json_sidecar_failed_serialisation_keeps_the_previous_file(tmp_path):
+    p = str(tmp_path / "sidecar.json")
+    write_json_sidecar(p, {"schema": 1, "functions": [{"id": "func/old"}]})
+
+    with pytest.raises(TypeError):
+        write_json_sidecar(p, {"schema": 1, "functions": [object()]})
+
+    result, ok = read_json_sidecar(p)
+    assert ok is True
+    assert result["functions"] == [{"id": "func/old"}]
+
+
+@pytest.mark.unit
+def test_write_json_sidecar_failed_replace_keeps_old_file_and_no_temp(tmp_path, monkeypatch):
+    p = str(tmp_path / "sidecar.json")
+    write_json_sidecar(p, {"schema": 1, "functions": [{"id": "func/old"}]})
+
+    def replace_fails(src, dst):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(os, "replace", replace_fails)
+    with pytest.raises(OSError):
+        write_json_sidecar(p, {"schema": 1, "functions": [{"id": "func/new"}]})
+    monkeypatch.undo()
+
+    result, ok = read_json_sidecar(p)
+    assert ok is True
+    assert result["functions"] == [{"id": "func/old"}]
+    assert os.listdir(tmp_path) == ["sidecar.json"]
