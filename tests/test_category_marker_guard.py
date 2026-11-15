@@ -33,7 +33,7 @@ def test_a_category_marker_inherited_from_a_module_pytestmark_fails_the_test():
     report = _report_after_call(_Item(own=[], inherited=[UNIT]))
 
     assert report.outcome == "failed"
-    assert "has no @pytest.mark.{unit,system}" in report.longrepr
+    assert "has 0 of @pytest.mark.{unit,system}" in report.longrepr
 
 
 @pytest.mark.unit
@@ -41,3 +41,11 @@ def test_a_category_marker_on_the_test_itself_passes_the_guard():
     report = _report_after_call(_Item(own=[UNIT], inherited=[]))
 
     assert report.outcome == "passed"
+
+
+@pytest.mark.unit
+def test_two_category_markers_on_the_test_itself_fail_the_test():
+    report = _report_after_call(_Item(own=[UNIT, pytest.mark.system.mark], inherited=[]))
+
+    assert report.outcome == "failed"
+    assert "exactly one" in report.longrepr

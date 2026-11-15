@@ -81,14 +81,14 @@ def pytest_runtest_makereport(item, call):
         return
     except ValueError:
         pass
-    category = next((m.name for m in item.own_markers if m.name in _CATEGORY_MARKERS), None)
-    if category is not None:
+    categories = [m.name for m in item.own_markers if m.name in _CATEGORY_MARKERS]
+    if len(categories) == 1:
         return
     suggested = "system" if call.duration >= _SYSTEM_THRESHOLD_SECONDS else "unit"
     report.outcome = "failed"
     report.longrepr = (
-        f"{item.nodeid} has no @pytest.mark.{{unit,system}} (mandatory -- see "
-        "pyproject.toml markers).\n"
+        f"{item.nodeid} has {len(categories)} of @pytest.mark.{{unit,system}}, and it needs exactly one "
+        "(mandatory -- see pyproject.toml markers).\n"
         f"Measured duration: {call.duration:.3f}s -> suggested: @pytest.mark.{suggested}\n"
         "(system is a manual call, not duration-based: only for a test that runs real processes "
         "(a fork server, worker servers, nested pytest, a spawned interpreter), outside code mutation and coverage)"
