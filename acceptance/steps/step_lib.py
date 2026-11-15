@@ -4,6 +4,8 @@ import os
 import re
 import subprocess
 
+from acceptance.steps.nested_pytest_helpers import nested_pytest_env
+
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
@@ -14,6 +16,7 @@ def run_mutate4py(*args: str) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
         cwd=_REPO_ROOT,
+        env=nested_pytest_env(),
     )
 
 

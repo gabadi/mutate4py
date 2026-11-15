@@ -72,6 +72,34 @@ def test_build_parser_mutate_all_flag_is_parsed_for_refusal():
     assert args.mutate_all is True
 
 
+@pytest.mark.unit
+def test_build_parser_mutation_warning_sets_its_value_and_defaults_to_50():
+    from mutate4py.__main__ import _build_parser
+
+    parser = _build_parser()
+    assert parser.parse_args(["somefile.py", "--mutation-warning", "25"]).warning_threshold == 25
+    assert parser.parse_args(["somefile.py"]).warning_threshold == 50
+
+
+@pytest.mark.unit
+def test_build_parser_timeout_flags_default_to_factor_10_and_a_5_second_floor():
+    # The Mutant timeout is max(--min-timeout, factor x budget) + overhead; these are its two inputs.
+    from mutate4py.__main__ import _build_parser
+
+    args = _build_parser().parse_args(["somefile.py"])
+    assert args.timeout_factor == 10
+    assert args.min_timeout == 5.0
+
+
+@pytest.mark.unit
+def test_build_parser_timeout_flags_set_their_values():
+    from mutate4py.__main__ import _build_parser
+
+    args = _build_parser().parse_args(["somefile.py", "--timeout-factor", "3", "--min-timeout", "0.25"])
+    assert args.timeout_factor == 3
+    assert args.min_timeout == 0.25
+
+
 # ── F5: --max-workers flag ────────────────────────────────────────────────────
 
 

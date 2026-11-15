@@ -8,6 +8,7 @@ import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 from mutate4py._discovery import discover_sites
+from acceptance.steps.site_discovery_helpers import assert_warning_line
 from acceptance.steps.step_lib import (
     assert_no_scan_block,
     assert_nonzero_exit,
@@ -135,23 +136,25 @@ def then_function_id_is(m, params):
     )
 
 
-@step(r"a Python file containing (\d+) mutation sites? and no embedded manifest")
-def given_file_with_n_sites(m, params):
-    # Fixture size comes from the `built` column, kept separate from the `total`
-    # column asserted on the scan output, so mutating either literal is caught.
-    built_str = params.get("built") or m.group(1)
-    n = int(built_str)
+def _write_n_site_file(n: int) -> None:
+    """A file of n `a + b` sites on disk (for the CLI scenarios), with the in-process scan of it recorded."""
     lines = [f"x{i} = a + b" for i in range(n)]
     src = "\n".join(lines) + "\n" if lines else "pass\n"
     ctx.sites = discover_sites(src)
     ctx.total = len(ctx.sites)
     assert ctx.total == n, f"fixture error: wanted {n} sites, got {ctx.total}"
-    # Write to a temp file for CLI-based scenarios
     ctx.tmpdir = tempfile.mkdtemp()
     ctx.source_path = os.path.join(ctx.tmpdir, "sample.py")
     ctx.source_content = src
     with open(ctx.source_path, "w") as f:
         f.write(src)
+
+
+@step(r"a Python file containing (\d+) mutation sites? and no embedded manifest")
+def given_file_with_n_sites(m, params):
+    # Fixture size comes from the `built` column, kept separate from the `total`
+    # column asserted on the scan output, so mutating either literal is caught.
+    _write_n_site_file(int(params.get("built") or m.group(1)))
 
 
 @step(r"the mutation warning threshold is (\d+)")
@@ -162,37 +165,20 @@ def given_threshold(m, params):
 
 @step(r"a Python file containing (\d+) mutation sites?")
 def given_file_with_n_sites_no_manifest(m, params):
-    total_str = params.get("total") or m.group(1)
-    n = int(total_str)
-    lines = [f"x{i} = a + b" for i in range(n)]
-    src = "\n".join(lines) + "\n" if lines else "pass\n"
-    ctx.sites = discover_sites(src)
-    ctx.total = len(ctx.sites)
-    assert ctx.total == n, f"fixture error: wanted {n} sites, got {ctx.total}"
+    _write_n_site_file(int(params.get("total") or m.group(1)))
+
+
+@step(r"the file is scanned with that threshold")
+def when_scanned_with_threshold(m, params):
+    ctx.cli_result = run_mutate4py(ctx.source_path, "--scan", "--mutation-warning", str(ctx.threshold))
 
 
 @step(r'the warning line is "(.*)"')
 def then_warning_line_is(m, params):
+    # The feature's literal line is compared with what mutate4py really printed.
     expected = params.get("warning") if "warning" in params else m.group(1)
-    if expected:
-        assert ctx.total > ctx.threshold, (
-            f"expected warning but {ctx.total} <= {ctx.threshold}"
-        )
-        expected_warning = (
-            f"Warning: {ctx.total} mutation sites exceeds threshold {ctx.threshold}."
-        )
-        assert expected_warning == expected, (
-            f"warning text mismatch: {expected_warning!r} != {expected!r}"
-        )
-    else:
-        # The no-warning row documents the exact boundary: at total == threshold
-        # the gate is silent (warning fires only when total strictly exceeds
-        # threshold). Asserting equality pins both literals so mutating either
-        # the total or the threshold is caught.
-        assert ctx.total == ctx.threshold, (
-            f"expected no-warning boundary total == threshold, "
-            f"got total={ctx.total}, threshold={ctx.threshold}"
-        )
+    assert ctx.cli_result.returncode == 0, f"the scan failed:\n{ctx.cli_result.stdout}\n{ctx.cli_result.stderr}"
+    assert_warning_line(ctx.cli_result.stdout, expected)
 
 
 # CLI-based step handlers (scenarios 4 and 6)
