@@ -407,11 +407,15 @@ def test_link_import_root_writes_a_pth_file_into_the_worker_venv_after_its_own_e
 
 def _stub_interpreter_probe(monkeypatch, *, version: str | None = None) -> None:
     """Answer the Worker interpreter probe (subprocess.run) without starting a process: the interpreter
-    prints `version`, or, when `version` is None, is missing and the run raises OSError."""
+    prints `version`, or, when `version` is None, is missing and the run raises OSError. The stub
+    refuses a call that does not capture text output and check the exit status, as the probe must."""
 
     def fake_run(cmd, **kwargs):
         if version is None:
             raise FileNotFoundError(2, "No such file or directory", cmd[0])
+        assert kwargs.get("capture_output") is True
+        assert kwargs.get("text") is True
+        assert kwargs.get("check") is True
         return subprocess.CompletedProcess(cmd, 0, stdout=f"{version}\n", stderr="")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
