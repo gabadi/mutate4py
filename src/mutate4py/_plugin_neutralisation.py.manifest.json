@@ -1,15 +1,45 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T05:25:57Z",
-  "module_hash": "640878803b39ba57c4346ba76daae2b6f39ac4ebcdc317e548552b08bd30fc7a",
-  "source_sha256": "62c3f41a6369bb8982593fccf56f8654c2959fefdf9495693c95ff3f504f54c8",
+  "tested_at": "2026-11-15T12:51:08Z",
+  "module_hash": "a2ac8860346e21c86d4ea282df52a7cad8ff74f771cb1a7d7d9d4d3521501447",
+  "source_sha256": "6b81048a0f3bc0f0f41ecc6d146edfa29e01e2a8aff51982213366e639a71cc5",
   "functions": [
     {
       "id": "func/neutralising_args",
       "name": "neutralising_args",
-      "line": 20,
-      "end_line": 22,
-      "hash": "bff4fe6e73605dd30b75ed0ae421c5e689900986735a74fe3e5d247df1153673",
+      "line": 26,
+      "end_line": 43,
+      "hash": "de36577d638ed0e111e1715c85bd1f0a0015f006a05fffb677f1a30c3de19871",
+      "score": {
+        "killed": 5,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "0d581813d42d7b557a3cd94720cc919999383f5e529d91cd4628c1cdc06b5b51"
+    },
+    {
+      "id": "func/_loads_pytest_cov",
+      "name": "_loads_pytest_cov",
+      "line": 46,
+      "end_line": 55,
+      "hash": "b9b342ab72b2f97cb0d99bff25079dc191150bb2c6f5d87be70b595400e0fb36",
+      "score": {
+        "killed": 5,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "0d581813d42d7b557a3cd94720cc919999383f5e529d91cd4628c1cdc06b5b51"
+    },
+    {
+      "id": "func/_plugin_names",
+      "name": "_plugin_names",
+      "line": 58,
+      "end_line": 67,
+      "hash": "c238dc83a72a69542475b475585a5c78ef330cdb7f00050ac1a9ba2f99b4d16f",
       "score": {
         "killed": 1,
         "survived": 0,
@@ -17,23 +47,23 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "f4c2f5f0940d56a9f8b67678e14cb5bda3403c2de482121515ec684d73776c37"
+      "tests_digest": "4f3a3faa58d9bf85d99773a57da6ddacfdf4c2f1065b58286f84339f5a4a2f80"
     },
     {
       "id": "func/disabled_plugin_args",
       "name": "disabled_plugin_args",
-      "line": 25,
-      "end_line": 37,
-      "hash": "375f83a5f991e8d193ac8d504c41fca93c05f3e02ea3390e54dfa70bb813cb8a",
+      "line": 70,
+      "end_line": 76,
+      "hash": "9ddf49e0344e1550f5d3bb329c814fd7f4f2587134f632b77463639245268d0a",
       "score": {
-        "killed": 1,
+        "killed": 0,
         "survived": 0,
         "uncovered": 0
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "3a41dd2e572e435d6ddcdeb493a1693a3e6347a63d005013ea58990ec37edbe9"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     }
   ],
-  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
+  "tests_fingerprint": "82fe2a3294a8a9507ae5ace30005338771018de7fb8316726041eb25b7c1a3f4"
 }
