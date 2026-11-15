@@ -429,8 +429,7 @@ def test_run_mutations_prints_uncovered_block_for_uncovered_sites(tmp_path):
     assert f"  {src_path}:{sites[1].line} {sites[1].desc} {sites[1].function_id}" in output
 
 
-@pytest.mark.system
-def test_a_differential_run_lists_the_uncovered_sites_of_the_changed_functions_only(tmp_path):
+def _differential_run_after_editing_f(tmp_path, covered_after_edit):
     src = "def f(a, b):\n    return a > b\n\n\ndef g(a, b):\n    return a < b\n"
     src_path = str(tmp_path / "calc.py")
     (tmp_path / "calc.py").write_text(src)
@@ -461,13 +460,27 @@ def test_a_differential_run_lists_the_uncovered_sites_of_the_changed_functions_o
     sites = discover_sites(edited)
     changed_site = next(s for s in sites if s.function_id.endswith("/f"))
     unchanged_site = next(s for s in sites if s.function_id.endswith("/g"))
+    covered = [unchanged_site.line] if covered_after_edit == "g" else []
+    return src_path, changed_site, unchanged_site, run((tmp_path / "calc.py").read_text(), covered)
 
-    output = run((tmp_path / "calc.py").read_text(), [])
+
+@pytest.mark.system
+def test_a_differential_run_lists_the_uncovered_sites_of_the_changed_functions_only(tmp_path):
+    src_path, changed_site, unchanged_site, output = _differential_run_after_editing_f(tmp_path, "none")
 
     assert "Manifest exists: true" in output
     assert "Uncovered mutation sites: 1" in output
     assert f"  {src_path}:{changed_site.line} {changed_site.desc} {changed_site.function_id}" in output
     assert f"{src_path}:{unchanged_site.line}" not in output
+
+
+@pytest.mark.system
+def test_a_differential_run_header_counts_covered_and_uncovered_sites_in_the_run_scope(tmp_path):
+    _, _, _, output = _differential_run_after_editing_f(tmp_path, "g")
+
+    assert "Total mutation sites: 2" in output
+    assert "Covered mutation sites: 0" in output
+    assert "Uncovered mutation sites: 1" in output
 
 
 @pytest.mark.system

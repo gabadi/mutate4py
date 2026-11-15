@@ -192,8 +192,7 @@ def _select_and_prepare(request: RunMutationsRequest, setup: RunSetup, max_worke
         setup.loaded.changed_fn_ids,
         differential=differential,
     )
-    covered_count, _ = partition_sites(setup.loaded.all_sites, covered_lines)
-    _, uncovered_count = partition_sites(scope_sites, covered_lines)
+    covered_count, uncovered_count = partition_sites(scope_sites, covered_lines)
     _, selected_sites = _select_sites(
         setup.loaded.all_sites,
         covered_lines,

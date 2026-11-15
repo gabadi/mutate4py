@@ -33,8 +33,7 @@ Feature: Measurement as coverage, the core refusal, removed flags
   #   --scan stays coverage-free: it prints the Total line and no Covered/Uncovered lines.
   #
   # CONSTRAINTS:
-  #   - Every discovered site lands in exactly one partition; in a full run covered + uncovered == total.
-  #     A differential run counts the uncovered sites of the changed functions only (the Run scope).
+  #   - Every discovered site lands in exactly one partition; covered + uncovered == total.
   #   - Gate is LINE coverage only, so boundary survivors (> vs >=) are not suppressed (ADR 0007).
   #   - Coverage comes only from the Measurement: there is no coverage file, command or reuse path.
   #
