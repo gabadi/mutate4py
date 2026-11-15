@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T22:02:43Z",
-  "module_hash": "77d1d28b436d6d602f64d780ad663183f9a7f37a1e296180b1c1b8f0f540e76f",
-  "source_sha256": "c2063a04b424fa13d518247d22a0b5ef240c57edde8f8113ecc8b8bb970fbac7",
+  "tested_at": "2026-11-15T22:11:23Z",
+  "module_hash": "634e72fb4fe97cc53b9ace198d6775ee012c939df7cba36349334fa06c085a13",
+  "source_sha256": "7a96cc372225a7fb95dd3ec93c0f77214842b55b98570a16b4255531618b74ce",
   "functions": [
     {
       "id": "func/ast_sha256",
       "name": "ast_sha256",
-      "line": 12,
-      "end_line": 13,
+      "line": 13,
+      "end_line": 14,
       "hash": "47f88cbfdcb8006d8338bb30168353114b14dc1dada0bed4de5e8f2abbb36345",
       "score": {
         "killed": 0,
@@ -22,8 +22,8 @@
     {
       "id": "func/_class_body",
       "name": "_class_body",
-      "line": 16,
-      "end_line": 19,
+      "line": 17,
+      "end_line": 20,
       "hash": "95190e67c1814fab124ce41aa2a9ac06b300c94fd3587cd0bc706bb2604ca329",
       "score": {
         "killed": 1,
@@ -37,9 +37,24 @@
     {
       "id": "func/_unit",
       "name": "_unit",
-      "line": 22,
-      "end_line": 23,
+      "line": 23,
+      "end_line": 24,
       "hash": "2b733a519dd0fb1f7c76c6ff5aaca933cedc31938f051b53737c4d7623700b51",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
+    },
+    {
+      "id": "func/_own_unit",
+      "name": "_own_unit",
+      "line": 27,
+      "end_line": 34,
+      "hash": "7d49090839d584aae50ec41d1b5e42926324bc107c676f360bc46a6c51fe1790",
       "score": {
         "killed": 0,
         "survived": 0,
@@ -52,11 +67,11 @@
     {
       "id": "func/extract_units",
       "name": "extract_units",
-      "line": 26,
-      "end_line": 40,
-      "hash": "2d6b15579a5b33e7e0e6185ac508a037752199c8b0e59f4c920b2dbd3ee4cf10",
+      "line": 37,
+      "end_line": 49,
+      "hash": "f8888adc189494ee89495b23736ef268ab760906ac9d8a38970290921719f202",
       "score": {
-        "killed": 5,
+        "killed": 3,
         "survived": 0,
         "uncovered": 0
       },
@@ -65,5 +80,5 @@
       "tests_digest": "ed98d02209759b8df7564f7a73ee23bfd394036a793dcc023d0710b4279deea2"
     }
   ],
-  "tests_fingerprint": "cbf5e43b095b8d37a686182df6e665c038f959cfad322098fafde582c58f5ead"
+  "tests_fingerprint": "0a3bfb8df87dfc1e017a591c3f46d5756510142fbecd60a5659587b2ab0eaaef"
 }

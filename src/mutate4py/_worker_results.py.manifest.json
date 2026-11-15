@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T22:04:01Z",
-  "module_hash": "46078bae25f59d971a9dfa8213a21bb4ff9378fcf60f1b9dd236ece68c5dfbac",
-  "source_sha256": "0ab244830fcb26cdd8142f1a569314656df3f2afc2ae7b424bf3cae72de76d32",
+  "tested_at": "2026-11-15T22:11:49Z",
+  "module_hash": "7c8c5f7c5eb4e9d0e997dbe0dd8276fa35ed4db4ee40fcc5077f4fdefc03c94d",
+  "source_sha256": "0b5e14d5baa92e00bcfc4879a3466e598afc75a5fa3f3043358bda671ba9b736",
   "functions": [
     {
       "id": "class/ParallelRunResult",
       "name": "ParallelRunResult",
-      "line": 26,
-      "end_line": 38,
+      "line": 27,
+      "end_line": 39,
       "hash": "77c91e4ff62779d1d8d95ae76ffe0814a4faf649993aaeefe9a8754944df95a7",
       "score": {
         "killed": 0,
@@ -22,8 +22,8 @@
     {
       "id": "class/WorkerGroupOutcome",
       "name": "WorkerGroupOutcome",
-      "line": 42,
-      "end_line": 46,
+      "line": 43,
+      "end_line": 47,
       "hash": "a4207bfb5fe4ede7eda7c20603635802229110f3661f45ad01596a5e1ad1ea50",
       "score": {
         "killed": 0,
@@ -37,8 +37,8 @@
     {
       "id": "func/_assign_sites_to_workers",
       "name": "_assign_sites_to_workers",
-      "line": 49,
-      "end_line": 55,
+      "line": 50,
+      "end_line": 56,
       "hash": "38182f3ff4d30bc4333538f3b42892b1be3285e6ae0c194917a5ac9075ae763f",
       "score": {
         "killed": 4,
@@ -47,13 +47,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "8e5a1a5046cd2650a8238b5022b0245afea8728cb3b915caded5b0fd00f74f5e"
+      "tests_digest": "f303039df40f5f864e6828b2f4ec16f90c8a55da1a4b235bc42760a199edfbb5"
     },
     {
       "id": "func/_summarize_results",
       "name": "_summarize_results",
-      "line": 58,
-      "end_line": 67,
+      "line": 59,
+      "end_line": 68,
       "hash": "f13aab7e3a9b5709751bc84562dafffcbba38134093167fac49188a4ba6947e1",
       "score": {
         "killed": 5,
@@ -62,13 +62,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "ab733a46d31a892b731ab45e8aecf36f5f614dae5962a210cdf837a301818167"
+      "tests_digest": "ea7ab8938cf10d829c58f333ee7f0e731a0c6c6695ad3bee16cd0048cb85c6b0"
     },
     {
       "id": "func/_summarize_timing",
       "name": "_summarize_timing",
-      "line": 70,
-      "end_line": 77,
+      "line": 71,
+      "end_line": 78,
       "hash": "914250cf842abd758f6476d9befc5e6980e051ce03bdbe9307d45593bbf59219",
       "score": {
         "killed": 0,
@@ -82,23 +82,38 @@
     {
       "id": "func/_summarize_confirmation",
       "name": "_summarize_confirmation",
-      "line": 80,
-      "end_line": 85,
-      "hash": "fbc6d48bf2993b99ed999afcb5ed40b960b1ad4242598b78c18d1ee330e84a6d",
+      "line": 81,
+      "end_line": 83,
+      "hash": "e45c1924ae20937b2455efd76186e7f4c15d405f37d04ceefc6154e7c6aa6572",
       "score": {
-        "killed": 2,
+        "killed": 1,
         "survived": 0,
         "uncovered": 0
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "21040e7c324f31d3356aeb5e7d9aa4449cb211bd2d621718b952a0d193af4158"
+      "tests_digest": "e469e7387e7cde7cf9a33bb7e1556579bdbc83f3fa830a526c188c61ac979fb4"
+    },
+    {
+      "id": "func/_merge_confirmations",
+      "name": "_merge_confirmations",
+      "line": 86,
+      "end_line": 88,
+      "hash": "97470bcc1510cc3726113e0dcfd4527bfcf92030487f1233bb6710c8a0bc5589",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/_summarize_selection",
       "name": "_summarize_selection",
-      "line": 88,
-      "end_line": 95,
+      "line": 91,
+      "end_line": 98,
       "hash": "f6f2a670384ec5358b5f0be84f9b77b503897335b9363bf8eefb63b67c93c4f8",
       "score": {
         "killed": 4,
@@ -107,13 +122,28 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "21040e7c324f31d3356aeb5e7d9aa4449cb211bd2d621718b952a0d193af4158"
+      "tests_digest": "e469e7387e7cde7cf9a33bb7e1556579bdbc83f3fa830a526c188c61ac979fb4"
+    },
+    {
+      "id": "func/_build_result",
+      "name": "_build_result",
+      "line": 101,
+      "end_line": 111,
+      "hash": "306674b2495ef0babfd04431ad6ce3afb32e84970b55d7c2759b05aba75fde6c",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "652068619de74ce5c046c1c811ec3062dee741ed08ac712a55dbb76bcf220263"
     },
     {
       "id": "func/_drop_one_result_if_injected",
       "name": "_drop_one_result_if_injected",
-      "line": 98,
-      "end_line": 104,
+      "line": 114,
+      "end_line": 120,
       "hash": "e310a4623b2b76858fad0129f12afe9fd9be0a1f187ed3984b18dca8358370f2",
       "score": {
         "killed": 3,
@@ -122,8 +152,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "ab733a46d31a892b731ab45e8aecf36f5f614dae5962a210cdf837a301818167"
+      "tests_digest": "ea7ab8938cf10d829c58f333ee7f0e731a0c6c6695ad3bee16cd0048cb85c6b0"
     }
   ],
-  "tests_fingerprint": "cbf5e43b095b8d37a686182df6e665c038f959cfad322098fafde582c58f5ead"
+  "tests_fingerprint": "0a3bfb8df87dfc1e017a591c3f46d5756510142fbecd60a5659587b2ab0eaaef"
 }
