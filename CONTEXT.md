@@ -80,6 +80,9 @@ _Avoid_: coverage filter, eligibility check
 **covered / uncovered**:
 The two disjoint, exhaustive partitions of the discovered Sites.
 
+**Run scope**:
+The functions a run scores: the changed or Unscored ones in a differential run, every discovered function in a full run. The run header's `Uncovered mutation sites` count and the `Uncovered mutations:` block (one `file:line` per Site) cover the Run scope only.
+
 **Test levels**:
 Three levels: `unit` (in-process, coverage-measured, the only tests a scored run's Measurement takes), `system` (real processes: a fork server, worker servers, nested pytest, a spawned interpreter; run by `test-system` without coverage), and acceptance (the Gherkin features). Every test carries exactly one of `unit` or `system` (ADR 0030).
 _Avoid_: component test, integration test (both markers are retired)

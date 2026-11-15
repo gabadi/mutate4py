@@ -58,17 +58,17 @@ def _run_header_lines(path: str, stats: RunStats) -> list[str]:
 
 
 def _uncovered_block_lines(
-    all_sites: list[Site],
+    path: str,
+    sites_in_scope: list[Site],
     covered_lines: set[int],
 ) -> list[str]:
-    """Return the "Uncovered mutations:" block's lines, or [] when nothing is uncovered."""
-    uncovered = [s for s in all_sites if s.line not in covered_lines]
+    uncovered = [s for s in sites_in_scope if s.line not in covered_lines]
     if not uncovered:
         return []
     lines = ["Uncovered mutations:"]
     for s in uncovered:
         fid = f" {s.function_id}" if s.function_id else ""
-        lines.append(f"  line {s.line} {s.desc}{fid}")
+        lines.append(f"  {path}:{s.line} {s.desc}{fid}")
     return lines
 
 

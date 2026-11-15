@@ -45,16 +45,15 @@ def test_uncovered_block_lines_with_uncovered():
         _make_site(1, 2, "func/g"),
     ]
     covered_lines = {1}  # line 2 is uncovered
-    lines = _uncovered_block_lines(sites, covered_lines)
-    assert lines[0] == "Uncovered mutations:"
-    assert any("line 2" in ln and "func/g" in ln for ln in lines)
+    lines = _uncovered_block_lines("calc.py", sites, covered_lines)
+    assert lines == ["Uncovered mutations:", "  calc.py:2 > -> >= func/g"]
 
 
 @pytest.mark.unit
 def test_uncovered_block_lines_no_uncovered():
     sites = [_make_site(0, 1, "func/f"), _make_site(1, 2, "func/g")]
     covered_lines = {1, 2}
-    assert _uncovered_block_lines(sites, covered_lines) == []
+    assert _uncovered_block_lines("calc.py", sites, covered_lines) == []
 
 
 @pytest.mark.unit
@@ -70,8 +69,8 @@ def test_uncovered_block_lines_no_function_id():
         mutant_text=">=",
         desc="> -> >=",
     )
-    lines = _uncovered_block_lines([site], set())
-    assert lines == ["Uncovered mutations:", "  line 5 > -> >="]
+    lines = _uncovered_block_lines("calc.py", [site], set())
+    assert lines == ["Uncovered mutations:", "  calc.py:5 > -> >="]
 
 
 # ── _run_header_lines ─────────────────────────────────────────────────────────

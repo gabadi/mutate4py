@@ -12,7 +12,7 @@ from ._pytest_project_helpers import (
 from ._measurement_helpers import measurement_for
 from mutate4py._discovery import discover_sites
 from mutate4py._measurement import Measurement
-from mutate4py._manifest import build_manifest, embed_manifest, strip_manifest
+from mutate4py._manifest import build_manifest, embed_manifest, extract_manifest, strip_manifest
 from mutate4py._runner import (
     RunMutationsRequest,
     check_manifest,
@@ -346,7 +346,7 @@ def test_run_mutations_header_counts(tmp_path):
 @pytest.mark.system
 def test_run_mutations_prints_uncovered_block_for_uncovered_sites(tmp_path):
     """Pins the exact "Uncovered mutations:" block text through run_mutations —
-    gate 14 turned its production (_uncovered_lines_if_needed) from a print into
+    gate 14 turned its production (_uncovered_block_lines) from a print into
     a return, and _select_and_prepare's _print_lines(...) wrapping must still
     produce byte-for-byte the same output as before that change.
     """
@@ -377,7 +377,48 @@ def test_run_mutations_prints_uncovered_block_for_uncovered_sites(tmp_path):
         )
     output = buf.getvalue()
     assert "Uncovered mutations:" in output
-    assert f"  line {sites[1].line} {sites[1].desc} {sites[1].function_id}" in output
+    assert f"  {src_path}:{sites[1].line} {sites[1].desc} {sites[1].function_id}" in output
+
+
+@pytest.mark.system
+def test_a_differential_run_lists_the_uncovered_sites_of_the_changed_functions_only(tmp_path):
+    src = "def f(a, b):\n    return a > b\n\n\ndef g(a, b):\n    return a < b\n"
+    src_path = str(tmp_path / "calc.py")
+    (tmp_path / "calc.py").write_text(src)
+    pytest_args = write_always_passing_pytest_project(str(tmp_path))
+
+    def run(source, covered):
+        import io
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            run_mutations(
+                RunMutationsRequest(
+                    path=src_path,
+                    source=source,
+                    measurement=_measured(src_path, covered),
+                    pytest_args=pytest_args,
+                    timeout_factor=10,
+                    warning_threshold=1000,
+                    cwd=str(tmp_path),
+                )
+            )
+        return buf.getvalue()
+
+    run(src, [s.line for s in discover_sites(src)])
+    edited = src.replace("return a > b", "return a >= b")
+    (tmp_path / "calc.py").write_text(embed_manifest(edited, extract_manifest((tmp_path / "calc.py").read_text())[0]))
+    sites = discover_sites(edited)
+    changed_site = next(s for s in sites if s.function_id.endswith("/f"))
+    unchanged_site = next(s for s in sites if s.function_id.endswith("/g"))
+
+    output = run((tmp_path / "calc.py").read_text(), [])
+
+    assert "Manifest exists: true" in output
+    assert "Uncovered mutation sites: 1" in output
+    assert f"  {src_path}:{changed_site.line} {changed_site.desc} {changed_site.function_id}" in output
+    assert f"{src_path}:{unchanged_site.line}" not in output
 
 
 @pytest.mark.system

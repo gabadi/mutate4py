@@ -36,6 +36,7 @@ from mutate4py._report import (
     _mutation_report_lines,
     _recorded_block_lines,
     _run_header_lines,
+    _uncovered_block_lines,
     _workers_header_lines,
     executor_block_lines,
     measurement_failure,
@@ -49,7 +50,7 @@ from mutate4py._skipped_run import recorded_survivors_kept
 from mutate4py._site_selection import (
     _select_sites,
     _should_run_parallel,
-    _uncovered_lines_if_needed,
+    _sites_in_run_scope,
 )
 from mutate4py._source_loading import (
     RunSetup,
@@ -187,8 +188,14 @@ def _select_and_prepare(request: RunMutationsRequest, setup: RunSetup, max_worke
     digests = fresh_digests(measurement, abs_source, setup.loaded.clean_source)
     apply_digest_changes(setup.loaded, digests)
 
-    covered_count, uncovered_count = partition_sites(setup.loaded.all_sites, covered_lines)
     differential = setup.loaded.manifest_exists
+    scope_sites = _sites_in_run_scope(
+        setup.loaded.all_sites,
+        setup.loaded.changed_fn_ids,
+        differential=differential,
+    )
+    covered_count, _ = partition_sites(setup.loaded.all_sites, covered_lines)
+    _, uncovered_count = partition_sites(scope_sites, covered_lines)
     _, selected_sites = _select_sites(
         setup.loaded.all_sites,
         covered_lines,
@@ -206,13 +213,7 @@ def _select_and_prepare(request: RunMutationsRequest, setup: RunSetup, max_worke
         warning_threshold=request.warning_threshold,
     )
     _print_lines(_run_header_lines(request.path, run_stats))
-    _print_lines(
-        _uncovered_lines_if_needed(
-            setup.loaded.all_sites,
-            covered_lines,
-            differential=differential,
-        )
-    )
+    _print_lines(_uncovered_block_lines(request.path, scope_sites, covered_lines))
 
     use_parallel = _should_run_parallel(max_workers, len(selected_sites))
     _print_lines(_workers_header_lines(max_workers, use_parallel=use_parallel, n_selected=len(selected_sites)))
