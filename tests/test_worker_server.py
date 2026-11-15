@@ -8,6 +8,7 @@ import io
 import json
 
 from mutate4py._executor import ExecutorDescription
+import mutate4py._worker_server as worker_server_mod
 from mutate4py._worker_server import _serve, _worker_plugin_args, parse_worker_argv, worker_environ_updates
 import pytest
 
@@ -162,3 +163,26 @@ def test_serve_asks_for_the_kill_switches_of_each_dispatchs_own_args_and_puts_th
         ["-q", "-p", "pytest_cov", "--no-cov", "-p", "mutate4py._django_worker_plugin"],
         ["-q", "-p", "mutate4py._django_worker_plugin"],
     ]
+
+
+@pytest.mark.unit
+def test_main_asks_for_the_kill_switches_in_the_workers_own_directory(monkeypatch):
+    """A Worker reads its project's inifile and conftests, so the switches are chosen for its cwd."""
+    executor = _RecordingExecutor()
+    asked = []
+
+    def fake_neutralising_args(pytest_args, cwd):
+        asked.append((list(pytest_args), cwd))
+        return ["--fake-flag"]
+
+    monkeypatch.setattr(worker_server_mod, "neutralising_args", fake_neutralising_args)
+    monkeypatch.setattr(worker_server_mod, "_prepare_executor", lambda **_: executor)
+    monkeypatch.setattr(
+        worker_server_mod.sys, "stdin", io.StringIO(json.dumps({"args": ["-q"], "timeout": 1.0}) + "\n")
+    )
+    monkeypatch.setattr(worker_server_mod.sys, "stdout", io.StringIO())
+
+    worker_server_mod.main(["/the/worker/cwd", "/the/worker/cwd/calc.py", "0"])
+
+    assert asked == [(["-q"], "/the/worker/cwd")]
+    assert executor.calls == [["-q", "--fake-flag"]]

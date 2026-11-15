@@ -202,7 +202,13 @@ class ForkingExecutor:
         harness_files = loaded_files(sys.modules)
         recorder = _PluginRecorder()
         with tempfile.TemporaryDirectory(dir=scratch_root, prefix="prime-") as empty_dir:
-            collect_only = ["--collect-only", "-q", empty_dir, *neutralising_args(self._prime_args), *self._prime_args]
+            collect_only = [
+                "--collect-only",
+                "-q",
+                empty_dir,
+                *neutralising_args(self._prime_args, cwd=self._cwd),
+                *self._prime_args,
+            ]
             _run_pytest_output_suppressed(pytest, collect_only, self._cwd, plugins=[recorder])
 
         refuse_fork_unsafe_plugins(recorder.module_names)

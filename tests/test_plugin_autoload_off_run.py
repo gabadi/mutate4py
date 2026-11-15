@@ -1,9 +1,9 @@
-"""A scored run with pytest's plugin autoload off (#127).
+"""A scored run whose child pytest does or does not load pytest-cov (#127).
 
-`--no-cov` is a pytest usage error unless pytest-cov is loaded in the pytest that receives it.
-With PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest-cov loads only when the run names it with `-p`.
-mutate4py used to add `--no-cov` whenever pytest_cov was importable in its own process, so such a
-run exited 4 with "unrecognized arguments: --no-cov" (ADR 0020, amended).
+`--no-cov` is a pytest usage error unless pytest-cov is loaded in the pytest that receives it, and a
+pytest-cov that is loaded but not told `--no-cov` pauses the Measurement's collector, which scores every
+Mutant Uncovered with exit 0. So mutate4py drops the switch only when the child provably does not load
+the plugin, and keeps it whenever a source it reads names the plugin (ADR 0020, amended).
 
 Each test drives the real CLI in a throwaway project. The environment is built from the helpers the
 other nested-pytest tests use (acceptance/steps/nested_pytest_helpers.py), with PYTEST_ADDOPTS cleared
@@ -25,8 +25,10 @@ _SRC = "def f(a, b):\n    return a > b\n"
 _TESTS = "from calc import f\n\n\ndef test_f():\n    assert f(2, 1)\n    assert not f(1, 2)\n    assert not f(1, 1)\n"
 
 
-def _scored(root, pytest_args: str, env: dict[str, str]) -> subprocess.CompletedProcess:
+def _scored(root, pytest_args: str, env: dict[str, str], addopts: str = "") -> subprocess.CompletedProcess:
     (root / "tests").mkdir()
+    if addopts:
+        (root / "pytest.ini").write_text(f"[pytest]\naddopts = {addopts}\n")
     (root / "calc.py").write_text(_SRC)
     (root / "tests" / "test_calc.py").write_text(_TESTS)
     return subprocess.run(
@@ -66,3 +68,32 @@ def test_a_run_with_autoload_on_scores_normally_with_no_cov(tmp_path):
 
     assert run.returncode == 0, run.stdout + run.stderr
     assert "Mutation Report" in run.stdout
+
+
+@pytest.mark.system
+def test_a_run_whose_inifile_addopts_load_pytest_cov_with_autoload_off_scores_the_site_killed(tmp_path):
+    """The silent failure: dropping `--no-cov` here lets pytest-cov pause the Measurement's collector."""
+    run = _scored(tmp_path, "-q tests", _autoload_off_env(), addopts="-p pytest_cov --cov=calc")
+
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "Covered mutation sites: 1" in run.stdout
+    assert "Killed: 1" in run.stdout
+    assert "Uncovered: 0" in run.stdout
+
+
+@pytest.mark.system
+def test_a_run_that_turns_autoload_off_in_its_pytest_args_and_names_no_plugin_scores_normally(tmp_path):
+    run = _scored(tmp_path, "-q --disable-plugin-autoload tests", {**os.environ, ADDOPTS: ""})
+
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "unrecognized arguments" not in run.stdout + run.stderr
+    assert "Killed: 1" in run.stdout
+
+
+@pytest.mark.system
+def test_a_run_that_blocks_pytest_cov_with_autoload_on_scores_normally(tmp_path):
+    run = _scored(tmp_path, "-q -p no:pytest_cov tests", nested_pytest_env(os.environ, autoload=True))
+
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "unrecognized arguments" not in run.stdout + run.stderr
+    assert "Killed: 1" in run.stdout

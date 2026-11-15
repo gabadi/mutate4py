@@ -4,11 +4,15 @@
 
 ### Fixed
 
-- A scored run with `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` and no `-p pytest_cov` no longer fails its
-  Measurement with "unrecognized arguments: --no-cov" (exit code 4) (#127). mutate4py now adds
-  `--no-cov` only when the pytest that receives it loads pytest-cov: autoload is on, or
-  `-p pytest_cov` / `-p pytest_cov.plugin` is in the run's pytest args or in `PYTEST_ADDOPTS`.
-  Amends ADR 0020.
+- A scored run no longer fails its Measurement with "unrecognized arguments: --no-cov" (exit
+  code 4) when the child pytest does not load pytest-cov: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`
+  or `--disable-plugin-autoload` with no `-p pytest_cov`, or `-p no:pytest_cov` (#127). The
+  same holds for pytest-benchmark's `--benchmark-disable`. mutate4py drops a plugin's switch
+  only when its module is importable and the child provably does not load it; whenever the
+  session args, `PYTEST_ADDOPTS`, the ini `addopts`, `PYTEST_PLUGINS` or a conftest names the
+  plugin, the switch stays, so a project that loads pytest-cov through its ini `addopts` under
+  autoload off is still scored (not silently Uncovered). When unsure, the switch is kept. Amends
+  ADR 0020.
 
 ## 0.3.0 (unreleased)
 

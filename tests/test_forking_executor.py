@@ -233,7 +233,7 @@ def test_prime_neutralises_plugins_on_its_own_collect_only_call(tmp_path, monkey
     executor.prime()
 
     assert captured_args, "prime() must invoke pytest.main() via _run_pytest_output_suppressed"
-    assert set(neutralising_args()) <= set(captured_args[0])
+    assert set(neutralising_args(_NO_TACH, cwd=cwd)) <= set(captured_args[0])
 
 
 @pytest.mark.system

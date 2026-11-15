@@ -318,7 +318,7 @@ def _run_session(request: MeasureRequest, files: dict[str, str]) -> tuple[subpro
         _BOOTSTRAP,
         files["config_file"],
         *request.pytest_args,
-        *neutralising_args(request.pytest_args),
+        *neutralising_args(request.pytest_args, cwd=request.cwd),
     ]
     start = time.monotonic()
     result = subprocess.run(argv, cwd=request.cwd, env=_session_env(), capture_output=True)

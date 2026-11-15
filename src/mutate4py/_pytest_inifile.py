@@ -7,12 +7,14 @@ loads neither configuration nor conftests above it. This module is stdlib-only, 
 
 import configparser
 import os
+import shlex
 import tomllib
 
 __all__ = [
     "CONFIG_FILES",
     "CONFIG_FILE_OPTIONS",
     "ancestors",
+    "config_addopts",
     "conftest_bounds",
     "explicit_bound",
     "inifile_dir",
@@ -143,6 +145,8 @@ def last_option_value(tokens: list[str], *names: str) -> str | None:
 
 _CONFCUTDIR = "--confcutdir"
 
+_OVERRIDE_INI_OPTIONS = ("-o", "--override-ini")
+
 # `-c` and `--config-file` are one option for pytest (_pytest/main.py:263-264, dest `inifilename`).
 CONFIG_FILE_OPTIONS = ("-c", "--config-file")
 
@@ -175,7 +179,12 @@ def _toml_addopts(data: dict, path: str) -> str:
     root = _as_dict(data.get("tool")) if os.path.basename(path) == "pyproject.toml" else data
     table = _as_dict(root.get("pytest"))
     values = [table.get("addopts"), _as_dict(table.get("ini_options")).get("addopts")]
-    return " ".join(str(value) for value in values if value)
+    return " ".join(_addopts_string(value) for value in values if value)
+
+
+def _addopts_string(value: object) -> str:
+    """An `addopts` value as one shell-split string: TOML may give a list of arguments, each quoted as needed."""
+    return " ".join(shlex.quote(str(item)) for item in value) if isinstance(value, list) else str(value)
 
 
 def _addopts_of(path: str) -> str:
@@ -240,3 +249,33 @@ def conftest_bounds(cwd: str, tokens: list[str], starts: list[str]) -> list[str]
     fallback = _rootdir_option(cwd, tokens)
     bounds = list(dict.fromkeys(inifile_dir(start) or fallback for start in starts))
     return None if None in bounds else list(filter(None, bounds))
+
+
+def _accepted_config_files(starts: list[str]) -> list[str]:
+    """Each config file pytest accepts as an inifile in the inifile directory of each of `starts`.
+
+    pytest takes the first of them in one directory (findpaths.py:181-199), and which one is first has
+    changed between versions, so every accepted file is returned and the caller reads the answer they share.
+    """
+    return [path for path in _searched_config_files(starts) if os.path.isfile(path) and _is_inifile(path)]
+
+
+def config_addopts(cwd: str, tokens: list[str], starts: list[str]) -> list[str]:
+    """The `addopts` pytest may take from its configuration, one string per source that could supply them.
+
+    In pytest's own order: the last `-o addopts=...` / `--override-ini addopts=...` replaces whatever the
+    config says; else the last `-c` / `--config-file` file; else the accepted inifiles found searching up from
+    each of `starts`. Empty when nothing supplies any. Several entries are alternatives: a caller that
+    needs a fact to hold whichever supplies the addopts asks every entry, one that needs it to hold
+    anywhere asks any.
+    """
+    overrides = [
+        value[len("addopts=") :]
+        for value in option_values(tokens, *_OVERRIDE_INI_OPTIONS)
+        if value.startswith("addopts=")
+    ]
+    if overrides:
+        return overrides[-1:]
+    named = last_option_value(tokens, *CONFIG_FILE_OPTIONS)
+    paths = [os.path.join(cwd, named)] if named else _accepted_config_files(starts)
+    return [_addopts_of(path) for path in paths if os.path.isfile(path)]

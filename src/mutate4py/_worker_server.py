@@ -19,6 +19,7 @@ per request, because a forked child inherits it for free; see
 """
 
 import dataclasses
+import functools
 import json
 import logging
 import os
@@ -130,7 +131,11 @@ def main(argv: list[str]) -> None:
     sys.stdout.write(json.dumps({"ready": True}) + "\n")
     sys.stdout.flush()
     _serve(
-        executor, sys.stdin, sys.stdout, plugin_args=_worker_plugin_args(args.worker_id), neutralise=neutralising_args
+        executor,
+        sys.stdin,
+        sys.stdout,
+        plugin_args=_worker_plugin_args(args.worker_id),
+        neutralise=functools.partial(neutralising_args, cwd=args.cwd),
     )
 
 

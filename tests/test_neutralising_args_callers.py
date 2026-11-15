@@ -1,8 +1,8 @@
-"""The run's pytest args reach `neutralising_args` at the Measurement and at the forking executor's prime (#127).
+"""The run's pytest args and directory reach `neutralising_args` at the Measurement and the prime (#127).
 
-`--no-cov` depends on whether the pytest that receives it loads pytest-cov, which the run's own `-p`
-flags can decide. So each caller asks about the args of the session it is building. In-process: the
-spawn and the prime are replaced by recorders.
+A kill switch depends on whether the pytest that receives it loads its plugin, which the run's own `-p`
+flags, its inifile and its conftests can decide. So each caller asks about the args and the directory of
+the session it is building. In-process: the spawn and the prime are replaced by recorders.
 """
 
 import os
@@ -22,8 +22,8 @@ def test_the_measurement_session_argv_ends_with_the_flags_chosen_for_its_own_pyt
     asked_with = []
     spawned = []
 
-    def fake_neutralising_args(pytest_args):
-        asked_with.append(tuple(pytest_args))
+    def fake_neutralising_args(pytest_args, cwd):
+        asked_with.append((tuple(pytest_args), cwd))
         return ["--fake-flag"]
 
     def fake_run(argv, **kwargs):
@@ -45,7 +45,7 @@ def test_the_measurement_session_argv_ends_with_the_flags_chosen_for_its_own_pyt
 
     _result, elapsed = measurement_mod._run_session(request, files)
 
-    assert asked_with == [("-q", "-p", "pytest_cov")]
+    assert asked_with == [(("-q", "-p", "pytest_cov"), str(tmp_path))]
     argv, kwargs = spawned[0]
     assert argv[-4:] == ["-q", "-p", "pytest_cov", "--fake-flag"]
     assert kwargs["capture_output"] is True
@@ -58,8 +58,8 @@ def test_the_forking_executors_prime_asks_for_the_flags_of_its_own_prime_args(tm
     asked_with = []
     primed = []
 
-    def fake_neutralising_args(pytest_args):
-        asked_with.append(tuple(pytest_args))
+    def fake_neutralising_args(pytest_args, cwd):
+        asked_with.append((tuple(pytest_args), cwd))
         return ["--fake-flag"]
 
     def stop_after_the_prime_call(_pytest, args, _cwd, plugins=()):
@@ -76,5 +76,5 @@ def test_the_forking_executors_prime_asks_for_the_flags_of_its_own_prime_args(tm
     with pytest.raises(RuntimeError, match="stop"):
         executor.prime()
 
-    assert asked_with == [("-p", "no:tach")]
+    assert asked_with == [(("-p", "no:tach"), str(tmp_path))]
     assert primed[0][-3:] == ["--fake-flag", "-p", "no:tach"]

@@ -54,30 +54,65 @@ prime session that registers tach gives the subprocess executor, which states
 why. The remaining whole-run fallbacks are no `os.fork`, pytest not importable,
 `--no-fork` and a fork-unsafe plugin.
 
-## Amended: `--no-cov` needs pytest-cov loaded in the child, not only importable (2026-11-15, #127)
+## Amended: a kill switch is dropped only when the child provably does not load its plugin (2026-11-15, #127)
 
-"Importable" was the wrong test for pytest-cov. `--no-cov` is an option pytest-cov
-registers, so the flag is a pytest usage error (exit 4, "unrecognized arguments:
---no-cov") in any pytest that does not load the plugin. With
-`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` pytest loads only the plugins that are named, so a
-run that left pytest-cov unnamed failed its Measurement at the Baseline even though
-`pytest_cov` was importable.
+"Importable" was the wrong test. `--no-cov` is an option pytest-cov registers, so the flag
+is a pytest usage error (exit 4, "unrecognized arguments: --no-cov") in any pytest that
+does not load the plugin. With `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` pytest loads only the
+plugins that are named, so a run that left pytest-cov unnamed failed its Measurement at the
+Baseline even though `pytest_cov` was importable. `-p no:pytest_cov` fails the same way with
+autoload on. The same holds for pytest-benchmark's `--benchmark-disable`.
 
-`neutralising_args(pytest_args)` now adds `--no-cov` only when both hold: `pytest_cov`
-is importable, and the child session will load it. That is when autoload is on (the
-switch is unset or empty), or when `-p pytest_cov` / `-p pytest_cov.plugin` (also the
-`-ppytest_cov` spelling) appears in the pytest args of that session or in
-`PYTEST_ADDOPTS`. Each caller passes the args of the session it is building: the run's
-pytest args for the Measurement and for every Mutant, the forking executor's prime args
-for its prime, and each request's own args in a Worker (the Worker reads its own
-environment).
+The opposite mistake is worse. A pytest-cov that the child does load, and that is not told
+`--no-cov`, starts its own Coverage and pauses the Measurement's collector: every Mutant is
+scored Uncovered and the run exits 0. That is a wrong score nothing flags, where a wrong
+`--no-cov` is a loud exit 4. A first version of this amendment decided "loaded" from the
+session args and `PYTEST_ADDOPTS` alone, and so dropped the switch for a project whose ini
+`addopts` is `-p pytest_cov --cov=calc` under autoload off.
 
-Rejected: catching the exit-4 and retrying without the flag (the Baseline would run
-twice, and a real usage error would be swallowed); passing `-p pytest_cov` ourselves
-when autoload is off (it would load a plugin the user chose not to load, and registers
-it under a second name if they name `pytest_cov.plugin`); and `-p no:pytest_cov`, for the
-reasons above. A pytest-cov named only by an ini `addopts` is not detected, so such a
-run with autoload off gets no `--no-cov`.
+**The rule: when unsure, keep the switch.** Missing a source must end in a loud exit 4, never
+in a silent wrong score. `neutralising_args(pytest_args, cwd=...)` adds a plugin's switch
+when its module is importable, unless the child provably does not load the plugin. The child
+does not load it only when nothing names it and autoload is off, or when it is blocked:
 
-pytest-benchmark keeps its importable-only guard. Its `--benchmark-disable` has the same
-shape of failure under autoload off, and is left to a separate change.
+- **Named** by any of these, as a `-p` value (`-p <name>`, `-p<name>`) or text: the session
+  args; `PYTEST_ADDOPTS`; the `addopts` of the inifile; `PYTEST_PLUGINS`; and any conftest
+  the run loads, matched as plain text (a conftest that contains the plugin's name counts).
+  A named plugin keeps its switch whatever else is set.
+- **Autoload off** means `PYTEST_DISABLE_PLUGIN_AUTOLOAD` set and non-empty (as pytest reads
+  it), or `--disable-plugin-autoload` in the session args, in `PYTEST_ADDOPTS` or in the
+  inifile `addopts`. With autoload on, an unblocked plugin is loaded.
+- **Blocked** means `-p no:<entry point>` in the session args, `PYTEST_ADDOPTS` or the
+  inifile `addopts`: the plugin is not loaded even with autoload on, unless something names
+  it.
+- A source that does not parse (an unbalanced quote in `PYTEST_ADDOPTS` or an inifile
+  `addopts`) leaves the answer unknown, and unknown keeps the switch.
+
+Where each source is read. The inifile, its `addopts` and the conftests are located the way
+the tests digest locates them (`_tests_fingerprint`): the inifile search starts at the run
+directory and at the common ancestor of the run's test paths, and the conftests are those
+above each collection root up to the inifile's directory plus those beneath it (more than
+pytest loads, never fewer). A `-c` file replaces the search, and a command-line
+`-o addopts=...` replaces the inifile's value. When several config files in one directory
+could be the inifile, the autoload switch must be in all of them to count, and a name in any
+of them counts. Autoload off is the claim that drops a switch, so it is read strictly and
+every source of a name is read broadly.
+
+Each plugin has its own names, kept in one table (`_KNOWN_PLUGINS`): pytest-cov is named
+`pytest_cov` (entry point and module prefix, so `pytest_cov.plugin` too); pytest-benchmark
+has the entry point `benchmark` and the module `pytest_benchmark`, whose plugin is
+`pytest_benchmark.plugin`. The entry point is what `-p no:` blocks.
+
+Each caller passes the args and directory of the session it is building: the run's pytest
+args and cwd for the Measurement and for every Mutant, the forking executor's prime args for
+its prime, and each request's own args and the Worker's cwd in a Worker (which also reads
+its own environment).
+
+Rejected: catching the exit-4 and retrying without the flag (the Baseline would run twice,
+and a real usage error would be swallowed); passing `-p pytest_cov` ourselves when autoload
+is off (it would load a plugin the user chose not to load, and registers it under a second
+name if they name `pytest_cov.plugin`); `-p no:pytest_cov`, for the reasons above; and
+deciding from the session args and `PYTEST_ADDOPTS` only (the silent-Uncovered failure
+above). Not read: plugins that a named plugin or a `conftest` loads by another route, a
+plugin named by a spelling this module does not know. Those cost a loud exit 4 under autoload
+off, never a wrong score.
