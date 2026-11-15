@@ -68,6 +68,15 @@ def conftest_chain(root: str, bounds: list[str] | None) -> list[str]:
     return [directory for directory in directories if any(directory not in above for above in strictly_above)]
 
 
+def _conftests_beneath(root: str) -> list[str]:
+    """Every conftest.py in a directory beneath `root` (first-party directories only)."""
+    found: list[str] = []
+    for dirpath, dirs, files in os.walk(root):
+        dirs[:] = walkable_dirs(dirs)
+        found.extend(os.path.join(dirpath, name) for name in files if name == "conftest.py")
+    return found
+
+
 def run_conftests(cwd: str, tokens: list[str], bounds: list[str] | None) -> list[str]:
     """Every conftest.py the run may load: those above each collection root up to `bounds`, and those beneath it.
 
@@ -75,8 +84,6 @@ def run_conftests(cwd: str, tokens: list[str], bounds: list[str] | None) -> list
     """
     found: list[str] = []
     for root in collection_roots(cwd, tokens):
-        found.extend(os.path.join(d, "conftest.py") for d in conftest_chain(root, bounds))
-        for dirpath, dirs, files in os.walk(root):
-            dirs[:] = walkable_dirs(dirs)
-            found.extend(os.path.join(dirpath, name) for name in files if name == "conftest.py")
+        found.extend(os.path.join(directory, "conftest.py") for directory in conftest_chain(root, bounds))
+        found.extend(_conftests_beneath(root))
     return list(dict.fromkeys(path for path in found if os.path.isfile(path)))

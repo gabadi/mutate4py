@@ -260,6 +260,12 @@ def _accepted_config_files(starts: list[str]) -> list[str]:
     return [path for path in _searched_config_files(starts) if os.path.isfile(path) and _is_inifile(path)]
 
 
+def _addopts_overrides(tokens: list[str]) -> list[str]:
+    """The value of every `-o addopts=...` / `--override-ini addopts=...`, in argv order."""
+    values = option_values(tokens, *_OVERRIDE_INI_OPTIONS)
+    return [value[len("addopts=") :] for value in values if value.startswith("addopts=")]
+
+
 def config_addopts(cwd: str, tokens: list[str], starts: list[str]) -> list[str]:
     """The `addopts` pytest may take from its configuration, one string per source that could supply them.
 
@@ -269,11 +275,7 @@ def config_addopts(cwd: str, tokens: list[str], starts: list[str]) -> list[str]:
     needs a fact to hold whichever supplies the addopts asks every entry, one that needs it to hold
     anywhere asks any.
     """
-    overrides = [
-        value[len("addopts=") :]
-        for value in option_values(tokens, *_OVERRIDE_INI_OPTIONS)
-        if value.startswith("addopts=")
-    ]
+    overrides = _addopts_overrides(tokens)
     if overrides:
         return overrides[-1:]
     named = last_option_value(tokens, *CONFIG_FILE_OPTIONS)
