@@ -56,8 +56,9 @@ def test_run_parallel_short_result_raises(tmp_path, monkeypatch):
 
 
 class _FakeSelectionSource:
-    def __init__(self, outcome: str, node_ids: tuple = ()) -> None:
+    def __init__(self, outcome: str, node_ids: tuple = (), *, rootdir: str) -> None:
         self._result = (outcome, list(node_ids))
+        self.rootdir = rootdir
 
     def tests_for_line(self, source_path, line):
         return self._result
@@ -91,7 +92,7 @@ def test_run_parallel_composes_narrowed_dispatch_with_workers(tmp_path, monkeypa
             timeout_policy=_FIVE_SECOND_POLICY,
             max_workers=2,
             on_result=noop_on_result,
-            selection_source=_FakeSelectionSource("narrowed", ("tests/test_calc.py::test_f",)),
+            selection_source=_FakeSelectionSource("narrowed", ("tests/test_calc.py::test_f",), rootdir=str(tmp_path)),
             abs_source_path=str(src_file),
             executor=executor,
         )
@@ -99,6 +100,42 @@ def test_run_parallel_composes_narrowed_dispatch_with_workers(tmp_path, monkeypa
     assert result.counts == {"killed": 2, "timeout": 0, "survived": 0}
     assert result.survivors == []
     assert result.selection_counts == {"narrowed": 2, "static": 0}
+    assert executor.calls == [["-q", "tests/test_calc.py::test_f"]] * 2
+
+
+@pytest.mark.unit
+def test_run_parallel_dispatches_node_ids_rebased_from_the_rootdir_to_the_run_directory(tmp_path, monkeypatch):
+    import mutate4py._workers as workers_mod
+
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
+    monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
+
+    member = tmp_path / "member"
+    (member / "tests").mkdir(parents=True)
+    (member / "tests" / "test_calc.py").write_text("")
+    src = "def f(a, b):\n    return a > b\ndef g(a, b):\n    return a < b\n"
+    src_file = member / "calc.py"
+    src_file.write_text(src)
+    executor = FakeExecutor("killed")
+
+    run_parallel(
+        ParallelRunRequest(
+            selected_sites=discover_sites(src),
+            clean_source=src,
+            source_path=str(src_file),
+            cwd=str(member),
+            pytest_args=["-q"],
+            timeout_policy=_FIVE_SECOND_POLICY,
+            max_workers=2,
+            on_result=noop_on_result,
+            selection_source=_FakeSelectionSource(
+                "narrowed", ("member/tests/test_calc.py::test_f",), rootdir=str(tmp_path)
+            ),
+            abs_source_path=str(src_file),
+            executor=executor,
+        )
+    )
+
     assert executor.calls == [["-q", "tests/test_calc.py::test_f"]] * 2
 
 
@@ -125,7 +162,7 @@ def test_run_parallel_composes_static_dispatch_with_workers(tmp_path, monkeypatc
             timeout_policy=_FIVE_SECOND_POLICY,
             max_workers=2,
             on_result=noop_on_result,
-            selection_source=_FakeSelectionSource("static"),
+            selection_source=_FakeSelectionSource("static", rootdir=str(tmp_path)),
             abs_source_path=str(src_file),
             executor=executor,
         )
@@ -163,7 +200,7 @@ def test_run_parallel_unrecognized_outcome_aborts_before_any_worker_is_provision
                 timeout_policy=_FIVE_SECOND_POLICY,
                 max_workers=2,
                 on_result=noop_on_result,
-                selection_source=_FakeSelectionSource("bogus"),
+                selection_source=_FakeSelectionSource("bogus", rootdir=str(tmp_path)),
                 abs_source_path=str(src_file),
                 executor=executor,
             )
@@ -202,7 +239,9 @@ def test_run_parallel_node_id_file_missing_aborts_before_any_worker_is_provision
                 timeout_policy=_FIVE_SECOND_POLICY,
                 max_workers=2,
                 on_result=noop_on_result,
-                selection_source=_FakeSelectionSource("narrowed", ("member/tests/test_calc.py::test_f",)),
+                selection_source=_FakeSelectionSource(
+                    "narrowed", ("member/tests/test_calc.py::test_f",), rootdir=str(tmp_path)
+                ),
                 abs_source_path=str(src_file),
                 executor=executor,
             )

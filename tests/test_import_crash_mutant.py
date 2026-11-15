@@ -92,29 +92,24 @@ def test_a_pytest_argv_that_runs_no_test_on_the_original_code_still_aborts_the_r
 
 @pytest.mark.system
 @_BOTH_EXECUTORS
-def test_a_node_id_from_another_rootdir_aborts_the_run_whatever_the_mutant_timeout(
+def test_a_node_id_from_a_rootdir_above_the_run_directory_is_rebased_and_the_run_goes_on(
     tmp_path, monkeypatch, capsys, forking_requested
 ):
-    """Node ids are relative to pytest's rootdir. A run started in a member directory below it names files
-    that do not exist from there, so pytest exits 4 on every Mutant. With a Mutant timeout shorter than
-    pytest's start-up, that exit used to lose the race to the timeout: the Mutant was scored killed and
-    the run exited 0. The plan finds the missing file first, so the run aborts on every timing."""
+    """Node ids are relative to pytest's rootdir. A run started in a member directory below it names the
+    test file from there, so the narrowed Mutant runs its test and is killed."""
     monkeypatch.setenv("PYTHONDONTWRITEBYTECODE", "1")
     member = tmp_path / "member"
     member.mkdir()
     src_path, source = write_import_time_lookup_project(str(member))
-    test_file = str(member / "tests" / "test_calc.py")
-    record = record_for(rootdir=str(tmp_path), test_files=(test_file,))
+    record = record_for(rootdir=str(tmp_path), test_files=(str(member / "tests" / "test_calc.py"),))
     measurement = measurement_for(
         os.path.abspath(src_path), {"member/tests/test_calc.py::test_double": [6]}, wall=0.01, record=record
     )
 
-    rc = run_mutations(
-        _request(member, source, measurement=measurement, forking_requested=forking_requested, min_timeout=0.001)
-    )
+    rc = run_mutations(_request(member, source, measurement=measurement, forking_requested=forking_requested))
 
-    captured = capsys.readouterr()
-    assert rc == 2, captured.out + captured.err
-    assert "member/tests/test_calc.py::test_double" in captured.err
-    assert "Mutation Report" not in captured.out
+    out = capsys.readouterr().out
+    assert rc == 0, out
+    assert "Killed: 1" in out
+    assert "Survived: 0" in out
     assert _source_on_disk(src_path) == source

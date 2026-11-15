@@ -227,10 +227,20 @@ timeout. The same project gave an abort on one run and a run of silent kills on 
 next. The Control run alone would not fix this: it must stay a dynamic proof, and a
 timeout proves nothing.
 
-So the plan now checks the node ids of a Site before it dispatches that Site's Mutant.
-For a narrowed Site, the file part of every node id must exist under the working
-directory. If one does not, the run raises the case 4 error, with no race against the
-timeout. The message names the node id and says to run mutate4py from the pytest rootdir.
+So the plan checks the node ids of a Site before it dispatches that Site's Mutant.
+For a narrowed Site, the file part of every node id must exist. If one does not, the
+run raises the case 4 error, with no race against the timeout. The message names the
+node id and the path that does not exist.
+
+**Rebase, taken (0.3.3).** 0.3.0 did not rebase the node ids: a run from a directory
+other than the rootdir aborted with "run mutate4py from the pytest rootdir". That
+refused a run that is well defined, because the Measurement knows its rootdir
+(`Measurement.rootdir`) and the working directory is known. `plan_mutant` now
+re-expresses the file part of each node id from the rootdir to the working directory
+and puts the result in the Mutant's argv. A run from the rootdir gets the ids
+unchanged. The timeout is still budgeted on the ids as the Measurement recorded them,
+because `budget_of` is keyed on them. The existence check runs on the rebased path,
+so a node id whose file is missing still aborts the run.
 
 When the check runs depends on the path. The serial loop plans one Site at a time, so the
 Mutants of earlier Sites have run when a later Site aborts. A parallel run plans every

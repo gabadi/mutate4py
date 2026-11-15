@@ -54,8 +54,9 @@ def _policy(timeout: float) -> TimeoutPolicy:
 
 
 class _FakeSelectionSource:
-    def __init__(self, outcome, node_ids=()):
+    def __init__(self, outcome, node_ids=(), *, rootdir):
         self._result = (outcome, list(node_ids))
+        self.rootdir = rootdir
 
     def tests_for_line(self, source_path, line):
         return self._result
@@ -109,7 +110,7 @@ def _loop_over_two_sites(tmp_path, selection_source):
 @pytest.mark.unit
 def test_run_mutation_loop_tallies_narrowed_selections(tmp_path):
     _, _, selection_counts = _loop_over_two_sites(
-        tmp_path, _FakeSelectionSource("narrowed", ["tests/test_calc.py::test_f"])
+        tmp_path, _FakeSelectionSource("narrowed", ["tests/test_calc.py::test_f"], rootdir=str(tmp_path))
     )
     assert selection_counts == {"narrowed": 2, "static": 0}
 
@@ -118,7 +119,7 @@ def test_run_mutation_loop_tallies_narrowed_selections(tmp_path):
 @pytest.mark.parametrize("outcome", ["static", "uncovered"])
 def test_run_mutation_loop_tallies_static_selections(tmp_path, outcome):
     """A line no test owns (static) and a line no test reached (uncovered) both run the full set, tallied static."""
-    _, _, selection_counts = _loop_over_two_sites(tmp_path, _FakeSelectionSource(outcome))
+    _, _, selection_counts = _loop_over_two_sites(tmp_path, _FakeSelectionSource(outcome, rootdir=str(tmp_path)))
     assert selection_counts == {"narrowed": 0, "static": 2}
 
 
@@ -146,6 +147,35 @@ def test_run_mutation_loop_calls_executor_with_planned_args_and_timeout(tmp_path
 
 
 @pytest.mark.unit
+def test_run_mutation_loop_dispatches_node_ids_rebased_from_the_rootdir_to_the_run_directory(tmp_path):
+    member = tmp_path / "member"
+    (member / "tests").mkdir(parents=True)
+    (member / "tests" / "test_calc.py").write_text("")
+    src = "def f(a, b):\n    return a > b\n"
+    src_file = member / "calc.py"
+    src_file.write_text(src)
+    executor = _FakeExecutor(status="killed")
+
+    _run_mutation_loop(
+        selected_sites=discover_sites(src),
+        clean_source=src,
+        ctx=MutantExecCtx(
+            path=str(src_file),
+            cwd=str(member),
+            pytest_args=["-q"],
+            executor=executor,
+            timeout_policy=_policy(7.5),
+            selection_source=_FakeSelectionSource(
+                "narrowed", ["member/tests/test_calc.py::test_f"], rootdir=str(tmp_path)
+            ),
+            abs_source_path=str(src_file),
+        ),
+    )
+
+    assert executor.calls == [(["-q", "tests/test_calc.py::test_f"], 7.5)]
+
+
+@pytest.mark.unit
 def test_run_mutation_loop_unrecognized_selection_outcome_aborts_before_applying_the_mutant(tmp_path):
     src = "def f(a, b):\n    return a > b\n"
     src_file = tmp_path / "calc.py"
@@ -160,7 +190,7 @@ def test_run_mutation_loop_unrecognized_selection_outcome_aborts_before_applying
                 pytest_args=[],
                 executor=_FakeExecutor(),
                 timeout_policy=_policy(5.0),
-                selection_source=_FakeSelectionSource("bogus"),
+                selection_source=_FakeSelectionSource("bogus", rootdir=str(tmp_path)),
                 abs_source_path=str(src_file),
             ),
         )
@@ -382,7 +412,9 @@ def test_run_mutation_loop_aborts_before_applying_the_mutant_when_a_node_id_file
     that Site's Mutant runs, so the result never depends on how the Mutant timeout compares with pytest
     start-up."""
     ctx, executor = _loop_ctx(
-        tmp_path, [], selection_source=_FakeSelectionSource("narrowed", ["tests/test_gone.py::t"])
+        tmp_path,
+        [],
+        selection_source=_FakeSelectionSource("narrowed", ["tests/test_gone.py::t"], rootdir=str(tmp_path)),
     )
 
     with pytest.raises(NoTestsCollectedError, match="tests/test_gone.py::t"):
@@ -401,6 +433,8 @@ def test_run_mutation_loop_plans_one_site_at_a_time_so_an_earlier_sites_mutant_r
     by_line = {2: ("static", []), 6: ("narrowed", ["tests/test_gone.py::t"])}
 
     class _PerLineSelection:
+        rootdir = str(tmp_path)
+
         def tests_for_line(self, source_path, line):
             return by_line[line]
 
