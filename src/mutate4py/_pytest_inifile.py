@@ -9,7 +9,16 @@ import configparser
 import os
 import tomllib
 
-__all__ = ["CONFIG_FILES", "ancestors", "inifile_dir", "last_option_value", "option_values", "up_to"]
+__all__ = [
+    "CONFIG_FILES",
+    "ancestors",
+    "conftest_bounds",
+    "explicit_bound",
+    "inifile_dir",
+    "last_option_value",
+    "option_values",
+    "up_to",
+]
 
 
 def ancestors(path: str) -> list[str]:
@@ -33,7 +42,7 @@ CONFIG_FILES = ("pytest.ini", ".pytest.ini", "pytest.toml", ".pytest.toml", "tox
 
 def _has_ini_section(path: str, section: str) -> bool:
     """Whether the ini file at `path` has `[section]`. A file that does not parse has none."""
-    parser = configparser.ConfigParser(interpolation=None, strict=False)
+    parser = configparser.ConfigParser(interpolation=None)
     try:
         parser.read(path, encoding="utf-8")
     except (configparser.Error, UnicodeDecodeError):
@@ -57,13 +66,15 @@ def _pyproject_configures_pytest(path: str) -> bool:
 
 
 def _is_inifile(path: str) -> bool:
-    """Whether pytest accepts the existing file `path` as its inifile (`load_config_dict_from_file`, findpaths.py:58-155).
+    """Whether pytest accepts the existing file `path` as its inifile.
+
+    `load_config_dict_from_file`, findpaths.py:58-155:
 
     - pytest.ini and .pytest.ini always are, even empty (:66, :76-77).
     - pytest.toml and .pytest.toml always are, even empty (:108-118).
     - pyproject.toml is when it has a pytest table (:120-153), see `_pyproject_configures_pytest`.
     - tox.ini is when it has `[pytest]` (:66-73).
-    - setup.cfg is when it has `[tool:pytest]` (:80-87). A bare `[pytest]` there is an error in pytest, not an inifile (:88-91).
+    - setup.cfg is when it has `[tool:pytest]` (:80-87). A bare `[pytest]` there is an error, not an inifile (:88-91).
     """
     name = os.path.basename(path)
     if name in ("pytest.ini", ".pytest.ini", "pytest.toml", ".pytest.toml"):
@@ -75,6 +86,12 @@ def _is_inifile(path: str) -> bool:
     return name == "setup.cfg" and _has_ini_section(path, "tool:pytest")
 
 
+def _holds_inifile(directory: str) -> bool:
+    """Whether `directory` holds a file pytest accepts as its inifile."""
+    paths = [os.path.join(directory, name) for name in (*CONFIG_FILES, "pyproject.toml")]
+    return any(os.path.isfile(path) and _is_inifile(path) for path in paths)
+
+
 def inifile_dir(start: str) -> str | None:
     """The directory of the inifile pytest finds searching up from `start`, or None when there is none.
 
@@ -82,14 +99,9 @@ def inifile_dir(start: str) -> str | None:
     holding an accepted inifile wins (:181-199). Failing that, the first pyproject.toml met on the way is
     taken as the inifile, with no configuration (:187-188, :200-201).
     """
-    first_pyproject: str | None = None
-    for directory in ancestors(start):
-        candidates = [os.path.join(directory, name) for name in (*CONFIG_FILES, "pyproject.toml")]
-        if any(os.path.isfile(path) and _is_inifile(path) for path in candidates):
-            return directory
-        if first_pyproject is None and os.path.isfile(os.path.join(directory, "pyproject.toml")):
-            first_pyproject = directory
-    return first_pyproject
+    directories = ancestors(start)
+    held = next((directory for directory in directories if _holds_inifile(directory)), None)
+    return held or next((d for d in directories if os.path.isfile(os.path.join(d, "pyproject.toml"))), None)
 
 
 def up_to(directories: list[str], bound: str | None) -> list[str]:
@@ -120,3 +132,39 @@ def last_option_value(tokens: list[str], name: str) -> str | None:
     """The value of the last `name` option: argparse keeps the last one given."""
     values = option_values(tokens, name)
     return values[-1] if values else None
+
+
+def explicit_bound(cwd: str, tokens: list[str]) -> list[str] | None:
+    """The bound an explicit option sets: `--confcutdir`, else the directory of the `-c` file (findpaths.py:307-311)."""
+    confcutdir = last_option_value(tokens, "--confcutdir")
+    inifile = last_option_value(tokens, "-c")
+    if confcutdir:
+        return [os.path.abspath(os.path.join(cwd, confcutdir))]
+    return [os.path.dirname(os.path.abspath(os.path.join(cwd, inifile)))] if inifile else None
+
+
+def _rootdir_option(cwd: str, tokens: list[str]) -> str | None:
+    """The `--rootdir` directory, absolute, or None."""
+    value = last_option_value(tokens, "--rootdir")
+    return os.path.abspath(os.path.join(cwd, os.path.expandvars(value))) if value else None
+
+
+def conftest_bounds(cwd: str, tokens: list[str], starts: list[str]) -> list[str] | None:
+    """The directories where conftest loading ends, or None when it reaches the filesystem root.
+
+    pytest loads a conftest from every directory that is not strictly above `confcutdir`
+    (config/__init__.py:669-682, :703-704). Its default is the inifile's directory, else the rootdir
+    (config/__init__.py:1598-1603). So, in order:
+    - `--confcutdir`, then the directory of the `-c` file;
+    - the inifile's directory, for each of `starts` (where pytest's search may begin);
+    - with no inifile, `--rootdir`;
+    - with neither, no bound: the walk goes to `/`.
+
+    Left out: `--noconftest`, `-p` plugins and `conftest.py` files found by `--pyargs`.
+    """
+    explicit = explicit_bound(cwd, tokens)
+    if explicit:
+        return explicit
+    fallback = _rootdir_option(cwd, tokens)
+    bounds = list(dict.fromkeys(inifile_dir(start) or fallback for start in starts))
+    return None if None in bounds else list(filter(None, bounds))

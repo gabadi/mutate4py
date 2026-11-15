@@ -17,7 +17,6 @@ import is `strip_manifest`, which removes the footer text and reads no stored
 value. Its other imports are `primitives` (`_py_tree`, `_pytest_argv`, `_pytest_config`).
 """
 
-import configparser
 import dataclasses
 import hashlib
 import importlib.metadata
@@ -33,7 +32,14 @@ from collections.abc import Sequence
 from mutate4py._manifest import strip_manifest
 from mutate4py._py_tree import walkable_dirs
 from mutate4py._pytest_config import configured_testpaths
-from mutate4py._pytest_inifile import CONFIG_FILES, ancestors, inifile_dir, last_option_value, option_values, up_to
+from mutate4py._pytest_inifile import (
+    CONFIG_FILES,
+    ancestors,
+    conftest_bounds,
+    inifile_dir,
+    option_values,
+    up_to,
+)
 from mutate4py._pytest_argv import VALUE_OPTIONS, flag_tokens, positional_tokens
 
 
@@ -208,46 +214,24 @@ def _config_dirs(cwd: str, roots: list[str], tokens: list[str]) -> list[str]:
         return []
     rootdirs = [os.path.join(cwd, value) for value in option_values(tokens, "--rootdir")]
     starts = [cwd, _pytest_start(cwd, tokens), *roots, *rootdirs]
-    return list(dict.fromkeys(directory for start in starts for directory in up_to(ancestors(start), inifile_dir(start))))
+    chains = (up_to(ancestors(start), inifile_dir(start)) for start in starts)
+    return list(dict.fromkeys(directory for chain in chains for directory in chain))
 
 
-def _conftest_bounds(cwd: str, tokens: list[str]) -> list[str] | None:
-    """The directories where conftest loading ends, or None when it reaches the filesystem root.
+def _conftest_chain(root: str, bounds: list[str] | None) -> list[str]:
+    """The directories above `root`, nearest first, up to the highest of `bounds`.
 
-    pytest loads a conftest from every directory that is not strictly above `confcutdir`
-    (config/__init__.py:669-682, :703-704). Its default is the inifile's directory, else the rootdir
-    (config/__init__.py:1598-1603). So, in order:
-    - `--confcutdir`;
-    - the directory of the `-c` file (findpaths.py:307-311);
-    - the inifile's directory, for the run directory and pytest's start;
-    - with no inifile, `--rootdir`;
-    - with neither, no bound: the walk goes to `/`.
-
-    Left out: `--noconftest`, `-p` plugins and `conftest.py` files found by `--pyargs` stay hashed or
-    unhashed as before.
-    """
-    confcutdir = last_option_value(tokens, "--confcutdir")
-    if confcutdir:
-        return [os.path.abspath(os.path.join(cwd, confcutdir))]
-    inifile = last_option_value(tokens, "-c")
-    if inifile:
-        return [os.path.dirname(os.path.abspath(os.path.join(cwd, inifile)))]
-    rootdir = last_option_value(tokens, "--rootdir")
-    fallback = os.path.abspath(os.path.join(cwd, os.path.expandvars(rootdir))) if rootdir else None
-    bounds = [inifile_dir(start) or fallback for start in dict.fromkeys([cwd, _pytest_start(cwd, tokens)])]
-    return None if None in bounds else [bound for bound in bounds if bound is not None]
-
-
-def _conftest_inputs(root: str, base: str, bounds: list[str] | None) -> list[tuple[str, str]]:
-    """Each conftest.py pytest loads for `root`: in every directory above it, up to the highest bound among `bounds`.
-
-    A bound that is not above `root` bounds nothing (config/__init__.py:682), so the walk then goes to `/`.
+    A bound that is not above `root` bounds nothing (config/__init__.py:682), so the chain then goes to `/`.
     """
     directories = ancestors(os.path.dirname(os.path.abspath(root)))
     reached = [directories.index(bound) for bound in bounds or [] if bound in directories]
-    bounded = bool(bounds) and len(reached) == len(bounds)
+    return directories[: max(reached) + 1] if bounds and len(reached) == len(bounds) else directories
+
+
+def _conftest_inputs(root: str, base: str, bounds: list[str] | None) -> list[tuple[str, str]]:
+    """Each conftest.py pytest loads for `root`, since it loads each one it finds on the way up."""
     found: list[tuple[str, str]] = []
-    for directory in directories[: max(reached) + 1] if bounded else directories:
+    for directory in _conftest_chain(root, bounds):
         found.extend(_existing_file_input(os.path.join(directory, "conftest.py"), base))
     return found
 
@@ -273,7 +257,7 @@ def fingerprint_inputs(cwd: str, pytest_args: str) -> dict[str, str]:
     """
     tokens = shlex.split(pytest_args)
     roots = _collection_roots(cwd, tokens)
-    bounds = _conftest_bounds(cwd, tokens)
+    bounds = conftest_bounds(cwd, tokens, [cwd, _pytest_start(cwd, tokens)])
     entries: dict[str, str] = {}
     for root in roots:
         entries.update(_root_inputs(root, cwd))

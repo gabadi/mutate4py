@@ -568,6 +568,8 @@ def test_a_file_pytest_accepts_as_its_inifile_ends_the_walk(tmp_path, name, text
     ("name", "text"),
     [
         pytest.param("tox.ini", "[tox]\n", id="tox-ini-without-pytest-section"),
+        pytest.param("tox.ini", "[pytest\n", id="tox-ini-that-does-not-parse"),
+        pytest.param("setup.cfg", "[tool:pytest\n", id="setup-cfg-that-does-not-parse"),
         pytest.param("setup.cfg", "[metadata]\nname = demo\n", id="setup-cfg-without-tool-pytest"),
         pytest.param("setup.cfg", "[pytest]\n", id="setup-cfg-plain-pytest-section"),
         pytest.param("pyproject.toml", "[tool.pytest]\n", id="pyproject-empty-pytest-table"),
@@ -654,12 +656,31 @@ def test_rootdir_ends_the_conftest_walk_when_no_inifile_exists(tmp_path):
 
 
 @pytest.mark.unit
-def test_a_pyproject_with_a_pytest_table_ends_the_walk_past_a_nearer_one_without(tmp_path):
+def test_an_ini_file_that_is_not_text_is_not_an_inifile(tmp_path):
+    root = _checkout(tmp_path / "up", "checkout")
+    (tmp_path / "up" / "checkout" / "pytest.ini").unlink()
+    (tmp_path / "up" / "checkout" / "tox.ini").write_bytes(b"\xff[pytest]\n")
+    (tmp_path / "up" / "pytest.ini").write_text("[pytest]\n")
+    (tmp_path / "up" / "conftest.py").write_text("SHARED = 1\n")
+    before = fingerprint_of(root, "tests")
+    (tmp_path / "up" / "conftest.py").write_text("SHARED = 2\n")
+    assert fingerprint_of(root, "tests") != before
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "table",
+    [
+        pytest.param("[tool.pytest.ini_options]\naddopts = '-q'\n", id="ini-options"),
+        pytest.param("[tool.pytest]\naddopts = ['-q']\n", id="native-table"),
+    ],
+)
+def test_a_pyproject_with_a_pytest_table_ends_the_walk_past_a_nearer_one_without(tmp_path, table):
     checkout = tmp_path / "up" / "checkout"
     package = checkout / "pkg"
     package.mkdir(parents=True)
     (package / "pyproject.toml").write_text("[project]\nname = 'demo'\n")
-    (checkout / "pyproject.toml").write_text("[tool.pytest.ini_options]\naddopts = '-q'\n")
+    (checkout / "pyproject.toml").write_text(table)
     (checkout / "conftest.py").write_text("SHARED = 1\n")
     (tmp_path / "conftest.py").write_text("OUTER = 1\n")
     before = fingerprint_of(str(package), "")
