@@ -484,24 +484,29 @@ def then_serial_counts_match(m, params):
 def then_takes_path(m, params):
     path = params.get("path") or m.group(1)
     stdout = ctx.cli_result.stdout
+    progress = [ln for ln in stdout.splitlines() if ln.startswith("[")]
+    assert progress, f"No per-mutant progress lines. stdout:\n{stdout}"
+    # The worker-<k> token tracks the path: on every per-mutant line when parallel, on none when serial.
     if path == "serial":
-        for line in stdout.splitlines():
-            if line.startswith("["):
-                assert "worker-" not in line, f"Expected serial path but got worker token: {line}"
+        for line in progress:
+            assert "worker-" not in line, f"Expected serial path but got worker token: {line}"
     elif path == "parallel":
-        progress = [ln for ln in stdout.splitlines() if ln.startswith("[")]
-        assert progress, f"No progress lines; parallel path expected. stdout:\n{stdout}"
-        assert any("worker-" in ln for ln in progress), f"Expected worker-k token in progress lines. stdout:\n{stdout}"
+        for line in progress:
+            assert "worker-" in line, f"Expected worker-k token in: {line}"
     else:
         raise AssertionError(f"Unknown path value: {path!r}; expected 'serial' or 'parallel'")
 
 
-@step(r'the output line "Mutation workers: (\d+)" is printed')
-def then_workers_line(m, params):
-    shown = params.get("shown") or m.group(1)
-    expected = f"Mutation workers: {shown}"
-    stdout = ctx.cli_result.stdout
-    assert expected in stdout, f"Expected '{expected}' in stdout:\n{stdout}"
+@step(r'the workers header is "([^"]*)"')
+def then_workers_header(m, params):
+    header = params.get("header") or m.group(1)
+    lines = ctx.cli_result.stdout.splitlines()
+    shown = [ln for ln in lines if ln.startswith("Mutation workers:")]
+    # The line tracks the flag, not the path: it is absent only when --max-workers is unset.
+    if header == "(none)":
+        assert not shown, f"Did not expect a 'Mutation workers:' line in:\n{ctx.cli_result.stdout}"
+    else:
+        assert shown == [header], f"Expected the single header line {header!r}, got {shown} in:\n{ctx.cli_result.stdout}"
 
 
 @step(r'the output line "Total mutation sites: (\d+)" is printed')
@@ -510,34 +515,6 @@ def then_total_sites_line(m, params):
     expected = f"Total mutation sites: {total}"
     stdout = ctx.cli_result.stdout
     assert expected in stdout, f"Expected '{expected}' in stdout:\n{stdout}"
-
-
-@step(r'a "Mutation workers:" line "([^"]*)" printed')
-def then_workers_header_visibility(m, params):
-    vis = params.get("visibility") or m.group(1)
-    stdout = ctx.cli_result.stdout
-    if vis == "is":
-        assert "Mutation workers:" in stdout, f"Expected 'Mutation workers:' in:\n{stdout}"
-    elif vis == "is not":
-        assert "Mutation workers:" not in stdout, f"Did not expect 'Mutation workers:' in:\n{stdout}"
-    else:
-        raise AssertionError(f"Unknown visibility value: {vis!r}; expected 'is' or 'is not'")
-
-
-@step(r'a "worker-" token "([^"]*)" present in every per-mutant progress line')
-def then_worker_token_visibility(m, params):
-    vis = params.get("visibility") or m.group(1)
-    stdout = ctx.cli_result.stdout
-    progress = [ln for ln in stdout.splitlines() if ln.startswith("[")]
-    assert progress, f"No progress lines in stdout:\n{stdout}"
-    if vis == "is":
-        for line in progress:
-            assert "worker-" in line, f"Expected worker-k token in: {line}"
-    elif vis == "is not":
-        for line in progress:
-            assert "worker-" not in line, f"Did not expect worker-k token in: {line}"
-    else:
-        raise AssertionError(f"Unknown visibility value: {vis!r}; expected 'is' or 'is not'")
 
 
 @step(r'the output line "\[2/4\] worker-3 killed line 7 a > b -> a >= b: func/calc" is printed')
