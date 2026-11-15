@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T12:53:49Z",
-  "module_hash": "e46f680bec6b371708d5d93aacbfb63c14675ec44443d4225cdead28f991ee97",
-  "source_sha256": "57e5626f191e797bc2a87ff388b094c1465f316bc8c347304cc62ccf751dda3d",
+  "tested_at": "2026-11-15T13:32:26Z",
+  "module_hash": "14c4e2ca53c40bb958d7dfb11d8414834cff43e6e8c25f9b53b68052319b5164",
+  "source_sha256": "99ad5432ed482839fd1ce18c672dc8aec49ac4d1b1528689ba92a770a0b2c93e",
   "functions": [
     {
       "id": "func/ForkingExecutorUnavailable.reason",
@@ -62,7 +62,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "e724549ea3bb5288afa08baf62328851b1c11b0d7926064d1e8adb727744b2df"
+      "tests_digest": "8d6c30907cba50bbd7d9dc23fc051ca6d4ecbc8f7321c9fee9bff95072bfac27"
     },
     {
       "id": "func/is_available",
@@ -107,7 +107,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "e724549ea3bb5288afa08baf62328851b1c11b0d7926064d1e8adb727744b2df"
+      "tests_digest": "8d6c30907cba50bbd7d9dc23fc051ca6d4ecbc8f7321c9fee9bff95072bfac27"
     },
     {
       "id": "func/_PluginRecorder.__init__",
@@ -152,7 +152,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "0331b36ef5ea6f206229875b1626b2bd1ad2b411a4cef32bbbda2961b5568ba5"
+      "tests_digest": "f999ed48d4fb40dd683044c37b7dcf7a332602ebf7e70d9842e94090b98a3d83"
     },
     {
       "id": "func/ForkingExecutor.describe",
@@ -173,22 +173,22 @@
       "id": "func/ForkingExecutor.prime",
       "name": "prime",
       "line": 180,
-      "end_line": 212,
-      "hash": "a2a29ef205131f4eccb5b5157c5927e05639a1da347dfcfb18e64aa5fdeb491d",
+      "end_line": 218,
+      "hash": "8c044d2271e517952ef513fa33fe1db9855e84d31164b267e50980ec1a287c1f",
       "score": {
-        "killed": 0,
+        "killed": 1,
         "survived": 0,
-        "uncovered": 1
+        "uncovered": 0
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "d00c757fde26178e92946eb4873e2a4b094ca1853ba8a72fb4efc9bc67adafce"
+      "tests_digest": "3f483dbfcc2312802a5208a391e4f06b45a8afc29422fe56dc38ea0b767d9c58"
     },
     {
       "id": "func/ForkingExecutor._fork_and_wait",
       "name": "_fork_and_wait",
-      "line": 214,
-      "end_line": 225,
+      "line": 220,
+      "end_line": 231,
       "hash": "13af05a9545558497f3d374659ae1c8afdd15c27db5fb58bb69624b69325197b",
       "score": {
         "killed": 0,
@@ -202,8 +202,8 @@
     {
       "id": "func/ForkingExecutor.run",
       "name": "run",
-      "line": 227,
-      "end_line": 241,
+      "line": 233,
+      "end_line": 247,
       "hash": "fb7d2109065668b79c2742e8b137aad5e06f51ecfa810051d77dd2c43a6accd8",
       "score": {
         "killed": 4,
@@ -212,13 +212,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "e6fb02a953775cf5e863921f0c6f4bdbe331da2b3a1f5e26fd1faf3ded126083"
+      "tests_digest": "771e1c79062ec1e87a7b0ec70f49cfdd9c1a304c3b7da464844c87f42b309a27"
     },
     {
       "id": "func/ForkingExecutor._child",
       "name": "_child",
-      "line": 243,
-      "end_line": 251,
+      "line": 249,
+      "end_line": 257,
       "hash": "5972c26f5d1951cb6ad69f57c4fd08e5a52eb78502402268915f83acc5fb9475",
       "score": {
         "killed": 0,
@@ -232,8 +232,8 @@
     {
       "id": "func/ForkingExecutor._exec_fresh_interpreter",
       "name": "_exec_fresh_interpreter",
-      "line": 253,
-      "end_line": 262,
+      "line": 259,
+      "end_line": 268,
       "hash": "61ca04d13c3ce28ae084b17b1083cfedabe9d3b94d883eff2129b6fb5b595365",
       "score": {
         "killed": 0,
@@ -247,8 +247,8 @@
     {
       "id": "func/ForkingExecutor._run_child",
       "name": "_run_child",
-      "line": 264,
-      "end_line": 279,
+      "line": 270,
+      "end_line": 285,
       "hash": "15083ec81778cfdf5d38f85fe2c8cd0063e32da59fb0f0a076383204d6747ee7",
       "score": {
         "killed": 0,
@@ -262,8 +262,8 @@
     {
       "id": "func/fresh_interpreter_argv",
       "name": "fresh_interpreter_argv",
-      "line": 282,
-      "end_line": 285,
+      "line": 288,
+      "end_line": 291,
       "hash": "ba8e3b499e0f902c33e89a813e32a22dadc46061d73a7be8027c64d4cab04292",
       "score": {
         "killed": 0,
@@ -277,8 +277,8 @@
     {
       "id": "func/fresh_interpreter_env",
       "name": "fresh_interpreter_env",
-      "line": 288,
-      "end_line": 290,
+      "line": 294,
+      "end_line": 296,
       "hash": "a41be74f12c9abbc4c9f46a60421ec22929cef0af28329251e85d69f5ab1f226",
       "score": {
         "killed": 0,
@@ -292,8 +292,8 @@
     {
       "id": "func/_silence_std_fds",
       "name": "_silence_std_fds",
-      "line": 293,
-      "end_line": 297,
+      "line": 299,
+      "end_line": 303,
       "hash": "69b259cd429763a235c16cc6970f2a0ef3a19791cf9be290e94f303c0d2b331e",
       "score": {
         "killed": 0,
@@ -307,8 +307,8 @@
     {
       "id": "func/_run_pytest_output_suppressed",
       "name": "_run_pytest_output_suppressed",
-      "line": 300,
-      "end_line": 338,
+      "line": 306,
+      "end_line": 344,
       "hash": "0936e5ad43f26d9e9b3c7f70bd8542a278b95fc38a20bb8598410f3ec97dde07",
       "score": {
         "killed": 6,
@@ -317,13 +317,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "e724549ea3bb5288afa08baf62328851b1c11b0d7926064d1e8adb727744b2df"
+      "tests_digest": "8d6c30907cba50bbd7d9dc23fc051ca6d4ecbc8f7321c9fee9bff95072bfac27"
     },
     {
       "id": "func/_wait_for_child",
       "name": "_wait_for_child",
-      "line": 341,
-      "end_line": 354,
+      "line": 347,
+      "end_line": 360,
       "hash": "7a9561dd47991eaf2448c5db66f37cd290256c1c2f7f57af4b785b5f300ed1fd",
       "score": {
         "killed": 5,
@@ -332,8 +332,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "e724549ea3bb5288afa08baf62328851b1c11b0d7926064d1e8adb727744b2df"
+      "tests_digest": "8d6c30907cba50bbd7d9dc23fc051ca6d4ecbc8f7321c9fee9bff95072bfac27"
     }
   ],
-  "tests_fingerprint": "25ae60bbb800f9d6710a8e13285b1dcacf8cf632ef0d5b1e6e12cbba25d7a607"
+  "tests_fingerprint": "a54b3ba14d8d34ded6b1b64cc09893fd1f1c6147f93c2a4f030431ff5d81c27c"
 }

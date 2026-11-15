@@ -1,8 +1,11 @@
-"""Unit tests for _pytest_inifile.py: a `--confcutdir` pytest takes from addopts leaves the conftest walk unbounded."""
+"""Unit tests for _pytest_inifile.py: a `--confcutdir` pytest takes from addopts leaves the conftest walk unbounded,
+and `config_addopts` reads the addopts pytest may take from its configuration."""
+
+import shlex
 
 import pytest
 
-from mutate4py._pytest_inifile import conftest_bounds
+from mutate4py._pytest_inifile import config_addopts, conftest_bounds
 
 _FILES = {
     "pytest.ini": "[pytest]\naddopts = -q {opts}\n",
@@ -117,3 +120,75 @@ def test_pytest_addopts_without_confcutdir_keeps_the_bound(tmp_path, monkeypatch
 def test_an_inifile_addopts_that_cannot_be_read_leave_the_bound(tmp_path, name, content):
     (tmp_path / name).write_text(content)
     assert conftest_bounds(str(tmp_path), [], [str(tmp_path)]) == [str(tmp_path)]
+
+
+# -- config_addopts -------------------------------------------------------------
+
+
+def _addopts(cwd, tokens, starts):
+    """`config_addopts` with the space a two-section file leaves around each entry dropped."""
+    return [entry.strip() for entry in config_addopts(str(cwd), tokens, starts)]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("key", list(_FILES))
+def test_config_addopts_reads_the_addopts_of_each_kind_of_inifile(tmp_path, key):
+    _write(tmp_path, key, "-p pytest_cov")
+    [found] = _addopts(tmp_path, [], [str(tmp_path)])
+    assert " ".join(shlex.split(found)) == "-q -p pytest_cov"
+
+
+@pytest.mark.unit
+def test_config_addopts_quotes_each_item_of_a_toml_list_so_that_it_splits_back(tmp_path):
+    (tmp_path / "pyproject.toml").write_text(
+        "[tool.pytest.ini_options]\naddopts = ['-k', 'not slow', '-p', 'pytest_cov']\n"
+    )
+    [found] = _addopts(tmp_path, [], [str(tmp_path)])
+    assert shlex.split(found) == ["-k", "not slow", "-p", "pytest_cov"]
+
+
+@pytest.mark.unit
+def test_config_addopts_is_empty_when_there_is_no_inifile_or_it_has_no_addopts(tmp_path):
+    assert _addopts(tmp_path, [], [str(tmp_path)]) == []
+    (tmp_path / "pytest.ini").write_text("[pytest]\n")
+    assert _addopts(tmp_path, [], [str(tmp_path)]) == [""]
+
+
+@pytest.mark.unit
+def test_config_addopts_gives_one_entry_per_accepted_inifile_in_the_directory(tmp_path):
+    (tmp_path / "pytest.ini").write_text("[pytest]\naddopts = -a\n")
+    (tmp_path / "tox.ini").write_text("[pytest]\naddopts = -b\n")
+    (tmp_path / "setup.cfg").write_text("[metadata]\nname = x\n")
+    assert sorted(_addopts(tmp_path, [], [str(tmp_path)])) == ["-a", "-b"]
+
+
+@pytest.mark.unit
+def test_config_addopts_searches_up_from_each_start(tmp_path):
+    (tmp_path / "pytest.ini").write_text("[pytest]\naddopts = -outer\n")
+    inner = tmp_path / "inner"
+    inner.mkdir()
+    (inner / "pytest.ini").write_text("[pytest]\naddopts = -inner\n")
+    assert _addopts(tmp_path, [], [str(tmp_path), str(inner)]) == ["-outer", "-inner"]
+
+
+@pytest.mark.unit
+def test_config_addopts_reads_only_the_file_named_by_the_last_dash_c(tmp_path):
+    (tmp_path / "pytest.ini").write_text("[pytest]\naddopts = -project\n")
+    (tmp_path / "a.ini").write_text("[pytest]\naddopts = -a\n")
+    (tmp_path / "b.ini").write_text("[pytest]\naddopts = -b\n")
+    assert _addopts(tmp_path, ["-c", "a.ini", "--config-file=b.ini"], [str(tmp_path)]) == ["-b"]
+    assert _addopts(tmp_path, ["-c", "missing.ini"], [str(tmp_path)]) == []
+
+
+@pytest.mark.unit
+def test_config_addopts_takes_the_last_override_instead_of_any_file(tmp_path):
+    (tmp_path / "pytest.ini").write_text("[pytest]\naddopts = -project\n")
+    tokens = ["-o", "addopts=-first", "-o", "testpaths=x", "--override-ini=addopts=-last y=z"]
+    assert _addopts(tmp_path, tokens, [str(tmp_path)]) == ["-last y=z"]
+    assert _addopts(tmp_path, ["-oaddopts="], [str(tmp_path)]) == [""]
+
+
+@pytest.mark.unit
+def test_config_addopts_ignores_an_override_of_another_option(tmp_path):
+    (tmp_path / "pytest.ini").write_text("[pytest]\naddopts = -project\n")
+    assert _addopts(tmp_path, ["-o", "xaddopts=1", "-o", "addopts_x=2"], [str(tmp_path)]) == ["-project"]

@@ -190,7 +190,7 @@ class ForkingExecutor:
         # — defeating the whole point of priming.
         scratch_root = os.path.join(self._cwd, ".mutate4py", "forkserver")
         os.makedirs(scratch_root, exist_ok=True)
-        # neutralising_args() matters here too, not just on the per-Mutant
+        # neutralising_args(prime_args) matters here too, not just on the per-Mutant
         # args in _runner.py: this call is itself an in-process, pre-fork
         # pytest.main() re-entry, so a target project's own addopts (e.g.
         # `--cov=...`) would otherwise spin up a second pytest-cov Coverage
@@ -202,7 +202,13 @@ class ForkingExecutor:
         harness_files = loaded_files(sys.modules)
         recorder = _PluginRecorder()
         with tempfile.TemporaryDirectory(dir=scratch_root, prefix="prime-") as empty_dir:
-            collect_only = ["--collect-only", "-q", empty_dir, *neutralising_args(), *self._prime_args]
+            collect_only = [
+                "--collect-only",
+                "-q",
+                empty_dir,
+                *neutralising_args(self._prime_args, cwd=self._cwd),
+                *self._prime_args,
+            ]
             _run_pytest_output_suppressed(pytest, collect_only, self._cwd, plugins=[recorder])
 
         refuse_fork_unsafe_plugins(recorder.module_names)

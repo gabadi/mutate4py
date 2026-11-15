@@ -7,8 +7,8 @@ test_worker_protocol.py.
 import io
 import json
 
-from mutate4py import _worker_server
 from mutate4py._executor import ExecutorDescription
+import mutate4py._worker_server as worker_server_mod
 from mutate4py._worker_server import _serve, _worker_plugin_args, parse_worker_argv, worker_environ_updates
 import pytest
 
@@ -73,10 +73,10 @@ class _RecordingExecutor:
         return "survived"
 
 
-def _drive(executor, plugin_args, *requests):
+def _drive(executor, plugin_args, *requests, neutralise=lambda args: []):
     instream = io.StringIO("".join(json.dumps(r) + "\n" for r in requests))
     outstream = io.StringIO()
-    _serve(executor, instream, outstream, plugin_args=plugin_args)
+    _serve(executor, instream, outstream, plugin_args=plugin_args, neutralise=neutralise)
     return [json.loads(line)["status"] for line in outstream.getvalue().splitlines()]
 
 
@@ -125,7 +125,13 @@ class _DescribingExecutor(_RecordingExecutor):
 def test_serve_answers_a_describe_request_with_its_executors_description_and_runs_nothing():
     executor = _DescribingExecutor()
     outstream = io.StringIO()
-    _serve(executor, io.StringIO(json.dumps({"describe": True}) + "\n"), outstream, plugin_args=[])
+    _serve(
+        executor,
+        io.StringIO(json.dumps({"describe": True}) + "\n"),
+        outstream,
+        plugin_args=[],
+        neutralise=lambda args: [],
+    )
     assert json.loads(outstream.getvalue()) == {
         "description": {
             "mode": "subprocess",
@@ -142,17 +148,58 @@ def test_serve_answers_a_describe_request_with_its_executors_description_and_run
 
 
 @pytest.mark.unit
-def test_worker_plugin_args_neutralises_then_loads_the_django_plugin_for_a_worker_with_an_id(monkeypatch):
-    monkeypatch.setattr(_worker_server, "neutralising_args", lambda: ["--no-cov", "--benchmark-disable"])
-    assert _worker_plugin_args("gw1") == [
-        "--no-cov",
-        "--benchmark-disable",
-        "-p",
-        "mutate4py._django_worker_plugin",
+def test_worker_plugin_args_loads_the_django_plugin_for_a_worker_with_an_id():
+    assert _worker_plugin_args("gw1") == ["-p", "mutate4py._django_worker_plugin"]
+
+
+@pytest.mark.unit
+def test_worker_plugin_args_is_empty_for_a_worker_without_an_id():
+    assert _worker_plugin_args(None) == []
+
+
+@pytest.mark.unit
+def test_serve_asks_for_the_kill_switches_of_each_dispatchs_own_args_and_puts_them_before_the_plugin_args():
+    executor = _RecordingExecutor()
+    asked = []
+
+    def neutralise(args):
+        asked.append(list(args))
+        return ["--no-cov"] if "-p" in args else []
+
+    _drive(
+        executor,
+        ["-p", "mutate4py._django_worker_plugin"],
+        {"args": ["-q", "-p", "pytest_cov"], "timeout": 5.0},
+        {"args": ["-q"], "timeout": 5.0},
+        neutralise=neutralise,
+    )
+    assert asked == [["-q", "-p", "pytest_cov"], ["-q"]]
+    assert executor.calls == [
+        ["-q", "-p", "pytest_cov", "--no-cov", "-p", "mutate4py._django_worker_plugin"],
+        ["-q", "-p", "mutate4py._django_worker_plugin"],
     ]
 
 
 @pytest.mark.unit
-def test_worker_plugin_args_without_a_worker_id_keeps_only_the_neutralising_args(monkeypatch):
-    monkeypatch.setattr(_worker_server, "neutralising_args", lambda: ["--no-cov"])
-    assert _worker_plugin_args(None) == ["--no-cov"]
+def test_main_asks_for_the_kill_switches_in_the_workers_own_directory(monkeypatch):
+    """A Worker reads its project's inifile and conftests, so the switches are chosen for its cwd."""
+    executor = _RecordingExecutor()
+    asked = []
+
+    def fake_neutralising_args(pytest_args, cwd):
+        asked.append((list(pytest_args), cwd))
+        return ["--fake-flag"]
+
+    monkeypatch.setattr(worker_server_mod, "neutralising_args", fake_neutralising_args)
+    monkeypatch.setattr(worker_server_mod, "_prepare_executor", lambda **_: executor)
+    monkeypatch.setattr(
+        worker_server_mod.sys, "stdin", io.StringIO(json.dumps({"args": ["-q"], "timeout": 1.0}) + "\n")
+    )
+    stdout = io.StringIO()
+    monkeypatch.setattr(worker_server_mod.sys, "stdout", stdout)
+
+    worker_server_mod.main(["/the/worker/cwd", "/the/worker/cwd/calc.py", "0"])
+
+    assert [json.loads(line) for line in stdout.getvalue().splitlines()] == [{"ready": True}, {"status": "survived"}]
+    assert asked == [(["-q"], "/the/worker/cwd")]
+    assert executor.calls == [["-q", "--fake-flag"]]
