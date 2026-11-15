@@ -221,10 +221,15 @@ timeout. The same project gave an abort on one run and a run of silent kills on 
 next. The Control run alone would not fix this: it must stay a dynamic proof, and a
 timeout proves nothing.
 
-So the plan now checks the node ids before any Mutant runs. For a narrowed Site, the
-file part of every node id must exist under the working directory. If one does not,
-the run raises the case 4 error at once, on every Executor and under any timeout. The
-message names the node id and says to run mutate4py from the pytest rootdir.
+So the plan now checks the node ids of a Site before it dispatches that Site's Mutant.
+For a narrowed Site, the file part of every node id must exist under the working
+directory. If one does not, the run raises the case 4 error, with no race against the
+timeout. The message names the node id and says to run mutate4py from the pytest rootdir.
+
+When the check runs depends on the path. The serial loop plans one Site at a time, so the
+Mutants of earlier Sites have run when a later Site aborts. A parallel run plans every
+Site before it provisions a Worker, so no Mutant has run. The result is the same on every
+run and every Executor, under any timeout: the run aborts with exit 2.
 
 **Rejected: drop exit 4 from the abort.** An argv that names a path that does not exist
 is a real defect, and exit 4 is how pytest reports it. Without the abort, every Mutant

@@ -18,10 +18,12 @@
   other exit code, a signal, a process that did not start). It reported `killed` before, so one
   such Control run could clear a bad argv and score every later exit 4 as killed. A Mutant that
   ends `errored` is still a kill, and the report is unchanged.
-- A node id from another pytest rootdir now aborts the run before any Mutant runs, on every
-  Executor. In 0.3.0 the result depended on timing: the run aborted, or each Mutant timed out
-  and was scored killed. The message names the node id and says to run mutate4py from the
-  pytest rootdir.
+- A node id from another pytest rootdir now aborts the run, the same way on every run and
+  every Executor. The plan checks the node ids of a Site before it dispatches that Site's
+  Mutant. The serial loop plans one Site at a time, so Mutants of earlier Sites run first;
+  a parallel run plans every Site before it provisions a Worker. In 0.3.0 the result
+  depended on timing: the run aborted, or each Mutant timed out and was scored killed. The
+  message names the node id and says to run mutate4py from the pytest rootdir.
 
 ## 0.3.0
 

@@ -210,7 +210,7 @@ def test_confirm_plan_timeout_adds_the_per_mutant_overhead_to_the_full_set_budge
 @pytest.mark.unit
 def test_plan_narrowed_aborts_when_a_node_id_names_a_file_that_is_not_under_the_run_directory(project):
     """The Measurement records node ids relative to its pytest rootdir. From any other directory pytest
-    exits 4 on them, so the run aborts before any Mutant, not by a race with the Mutant timeout."""
+    exits 4 on them, so the plan aborts before the Site's Mutant, not by a race with the Mutant timeout."""
     source = _FakeSelectionSource("narrowed", ["member/tests/test_calc.py::test_gt"])
     with pytest.raises(NoTestsCollectedError) as excinfo:
         _plan(project, source)

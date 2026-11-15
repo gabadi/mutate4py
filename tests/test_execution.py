@@ -379,7 +379,8 @@ def test_run_mutation_loop_runs_one_control_for_every_mutant_that_runs_the_same_
 @pytest.mark.unit
 def test_run_mutation_loop_aborts_before_applying_the_mutant_when_a_node_id_file_is_missing(tmp_path):
     """Pytest exits 4 on a node id whose file is not under the run directory. The plan says so before
-    any Mutant runs, so the result never depends on how the Mutant timeout compares with pytest start-up."""
+    that Site's Mutant runs, so the result never depends on how the Mutant timeout compares with pytest
+    start-up."""
     ctx, executor = _loop_ctx(
         tmp_path, [], selection_source=_FakeSelectionSource("narrowed", ["tests/test_gone.py::t"])
     )
@@ -389,6 +390,26 @@ def test_run_mutation_loop_aborts_before_applying_the_mutant_when_a_node_id_file
 
     assert executor.calls == []
     assert (tmp_path / "calc.py").read_text() == _ONE_SITE
+
+
+@pytest.mark.unit
+def test_run_mutation_loop_plans_one_site_at_a_time_so_an_earlier_sites_mutant_runs_before_the_abort(tmp_path):
+    """The serial loop checks the node ids of a Site when it reaches that Site. The Mutant of an earlier Site
+    has run by then (a parallel run plans every Site first). The run aborts all the same; the caller restores
+    the source."""
+    two_sites = "def f(a, b):\n    return a > b\n\n\ndef g(a, b):\n    return a + b\n"
+    by_line = {2: ("static", []), 6: ("narrowed", ["tests/test_gone.py::t"])}
+
+    class _PerLineSelection:
+        def tests_for_line(self, source_path, line):
+            return by_line[line]
+
+    ctx, executor = _loop_ctx(tmp_path, ["killed"], source=two_sites, selection_source=_PerLineSelection())
+
+    with pytest.raises(NoTestsCollectedError, match="tests/test_gone.py::t"):
+        _run_mutation_loop(selected_sites=discover_sites(two_sites), clean_source=two_sites, ctx=ctx)
+
+    assert len(executor.calls) == 1
 
 
 # ── _run_parallel_workers passes timeout_policy ───────────────────────────────

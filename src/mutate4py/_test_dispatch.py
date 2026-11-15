@@ -233,7 +233,9 @@ def plan_mutant(site: Site, inputs: PlanInputs) -> MutantPlan:
     The Measurement records node ids relative to its pytest rootdir, and pytest resolves
     them from the directory it runs in. A node id whose file does not exist under
     `inputs.cwd` is a pytest exit 4 for every Mutant, so it raises NoTestsCollectedError here,
-    before any Mutant runs: left to the Mutants, that exit races the Mutant timeout.
+    before that Site's Mutant is dispatched: left to the Mutant, that exit races the Mutant timeout.
+    The serial loop plans one Site at a time, so Mutants of earlier Sites have run by then;
+    a parallel run plans every Site before it provisions a Worker.
     """
     if inputs.selection_source is None:
         return MutantPlan(list(inputs.pytest_args), inputs.timeout_policy.timeout_for(None), None)
