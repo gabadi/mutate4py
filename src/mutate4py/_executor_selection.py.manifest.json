@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T17:49:40Z",
+  "tested_at": "2026-11-15T05:20:52Z",
   "module_hash": "132b6a5b994f08aa796de81966723057d978832c22a613516f6c50165576bdb6",
   "source_sha256": "948fc0e94a8800e1af82f392e98b86085848c0c78ee6e30f1a97bc8eeef056f5",
   "functions": [
@@ -9,28 +9,61 @@
       "name": "select_executor",
       "line": 35,
       "end_line": 56,
-      "hash": "2a8a0e479b9c5be5ebe411b1a07c3583d6b0f130aadd9d735763aa17d2517cbc"
+      "hash": "2a8a0e479b9c5be5ebe411b1a07c3583d6b0f130aadd9d735763aa17d2517cbc",
+      "score": {
+        "killed": 4,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "3ac2517f43eae68d682026c6e823bfecabc2eee6f44763c4781777a6dd915224"
     },
     {
       "id": "func/_can_fork",
       "name": "_can_fork",
       "line": 59,
       "end_line": 62,
-      "hash": "886a31ea010be9a8065c9c8bc0a5646f2b7be0c914aa52ebe07f2003ebd2511c"
+      "hash": "886a31ea010be9a8065c9c8bc0a5646f2b7be0c914aa52ebe07f2003ebd2511c",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     },
     {
       "id": "func/_primed_fork_server",
       "name": "_primed_fork_server",
       "line": 65,
       "end_line": 77,
-      "hash": "c1c4dbee144ddb7455af83464c0f39320ab1832a44c2e2b7fe9ed81cc0e10ccf"
+      "hash": "c1c4dbee144ddb7455af83464c0f39320ab1832a44c2e2b7fe9ed81cc0e10ccf",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     },
     {
       "id": "func/_prepare_executor",
       "name": "_prepare_executor",
       "line": 80,
       "end_line": 118,
-      "hash": "240f868e4bb6d0e6f89be54bc75a97b2ee9b96a0f39f2c1136d0156ed4b4ebbf"
+      "hash": "240f868e4bb6d0e6f89be54bc75a97b2ee9b96a0f39f2c1136d0156ed4b4ebbf",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "81f42a721d98b42eed9c80b3aaf478152d6aa57dac1966981b7fd19d39e0b03b"
     }
-  ]
+  ],
+  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
 }

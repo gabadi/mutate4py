@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "tested_at": "2026-08-11T16:29:48Z",
+  "tested_at": "2026-11-15T05:23:07Z",
   "module_hash": "8c934dfc4ef837eb626b4f43cfa47818b26f1e114c0498c9f124cf1bbfdb942f",
   "source_sha256": "78bd37b49ac570ea7e922644fd2e3d0fbfed1f56c32b873f5ce866d57a1d4258",
   "functions": [
@@ -9,35 +9,76 @@
       "name": "_sidecar_path",
       "line": 29,
       "end_line": 31,
-      "hash": "af8f8cfc5561f9534e283daa8fd83073dbdf8b269beef3956138b50c81197dfd"
+      "hash": "af8f8cfc5561f9534e283daa8fd83073dbdf8b269beef3956138b50c81197dfd",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "d10164bc0b89799517c387dcce82e2debca5362006b7c7ccc51b18dc05ecd541"
     },
     {
       "id": "func/read_sidecar_manifest",
       "name": "read_sidecar_manifest",
       "line": 34,
       "end_line": 40,
-      "hash": "0c69cac466a2bc09a87c6a77cdc3fb94634016f0052c3834697103a7130aaf8d"
+      "hash": "0c69cac466a2bc09a87c6a77cdc3fb94634016f0052c3834697103a7130aaf8d",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     },
     {
       "id": "func/write_sidecar_manifest",
       "name": "write_sidecar_manifest",
       "line": 43,
       "end_line": 45,
-      "hash": "62c4f82677c754a4967d95e9918283bf4e12cee0011d1fcd14da909dd1891d7b"
+      "hash": "62c4f82677c754a4967d95e9918283bf4e12cee0011d1fcd14da909dd1891d7b",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     },
     {
       "id": "func/_read_existing_manifest",
       "name": "_read_existing_manifest",
       "line": 48,
       "end_line": 52,
-      "hash": "a4d1e82820ca86a218477a519c3a08faddae46fca135115787cbff5c3654754b"
+      "hash": "a4d1e82820ca86a218477a519c3a08faddae46fca135115787cbff5c3654754b",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     },
     {
       "id": "func/_write_manifest_output",
       "name": "_write_manifest_output",
       "line": 55,
       "end_line": 76,
-      "hash": "76cda4fa5c7542d05495529caa88346f1d2cd57965d84507ec7198157b099de9"
+      "hash": "76cda4fa5c7542d05495529caa88346f1d2cd57965d84507ec7198157b099de9",
+      "score": {
+        "killed": 2,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "418d093f83b35744921154291c83de6f4761fdd49422efa4b2659283c3d24a0d"
     }
-  ]
+  ],
+  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
 }

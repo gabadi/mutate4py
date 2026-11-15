@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T15:52:08Z",
+  "tested_at": "2026-11-15T05:27:05Z",
   "module_hash": "08f2d8c40f3a979bfdfa0260efbd8f2b77a5a14a9d6e59e43c6fe1fa34ea0512",
   "source_sha256": "45d0ba0f2c28d297ba77b5f1687f74f524e2bcbf7d76ef4b8b1b4d2df780290f",
   "functions": [
@@ -9,28 +9,61 @@
       "name": "serialize_json_sidecar",
       "line": 16,
       "end_line": 18,
-      "hash": "6abd316e5c2380d6e8122edfb37d8a5f1346c5e4aa04787171f368ddac250f38"
+      "hash": "6abd316e5c2380d6e8122edfb37d8a5f1346c5e4aa04787171f368ddac250f38",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "e59947d71d9dc1c2a67cd41228cd866392cb7ea13b2881f43f0bfb78bd561f65"
     },
     {
       "id": "func/parse_json_text",
       "name": "parse_json_text",
       "line": 21,
       "end_line": 26,
-      "hash": "1a7d9b4db2a4ee840940f80716b165584f7193268a0a55eaa933979b632fc3e3"
+      "hash": "1a7d9b4db2a4ee840940f80716b165584f7193268a0a55eaa933979b632fc3e3",
+      "score": {
+        "killed": 2,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "f2a5f0ef2463bb52dd6e2aedeced96a268a03a96a2dbe7d08b194bec1015adaf"
     },
     {
       "id": "func/read_json_sidecar",
       "name": "read_json_sidecar",
       "line": 29,
       "end_line": 41,
-      "hash": "822a22cb524f805211ab749175f146ce0abce85e2cdf9bcca5725419bba9f82c"
+      "hash": "822a22cb524f805211ab749175f146ce0abce85e2cdf9bcca5725419bba9f82c",
+      "score": {
+        "killed": 5,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ac5a65dd7284ce336fa60dd6dd64787b0b1deadf1f2c63afe32896a9bb0163d1"
     },
     {
       "id": "func/write_json_sidecar",
       "name": "write_json_sidecar",
       "line": 44,
       "end_line": 47,
-      "hash": "470307af4424bad506c22b68ecd73afd2a049e851350ea8c9b649e67985a94bc"
+      "hash": "470307af4424bad506c22b68ecd73afd2a049e851350ea8c9b649e67985a94bc",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     }
-  ]
+  ],
+  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
 }

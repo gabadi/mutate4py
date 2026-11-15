@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T22:03:18Z",
+  "tested_at": "2026-11-15T05:24:30Z",
   "module_hash": "cf81fbb69402be58b6dc518f70873ff06538350c0df22499992949185c98749b",
   "source_sha256": "5cfb24ca3dd6f985368be9d1703d787ab7540d4618b1432365a7026b6e438bcd",
   "functions": [
@@ -9,84 +9,181 @@
       "name": "core_from_sys_info",
       "line": 34,
       "end_line": 39,
-      "hash": "7117b7321f04157804ffd06dccc2f529a190cf496107062632eed88bbb69a9f8"
+      "hash": "7117b7321f04157804ffd06dccc2f529a190cf496107062632eed88bbb69a9f8",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     },
     {
       "id": "func/file_of_test",
       "name": "file_of_test",
       "line": 42,
       "end_line": 44,
-      "hash": "191869ffbf30844d7a3087aaa57ceed682c4d571a91c82ceb1d8016a4e349d59"
+      "hash": "191869ffbf30844d7a3087aaa57ceed682c4d571a91c82ceb1d8016a4e349d59",
+      "score": {
+        "killed": 2,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "418d093f83b35744921154291c83de6f4761fdd49422efa4b2659283c3d24a0d"
     },
     {
       "id": "func/_test_roots",
       "name": "_test_roots",
       "line": 104,
       "end_line": 112,
-      "hash": "081971c2ec7ba7c7d30acec0d7b535b0f26aa3704e2911f1ffb0b21665998bad"
+      "hash": "081971c2ec7ba7c7d30acec0d7b535b0f26aa3704e2911f1ffb0b21665998bad",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "3c7603a138ca3b4edde8e68263e37388ebcd6de8e21e515192b09370873c02fc"
     },
     {
       "id": "func/_support_modules",
       "name": "_support_modules",
       "line": 115,
       "end_line": 122,
-      "hash": "bd698360ac0ef742d13fbcef8ac4489979e18f28f4b4f47a14b6bfecb6e8c9e7"
+      "hash": "bd698360ac0ef742d13fbcef8ac4489979e18f28f4b4f47a14b6bfecb6e8c9e7",
+      "score": {
+        "killed": 2,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "3c7603a138ca3b4edde8e68263e37388ebcd6de8e21e515192b09370873c02fc"
     },
     {
       "id": "func/SessionLog.test_started",
       "name": "test_started",
       "line": 135,
       "end_line": 138,
-      "hash": "cb21d1a158dddbfbce474f7498dbca9a9e8db74c3bc618d788957b28b0c59774"
+      "hash": "cb21d1a158dddbfbce474f7498dbca9a9e8db74c3bc618d788957b28b0c59774",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     },
     {
       "id": "func/SessionLog.test_phase",
       "name": "test_phase",
       "line": 140,
       "end_line": 143,
-      "hash": "f174f88ad7f24d75de4c51788f138fb020cc8e0fa614979dba09c9a17d8eb55d"
+      "hash": "f174f88ad7f24d75de4c51788f138fb020cc8e0fa614979dba09c9a17d8eb55d",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     },
     {
       "id": "func/SessionLog.collection_failed",
       "name": "collection_failed",
       "line": 145,
       "end_line": 146,
-      "hash": "085525721e70cd143e9d3aafcc5e7d976e698d98dfc3fff7af28f848a43816b4"
+      "hash": "085525721e70cd143e9d3aafcc5e7d976e698d98dfc3fff7af28f848a43816b4",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     },
     {
       "id": "func/SessionLog.fixture_set_up",
       "name": "fixture_set_up",
       "line": 148,
       "end_line": 149,
-      "hash": "b6625a2fe2ca82f878f94c6bdec9443903e7bddc9961d367fdb33ffa4dfef5c9"
+      "hash": "b6625a2fe2ca82f878f94c6bdec9443903e7bddc9961d367fdb33ffa4dfef5c9",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     },
     {
       "id": "func/SessionLog._fail",
       "name": "_fail",
       "line": 151,
       "end_line": 153,
-      "hash": "7274d62df8a31a35893cfe8fc349634b3c08dc00f026ae9806951e6aff159103"
+      "hash": "7274d62df8a31a35893cfe8fc349634b3c08dc00f026ae9806951e6aff159103",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "da1fc3c512d52d7862c98ce5b9fe89c85f0c202ef72f34738749043a5269695c"
     },
     {
       "id": "func/SessionLog.finish",
       "name": "finish",
       "line": 155,
       "end_line": 174,
-      "hash": "8bda8aa78a449f194878d4fd393cb0331b933d49bb3ce518bc4736fabeb61c8a"
+      "hash": "8bda8aa78a449f194878d4fd393cb0331b933d49bb3ce518bc4736fabeb61c8a",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "da1fc3c512d52d7862c98ce5b9fe89c85f0c202ef72f34738749043a5269695c"
     },
     {
       "id": "func/dump_record",
       "name": "dump_record",
       "line": 177,
       "end_line": 178,
-      "hash": "404f4aa1f34ad6495147875245b4ff5d94a6d8345e358b021f27b38f7b35e0a5"
+      "hash": "404f4aa1f34ad6495147875245b4ff5d94a6d8345e358b021f27b38f7b35e0a5",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     },
     {
       "id": "func/load_record",
       "name": "load_record",
       "line": 181,
       "end_line": 196,
-      "hash": "6a19193f16d8533a9946d5b74ef1a4229225ace1787529d12b2334cd21473d87"
+      "hash": "6a19193f16d8533a9946d5b74ef1a4229225ace1787529d12b2334cd21473d87",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     }
-  ]
+  ],
+  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
 }

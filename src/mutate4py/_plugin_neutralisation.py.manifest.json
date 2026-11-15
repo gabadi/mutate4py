@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T16:25:35Z",
+  "tested_at": "2026-11-15T05:25:57Z",
   "module_hash": "640878803b39ba57c4346ba76daae2b6f39ac4ebcdc317e548552b08bd30fc7a",
   "source_sha256": "62c3f41a6369bb8982593fccf56f8654c2959fefdf9495693c95ff3f504f54c8",
   "functions": [
@@ -9,14 +9,31 @@
       "name": "neutralising_args",
       "line": 20,
       "end_line": 22,
-      "hash": "bff4fe6e73605dd30b75ed0ae421c5e689900986735a74fe3e5d247df1153673"
+      "hash": "bff4fe6e73605dd30b75ed0ae421c5e689900986735a74fe3e5d247df1153673",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "f4c2f5f0940d56a9f8b67678e14cb5bda3403c2de482121515ec684d73776c37"
     },
     {
       "id": "func/disabled_plugin_args",
       "name": "disabled_plugin_args",
       "line": 25,
       "end_line": 37,
-      "hash": "375f83a5f991e8d193ac8d504c41fca93c05f3e02ea3390e54dfa70bb813cb8a"
+      "hash": "375f83a5f991e8d193ac8d504c41fca93c05f3e02ea3390e54dfa70bb813cb8a",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "3a41dd2e572e435d6ddcdeb493a1693a3e6347a63d005013ea58990ec37edbe9"
     }
-  ]
+  ],
+  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
 }

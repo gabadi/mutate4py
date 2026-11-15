@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T21:35:11Z",
+  "tested_at": "2026-11-15T05:27:35Z",
   "module_hash": "e8d2840d509275bdacc24941b76aece14db5ef93f1a3af42d83dafdbb439ac97",
   "source_sha256": "6332688c41dcc7dd0f8a44ed79e908ef8371af2cedc66f1a7f66d7e048c8f9cd",
   "functions": [
@@ -9,49 +9,106 @@
       "name": "_check_execution_status",
       "line": 48,
       "end_line": 52,
-      "hash": "f129ab238daaf03b6bbf5522a05d812d0c382d32da5a7d4e7e7962fd438eac78"
+      "hash": "f129ab238daaf03b6bbf5522a05d812d0c382d32da5a7d4e7e7962fd438eac78",
+      "score": {
+        "killed": 1,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "194cb34639d1958f0d47243e33508e4d43247ab56e8915c6b8037ad6f2a39e37"
     },
     {
       "id": "func/_log_dispatch_abort",
       "name": "_log_dispatch_abort",
       "line": 55,
       "end_line": 58,
-      "hash": "14b52054fc7968d7c6dc1b2b9653028bde158aa6f078fc9287fcc7e995c02719"
+      "hash": "14b52054fc7968d7c6dc1b2b9653028bde158aa6f078fc9287fcc7e995c02719",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     },
     {
       "id": "func/_without_positionals",
       "name": "_without_positionals",
       "line": 61,
       "end_line": 75,
-      "hash": "7be248afc359c4df3d356a857840cf586c3f24b16dfce8fe20f750e0cfdcad20"
+      "hash": "7be248afc359c4df3d356a857840cf586c3f24b16dfce8fe20f750e0cfdcad20",
+      "score": {
+        "killed": 3,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "51229561e0bffd102c38be22bd514ecbcaed9304c48f2adcea05c01d0f9b8dee"
     },
     {
       "id": "func/TimeoutPolicy.timeout_for",
       "name": "timeout_for",
       "line": 93,
       "end_line": 94,
-      "hash": "3b66c19b5889cc277438a2a480e384afcf791d9ea52a52f3188eb9e7c3293805"
+      "hash": "3b66c19b5889cc277438a2a480e384afcf791d9ea52a52f3188eb9e7c3293805",
+      "score": {
+        "killed": 2,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "ea86221a2d51a79835637bd1d0b4befc4bf11f56d16b20ab5716477149767d8b"
     },
     {
       "id": "func/plan_mutant",
       "name": "plan_mutant",
       "line": 120,
       "end_line": 144,
-      "hash": "4d424c62cd990fbdce8d21b0e5e73849dd0d50c79b318827d541312aba8d2a7f"
+      "hash": "4d424c62cd990fbdce8d21b0e5e73849dd0d50c79b318827d541312aba8d2a7f",
+      "score": {
+        "killed": 3,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "0b0757c2e819aff935dba6b352c4e08dae53d1f2e648a92ce135a01c75bce4af"
     },
     {
       "id": "func/confirm_plan",
       "name": "confirm_plan",
       "line": 147,
       "end_line": 155,
-      "hash": "f8ac202262e292b3482f9dc0c0b8b453b90d551e427ffaa6711440dc5b582eca"
+      "hash": "f8ac202262e292b3482f9dc0c0b8b453b90d551e427ffaa6711440dc5b582eca",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     },
     {
       "id": "func/plan_sites",
       "name": "plan_sites",
       "line": 158,
       "end_line": 160,
-      "hash": "8f8da030eab9cdd7f6d40ce61cdead4253acc94b90f4619702411c3bea3d6f36"
+      "hash": "8f8da030eab9cdd7f6d40ce61cdead4253acc94b90f4619702411c3bea3d6f36",
+      "score": {
+        "killed": 0,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     }
-  ]
+  ],
+  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
 }

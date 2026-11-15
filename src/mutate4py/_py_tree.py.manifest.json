@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "tested_at": "2026-11-13T15:52:08Z",
+  "tested_at": "2026-11-15T05:25:59Z",
   "module_hash": "c684c9f94c8bb279b77601169cad86d4dd6ee5805bcdccc15e8e33bfa7483ba6",
   "source_sha256": "a7e6322ecb4b2f3c8171db7930460cc9ad9d5f7290d48bc2f271d79ff63fbe24",
   "functions": [
@@ -9,7 +9,16 @@
       "name": "walkable_dirs",
       "line": 16,
       "end_line": 22,
-      "hash": "cd225e55fc0731bc44c86228d59f2b047e5429bd4e5944ea321b45fd2fc0174b"
+      "hash": "cd225e55fc0731bc44c86228d59f2b047e5429bd4e5944ea321b45fd2fc0174b",
+      "score": {
+        "killed": 3,
+        "survived": 0,
+        "uncovered": 0
+      },
+      "survivors": [],
+      "accepted": [],
+      "tests_digest": "6afe147c771282cd2cda9771bd8ccecb6de3679b97d410c855f7a04632133a7a"
     }
-  ]
+  ],
+  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
 }
