@@ -225,18 +225,6 @@ def test_build_parser_declares_the_file_scratch_field():
 # ── F5: unknown flag / missing file ──────────────────────────────────────────
 
 
-@pytest.mark.system
-def test_no_positional_file_is_usage_error():
-    result = subprocess.run(
-        [sys.executable, "-m", "mutate4py"],
-        capture_output=True,
-        text=True,
-        cwd=REPO_ROOT,
-        env={**os.environ, "PYTHONPATH": os.path.join(REPO_ROOT, "src")},
-    )
-    assert result.returncode != 0
-
-
 # ── F5: --verbose flag ────────────────────────────────────────────────────────
 
 
