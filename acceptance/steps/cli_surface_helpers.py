@@ -298,9 +298,9 @@ def rejected_args(description: str, src: str) -> list[str]:
         # The removed-flag refusal runs before any pytest run, so the empty pytest args are never exercised.
         "--lines 7": [src, "--pytest-args", "", "--lines", "7"],
         "--scan --max-workers 4": [src, "--scan", "--max-workers", "4"],
-        "--scan --mutate-all": [src, "--scan", "--mutate-all"],
+        "--mutate-all": [src, "--pytest-args", "", "--mutate-all"],
         "--update-manifest --lines 7": [src, "--update-manifest", "--lines", "7"],
-        "--since-last-run --mutate-all": [src, "--pytest-args", "", "--since-last-run", "--mutate-all"],
+        "--since-last-run": [src, "--pytest-args", "", "--since-last-run"],
         "--bogus-flag": [src, "--bogus-flag"],
         "(a path that does not exist)": ["/nonexistent/no_such_file_qa.py", "--scan"],
         "(no source file argument)": ["--scan"],

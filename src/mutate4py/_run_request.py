@@ -18,7 +18,6 @@ class RunMutationsRequest:
     source: str
     pytest_args: list[str]
     timeout_factor: int
-    mutate_all: bool
     warning_threshold: int
     cwd: str
     max_workers: int = 0

@@ -48,8 +48,8 @@ def _scored_target(root: Path, name: str = "f.py", **kwargs) -> str:
     return _embed_scored(path, fingerprint_of(str(root), ""), **kwargs)
 
 
-def _skip(paths, root, *, manifest_file=False, mutate_all=False):
-    return skipped_manifests(paths, [], str(root), manifest_file=manifest_file, mutate_all=mutate_all)
+def _skip(paths, root, *, manifest_file=False):
+    return skipped_manifests(paths, [], str(root), manifest_file=manifest_file)
 
 
 @pytest.mark.unit
@@ -69,11 +69,10 @@ def test_the_sidecar_manifest_of_a_scored_target_lets_the_run_skip(tmp_path):
 
 
 @pytest.mark.unit
-def test_mutate_all_blocks_the_skip(tmp_path):
+def test_an_invocation_with_no_targets_never_skips(tmp_path):
     _project(tmp_path)
-    path = _scored_target(tmp_path)
 
-    assert _skip([path], tmp_path, mutate_all=True) is None
+    assert _skip([], tmp_path) is None
 
 
 @pytest.mark.unit

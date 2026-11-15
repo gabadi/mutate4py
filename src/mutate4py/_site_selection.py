@@ -25,11 +25,6 @@ def _select_sites(
     return covered, covered
 
 
-def _is_differential(*, manifest_exists: bool, mutate_all: bool) -> bool:
-    """A differential rerun (CONTEXT.md): a Manifest exists and --mutate-all is not given."""
-    return manifest_exists and not mutate_all
-
-
 def _should_run_parallel(max_workers: int, n_selected: int) -> bool:
     return max_workers >= 2 and n_selected >= 2
 

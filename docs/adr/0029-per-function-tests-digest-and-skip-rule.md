@@ -55,7 +55,7 @@ function against the tests that reach it, and when neither moved, a rerun can on
 repeat it. A skipped function's recorded Survivors are not re-confirmed. They print
 on their own `Recorded survivors (not re-run):` block, apart from the run's own
 `Survivors:`, and count toward the exit code like any unaccepted Survivor: exit 3,
-or 0 with `--allow-survivors`. `--mutate-all` re-scores everything.
+or 0 with `--allow-survivors`. A run with no Manifest re-scores everything (`--mutate-all` was removed by spec #115).
 
 The digests are taken from the Measurement, so a Differential rerun selects a
 function whose digest moved exactly as it selects a hash-changed one.
@@ -126,7 +126,7 @@ stored fingerprint and `--check-manifest` ignores it.
 names (one file, or every file of a batch) has a Manifest that is readable and
 parseable, has no `.bak` beside it, records the fresh fingerprint, has an unchanged
 source body, has a score and a digest for every function, and has its accepted
-Survivors' equivalent markers intact. `--mutate-all` never skips. The decision is taken
+Survivors' equivalent markers intact. A run with no Manifest never skips (`--mutate-all` was removed by spec #115). The decision is taken
 once per invocation, before any Measurement: one target that blocks it blocks the
 whole batch, since a batch shares one Measurement.
 
@@ -144,3 +144,17 @@ Rejected alternatives:
 
 **Do not "fix" these back.** The fingerprint's inputs and the all-or-nothing batch rule
 are what make a skip safe; narrowing either lets a stale proof read as current.
+
+## Amendment: spec #115
+
+A default run scores every Unscored function, including one that no covered Site
+reaches. Such a function is not skipped: its Sites are tallied Uncovered and its `score`
+block is written with `uncovered` set. Unscored means no `score` block, or no stored
+entry; `unscored_functions` agrees with `is_unscored`. A function whose Unit hash or
+tests digest moved is scored the same way, so an edited function no test reaches is scored
+by the edit run and the next run takes the skip. A function that has a stored score, an
+unchanged hash and no covered Site is still skipped by the rule above. This amends ADR
+0026's line that a function with no covered Site is rescored only by a full-file run.
+
+`--mutate-all` is removed and refused with exit 2. Its full re-score is now a run with no
+Manifest: that run is full-file and scores every function, an uncovered one with an `uncovered` score.

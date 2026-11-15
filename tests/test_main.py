@@ -166,14 +166,23 @@ def test_scan_report_with_embedded_manifest_reports_exists_true(tmp_path):
     assert "Manifest exists: true" in lines
 
 
+def _scored_manifest(source):
+    """Test setup: a Manifest whose every function carries a clean score block, so none is Unscored."""
+    from mutate4py._manifest import build_manifest
+
+    manifest = build_manifest(source, tested_at="2026-01-01T00:00:00Z")
+    for fn in manifest["functions"]:
+        fn.update(score={"killed": 1, "survived": 0, "uncovered": 0}, survivors=[], accepted=[])
+    return manifest
+
+
 @pytest.mark.unit
 def test_scan_report_with_embedded_manifest_changed_reflects_diff(tmp_path):
-    from mutate4py._runner import update_manifest
+    from mutate4py._manifest import embed_manifest
 
     p = tmp_path / "mod.py"
     src = "def f(a, b):\n    return a > b\n\n\ndef g(a, b):\n    return a < b\n"
-    p.write_text(src)
-    update_manifest(path=str(p), source=src, manifest_file=False)
+    p.write_text(embed_manifest(src, _scored_manifest(src)))
     embedded = p.read_text()
 
     # Only g's body changes after the manifest was recorded.
@@ -187,6 +196,22 @@ def test_scan_report_with_embedded_manifest_changed_reflects_diff(tmp_path):
 
 @pytest.mark.unit
 def test_scan_report_sidecar_manifest_reports_exists_true(tmp_path):
+    from mutate4py._manifest_storage import write_sidecar_manifest
+
+    p = tmp_path / "mod.py"
+    src = "def f(a, b):\n    return a > b\n"
+    p.write_text(src)
+    write_sidecar_manifest(str(p), _scored_manifest(src))
+
+    lines, _ = scan_report(str(p), src, 1000, manifest_file=True)
+    assert "Manifest exists: true" in lines
+    assert "Changed mutation sites: 0" in lines
+
+
+@pytest.mark.unit
+def test_scan_report_counts_every_site_of_an_unscored_manifest_as_changed(tmp_path):
+    # A Manifest with no score block is Unscored, and a default run scores it (ADR 0029 rule 1), so the scan
+    # report counts its sites as changed even though the source did not move.
     from mutate4py._runner import update_manifest
 
     p = tmp_path / "mod.py"
@@ -196,7 +221,7 @@ def test_scan_report_sidecar_manifest_reports_exists_true(tmp_path):
 
     lines, _ = scan_report(str(p), src, 1000, manifest_file=True)
     assert "Manifest exists: true" in lines
-    assert "Changed mutation sites: 0" in lines
+    assert "Changed mutation sites: 1" in lines
 
 
 @pytest.mark.unit

@@ -54,7 +54,6 @@ def _request(tmp_path, src_path, measurement, pytest_args, **extra):
         # The full-set confirmation runs a real pytest subprocess (about 1s), so the floor
         # must clear its startup or the confirmation times out and reads as a kill.
         min_timeout=extra.pop("min_timeout", 5.0),
-        mutate_all=extra.pop("mutate_all", False),
         warning_threshold=1000,
         cwd=str(tmp_path),
         **extra,
@@ -248,25 +247,10 @@ def test_default_run_keeps_survivor_whose_line_lost_coverage(tmp_path):
 
 
 @pytest.mark.component
-def test_mutate_all_scores_uncovered_function(tmp_path):
-    src_path, sites = _write_source(tmp_path, _TWO_FUNCTIONS)
-    pytest_args = write_always_passing_pytest_project(str(tmp_path))
-    run = dict(source=_TWO_FUNCTIONS, manifest_file=True)
-    assert _run(tmp_path, src_path, _covering_all(src_path, sites), pytest_args, **run) == 3
-    assert _recorded_function(src_path, "func/g")["survivors"] != []
-
-    f_line = next(s.line for s in sites if s.function_id == "func/f")
-    assert _run(tmp_path, src_path, _covering(src_path, [f_line]), pytest_args, mutate_all=True, **run) == 3
-
-    fn = _recorded_function(src_path, "func/g")
-    assert fn["score"] == {"killed": 0, "survived": 0, "uncovered": 1}
-    assert fn["survivors"] == []
-
-
-@pytest.mark.component
-def test_noop_default_run_gains_no_score_blocks_on_a_014_sidecar(tmp_path):
-    # A 0.1.4 sidecar (no score blocks) must not gain them on a default run that selects nothing. That run took
-    # the Measurement and completed, so it records its fingerprint (spec 5b) and no score block.
+def test_default_run_scores_every_function_of_a_014_sidecar(tmp_path):
+    # A 0.1.4 sidecar carries no score blocks, so every function is Unscored and a default run scores
+    # all of them (ADR 0029 rule 1). g's Site is not covered, yet g is scored uncovered, not skipped:
+    # a skipped Unscored function would keep the Manifest from ever taking the no-change skip.
     src_path = str(tmp_path / "calc.py")
     with open(src_path, "w") as f:
         f.write(_TWO_FUNCTIONS)
@@ -274,11 +258,13 @@ def test_noop_default_run_gains_no_score_blocks_on_a_014_sidecar(tmp_path):
     assert update_manifest(path=src_path, source=_TWO_FUNCTIONS, manifest_file=True) == 0
 
     measurement = _covering(src_path, [2])
-    assert _run(tmp_path, src_path, measurement, pytest_args, source=_TWO_FUNCTIONS, manifest_file=True) == 0
+    assert _run(tmp_path, src_path, measurement, pytest_args, source=_TWO_FUNCTIONS, manifest_file=True) == 3
 
     with open(src_path + ".manifest.json") as f:
         after = json.load(f)
-    assert all("score" not in fn for fn in after["functions"])
+    assert all("score" in fn for fn in after["functions"])
+    assert _recorded_function(src_path)["score"] == {"killed": 0, "survived": 1, "uncovered": 0}
+    assert _recorded_function(src_path, "func/g")["score"] == {"killed": 0, "survived": 0, "uncovered": 1}
     assert after.get("tests_fingerprint") is not None
 
 
@@ -297,9 +283,41 @@ def test_compute_manifest_diff_includes_functions_with_survivors(tmp_path):
     )
     write_sidecar_manifest(src_path, manifest)
 
-    changed = _compute_manifest_diff(_SRC, ManifestLocation(path=src_path, manifest_file=True))[3]
+    changed = _compute_manifest_diff(_SRC, ManifestLocation(path=src_path, manifest_file=True)).changed_fn_ids
 
     assert changed == {_SURVIVOR_FN}
+
+
+@pytest.mark.unit
+def test_compute_manifest_diff_includes_functions_without_a_score_block(tmp_path):
+    # Source and tests are unchanged, but the stored entry carries no score block: the function is Unscored
+    # and a default run selects it (ADR 0029 rule 1).
+    from mutate4py._manifest import build_manifest
+    from mutate4py._manifest_storage import ManifestLocation, write_sidecar_manifest
+    from mutate4py._source_loading import _compute_manifest_diff
+
+    src_path = str(tmp_path / "calc.py")
+    write_sidecar_manifest(src_path, build_manifest(_SRC, tested_at="2026-01-01T00:00:00Z"))
+
+    changed = _compute_manifest_diff(_SRC, ManifestLocation(path=src_path, manifest_file=True)).changed_fn_ids
+
+    assert changed == {_SURVIVOR_FN}
+
+
+@pytest.mark.unit
+def test_compute_manifest_diff_leaves_out_a_scored_function_without_survivors(tmp_path):
+    from mutate4py._manifest import build_manifest
+    from mutate4py._manifest_storage import ManifestLocation, write_sidecar_manifest
+    from mutate4py._source_loading import _compute_manifest_diff
+
+    src_path = str(tmp_path / "calc.py")
+    manifest = build_manifest(_SRC, tested_at="2026-01-01T00:00:00Z")
+    manifest["functions"][0].update(score={"killed": 1, "survived": 0, "uncovered": 0}, survivors=[], accepted=[])
+    write_sidecar_manifest(src_path, manifest)
+
+    changed = _compute_manifest_diff(_SRC, ManifestLocation(path=src_path, manifest_file=True)).changed_fn_ids
+
+    assert changed == set()
 
 
 @pytest.mark.unit

@@ -28,7 +28,6 @@ def _make_args(**kwargs):
         check_manifest=False,
         lines=None,
         since_last_run=False,
-        mutate_all=False,
         max_workers=None,
         timeout_factor=10,
         min_timeout=5.0,
@@ -46,6 +45,7 @@ def _make_args(**kwargs):
         build_test_contexts=None,
         files=[],
         allow_survivors=False,
+        mutate_all=False,
     )
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -67,9 +67,23 @@ COVERAGE = "the run measures coverage itself"
         ("--test-contexts", dict(test_contexts=".coverage"), COVERAGE),
         ("--build-test-contexts", dict(build_test_contexts="out.coverage"), COVERAGE),
         ("--since-last-run", dict(since_last_run=True), "a default run already re-scores only changed functions"),
-        ("--lines", dict(lines="7"), "re-score a function by editing it, or use --mutate-all"),
+        ("--lines", dict(lines="7"), "re-score a function by editing it"),
+        (
+            "--mutate-all",
+            dict(mutate_all=True),
+            "a run scores every changed or Unscored function itself",
+        ),
     ],
-    ids=["cov-cmd", "lcov", "reuse-coverage", "test-contexts", "build-test-contexts", "since-last-run", "lines"],
+    ids=[
+        "cov-cmd",
+        "lcov",
+        "reuse-coverage",
+        "test-contexts",
+        "build-test-contexts",
+        "since-last-run",
+        "lines",
+        "mutate-all",
+    ],
 )
 def test_check_removed_flags_names_the_flag(flag, args_kwargs, reason):
     args = _make_args(**args_kwargs)
@@ -89,15 +103,6 @@ def test_check_removed_flags_reuse_coverage_false_passes():
     _check_removed_flags(_make_args(reuse_coverage=False))
 
 
-@pytest.mark.unit
-def test_max_workers_with_mutate_all_parse_accepted():
-    from mutate4py.__main__ import _build_parser
-
-    parser = _build_parser()
-    args = parser.parse_args(["f.py", "--max-workers", "4", "--mutate-all"])
-    _validate_mutual_exclusions(args)
-
-
 # ── _validate_mutual_exclusions: direct unit coverage ─────────────────────────
 
 
@@ -113,7 +118,6 @@ def test_validate_scan_and_update_manifest_raises():
 @pytest.mark.parametrize(
     "extra",
     [
-        {"mutate_all": True},
         {"max_workers": 4},
     ],
 )
@@ -128,7 +132,6 @@ def test_validate_scan_with_run_only_flag_raises(extra):
 @pytest.mark.parametrize(
     "extra",
     [
-        {"mutate_all": True},
         {"max_workers": 4},
     ],
 )
@@ -143,7 +146,6 @@ def test_validate_check_manifest_with_run_only_flag_raises(extra):
 @pytest.mark.parametrize(
     "extra",
     [
-        {"mutate_all": True},
         {"max_workers": 4},
     ],
 )

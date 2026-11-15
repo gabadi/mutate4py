@@ -55,7 +55,6 @@ def test_run_mutations_killed_mutant(tmp_path):
                 measurement=_measured(src_path, [s.line for s in sites]),
                 pytest_args=pytest_args,
                 timeout_factor=10,
-                mutate_all=False,
                 warning_threshold=1000,
                 cwd=str(tmp_path),
             )
@@ -90,7 +89,6 @@ def test_run_mutations_survived_mutant(tmp_path):
                 measurement=_measured(src_path, [s.line for s in sites]),
                 pytest_args=pytest_args,
                 timeout_factor=10,
-                mutate_all=False,
                 warning_threshold=1000,
                 cwd=str(tmp_path),
             )
@@ -135,7 +133,6 @@ def test_run_mutations_survives_project_addopts_that_enable_coverage(tmp_path):
                 measurement=_measured(src_path, [s.line for s in sites]),
                 pytest_args=pytest_args,
                 timeout_factor=10,
-                mutate_all=False,
                 warning_threshold=1000,
                 cwd=str(tmp_path),
             )
@@ -173,7 +170,6 @@ def test_run_mutations_sidecar_writes_manifest_file_and_footer_free_source(tmp_p
                 measurement=_measured(src_path, [s.line for s in sites]),
                 pytest_args=pytest_args,
                 timeout_factor=10,
-                mutate_all=False,
                 warning_threshold=1000,
                 cwd=str(tmp_path),
                 manifest_file=True,
@@ -214,7 +210,6 @@ def test_run_mutations_restores_source_after_run(tmp_path):
                 measurement=_measured(src_path, [s.line for s in sites]),
                 pytest_args=pytest_args,
                 timeout_factor=10,
-                mutate_all=False,
                 warning_threshold=1000,
                 cwd=str(tmp_path),
             )
@@ -255,7 +250,6 @@ def test_run_mutations_crash_safety_restores_bak(tmp_path):
                 measurement=_measured(src_path, [s.line for s in sites]),
                 pytest_args=pytest_args,
                 timeout_factor=10,
-                mutate_all=False,
                 warning_threshold=1000,
                 cwd=str(tmp_path),
             )
@@ -266,7 +260,7 @@ def test_run_mutations_crash_safety_restores_bak(tmp_path):
 
 @pytest.mark.component
 def test_run_mutations_refreshes_tested_at_on_scored_run_over_unscored_manifest(tmp_path):
-    """A scored --mutate-all run over an unscored manifest (a 0.1.4 manifest)
+    """A scored run over an unscored manifest (a 0.1.4 manifest)
     records the score blocks, so the manifest content changes and tested_at is
     bumped to now. Idempotence of a repeated identical run is
     pinned separately in test_run_idempotence.py. Uses a deliberately old
@@ -297,7 +291,6 @@ def test_run_mutations_refreshes_tested_at_on_scored_run_over_unscored_manifest(
                 measurement=_measured(src_path, [s.line for s in sites]),
                 pytest_args=pytest_args,
                 timeout_factor=10,
-                mutate_all=True,
                 warning_threshold=1000,
                 cwd=str(tmp_path),
             )
@@ -335,7 +328,6 @@ def test_run_mutations_header_counts(tmp_path):
                 measurement=_measured(src_path, [s.line for s in sites]),
                 pytest_args=pytest_args,
                 timeout_factor=10,
-                mutate_all=False,
                 warning_threshold=1000,
                 cwd=str(tmp_path),
             )
@@ -379,7 +371,6 @@ def test_run_mutations_prints_uncovered_block_for_uncovered_sites(tmp_path):
                 measurement=_measured(src_path, [sites[0].line]),
                 pytest_args=pytest_args,
                 timeout_factor=10,
-                mutate_all=False,
                 warning_threshold=1000,
                 cwd=str(tmp_path),
             )
@@ -414,7 +405,6 @@ def test_run_mutations_timeout_counts_as_killed(tmp_path):
                 pytest_args=pytest_args,
                 timeout_factor=1,
                 min_timeout=0.1,
-                mutate_all=False,
                 warning_threshold=1000,
                 cwd=str(tmp_path),
             )
@@ -623,7 +613,6 @@ def test_run_mutations_propagates_syntax_error(tmp_path):
                 measurement=_measured(src_path, []),
                 pytest_args=[],
                 timeout_factor=10,
-                mutate_all=False,
                 warning_threshold=1000,
                 cwd=str(tmp_path),
             )

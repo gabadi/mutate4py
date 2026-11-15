@@ -47,7 +47,6 @@ from mutate4py._run_request import RunMutationsRequest
 from mutate4py._scoring import ScoredRun
 from mutate4py._skipped_run import recorded_survivors_kept
 from mutate4py._site_selection import (
-    _is_differential,
     _select_sites,
     _should_run_parallel,
     _uncovered_lines_if_needed,
@@ -188,7 +187,7 @@ def _select_and_prepare(request: RunMutationsRequest, setup: RunSetup, max_worke
     apply_digest_changes(setup.loaded, digests)
 
     covered_count, uncovered_count = partition_sites(setup.loaded.all_sites, covered_lines)
-    differential = _is_differential(manifest_exists=setup.loaded.manifest_exists, mutate_all=request.mutate_all)
+    differential = setup.loaded.manifest_exists
     _, selected_sites = _select_sites(
         setup.loaded.all_sites,
         covered_lines,
@@ -257,6 +256,7 @@ def _scored_run_for(
         markers=markers,
         full_selection=outcome.full_selection,
         recorded_survivors=_recorded_survivor_keys(setup.loaded.existing_manifest),
+        changed_fn_ids=frozenset(setup.loaded.changed_fn_ids),
     )
 
 

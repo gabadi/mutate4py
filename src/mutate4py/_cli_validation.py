@@ -30,7 +30,8 @@ _REMOVED_FLAGS = (
     ("--test-contexts", "test_contexts", "the run measures coverage itself"),
     ("--build-test-contexts", "build_test_contexts", "the run measures coverage itself"),
     ("--since-last-run", "since_last_run", "a default run already re-scores only changed functions"),
-    ("--lines", "lines", "re-score a function by editing it, or use --mutate-all"),
+    ("--lines", "lines", "re-score a function by editing it"),
+    ("--mutate-all", "mutate_all", "a run scores every changed or Unscored function itself"),
 )
 
 
@@ -59,8 +60,6 @@ def _exit_incompatible(flag_a: str, flag_b: str) -> None:
 def _check_no_run_incompatibilities(args: argparse.Namespace) -> None:
     """Raise if run-mode flags are paired with no-run-mode flags."""
     flag = _no_run_flag(args)
-    if args.mutate_all:
-        _exit_incompatible(flag, "--mutate-all")
     if args.max_workers is not None:
         _exit_incompatible(flag, "--max-workers")
 

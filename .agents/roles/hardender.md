@@ -10,7 +10,7 @@ Key commands:
 
 `--scan`, `--update-manifest`, and `--check-manifest` are mutually exclusive. `--scan` and `--update-manifest` accept exactly ONE file; for multi-file operations loop over files or use a directory with `--check-manifest`.
 
-## Running a Scored Mutation Pass (use `just mutate`, never raw `mutate4py --mutate-all`)
+## Running a Scored Mutation Pass (use `just mutate`, never raw `mutate4py`)
 `_runner.py` prints one `[i/total] <status> line N ...` line per mutation site unconditionally on a scored run. On a full-src/ run that is many thousands of characters an agent's Bash tool would otherwise capture in full, every hardening iteration.
 
 Invoke scored runs through the justfile instead of calling `mutate4py` directly:
@@ -21,7 +21,7 @@ just mutate <path>                      # e.g. just mutate src/mutate4py/_runner
 
 Exit 3 means unaccepted Survivors: kill them with a unit test (ADR 0023: code mutation is unit-only, so a Mutant that only a component test kills stays a Survivor), or mark a recognized equivalent with `# mutate4py: equivalent <category>` on the Site's line (ADR 0026). A Survivor recorded on a function whose Unit hash and tests digest are unchanged is skipped by later runs and still exits 3 (ADR 0029). It is not retried, so it has to be killed or accepted rather than waited out.
 
-The loop: a scored run re-scores the changed functions only. A changed function is one whose Unit hash or Tests digest moved since its Manifest entry was written, one that is Unscored, or one that records Survivors but has no digest yet. Each run takes one Measurement first (the unit tests, once, under coverage) and narrows each Mutant to the tests that reached its line, so there is no setup step to run before `just mutate`. An unchanged function is skipped, its recorded Survivors included, and they still fail the run. Pass `--mutate-all` (`just mutate <path> --mutate-all`) only for a deliberate full re-score.
+The loop: a scored run re-scores the changed functions only. A changed function is one whose Unit hash or Tests digest moved since its Manifest entry was written, one that is Unscored, or one that records Survivors but has no digest yet. Each run takes one Measurement first (the unit tests, once, under coverage) and narrows each Mutant to the tests that reached its line, so there is no setup step to run before `just mutate`. An unchanged function is skipped, its recorded Survivors included, and they still fail the run. There is no flag for a full re-score: `--mutate-all` is removed (spec #115). A run with no Manifest scores every function (an uncovered one gets an `uncovered` score), so a deliberate full re-score needs a file with no sidecar Manifest.
 
 `just check` (no args) runs the full CI-equivalent gate list the same way — one ✓/✗ line per gate, full output in `check.log`, tailed only on failure.
 

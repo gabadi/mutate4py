@@ -50,7 +50,6 @@ that shape a scored run.
 | `--check-manifest` | | Verify the manifests: unit hashes, recorded Survivors and equivalent markers. No test run, so it does not check tests digests. |
 | `--manifest-file` | off | Store the manifest as sidecar JSON (`<file>.manifest.json`) instead of embedding it. |
 | `--exclude PATTERN` | | Skip files whose path matches `PATTERN`. Repeatable. See [Directory mode](#directory-mode). |
-| `--mutate-all` | off | Re-score every covered function, not only the changed ones. |
 | `--allow-survivors` | off | Exit 0 instead of 3 when a scored run leaves unaccepted Survivors. |
 | `--max-workers N` | serial | Run Mutants in `N` parallel Workers. See [Worker provisioning cost](#worker-provisioning-cost-and-when-parallelism-pays-off). |
 | `--no-fork` | off | Force the subprocess executor instead of the forking executor. See [Executors](#executors). |
@@ -219,8 +218,8 @@ A function whose Unit hash and digest are both unchanged is **skipped**, even wh
 records Survivors. Its recorded Survivors print under `Recorded survivors (function unchanged, not re-run):`,
 apart from the run's own Survivors, and they count toward the exit code: exit 3, or 0 with
 `--allow-survivors`. A rerun with nothing changed skips the Measurement and the Mutants,
-and reports the recorded Survivors on the same terms. `--mutate-all` re-scores every
-covered function regardless.
+and reports the recorded Survivors on the same terms. A run with no Manifest re-scores
+every function (`--mutate-all` was removed by spec #115).
 
 `--check-manifest` checks hashes, recorded Survivors and equivalent markers, not digests:
 it runs no test, so it cannot recompute one, and a stale digest does not fail it. See
@@ -343,7 +342,8 @@ flag, so a script that still passes one fails loudly rather than being silently 
 | `--test-contexts` | None. Selection reads the run's own Measurement and its Test map; there is no db to pass. |
 | `--build-test-contexts` | None. No test-context db is built. |
 | `--since-last-run` | None. A default run already re-scores only the changed functions. |
-| `--lines` | Edit a function to re-score it, or pass `--mutate-all` for a full re-score. |
+| `--lines` | Edit a function to re-score it. |
+| `--mutate-all` | None. A default run scores every changed or Unscored function; a run with no Manifest scores every function (an uncovered one gets an `uncovered` score). |
 
 Coverage now comes from the coverage.py dependency (`coverage>=7.10`), which the run
 drives itself.

@@ -11,6 +11,11 @@ Rulings:
 - **Zero literals.** Unary `-` whose operand is an `ast.Constant` of exact type `int`, `float`, or `complex` with value `== 0` yields no site: `-0`, `-0.0`, `-0j`, `-(0)`. `bool` is excluded by exact type, so `-False` keeps its site, and `-0` still yields its `0` to `1` Constant site. The rule is exact on type and value, not on sign: `-0.0` differs from `0.0` under `math.copysign`, and that sign-only difference is the cost of excluding it.
 - **Description.** `Site.desc` shows the whole node, as binop and compare sites do: `not x -> x`, `-y -> y`, `not(a) -> (a)`. The splice span stays the operator token.
 
+**Amendment (issue #115): `--mutate-all` is removed.** The "Manifest pick-up" ruling named it as a
+way to pick up unary Sites in unchanged functions. A default run still scores only changed or
+Unscored functions, so the same Sites are now picked up when that function changes or in a run with
+no Manifest, such as one on a scratch copy of the file (spec #115, ADR 0029's amendment).
+
 **Rejected:**
 - *Numeric-only gate on `-`* (mutate4java's approach): Python has no static types, so removing `-` from any operand is a real change.
 - *Skip negative literals*: `-1` yields two sites (`-` and `1`). Kept.

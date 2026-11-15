@@ -41,6 +41,17 @@ def test_worse_exit_code_unknown_code_ranks_above_usage():
 
 
 @pytest.mark.unit
+def test_worse_exit_code_unknown_code_ranks_above_usage_in_either_order():
+    assert worse_exit_code(2, 70) == 70
+
+
+@pytest.mark.unit
+def test_worse_exit_code_two_unknown_codes_tie_to_the_first():
+    assert worse_exit_code(70, 71) == 70
+    assert worse_exit_code(71, 70) == 71
+
+
+@pytest.mark.unit
 def test_scored_run_exit_code_three_with_survivors():
     assert scored_run_exit_code(2, allow_survivors=False) == EXIT_SURVIVORS
 

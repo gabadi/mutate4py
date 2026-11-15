@@ -61,7 +61,8 @@ def test_build_parser_defaults_no_flags():
 
 
 @pytest.mark.unit
-def test_build_parser_mutate_all_flag_exists():
+def test_build_parser_mutate_all_flag_is_parsed_for_refusal():
+    # The removed flag stays parseable (hidden, spec #115) so _check_removed_flags can refuse it.
     # mutant_18: "--mutate-all" → "--MUTATE-ALL" (different flag name)
     # Correct: --mutate-all must be parseable and set mutate_all=True
     from mutate4py.__main__ import _build_parser
