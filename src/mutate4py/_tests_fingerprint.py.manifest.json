@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T03:58:52Z",
-  "module_hash": "a188d51f9c7ab8d5061ac2c05c04138a094cad5db54791a38acfb7c12970cfd3",
-  "source_sha256": "c41551f77d37e8542292bb6e96c06d22447837f6c712b94f1210db0d3ad49eff",
+  "tested_at": "2026-11-15T04:33:59Z",
+  "module_hash": "26cceda72b1ef1b107a67dcd97eadadc4a87d57556b6fb5d8818a55d34362bfd",
+  "source_sha256": "4d2eed756bb719f56bb3f4218a395fa8198cfc8caf58a5ceb84ede4a74661a74",
   "functions": [
     {
       "id": "func/_target_skippable",
       "name": "_target_skippable",
-      "line": 61,
-      "end_line": 67,
+      "line": 62,
+      "end_line": 68,
       "hash": "bd89a050469e39cca55c500626bb75d3172e5da6128cfa30b080315e45185f17",
       "score": {
         "killed": 2,
@@ -17,13 +17,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "6ca273f50707d16deb0d4347faa97bf435495833d6f653f4c8a0d42b27ce141b"
+      "tests_digest": "62d61c5e238b7a2a3e2b104a3e035f8cb8bac3a2f8f5defcd0270944635cc2bd"
     },
     {
       "id": "func/can_skip_measurement",
       "name": "can_skip_measurement",
-      "line": 70,
-      "end_line": 77,
+      "line": 71,
+      "end_line": 78,
       "hash": "a4e95f2c426de16ba67836427a4dc8e6160a183bc462d9aeb392885d527794dc",
       "score": {
         "killed": 2,
@@ -32,13 +32,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "6ca273f50707d16deb0d4347faa97bf435495833d6f653f4c8a0d42b27ce141b"
+      "tests_digest": "62d61c5e238b7a2a3e2b104a3e035f8cb8bac3a2f8f5defcd0270944635cc2bd"
     },
     {
       "id": "func/_hashable",
       "name": "_hashable",
-      "line": 80,
-      "end_line": 88,
+      "line": 81,
+      "end_line": 89,
       "hash": "199431ce06ba2096069607bc20e9c6b3517e8acea8dc55e076d1266a72e5af6d",
       "score": {
         "killed": 1,
@@ -47,13 +47,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "58122080be1cbead121c6410a5fbd59b243daab27b7fc0e355a69c908a0f0e30"
+      "tests_digest": "3b037c8dabb4923d9fbdbf32965f63c28b135e1b902ba539d443d0587d56760e"
     },
     {
       "id": "func/_file_sha",
       "name": "_file_sha",
-      "line": 91,
-      "end_line": 93,
+      "line": 92,
+      "end_line": 94,
       "hash": "251b2e780c2fbff9223df48db0cf41033b99ebf32fcbd216798c1cb45bd154df",
       "score": {
         "killed": 0,
@@ -67,8 +67,8 @@
     {
       "id": "func/_py_inputs",
       "name": "_py_inputs",
-      "line": 96,
-      "end_line": 105,
+      "line": 97,
+      "end_line": 106,
       "hash": "0c6178beaeb73e6642b9cade3ea5ccae2cbb548001c152689355446fc25a1f15",
       "score": {
         "killed": 0,
@@ -82,8 +82,8 @@
     {
       "id": "func/_file_input",
       "name": "_file_input",
-      "line": 108,
-      "end_line": 113,
+      "line": 109,
+      "end_line": 114,
       "hash": "3fd12ee50f4ed0cd6d0eca7ebdc6024072bcbf085f179047fe90430db2abe2cb",
       "score": {
         "killed": 0,
@@ -97,8 +97,8 @@
     {
       "id": "func/_root_inputs",
       "name": "_root_inputs",
-      "line": 116,
-      "end_line": 120,
+      "line": 117,
+      "end_line": 121,
       "hash": "a6d37069970050349c2e6d759328523eaa5ccad6aed7bba870aa881c78160db0",
       "score": {
         "killed": 0,
@@ -112,8 +112,8 @@
     {
       "id": "func/_existing_file_input",
       "name": "_existing_file_input",
-      "line": 123,
-      "end_line": 130,
+      "line": 124,
+      "end_line": 131,
       "hash": "4eb6aeb8314d8f8c6d1d283e53cd3c0de5e2ef956acc7a3564f2c787d2771162",
       "score": {
         "killed": 0,
@@ -127,8 +127,8 @@
     {
       "id": "func/_positional_roots",
       "name": "_positional_roots",
-      "line": 138,
-      "end_line": 140,
+      "line": 139,
+      "end_line": 141,
       "hash": "9285a7ac0a33792b6bcd21dad0332d6389ad734f3415dfb95cb70956f8a35622",
       "score": {
         "killed": 1,
@@ -137,13 +137,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "58122080be1cbead121c6410a5fbd59b243daab27b7fc0e355a69c908a0f0e30"
+      "tests_digest": "3b037c8dabb4923d9fbdbf32965f63c28b135e1b902ba539d443d0587d56760e"
     },
     {
       "id": "func/_is_classified_flag",
       "name": "_is_classified_flag",
-      "line": 143,
-      "end_line": 145,
+      "line": 144,
+      "end_line": 146,
       "hash": "e68ab0a8e54c2d8f27129432355fff03bee2b81a5e291aaf231a9e78b0467ef4",
       "score": {
         "killed": 3,
@@ -152,13 +152,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "b89ed7a0bd6e3c0c6e9706e1a7c8f2cc7b8c1b2aa0b387d30fb74af1ec9f4490"
+      "tests_digest": "c2945e65d0bd084a0454cf1c634d1c7ec4c41937b67275d366c224e6198d6456"
     },
     {
       "id": "func/_collection_roots",
       "name": "_collection_roots",
-      "line": 148,
-      "end_line": 156,
+      "line": 149,
+      "end_line": 157,
       "hash": "d124ebcaa65093a8d9b2b6d61c0d7f2826e78422bb69c23761f1cfeb889b5e53",
       "score": {
         "killed": 2,
@@ -167,13 +167,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "58122080be1cbead121c6410a5fbd59b243daab27b7fc0e355a69c908a0f0e30"
+      "tests_digest": "3b037c8dabb4923d9fbdbf32965f63c28b135e1b902ba539d443d0587d56760e"
     },
     {
       "id": "func/_pyproject_pytest_table",
       "name": "_pyproject_pytest_table",
-      "line": 159,
-      "end_line": 169,
+      "line": 160,
+      "end_line": 170,
       "hash": "00de110a53665b817fd2a4e796b4ff31721077faacac13b94fb23227a8ac31f7",
       "score": {
         "killed": 1,
@@ -182,13 +182,13 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "c1cc570cc9eb45489b872a2247d0374056c457dadab5ceeb2c23c21a66195822"
+      "tests_digest": "c146eebd4b8c964e45b4973b66e4bd1aa844c657360404b4fde4cbce5ee59aaa"
     },
     {
       "id": "func/_config_inputs",
       "name": "_config_inputs",
-      "line": 172,
-      "end_line": 183,
+      "line": 173,
+      "end_line": 184,
       "hash": "874b6a78d1d99dba5f38a08eb6d85fda2be764c2c0e52cef0d7f76ef25e70d79",
       "score": {
         "killed": 0,
@@ -202,9 +202,9 @@
     {
       "id": "func/_explicit_config_inputs",
       "name": "_explicit_config_inputs",
-      "line": 186,
-      "end_line": 192,
-      "hash": "b3c061bce7b8bf60442877ba2ba1e331343878a93ba622c6411e560d3a29ce1c",
+      "line": 187,
+      "end_line": 193,
+      "hash": "880b0e483d5ca2f09e92516c6577889084cf95330af7979137a7d710b66b1d36",
       "score": {
         "killed": 0,
         "survived": 0,
@@ -217,8 +217,8 @@
     {
       "id": "func/_pytest_start",
       "name": "_pytest_start",
-      "line": 195,
-      "end_line": 203,
+      "line": 196,
+      "end_line": 204,
       "hash": "953f7160997a0c1ba6aa1f014474272fb2af20468c21d1482bb656e6ad2ce14e",
       "score": {
         "killed": 0,
@@ -232,9 +232,9 @@
     {
       "id": "func/_config_dirs",
       "name": "_config_dirs",
-      "line": 206,
-      "end_line": 218,
-      "hash": "d7308f033eb1f544d476b1e432133794c02bbf344e013a4eabb51d3bcc77433b",
+      "line": 207,
+      "end_line": 219,
+      "hash": "41d214f648f09de72325b40340ce0b55b5f976341fd9b734aaae56be123a28ad",
       "score": {
         "killed": 0,
         "survived": 0,
@@ -247,23 +247,23 @@
     {
       "id": "func/_conftest_chain",
       "name": "_conftest_chain",
-      "line": 221,
-      "end_line": 228,
-      "hash": "954474a4b67ccadc2342773ab4a534d3233d7e26cf40717627e32f289c5e383d",
+      "line": 222,
+      "end_line": 233,
+      "hash": "5a95efd249b43cf117c99e8bdb51dd7c5280448d0cf69fc7dbfe198e413960f0",
       "score": {
-        "killed": 6,
+        "killed": 3,
         "survived": 0,
         "uncovered": 0
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "58122080be1cbead121c6410a5fbd59b243daab27b7fc0e355a69c908a0f0e30"
+      "tests_digest": "3b037c8dabb4923d9fbdbf32965f63c28b135e1b902ba539d443d0587d56760e"
     },
     {
       "id": "func/_conftest_inputs",
       "name": "_conftest_inputs",
-      "line": 231,
-      "end_line": 236,
+      "line": 236,
+      "end_line": 241,
       "hash": "0b8accb06a96da9aefe0b115ead658b939b58170841485ad96dc4f8da99f0679",
       "score": {
         "killed": 0,
@@ -277,8 +277,8 @@
     {
       "id": "func/_config_and_lock_inputs",
       "name": "_config_and_lock_inputs",
-      "line": 239,
-      "end_line": 243,
+      "line": 244,
+      "end_line": 248,
       "hash": "3f094753e6cfa60dc58d435fd5614dc03f30781170a320faddcc1a57f276d875",
       "score": {
         "killed": 0,
@@ -292,8 +292,8 @@
     {
       "id": "func/_mutate4py_version",
       "name": "_mutate4py_version",
-      "line": 246,
-      "end_line": 250,
+      "line": 251,
+      "end_line": 255,
       "hash": "0168d19e257f113e9fdce63f932aa617509a36fa8dc24b2f6534bb7dc3ddc69e",
       "score": {
         "killed": 0,
@@ -307,8 +307,8 @@
     {
       "id": "func/fingerprint_inputs",
       "name": "fingerprint_inputs",
-      "line": 253,
-      "end_line": 269,
+      "line": 258,
+      "end_line": 274,
       "hash": "6069554645954a5b70c8e14ad70a4cb56f9540c205c233627cd9c5526b1b5732",
       "score": {
         "killed": 0,
@@ -322,8 +322,8 @@
     {
       "id": "func/_digest",
       "name": "_digest",
-      "line": 272,
-      "end_line": 273,
+      "line": 277,
+      "end_line": 278,
       "hash": "5563ce180ffeb9f233104413337d374bf5970da6342bbf01c8c2570040d63f5c",
       "score": {
         "killed": 0,
@@ -337,8 +337,8 @@
     {
       "id": "func/tests_fingerprint",
       "name": "tests_fingerprint",
-      "line": 276,
-      "end_line": 285,
+      "line": 281,
+      "end_line": 290,
       "hash": "5929ee3dc3f75e42cf6d8fcb9e31cae3b90d8f2af1a5ba107a4dcd10fa7d2cf2",
       "score": {
         "killed": 0,
@@ -350,5 +350,5 @@
       "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
     }
   ],
-  "tests_fingerprint": "4fafc05f832d0c515fef810c7deebe418ae078fc3a64b1b940fe056391b007d5"
+  "tests_fingerprint": "8245e43ae960c1685617f28f55ca788229b0108a9a1d20894ca1bba39b3daa5b"
 }
