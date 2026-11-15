@@ -54,7 +54,7 @@ def _close(executor) -> None:
         close()
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_a_target_the_orchestrator_imported_still_forks_from_the_fork_server(tmp_path, monkeypatch):
     target = _write_calc_project(tmp_path)
     leaked = types.ModuleType("calc")
@@ -71,7 +71,7 @@ def test_a_target_the_orchestrator_imported_still_forks_from_the_fork_server(tmp
         _close(executor)
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_a_hanging_mutant_times_out_and_the_fork_server_keeps_serving(tmp_path):
     target = _write_calc_project(tmp_path, body="    while True:\n        pass\n")
     executor = _serial_executor(tmp_path, target)
@@ -83,7 +83,7 @@ def test_a_hanging_mutant_times_out_and_the_fork_server_keeps_serving(tmp_path):
         _close(executor)
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_forking_and_subprocess_executors_classify_the_same_mutant_identically(tmp_path, monkeypatch):
     target = _write_calc_project(tmp_path)
     monkeypatch.setenv("PYTHONDONTWRITEBYTECODE", "1")
@@ -100,14 +100,14 @@ def test_forking_and_subprocess_executors_classify_the_same_mutant_identically(t
 # --- whole-run fallbacks still give the subprocess executor and say why ------
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_no_fork_gives_the_subprocess_executor(tmp_path):
     target = _write_calc_project(tmp_path)
     executor = _serial_executor(tmp_path, target, no_fork_reason="--no-fork")
     assert executor.describe().render() == "subprocess (--no-fork)"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_a_platform_without_fork_gives_the_subprocess_executor(tmp_path, monkeypatch):
     import mutate4py._forking_executor as forking_mod
 
@@ -117,7 +117,7 @@ def test_a_platform_without_fork_gives_the_subprocess_executor(tmp_path, monkeyp
     assert executor.describe().render() == "subprocess (the forking executor needs a POSIX platform)"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_pytest_not_importable_in_the_fork_server_gives_the_subprocess_executor(tmp_path, monkeypatch):
     shadow = tmp_path / "shadow"
     (shadow / "pytest").mkdir(parents=True)
@@ -246,7 +246,7 @@ def _classify_each(executor, target, mutants) -> list[str]:
     return statuses
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_body_sites_of_a_self_imported_target_are_swapped_and_classify_as_the_subprocess_executor_does(
     tmp_path, monkeypatch
 ):
@@ -263,7 +263,7 @@ def test_body_sites_of_a_self_imported_target_are_swapped_and_classify_as_the_su
         _close(forking)
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_import_time_and_ran_at_import_sites_of_a_self_imported_target_run_in_a_fresh_interpreter(
     tmp_path, monkeypatch
 ):
@@ -282,7 +282,7 @@ def test_import_time_and_ran_at_import_sites_of_a_self_imported_target_run_in_a_
         _close(forking)
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_a_hanging_swapped_mutant_times_out_and_the_fork_server_keeps_serving(tmp_path):
     target = _write_self_imported_project(tmp_path)
     executor = _serial_executor(tmp_path, target)
@@ -296,7 +296,7 @@ def test_a_hanging_swapped_mutant_times_out_and_the_fork_server_keeps_serving(tm
         _close(executor)
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_a_hanging_mutant_in_a_fresh_interpreter_times_out_and_the_fork_server_keeps_serving(tmp_path):
     target = _write_calc_project(tmp_path, body="    while True:\n        pass\n")
     (tmp_path / "conftest.py").write_text("import calc\n")
@@ -337,7 +337,7 @@ def _write_harness_project(root) -> str:
     return str(root / "mutate4py" / "_forking_executor.py")
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_a_target_that_is_a_fork_server_module_runs_each_mutant_in_a_fresh_interpreter(tmp_path, monkeypatch):
     monkeypatch.setenv("PYTHONDONTWRITEBYTECODE", "1")
     target = _write_harness_project(tmp_path)
@@ -358,7 +358,7 @@ def test_a_target_that_is_a_fork_server_module_runs_each_mutant_in_a_fresh_inter
         _close(executor)
 
 
-@pytest.mark.component
+@pytest.mark.system
 @pytest.mark.skipif(importlib.util.find_spec("tach") is None, reason="needs tach, a fork-unsafe plugin, installed")
 def test_a_fork_unsafe_plugin_in_the_run_gives_the_subprocess_executor_and_says_why(tmp_path):
     target = _write_calc_project(tmp_path)
@@ -377,7 +377,7 @@ def _write_marking_plugin(root) -> "os.PathLike":
     return marker
 
 
-@pytest.mark.component
+@pytest.mark.system
 @pytest.mark.parametrize(("pytest_args", "loaded"), [(["-p", "no:marking_plugin", *_ARGS], False), (_ARGS, True)])
 def test_the_fork_server_primes_without_a_plugin_the_run_disables(tmp_path, pytest_args, loaded):
     target = _write_calc_project(tmp_path)
@@ -430,7 +430,7 @@ def _run_serial(root, src: str, monkeypatch, pytest_args=tuple(_ARGS)) -> tuple[
     return rc, buf.getvalue()
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_a_serial_run_narrows_each_mutant_and_forks_every_one_from_the_fork_server(tmp_path, monkeypatch):
     src = _write_per_function_project(tmp_path, 3)
     rc, output = _run_serial(tmp_path, src, monkeypatch)
@@ -471,7 +471,7 @@ def _report_counts(output: str) -> list[str]:
     return [line.strip() for line in output.splitlines() if line.strip().startswith(("Killed", "Survived", "Timeout"))]
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_a_measured_run_swaps_body_sites_and_scores_as_a_no_fork_run(tmp_path, monkeypatch):
     monkeypatch.setenv("PYTHONDONTWRITEBYTECODE", "1")
     forked_root, plain_root = tmp_path / "forked", tmp_path / "plain"

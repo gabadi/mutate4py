@@ -117,7 +117,7 @@ def _batch_args(**overrides) -> argparse.Namespace:
     return argparse.Namespace(**defaults)
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_a_line_reached_only_at_import_time_is_covered_and_mutated_on_a_no_flag_run(tmp_path):
     src_path = _write_source(tmp_path)
     measurement = measurement_for(os.path.abspath(src_path), {"": [2]}, wall=0.5)
@@ -129,7 +129,7 @@ def test_a_line_reached_only_at_import_time_is_covered_and_mutated_on_a_no_flag_
     assert len(executor.calls) == 1
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_a_line_no_context_reached_is_uncovered_and_never_mutated_on_a_no_flag_run(tmp_path):
     src_path = _write_source(tmp_path)
     measurement = measurement_for(os.path.abspath(src_path), {"": [9]}, wall=0.5)
@@ -141,7 +141,7 @@ def test_a_line_no_context_reached_is_uncovered_and_never_mutated_on_a_no_flag_r
     assert executor.calls == []
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_a_failing_suite_stops_the_run_before_any_mutant_and_names_the_failing_node(tmp_path, caplog):
     caplog.set_level(logging.INFO)
     src_path = _write_source(tmp_path)
@@ -155,7 +155,7 @@ def test_a_failing_suite_stops_the_run_before_any_mutant_and_names_the_failing_n
     assert "tests/test_always_fails.py::test_fail" in caplog.text
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_a_suite_that_collects_no_tests_fails_with_the_no_tests_hint(tmp_path, caplog):
     caplog.set_level(logging.INFO)
     src_path = _write_source(tmp_path)
@@ -169,7 +169,7 @@ def test_a_suite_that_collects_no_tests_fails_with_the_no_tests_hint(tmp_path, c
     assert NO_TESTS_HINT in caplog.text
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_a_sysmon_measurement_is_refused_with_exit_2_and_names_the_fix(tmp_path, caplog, monkeypatch):
     caplog.set_level(logging.INFO)
     src_path = _write_source(tmp_path)
@@ -191,7 +191,7 @@ def test_a_sysmon_measurement_is_refused_with_exit_2_and_names_the_fix(tmp_path,
     assert "COVERAGE_CORE" in caplog.text
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_a_single_file_run_that_measures_itself_prints_the_measurement_and_overhead_lines(
     tmp_path, caplog, monkeypatch
 ):
@@ -214,7 +214,7 @@ class _SurvivingExecutor(_FakeExecutor):
         return "survived"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_the_measurement_line_is_set_apart_from_the_survivors_block(tmp_path, caplog, monkeypatch):
     """A reader of the Survivors block stops at the first blank line, so the
     Measurement line, whose wall time varies run to run, must not follow it directly."""
@@ -237,7 +237,7 @@ def test_the_measurement_line_is_set_apart_from_the_survivors_block(tmp_path, ca
     assert "" in lines[survivors_at:measurement_at]
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_an_injected_measurement_prints_neither_the_measurement_nor_the_overhead_lines(tmp_path, caplog):
     caplog.set_level(logging.INFO)
     src_path = _write_source(tmp_path)
@@ -250,7 +250,7 @@ def test_an_injected_measurement_prints_neither_the_measurement_nor_the_overhead
     assert "Per-Mutant overhead" not in caplog.text
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_a_directory_run_measures_the_suite_once_and_prints_one_batch_summary(tmp_path, caplog, monkeypatch):
     caplog.set_level(logging.INFO)
     ran_log = tmp_path / "ran.log"

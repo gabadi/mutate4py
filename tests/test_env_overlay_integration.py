@@ -24,7 +24,7 @@ def _copy_fixture(tmp_path):
     return str(dest)
 
 
-@pytest.mark.integration
+@pytest.mark.system
 @pytest.mark.parametrize("extra_args", [[], ["--max-workers", "2"]], ids=["serial", "max-workers-2"])
 def test_uv_run_with_repo_root_is_accepted_in_project_with_its_own_venv(tmp_path, extra_args):
     project = _copy_fixture(tmp_path)

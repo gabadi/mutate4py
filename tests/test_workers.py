@@ -445,7 +445,7 @@ def test_provision_worker_turns_a_below_floor_interpreter_into_a_worker_failure(
         _provision_worker(str(tmp_path), frozenset())
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_provision_worker_maps_a_failed_uv_step_to_a_worker_failure_with_its_stderr_tail(tmp_path, monkeypatch):
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
@@ -462,7 +462,7 @@ def test_provision_worker_maps_a_failed_uv_step_to_a_worker_failure_with_its_std
     assert isinstance(exc.value.__cause__, subprocess.CalledProcessError)
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_provision_worker_maps_a_missing_uv_to_a_worker_failure(tmp_path, monkeypatch):
     empty_bin = tmp_path / "empty-bin"
     empty_bin.mkdir()
@@ -506,7 +506,7 @@ def test_prime_worker_executor_reports_a_missing_worker_interpreter_as_a_worker_
     assert isinstance(exc.value.__cause__, WorkerProcessError)
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_prime_worker_executor_refuses_a_worker_venv_without_pytest(tmp_path):
     """A Worker venv that cannot import pytest exits 1 on every Mutant, which would
     read as killed. Priming refuses it as a Worker failure, before any dispatch."""

@@ -1,4 +1,4 @@
-"""Every test must carry exactly one of @pytest.mark.{unit,component,integration}
+"""Every test must carry exactly one of @pytest.mark.{unit,system}
 (see pyproject.toml for what each means) as its OWN decorator -- not inherited
 from a module- or class-level `pytestmark` default. A default would let a new
 test silently satisfy this check without anyone ever deciding its category,
@@ -14,8 +14,8 @@ import pytest
 
 from ._digest_project import digest_project  # noqa: F401  (pytest fixture, shared by the digest tests)
 
-_CATEGORY_MARKERS = ("unit", "component", "integration")
-_COMPONENT_THRESHOLD_SECONDS = 0.5
+_CATEGORY_MARKERS = ("unit", "system")
+_SYSTEM_THRESHOLD_SECONDS = 0.5
 
 # tests/fixtures/** are sample projects other tests spawn as isolated pytest
 # subprocesses (e.g. the django_project that test_django_workers_integration.py
@@ -40,12 +40,12 @@ def pytest_runtest_makereport(item, call):
     category = next((m.name for m in item.own_markers if m.name in _CATEGORY_MARKERS), None)
     if category is not None:
         return
-    suggested = "component" if call.duration >= _COMPONENT_THRESHOLD_SECONDS else "unit"
+    suggested = "system" if call.duration >= _SYSTEM_THRESHOLD_SECONDS else "unit"
     report.outcome = "failed"
     report.longrepr = (
-        f"{item.nodeid} has no @pytest.mark.{{unit,component,integration}} (mandatory -- see "
+        f"{item.nodeid} has no @pytest.mark.{{unit,system}} (mandatory -- see "
         "pyproject.toml markers).\n"
         f"Measured duration: {call.duration:.3f}s -> suggested: @pytest.mark.{suggested}\n"
-        "(integration is a manual call, not duration-based: only for a test that spawns a "
-        "separate interpreter via _run_cli_path/_run_cli_in, invisible to --cov-context=test)"
+        "(system is a manual call, not duration-based: only for a test that runs real processes "
+        "(a fork server, worker servers, nested pytest, a spawned interpreter), outside code mutation and coverage)"
     )

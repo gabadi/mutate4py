@@ -1,18 +1,14 @@
 """Guardrail: every test whose work spawns a fresh Python interpreter must
-carry @pytest.mark.integration or @pytest.mark.component.
+carry @pytest.mark.system.
 
 A spawned interpreter's *own* work is invisible to pytest-cov's
---cov-context=test (see ADR 0018) — that coverage-blindness is why
-`integration` exists, and it's excluded from the mutation run's default test
-command (see justfile's `mutate` recipe) so its ~5-6s-per-invocation cost
-doesn't reintroduce the ~28-minute full `src/` sweep issue #18 fixed.
-`component` tests (ADR 0023) may also spawn an interpreter as an incidental
-implementation detail (e.g. a fake runner injected into otherwise in-process
-orchestration code) while the test's
-*own* meaningful work stays in-process and cov-context-visible; they are
-excluded from the fast `test-unit` loop but stay eligible for narrowing, so
-either marker satisfies this guard's real concern — keeping spawn cost out of
-the fast dev-loop gate — while only `unit` (unmarked here) is disqualifying.
+--cov-context=test (see ADR 0018) — that coverage-blindness is why `system`
+exists, and it's excluded from the mutation run's default test command (see
+justfile's `mutate` recipe) so its ~5-6s-per-invocation cost doesn't
+reintroduce the ~28-minute full `src/` sweep issue #18 fixed. `system` (ADR
+0023) is the one home for real-process work, so keeping spawn cost out of the
+fast dev-loop gate needs only that marker; `unit` (unmarked here) is the only
+disqualifying marker.
 """
 
 import ast
@@ -26,10 +22,10 @@ SPAWN_FUNCS = {"run", "Popen", "call", "check_output", "check_call"}
 KNOWN_INTERPRETER_HELPERS = {"_run_cli_path", "_run_cli_in"}
 
 
-_NON_DISQUALIFYING_MARKERS = {"integration", "component"}
+_NON_DISQUALIFYING_MARKERS = {"system"}
 
 
-def _has_integration_marker(node: ast.FunctionDef) -> bool:
+def _has_system_marker(node: ast.FunctionDef) -> bool:
     for dec in node.decorator_list:
         if (
             isinstance(dec, ast.Attribute)
@@ -59,7 +55,7 @@ def _find_unmarked_interpreter_spawning_tests(path: str) -> list[str]:
     for node in ast.walk(tree):
         if not isinstance(node, ast.FunctionDef) or not node.name.startswith("test_"):
             continue
-        if _has_integration_marker(node):
+        if _has_system_marker(node):
             continue
         spawns = any(isinstance(n, ast.Call) and _spawns_interpreter(n) for n in ast.walk(node))
         if spawns:
@@ -81,6 +77,6 @@ def test_no_unmarked_interpreter_spawning_tests():
     assert not violations, (
         "Test(s) spawn a fresh Python interpreter (subprocess.run/Popen/... "
         "with sys.executable, or _run_cli_path/_run_cli_in) without "
-        "@pytest.mark.integration or @pytest.mark.component, which will "
+        "@pytest.mark.system, which will "
         "silently re-enter the fast test-unit loop:\n" + "\n".join(f"  {f}: {names}" for f, names in violations.items())
     )

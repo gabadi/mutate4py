@@ -10,7 +10,7 @@ from mutate4py._pytest_argv import FLAG, POSITIONAL, VALUE, VALUE_OPTIONS, flag_
     ("argv", "roles"),
     [
         pytest.param(["-k", "tests"], [FLAG, VALUE], id="separate-value"),
-        pytest.param(["-m", "not integration"], [FLAG, VALUE], id="marker-expression"),
+        pytest.param(["-m", "not system"], [FLAG, VALUE], id="marker-expression"),
         pytest.param(["-k", "-x"], [FLAG, VALUE], id="value-that-looks-like-a-flag"),
         pytest.param(["-p", "no:x", "tests"], [FLAG, VALUE, POSITIONAL], id="plugin-then-path"),
         pytest.param(["-q", "tests/test_a.py::test_a"], [FLAG, POSITIONAL], id="bare-switch-then-nodeid"),

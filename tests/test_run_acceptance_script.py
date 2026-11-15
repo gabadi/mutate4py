@@ -35,7 +35,7 @@ def bash4():
     return path
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_run_acceptance_fails_naming_gherkin_parser_when_missing(tmp_path, bash4):
     result = subprocess.run(
         [bash4, str(_SCRIPT)],
@@ -49,7 +49,7 @@ def test_run_acceptance_fails_naming_gherkin_parser_when_missing(tmp_path, bash4
     assert "just install-tools" in result.stderr
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_run_acceptance_stops_when_gherkin_parser_fails(tmp_path, bash4):
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()

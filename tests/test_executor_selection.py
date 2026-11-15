@@ -70,7 +70,7 @@ def test_prepare_executor_fallback_on_a_non_posix_platform_reports_the_platform(
     assert executor.describe().render() == "subprocess (the forking executor needs a POSIX platform)"
 
 
-@pytest.mark.component
+@pytest.mark.system
 @pytest.mark.skipif(importlib.util.find_spec("tach") is None, reason="needs tach, a fork-unsafe plugin, installed")
 def test_prepare_executor_fallback_on_a_fork_unsafe_plugin_names_the_plugin(tmp_path):
     (tmp_path / "conftest.py").write_text("")
@@ -101,7 +101,7 @@ def test_prepare_executor_falls_back_to_subprocess_when_platform_unavailable(tmp
     assert isinstance(executor, SubprocessExecutor)
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_prepare_executor_returns_forking_executor_when_requested_and_available(tmp_path):
     from mutate4py._forking_executor import ForkingExecutor
 
@@ -115,7 +115,7 @@ def test_prepare_executor_returns_forking_executor_when_requested_and_available(
     assert isinstance(executor, ForkingExecutor)
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_prepare_executor_forks_for_a_target_already_imported(tmp_path, monkeypatch):
     """A target this process already imported is a harness file, run in a fresh
     interpreter per Mutant: no whole-run fallback to the subprocess executor."""
@@ -136,7 +136,7 @@ def test_prepare_executor_forks_for_a_target_already_imported(tmp_path, monkeypa
     assert isinstance(executor, ForkingExecutor)
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_prepare_executor_does_not_import_subprocess_module_when_forking_succeeds(tmp_path, monkeypatch):
     """Self-scanning a leaf module that only the subprocess executor needs
     must keep the forking fast path: when forking succeeds, the subprocess
