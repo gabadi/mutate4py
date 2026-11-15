@@ -92,7 +92,7 @@ def _finalize_source(  # noqa: PLR0913 - keeps the positional contract tests/tes
     fresh_digests: dict[str, str] | None = None,
     fingerprint: str | None = None,
     write_manifest: bool = True,
-) -> dict:
+) -> dict | None:
     # Unlike update_manifest, the write can't be skipped outright: a run with
     # selected sites leaves the last-tested mutant on disk (the per-site loop
     # never reverts), so clean_source must always be restored. Only the
@@ -105,9 +105,11 @@ def _finalize_source(  # noqa: PLR0913 - keeps the positional contract tests/tes
     # Every completed scored run records the fingerprint it measured, even one that wrote no score block (spec 5b).
     # A run with no scored run (an errored one, or an unscored caller) keeps the stored one.
     recorded = fingerprint if scored_run is not None else None
-    manifest_to_embed = reconcile_manifest(
-        existing_manifest, candidate_manifest, scores, fresh_digests=fresh_digests, fingerprint=recorded
-    )
+    manifest_to_embed = existing_manifest
+    if write_manifest:
+        manifest_to_embed = reconcile_manifest(
+            existing_manifest, candidate_manifest, scores, fresh_digests=fresh_digests, fingerprint=recorded
+        )
     _write_manifest_output(clean_source, manifest_to_embed, loc, write_manifest=write_manifest)
     if os.path.isfile(bak_path):
         os.remove(bak_path)

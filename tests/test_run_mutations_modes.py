@@ -655,3 +655,61 @@ def test_aborted_run_leaves_the_sidecar_as_the_last_completed_run_wrote_it(tmp_p
 
     assert sidecar.read_bytes() == before
     assert (tmp_path / "calc.py").read_text() == changed
+
+
+def _run_embedded(tmp_path, src, status):
+    src_path = str(tmp_path / "calc.py")
+    return run_mutations(
+        RunMutationsRequest(
+            path=src_path,
+            source=src,
+            pytest_args=["-q"],
+            timeout_factor=10,
+            warning_threshold=1000,
+            cwd=str(tmp_path),
+            executor=_FakeExecutor(status=status),
+            measurement=_measured(src_path, src),
+        )
+    )
+
+
+@pytest.mark.unit
+def test_aborted_embed_run_leaves_the_footer_as_the_last_completed_run_wrote_it(tmp_path):
+    old = _make_multi_site_source(1)
+    (tmp_path / "calc.py").write_text(old)
+    assert _run_embedded(tmp_path, old, "killed") == 0
+    edited = (tmp_path / "calc.py").read_text().replace("a > b", "a >= b")
+    (tmp_path / "calc.py").write_text(edited)
+
+    assert _run_embedded(tmp_path, edited, "no-tests-collected") == 2
+
+    assert (tmp_path / "calc.py").read_text() == edited
+
+
+@pytest.mark.unit
+def test_aborted_embed_run_adds_no_footer_to_a_file_that_had_none(tmp_path):
+    src = _make_multi_site_source(1)
+    (tmp_path / "calc.py").write_text(src)
+
+    assert _run_embedded(tmp_path, src, "usage-error") == 2
+
+    assert (tmp_path / "calc.py").read_text() == src
+
+
+@pytest.mark.unit
+def test_a_parallel_worker_failure_leaves_the_footer_as_the_last_completed_run_wrote_it(tmp_path, monkeypatch):
+    import mutate4py._runner as runner_mod
+    from mutate4py._execution import ExecutionOutcome
+
+    old = _make_multi_site_source(1)
+    (tmp_path / "calc.py").write_text(old)
+    assert _run_embedded(tmp_path, old, "killed") == 0
+    before = (tmp_path / "calc.py").read_text().replace("a > b", "a >= b")
+    (tmp_path / "calc.py").write_text(before)
+    monkeypatch.setattr(
+        runner_mod, "_execute_mutations", lambda **_kw: ExecutionOutcome(error_msg="mutation worker failed: boom")
+    )
+
+    assert _run_embedded(tmp_path, before, "killed") == 1
+
+    assert (tmp_path / "calc.py").read_text() == before

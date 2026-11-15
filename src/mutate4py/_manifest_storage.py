@@ -54,7 +54,7 @@ def _read_existing_manifest(source: str, loc: ManifestLocation) -> tuple[dict | 
 
 def _write_manifest_output(
     clean_source: str,
-    manifest: dict,
+    manifest: dict | None,
     loc: ManifestLocation,
     *,
     write_source: bool = True,
@@ -63,7 +63,8 @@ def _write_manifest_output(
     """Write clean_source/manifest to their configured storage (sidecar or in-source footer).
 
     In embed mode (loc.manifest_file is False) source and footer are always written
-    together as one file, so write_source/write_manifest are ignored there.
+    together as one file, so write_source/write_manifest are ignored there: a manifest of
+    None writes the source with no footer, which is how a run that wrote no manifest leaves a file that had none.
     """
     if loc.manifest_file:
         if write_source:
@@ -73,4 +74,4 @@ def _write_manifest_output(
             write_sidecar_manifest(loc.path, manifest)
     else:
         with open(loc.path, "w") as f:
-            f.write(embed_manifest(clean_source, manifest))
+            f.write(clean_source if manifest is None else embed_manifest(clean_source, manifest))

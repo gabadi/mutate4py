@@ -237,3 +237,38 @@ def test_finalize_source_without_write_manifest_restores_the_source_and_keeps_th
         assert f.read() == src
     with open(sidecar_path) as f:
         assert f.read() == "previous sidecar"
+
+
+def _embedded_footer_run(tmp_path, *, existing_manifest):
+    src = "def f(a, b):\n    return a > b\n"
+    src_path = str(tmp_path / "f.py")
+    with open(src_path, "w") as f:
+        f.write("def f(a, b):\n    return a >= b\n")
+    _finalize_source(
+        src,
+        "2026-01-01T00:00:00Z",
+        src_path + ".bak",
+        ManifestLocation(path=src_path, manifest_file=False),
+        existing_manifest=existing_manifest,
+        write_manifest=False,
+    )
+    with open(src_path) as f:
+        return src, f.read()
+
+
+@pytest.mark.unit
+def test_finalize_source_without_write_manifest_writes_the_previous_footer_back_in_embed_mode(tmp_path):
+    from mutate4py._manifest import embed_manifest
+
+    previous = {"schema": 1, "tested_at": "2020-01-01T00:00:00Z", "functions": [{"id": "func/f", "hash": "old"}]}
+
+    src, written = _embedded_footer_run(tmp_path, existing_manifest=previous)
+
+    assert written == embed_manifest(src, previous)
+
+
+@pytest.mark.unit
+def test_finalize_source_without_write_manifest_writes_no_footer_in_embed_mode_when_there_was_none(tmp_path):
+    src, written = _embedded_footer_run(tmp_path, existing_manifest=None)
+
+    assert written == src
