@@ -645,3 +645,14 @@ def test_describe_names_the_file_mode_prime_settled_on_for_the_guarded_file(tmp_
     executor = ForkingExecutor(cwd=cwd, guarded_path=target, prime_args=_NO_TACH)
     executor.prime()
     assert executor.describe().file_mode == "fresh import"
+
+
+@pytest.mark.unit
+def test_fresh_interpreter_is_a_subprocess_executor_over_the_same_tree_and_file(tmp_path):
+    from mutate4py._subprocess_executor import SubprocessExecutor
+
+    guarded = str(tmp_path / "calc.py")
+    fresh = ForkingExecutor(cwd=str(tmp_path), guarded_path=guarded).fresh_interpreter()
+
+    assert isinstance(fresh, SubprocessExecutor)
+    assert (fresh._cwd, fresh._guarded_path) == (str(tmp_path), guarded)

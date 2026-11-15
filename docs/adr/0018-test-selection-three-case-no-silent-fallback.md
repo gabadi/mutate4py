@@ -135,18 +135,20 @@ full-set timeout, and counts
 as a Survivor only if it survives that run too. A kill, or a timeout, under the full
 set folds into `killed` (ADR 0011).
 
-- **The orchestrator confirms, serial and parallel alike.** Workers return `survived`
-  and the orchestrator confirms serially on its own copy of the file, spliced and
-  restored as the serial loop splices it. One path gives both run shapes one verdict.
+- **One verdict for both run shapes.** The orchestrator confirms on its own copy of the
+  file, spliced and restored as the serial loop splices it, or a Worker confirms its own
+  Survivors in its own clone, spliced the same way. Both give the same verdict.
 - **Accepted-equivalent Sites are not confirmed.** Their line carries an equivalent
   marker, so the Survivor is accepted by design and a full run would buy nothing.
 - **The fork server only for a fresh-import file.** The confirmation exists to rule
   out state leaking between runs; a forked child shares the primed parent's imports,
   and a memoised body read from that parent is the very state to avoid. A swap or
-  harness file is in that parent, so its Survivors confirm in a fresh interpreter
-  through the subprocess executor. A fresh-import file is not, so a serial run
-  confirms its Survivors on the fork server. A parallel run has no fork server in
-  the orchestrator, so it confirms in a fresh interpreter.
+  harness file is in that parent, so its Survivors confirm in a fresh interpreter:
+  through the subprocess executor in a serial run, and in a parallel run by each
+  Worker in its own clone, over the Worker's own pipe, spread across the Workers. A
+  fresh-import file is not in that parent, so its Survivors confirm on the fork
+  server, serial and parallel alike. A parallel run primes that fork server in the
+  orchestrator too, with the run's prime args; its file mode picks the path.
 - **Visible in the report.** The `Time:` line carries `confirmation .. (n run, k
   killed)`, and the `Executor:` line says how the Mutants ran (`forking (fresh import
   N)`, or `subprocess (<reason>)` for a whole-run fallback).

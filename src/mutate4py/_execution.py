@@ -19,8 +19,10 @@ from mutate4py._test_dispatch import (
     ControlTarget,
     NoTestsCollectedError,
     PlanInputs,
+    SurvivorConfirmation,
     TimeoutPolicy,
     confirm_plan,
+    confirm_survivors,
     plan_mutant,
 )
 
@@ -39,10 +41,12 @@ class MutantExecCtx:
     path: str
     cwd: str
     pytest_args: list[str]
-    executor: Executor | None
+    executor: Executor
     timeout_policy: TimeoutPolicy
     max_workers: int = 0
     use_parallel: bool = False
+    # The executor the Workers of a parallel run all share, a test seam; None gives each Worker its own.
+    worker_executor: Executor | None = None
     abs_source_path: str = ""
     selection_source: object = None  # the Measurement; None selects nothing
     forking_requested: bool = True
@@ -137,9 +141,10 @@ def _run_parallel_workers(
                 selection_source=ctx.selection_source,
                 abs_source_path=ctx.abs_source_path,
                 forking_requested=ctx.forking_requested,
-                executor=ctx.executor,
+                executor=ctx.worker_executor,
                 positionals=ctx.positionals,
                 ran_at_import=ctx.ran_at_import,
+                confirmation=_confirmation_in_clones(ctx),
             )
         )
         return result, None
@@ -174,43 +179,27 @@ def _confirm_survivors(
     ctx: MutantExecCtx,
     executor: Executor,
 ) -> tuple[list[Site], int, int]:
-    """Re-run each Survivor with the full test set; return (still surviving, runs, kills).
-
-    A Survivor ran with only the tests that cover its line, which can miss a test
-    that reads state a covering test left behind (a memoised body), so it counts
-    only once the full set lets it through. A Survivor on an equivalent-marker line
-    is accepted by design and is not re-run. The Mutant is spliced into ctx.path
-    as the serial loop splices it. A kill or a timeout under the full set both
-    fold into killed (ADR 0011).
-    """
-    plan = confirm_plan(ctx.confirm_args, ctx.timeout_policy)
-    controls = ControlRuns()
+    """Re-run each Survivor with the full test set; return (still surviving, runs, kills)."""
+    confirmation = SurvivorConfirmation(confirm_plan(ctx.confirm_args, ctx.timeout_policy), ctx.markers)
     target = ControlTarget(ctx.path, clean_source, executor, ctx.abs_source_path)
-    still: list[Site] = []
-    runs = kills = 0
-    for site in survivors:
-        if site.line in ctx.markers:
-            still.append(site)
-            continue
-        with open(ctx.path, "w") as f:
-            f.write(apply_mutant(clean_source, site))
-        started = time.monotonic()
-        status = executor.run(plan.args, plan.timeout)
-        elapsed = time.monotonic() - started
-        status = controls.settle(status, plan, site, target)
-        runs += 1
-        ctx.timing.record_confirmation(status, elapsed)
-        if status in ("killed", "timeout"):
-            kills += 1
-        else:
-            still.append(site)
-    return still, runs, kills
+    result = confirm_survivors(survivors, target, confirmation, ctx.timing)
+    return result.still, result.runs, result.kills
 
 
-def _serial_confirmation_executor(description: ExecutorDescription, ctx: MutantExecCtx) -> Executor:
-    if description.file_mode == "fresh import":
+def _on_fork_server(executor: Executor) -> bool:
+    return executor.describe().file_mode == "fresh import"
+
+
+def _confirmation_executor(ctx: MutantExecCtx) -> Executor:
+    if _on_fork_server(ctx.executor):
         return ctx.executor
     return SubprocessExecutor(ctx.cwd, ctx.abs_source_path)
+
+
+def _confirmation_in_clones(ctx: MutantExecCtx) -> SurvivorConfirmation | None:
+    if _on_fork_server(ctx.executor):
+        return None
+    return SurvivorConfirmation(confirm_plan(ctx.confirm_args, ctx.timeout_policy), ctx.markers)
 
 
 def _execute_mutations(
@@ -221,14 +210,16 @@ def _execute_mutations(
 ) -> ExecutionOutcome:
     """Run serial or parallel mutations, then confirm their Survivors; return counts/survivors.
 
-    Confirmation runs in the orchestrator for both paths. A serial run confirms
-    on the fork server when the guarded file is fresh imported, else in a fresh
-    interpreter through the subprocess executor. A parallel run always confirms
-    in a fresh interpreter. The caller owns the final report and error output. A
+    A fresh-imported guarded file's Survivors are confirmed on the orchestrator's
+    fork server, for a serial and a parallel run alike. Any other file's are
+    confirmed in a fresh interpreter: a serial run through the subprocess
+    executor, a parallel run by each Worker in its own clone. The caller owns
+    the final report and error output. A
     NoTestsCollectedError from the serial loop propagates to the caller,
     which must still finalize the source exactly as a completed run would
     leave it.
     """
+    confirmed = None
     if ctx.use_parallel:
         parallel, error_msg = _run_parallel_workers(selected_sites, clean_source, ctx)
         if parallel is None:
@@ -236,12 +227,14 @@ def _execute_mutations(
         counts, survivors, selection_counts = parallel.counts, parallel.survivors, parallel.selection_counts
         ctx.timing.merge(parallel.timing)
         description = parallel.executor_description
-        confirm_executor = SubprocessExecutor(ctx.cwd, ctx.abs_source_path)
+        confirmed = parallel.confirmation
     else:
         counts, survivors, selection_counts = _run_mutation_loop(selected_sites, clean_source, ctx)
         description = ctx.executor.describe()
-        confirm_executor = _serial_confirmation_executor(description, ctx)
-    survivors, runs, kills = _confirm_survivors(survivors, clean_source, ctx, confirm_executor)
+    if confirmed is None:
+        survivors, runs, kills = _confirm_survivors(survivors, clean_source, ctx, _confirmation_executor(ctx))
+    else:
+        survivors, runs, kills = confirmed.still, confirmed.runs, confirmed.kills
     counts["killed"] += kills
     counts["survived"] -= kills
     return ExecutionOutcome(

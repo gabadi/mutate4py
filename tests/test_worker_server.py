@@ -116,6 +116,31 @@ def test_serve_tells_the_executor_which_dispatch_is_a_control_run():
     assert executor.controls == [False, True]
 
 
+class _TwoRunnerExecutor(_RecordingExecutor):
+    def __init__(self):
+        super().__init__()
+        self.fresh = _RecordingExecutor()
+
+    def fresh_interpreter(self):
+        return self.fresh
+
+
+@pytest.mark.unit
+def test_serve_runs_a_fresh_interpreter_request_on_the_executors_fresh_interpreter():
+    executor = _TwoRunnerExecutor()
+    statuses = _drive(
+        executor,
+        ["-p", "mutate4py._django_worker_plugin"],
+        {"args": ["-q", "a"], "timeout": 5.0, "fresh": True, "control": True},
+        {"args": ["-q", "b"], "timeout": 5.0},
+        neutralise=lambda args: ["--no-cov"],
+    )
+    assert statuses == ["survived", "survived"]
+    assert executor.fresh.calls == [["-q", "a", "--no-cov", "-p", "mutate4py._django_worker_plugin"]]
+    assert executor.fresh.controls == [True]
+    assert executor.calls == [["-q", "b", "--no-cov", "-p", "mutate4py._django_worker_plugin"]]
+
+
 class _DescribingExecutor(_RecordingExecutor):
     def describe(self) -> ExecutorDescription:
         return ExecutorDescription(mode="subprocess", reason="--no-fork")

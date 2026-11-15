@@ -13,7 +13,9 @@ def test_the_exec_context_carries_the_measurements_positional_args():
 
     from mutate4py._runner import SelectionOutcome, _mutant_exec_ctx
 
-    request = SimpleNamespace(path="calc.py", cwd="/proj", pytest_args=["-k", "tests", "tests"], forking_requested=True)
+    request = SimpleNamespace(
+        path="calc.py", cwd="/proj", pytest_args=["-k", "tests", "tests"], forking_requested=True, executor=None
+    )
     outcome = SelectionOutcome(
         mutant_pytest_args=["-k", "tests", "tests"],
         measurement=SimpleNamespace(positional_args=("tests",), empty_lines=lambda path: frozenset()),
@@ -32,7 +34,7 @@ def test_the_exec_context_carries_the_guarded_files_lines_that_ran_at_import(tmp
     from mutate4py._runner import SelectionOutcome, _mutant_exec_ctx
 
     target = str(tmp_path / "calc.py")
-    request = SimpleNamespace(path=target, cwd=str(tmp_path), pytest_args=[], forking_requested=True)
+    request = SimpleNamespace(path=target, cwd=str(tmp_path), pytest_args=[], forking_requested=True, executor=None)
     empty = {target: frozenset({3, 7})}
     outcome = SelectionOutcome(
         mutant_pytest_args=[],
@@ -129,6 +131,28 @@ def test_a_run_that_measured_its_own_baseline_prints_its_measurement_line(caplog
         _report_run(request, outcome, result, scored_run)
 
     assert "Measurement: 1.50s, 3 tests, core sysmon" in caplog.text
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(("use_parallel", "expected"), [(True, "the caller's executor"), (False, None)])
+def test_the_exec_context_hands_the_workers_the_executor_a_caller_supplied_only_in_a_parallel_run(
+    use_parallel, expected
+):
+    from types import SimpleNamespace
+
+    from mutate4py._runner import SelectionOutcome, _mutant_exec_ctx
+
+    supplied = "the caller's executor"
+    request = SimpleNamespace(path="calc.py", cwd="/proj", pytest_args=[], forking_requested=True, executor=supplied)
+    outcome = SelectionOutcome(
+        executor="the run's executor",
+        use_parallel=use_parallel,
+        measurement=SimpleNamespace(positional_args=(), empty_lines=lambda path: frozenset()),
+    )
+
+    ctx = _mutant_exec_ctx(request, outcome)
+
+    assert (ctx.executor, ctx.worker_executor) == ("the run's executor", expected)
 
 
 @pytest.mark.unit
@@ -255,16 +279,16 @@ def test_a_caller_supplied_executor_is_used_unprimed_serial_or_parallel(tmp_path
 
 
 @pytest.mark.unit
-def test_a_parallel_run_selects_no_executor_and_leaves_priming_to_each_worker(tmp_path, monkeypatch):
-    """None, not a prepared executor: a parallel run primes one Executor per
-    Worker in that Worker's own process (issue 04b)."""
+def test_a_parallel_run_selects_the_executor_a_serial_run_selects(tmp_path, monkeypatch):
+    """The orchestrator's own executor, beside the one each Worker primes in its own process (issue 04b)."""
     from types import SimpleNamespace
 
     from mutate4py._runner import _prepare_baseline_and_executor
 
-    monkeypatch.setattr("mutate4py._runner.select_executor", lambda **kwargs: pytest.fail("must not select"))
+    selected = []
+    monkeypatch.setattr("mutate4py._runner.select_executor", lambda **kwargs: selected.append(kwargs) or "an executor")
     measurement = SimpleNamespace(
-        wall=1.0, per_mutant_overhead=0.0, budget_of=lambda node_ids: 1.0, empty_lines=lambda path: frozenset()
+        wall=1.0, per_mutant_overhead=0.0, budget_of=lambda node_ids: 1.0, empty_lines=lambda path: frozenset({4})
     )
     request = SimpleNamespace(
         timeout_factor=3.0,
@@ -273,8 +297,19 @@ def test_a_parallel_run_selects_no_executor_and_leaves_priming_to_each_worker(tm
         executor=None,
         cwd=str(tmp_path),
         path=str(tmp_path / "calc.py"),
-        pytest_args=[],
+        pytest_args=["-q"],
     )
     setup = SimpleNamespace(bak_path=str(tmp_path / "calc.py.bak"), loaded=SimpleNamespace(clean_source="x = 1\n"))
 
-    assert _prepare_baseline_and_executor(request, setup, measurement, ["a site"], use_parallel=True).executor is None
+    prep = _prepare_baseline_and_executor(request, setup, measurement, ["a site"], use_parallel=True)
+
+    assert prep.executor == "an executor"
+    assert selected == [
+        {
+            "no_fork_reason": None,
+            "cwd": str(tmp_path),
+            "guarded_path": str(tmp_path / "calc.py"),
+            "pytest_args": ["-q"],
+            "ran_at_import": frozenset({4}),
+        }
+    ]

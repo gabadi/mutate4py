@@ -110,8 +110,8 @@ executor is the whole-run fallback where forking is impossible or unsafe, and it
 every Survivor confirmation that the Fork server does not (see Survivor confirmation).
 
 **Fork server**:
-The `_worker_server` process a serial forking run starts over the project tree itself,
-under the Project environment. It primes the forking executor once and forks one child
+The `_worker_server` process the orchestrator starts over the project tree itself, for a
+serial run and a parallel one, under the Project environment. It primes the forking executor once and forks one child
 per Mutant, so the orchestrator's state never reaches a Mutant.
 
 **Harness module**:
@@ -126,8 +126,9 @@ runs pytest in-process. A Mutant the swap refuses runs in a fresh interpreter in
 
 **Survivor confirmation**:
 The re-run of every Survivor with the full test set, before a Survivor is reported. A
-serial run re-runs a fresh-import file's Survivors on the Fork server; any other re-run
-goes through the subprocess executor. A narrowed selection or a swap can let a Mutant
+run re-runs a fresh-import file's Survivors on the Fork server. Any other file's are
+re-run in a fresh interpreter: through the subprocess executor in a serial run, and in a
+parallel run by each Worker, in its own clone. A narrowed selection or a swap can let a Mutant
 survive that the full test set kills, so a Survivor is not trusted until this run agrees.
 
 **Control run**:

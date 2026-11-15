@@ -149,8 +149,9 @@ def _prepare_baseline_and_executor(
     # A caller-supplied executor is used as-is, never re-primed: the caller owns it
     # (a fake in tests, or one primed by a longer-lived caller).
     executor = request.executor
-    # A parallel run primes one Executor per Worker, in that Worker's own process (issue 04b).
-    if executor is None and not use_parallel:
+    # A parallel run primes one more Executor per Worker, in that Worker's own process (issue 04b): this one
+    # confirms the Survivors of a fresh-imported file, which a Worker's clone is gone before it can.
+    if executor is None:
         executor = select_executor(
             no_fork_reason=no_fork_reason,
             cwd=request.cwd,
@@ -271,6 +272,7 @@ def _mutant_exec_ctx(
         cwd=request.cwd,
         pytest_args=request.pytest_args if outcome.use_parallel else outcome.mutant_pytest_args,
         executor=outcome.executor,
+        worker_executor=request.executor if outcome.use_parallel else None,
         timeout_policy=outcome.timeout_policy,
         max_workers=outcome.max_workers,
         use_parallel=outcome.use_parallel,

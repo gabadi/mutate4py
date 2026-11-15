@@ -2,8 +2,8 @@
 
 **Status:** accepted
 
-The forking executor never runs in the orchestrator. A serial forking run starts
-one **fork server**: a `_worker_server` process over the project tree itself (no
+The forking executor never runs in the orchestrator. A forking run, serial or
+parallel, starts one **fork server**: a `_worker_server` process over the project tree itself (no
 clone), under the Project environment, spawned through `WorkerProcessExecutor`,
 the adapter parallel Workers already use. The server primes the
 `ForkingExecutor` (collect-only against an empty scratch dir, with the run's

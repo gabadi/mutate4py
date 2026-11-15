@@ -5,7 +5,13 @@ executors are primed per Worker. Internals are covered in test_workers.py."""
 import pytest
 
 from mutate4py._discovery import discover_sites
-from mutate4py._test_dispatch import NoTestsCollectedError, TimeoutPolicy
+from mutate4py._test_dispatch import (
+    ConfirmationResult,
+    MutantPlan,
+    NoTestsCollectedError,
+    SurvivorConfirmation,
+    TimeoutPolicy,
+)
 from mutate4py._workers import ParallelRunError, ParallelRunRequest, run_parallel
 
 from ._worker_fakes_helpers import FakeExecutor, noop_on_result
@@ -339,3 +345,110 @@ def test_run_parallel_times_each_mutant_into_the_bucket_its_status_names(tmp_pat
         )
     )
     assert (result.timing.timeouts_count, result.timing.mutants_count) == (2, 0)
+
+
+# ── run_parallel: each Worker confirms its own Survivors in its own clone ────
+
+_FULL_SET = ["-q", "tests"]
+_TWO_FUNCTIONS = "def f(a, b):\n    return a > b\ndef g(a, b):\n    return a < b\n"
+
+
+class _FreshInterpreterFake(FakeExecutor):
+    """A Worker whose Mutant runs survive and whose fresh interpreter answers `fresh_status`."""
+
+    def __init__(self, fresh_status: str) -> None:
+        super().__init__("survived")
+        self.fresh = FakeExecutor(fresh_status)
+
+    def fresh_interpreter(self) -> FakeExecutor:
+        return self.fresh
+
+
+def _parallel_run_over_two_functions(tmp_path, monkeypatch, executor, confirmation):
+    import mutate4py._workers as workers_mod
+
+    monkeypatch.setattr(workers_mod, "_provision_worker", lambda root, required: None)
+    monkeypatch.setattr(workers_mod, "_link_import_root", lambda worker_root, package_dir: worker_root + "-import")
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(_TWO_FUNCTIONS)
+    return run_parallel(
+        ParallelRunRequest(
+            selected_sites=discover_sites(_TWO_FUNCTIONS),
+            clean_source=_TWO_FUNCTIONS,
+            source_path=str(src_file),
+            cwd=str(tmp_path),
+            pytest_args=["-q"],
+            timeout_policy=_FIVE_SECOND_POLICY,
+            max_workers=2,
+            on_result=noop_on_result,
+            executor=executor,
+            confirmation=confirmation,
+        )
+    )
+
+
+@pytest.mark.unit
+def test_run_parallel_confirms_every_survivor_on_the_workers_fresh_interpreter(tmp_path, monkeypatch):
+    executor = _FreshInterpreterFake("killed")
+    confirmation = SurvivorConfirmation(plan=MutantPlan(_FULL_SET, 9.0, None), markers={})
+
+    result = _parallel_run_over_two_functions(tmp_path, monkeypatch, executor, confirmation)
+
+    assert result.confirmation == ConfirmationResult(still=[], runs=2, kills=2)
+    assert executor.fresh.calls == [_FULL_SET, _FULL_SET]
+    assert executor.calls == [["-q"], ["-q"]]
+
+
+@pytest.mark.unit
+def test_run_parallel_keeps_the_survivors_that_survive_confirmation_in_site_order(tmp_path, monkeypatch):
+    executor = _FreshInterpreterFake("survived")
+    confirmation = SurvivorConfirmation(plan=MutantPlan(_FULL_SET, 9.0, None), markers={})
+
+    result = _parallel_run_over_two_functions(tmp_path, monkeypatch, executor, confirmation)
+
+    sites = discover_sites(_TWO_FUNCTIONS)
+    assert result.confirmation == ConfirmationResult(still=sites, runs=2, kills=0)
+    assert result.survivors == sites
+
+
+@pytest.mark.unit
+def test_run_parallel_counts_the_confirmation_runs_in_the_timing_it_returns(tmp_path, monkeypatch):
+    executor = _FreshInterpreterFake("killed")
+    confirmation = SurvivorConfirmation(plan=MutantPlan(_FULL_SET, 9.0, None), markers={})
+
+    result = _parallel_run_over_two_functions(tmp_path, monkeypatch, executor, confirmation)
+
+    assert (result.timing.confirmation_runs, result.timing.confirmation_kills) == (2, 2)
+    assert result.timing.mutants_count == 2
+
+
+@pytest.mark.unit
+def test_run_parallel_does_not_rerun_a_survivor_on_an_equivalent_marker_line(tmp_path, monkeypatch):
+    executor = _FreshInterpreterFake("killed")
+    sites = discover_sites(_TWO_FUNCTIONS)
+    confirmation = SurvivorConfirmation(plan=MutantPlan(_FULL_SET, 9.0, None), markers={sites[0].line: "category"})
+
+    result = _parallel_run_over_two_functions(tmp_path, monkeypatch, executor, confirmation)
+
+    assert result.confirmation == ConfirmationResult(still=[sites[0]], runs=1, kills=1)
+    assert executor.fresh.calls == [_FULL_SET]
+
+
+@pytest.mark.unit
+def test_run_parallel_leaves_the_survivors_to_the_caller_without_a_confirmation(tmp_path, monkeypatch):
+    executor = _FreshInterpreterFake("killed")
+
+    result = _parallel_run_over_two_functions(tmp_path, monkeypatch, executor, None)
+
+    assert result.confirmation is None
+    assert result.survivors == discover_sites(_TWO_FUNCTIONS)
+    assert executor.fresh.calls == []
+
+
+@pytest.mark.unit
+def test_run_parallel_asks_for_no_fresh_interpreter_from_a_worker_with_no_survivor(tmp_path, monkeypatch):
+    confirmation = SurvivorConfirmation(plan=MutantPlan(_FULL_SET, 9.0, None), markers={})
+
+    result = _parallel_run_over_two_functions(tmp_path, monkeypatch, FakeExecutor("killed"), confirmation)
+
+    assert result.confirmation == ConfirmationResult(still=[], runs=0, kills=0)

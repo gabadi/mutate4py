@@ -275,7 +275,17 @@ depends_on = []
 [[modules]]
 path = "mutate4py._workers"
 layer = "execution_backends"
-depends_on = ["mutate4py._worker_protocol", "mutate4py._worker_provision", "mutate4py._worker_results"]
+depends_on = [
+    "mutate4py._worker_lifecycle",
+    "mutate4py._worker_protocol",
+    "mutate4py._worker_provision",
+    "mutate4py._worker_results",
+]
+
+[[modules]]
+path = "mutate4py._worker_lifecycle"
+layer = "execution_backends"
+depends_on = ["mutate4py._worker_protocol"]
 
 [[modules]]
 path = "mutate4py._worker_results"
@@ -290,7 +300,7 @@ depends_on = ["mutate4py._worker_protocol"]
 [[modules]]
 path = "mutate4py._forking_executor"
 layer = "execution_backends"
-depends_on = ["mutate4py._fork_child"]
+depends_on = ["mutate4py._fork_child", "mutate4py._subprocess_executor"]
 
 [[modules]]
 path = "mutate4py._fork_child"

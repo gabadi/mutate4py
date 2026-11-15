@@ -15,7 +15,7 @@ from mutate4py._execution import (
 )
 from mutate4py._executor import ExecutorDescription, MutantTiming
 from mutate4py._subprocess_executor import SubprocessExecutor
-from mutate4py._test_dispatch import TimeoutPolicy
+from mutate4py._test_dispatch import ConfirmationResult, MutantPlan, SurvivorConfirmation, TimeoutPolicy
 from mutate4py._workers import ParallelRunResult
 
 from ._scripted_executor import ScriptedExecutor
@@ -501,13 +501,13 @@ def test_confirm_survivors_a_full_set_kill_removes_the_survivor(tmp_path):
 
 @pytest.mark.unit
 def test_confirm_survivors_times_each_confirmation_run_into_the_timing(tmp_path, monkeypatch):
-    import mutate4py._execution as execution_mod
+    import mutate4py._test_dispatch as dispatch_mod
 
     src = "def f(a, b):\n    return a > b\n"
     src_file = tmp_path / "calc.py"
     src_file.write_text(src)
     site = discover_sites(src)[0]
-    monkeypatch.setattr(execution_mod, "time", _StepClock([10.0, 12.0]))
+    monkeypatch.setattr(dispatch_mod, "time", _StepClock([10.0, 12.0]))
     ctx = _confirm_ctx(tmp_path, src_file)
 
     _confirm_survivors([site], src, ctx, _FakeExecutor(status="timeout"))
@@ -673,7 +673,7 @@ def test_parallel_outcome_carries_the_workers_description_and_their_mutants_timi
             path=str(src_file),
             cwd=str(tmp_path),
             pytest_args=["-q"],
-            executor=None,
+            executor=_FakeExecutor(),
             timeout_policy=_policy(7.5),
             max_workers=2,
             use_parallel=True,
@@ -739,3 +739,98 @@ def test_serial_swap_and_harness_survivors_are_confirmed_in_a_fresh_interpreter(
     assert fresh.calls
     assert all(call == (list(FULL_SET), 7.5) for call in fresh.calls)
     assert (list(FULL_SET), 7.5) not in fork.calls
+
+
+def _parallel_run_confirming(tmp_path, monkeypatch, *, orchestrator, worker_confirmation=None, worker_executor=None):
+    import mutate4py._workers as workers_mod
+
+    src = "def f(a, b):\n    return a > b\n"
+    src_file = tmp_path / "calc.py"
+    src_file.write_text(src)
+    sites = discover_sites(src)
+    requests = []
+
+    def run_parallel(request):
+        requests.append(request)
+        result = _parallel_result({"killed": 0, "timeout": 0, "survived": 1}, survivors=sites)
+        if request.confirmation is not None:
+            result.confirmation = worker_confirmation or ConfirmationResult(still=sites, runs=1, kills=0)
+        return result
+
+    monkeypatch.setattr(workers_mod, "run_parallel", run_parallel)
+    outcome = _execute_mutations(
+        selected_sites=sites,
+        clean_source=src,
+        ctx=MutantExecCtx(
+            path=str(src_file),
+            cwd=str(tmp_path),
+            pytest_args=["-q"],
+            executor=orchestrator,
+            worker_executor=worker_executor,
+            timeout_policy=_policy(7.5),
+            max_workers=2,
+            use_parallel=True,
+            abs_source_path=str(src_file),
+            confirm_args=list(FULL_SET),
+            markers={9: "category"},
+        ),
+    )
+    return outcome, requests, sites
+
+
+@pytest.mark.unit
+def test_parallel_fresh_import_survivors_are_confirmed_on_the_orchestrators_fork_server(tmp_path, monkeypatch):
+    fork = _ForkServerFake(file_mode="fresh import")
+
+    outcome, requests, _ = _parallel_run_confirming(tmp_path, monkeypatch, orchestrator=fork)
+
+    assert requests[0].confirmation is None
+    assert (list(FULL_SET), 7.5) in fork.calls
+    assert (outcome.confirmation_runs, outcome.confirmation_kills) == (1, 0)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("file_mode", ["swap", "harness", ""])
+def test_parallel_swap_and_harness_survivors_are_left_to_the_workers_to_confirm_in_their_clones(
+    tmp_path, monkeypatch, file_mode
+):
+    fork = _ForkServerFake(file_mode=file_mode)
+
+    _, requests, _ = _parallel_run_confirming(tmp_path, monkeypatch, orchestrator=fork)
+
+    assert requests[0].confirmation == SurvivorConfirmation(
+        plan=MutantPlan(list(FULL_SET), 7.5, None), markers={9: "category"}
+    )
+
+
+@pytest.mark.unit
+def test_parallel_outcome_takes_the_survivors_the_workers_confirmed_without_a_second_confirmation(
+    tmp_path, monkeypatch
+):
+    fork = _ForkServerFake(file_mode="swap")
+    confirmed = ConfirmationResult(still=[], runs=1, kills=1)
+
+    outcome, _, _ = _parallel_run_confirming(tmp_path, monkeypatch, orchestrator=fork, worker_confirmation=confirmed)
+
+    assert outcome.survivors == []
+    assert outcome.counts == {"killed": 1, "timeout": 0, "survived": 0}
+    assert (outcome.confirmation_runs, outcome.confirmation_kills) == (1, 1)
+    assert fork.calls == []
+
+
+@pytest.mark.unit
+def test_parallel_workers_run_the_executor_a_caller_supplied_and_never_the_orchestrators(tmp_path, monkeypatch):
+    seam = _FakeExecutor()
+
+    _, requests, _ = _parallel_run_confirming(
+        tmp_path, monkeypatch, orchestrator=_ForkServerFake(file_mode="swap"), worker_executor=seam
+    )
+
+    assert requests[0].executor is seam
+
+
+@pytest.mark.unit
+def test_parallel_workers_get_no_executor_unless_a_caller_supplied_one(tmp_path, monkeypatch):
+    _, requests, _ = _parallel_run_confirming(tmp_path, monkeypatch, orchestrator=_ForkServerFake(file_mode="swap"))
+
+    assert requests[0].executor is None

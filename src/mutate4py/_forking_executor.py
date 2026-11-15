@@ -1,5 +1,5 @@
-"""Forking executor, primed inside a Worker server: the fork server a serial
-run starts over the project tree, or one Worker of a parallel run. The
+"""Forking executor, primed inside a Worker server: the fork server the
+orchestrator starts over the project tree, or one Worker of a parallel run. The
 orchestrator never primes one itself (`_executor_selection.select_executor`).
 
 A parent process primes pytest/plugins/framework setup once (running a
@@ -50,6 +50,7 @@ from mutate4py._bytecode_cache import invalidate_bytecode_cache
 from mutate4py._cmd import classify_exit_code
 from mutate4py._executor import ExecutorDescription
 from mutate4py._plugin_neutralisation import neutralising_args
+from mutate4py._subprocess_executor import SubprocessExecutor
 from mutate4py._fork_child import SwapSource, child_mode, read_report, report_mode, reported_mode, swap_side
 
 __all__ = [
@@ -177,6 +178,9 @@ class ForkingExecutor:
             fresh_interpreter=self._counts["fresh interpreter"],
             file_mode=self._mode or "",
         )
+
+    def fresh_interpreter(self) -> SubprocessExecutor:
+        return SubprocessExecutor(self._cwd, self._guarded_path)
 
     def prime(self) -> None:
         try:

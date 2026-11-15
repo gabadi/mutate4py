@@ -30,6 +30,9 @@ class SubprocessExecutor:
     def describe(self) -> ExecutorDescription:
         return ExecutorDescription(mode="subprocess", reason=self._reason)
 
+    def fresh_interpreter(self) -> "SubprocessExecutor":
+        return self
+
     def run(
         self,
         args: list[str],

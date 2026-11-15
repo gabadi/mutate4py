@@ -14,22 +14,26 @@ moving it.
 import dataclasses
 import logging
 import os
-from collections.abc import Callable
+import time
+from collections.abc import Callable, Mapping
 
-from mutate4py._discovery import Site
-from mutate4py._executor import Executor
+from mutate4py._discovery import Site, apply_mutant
+from mutate4py._executor import Executor, MutantTiming
 from mutate4py._pytest_argv import POSITIONAL, token_roles
 
 __all__ = [
     "NO_TESTS_HINT",
     "ControlRuns",
+    "ConfirmationResult",
     "ControlTarget",
     "MutantPlan",
     "NoTestsCollectedError",
     "PlanInputs",
+    "SurvivorConfirmation",
     "TimeoutPolicy",
     "_log_dispatch_abort",
     "confirm_plan",
+    "confirm_survivors",
     "plan_mutant",
     "plan_sites",
 ]
@@ -263,6 +267,57 @@ def confirm_plan(pytest_args: list[str], timeout_policy: TimeoutPolicy) -> Mutan
     full set. Confirmation is never narrowed, so its selection tally is None.
     """
     return MutantPlan(list(pytest_args), timeout_policy.timeout_for(None), None)
+
+
+@dataclasses.dataclass(frozen=True)
+class SurvivorConfirmation:
+    """How a Survivor is confirmed: the full-set plan to run, and the equivalent-marker lines never re-run."""
+
+    plan: MutantPlan
+    markers: Mapping[int, str]
+
+
+@dataclasses.dataclass(frozen=True)
+class ConfirmationResult:
+    """What confirming a list of Survivors gave: those still surviving, the runs made and the kills among them."""
+
+    still: list[Site]
+    runs: int
+    kills: int
+
+
+def confirm_survivors(
+    survivors: list[Site], target: ControlTarget, confirmation: SurvivorConfirmation, timing: MutantTiming
+) -> ConfirmationResult:
+    """Re-run each Survivor with the full test set through `target`; the result holds those still surviving.
+
+    A Survivor ran with only the tests that cover its line, which can miss a test
+    that reads state a covering test left behind (a memoised body), so it counts
+    only once the full set lets it through. A Survivor on an equivalent-marker line
+    is accepted by design and is not re-run. The Mutant is spliced into target.path
+    as the serial loop splices it. A kill or a timeout under the full set both
+    fold into killed (ADR 0011).
+    """
+    controls = ControlRuns()
+    still: list[Site] = []
+    runs = kills = 0
+    for site in survivors:
+        if site.line in confirmation.markers:
+            still.append(site)
+            continue
+        with open(target.path, "w") as f:
+            f.write(apply_mutant(target.clean_source, site))
+        started = time.monotonic()
+        status = target.executor.run(confirmation.plan.args, confirmation.plan.timeout)
+        elapsed = time.monotonic() - started
+        status = controls.settle(status, confirmation.plan, site, target)
+        runs += 1
+        timing.record_confirmation(status, elapsed)
+        if status in ("killed", "timeout"):
+            kills += 1
+        else:
+            still.append(site)
+    return ConfirmationResult(still, runs, kills)
 
 
 def plan_sites(sites: list[Site], inputs: PlanInputs) -> list[MutantPlan]:

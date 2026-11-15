@@ -194,8 +194,8 @@ outcomes.
 
 **Survivor confirmation.** A narrowed run can miss a killing test that matters only
 through state it reads. So before a Survivor is reported, it is re-run with the full test
-set, in a fresh interpreter through the subprocess executor. It counts only if it survives
-that run too; a kill, or a timeout, folds into killed (ADR 0011). Accepted equivalents are
+set: on the fork server when the guarded file is fresh imported, else in a fresh
+interpreter. It counts only if it survives that run too; a kill, or a timeout, folds into killed (ADR 0011). Accepted equivalents are
 not confirmed. The `Time:` line shows the cost as
 `confirmation <s> (<n> run, <k> kills)`. See ADR 0018 (amendment #97) and
 [ADR 0028](docs/adr/0028-fork-server-harness-mode-and-swap-mode.md).
@@ -298,7 +298,7 @@ orchestrator's state never reaches a Mutant. Each child runs its Mutant one of t
 The **subprocess executor** runs one fresh `pytest` process per Mutant. `--no-fork` forces
 it. It is also the whole-run fallback wherever forking is impossible or unsafe (no
 `os.fork`, pytest not importable, a fork-unsafe plugin such as tach), and it runs every
-Survivor confirmation. The `Executor:` line in the report says which ran, and how many
+Survivor confirmation of a swap or harness file. The `Executor:` line in the report says which ran, and how many
 Mutants ran each way. See [ADR 0028](docs/adr/0028-fork-server-harness-mode-and-swap-mode.md).
 
 ## Django projects

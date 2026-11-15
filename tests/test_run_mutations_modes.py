@@ -218,6 +218,32 @@ def test_parallel_path_report_present(parallel_three_site_run):
 
 
 @pytest.mark.system
+def test_parallel_path_confirms_each_survivor_once(parallel_three_site_run):
+    """Three Survivors, each re-run once with the full set, whichever process confirms them."""
+    _, output, _, _ = parallel_three_site_run
+    assert "(3 run, 0 kills)" in output
+
+
+@pytest.mark.system
+def test_parallel_path_confirms_each_survivor_in_its_workers_clone_when_the_file_is_not_fresh_imported(
+    tmp_path, monkeypatch
+):
+    import mutate4py._execution as execution_mod
+
+    _stub_provision_with_interpreter(monkeypatch)
+    monkeypatch.setattr(execution_mod, "_on_fork_server", lambda executor: False)
+    src = _make_multi_site_source(3)
+    src_path = str(tmp_path / "calc.py")
+    with open(src_path, "w") as f:
+        f.write(src)
+
+    rc, output = _run_with_capture(tmp_path, src_path, src, max_workers=3)
+
+    assert rc == 3
+    assert "(3 run, 0 kills)" in output
+
+
+@pytest.mark.system
 def test_parallel_path_target_outside_cwd_error(tmp_path, monkeypatch):
     """Target file outside cwd -> error, no worker root created."""
     import tempfile
