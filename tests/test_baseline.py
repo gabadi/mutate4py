@@ -1,4 +1,4 @@
-"""Run-level component tests for how the Measurement's Baseline and per-Mutant
+"""Run-level system tests for how the Measurement's Baseline and per-Mutant
 overhead surface in a run's Mutation Report (issue 06), and for a run whose
 Measurement fails. The Measurement's own indexing and exit-status rules are
 pinned in test_measurement_index.py; the no-flag Coverage gate in
@@ -45,7 +45,7 @@ def _request(tmp_path, src_path, pytest_args, measurement=None) -> RunMutationsR
     )
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_mutations_reports_per_mutant_overhead(tmp_path, caplog):
     """A run given no injected Measurement runs one itself, and its Mutation
     Report carries the fixed per-Mutant overhead the Measurement measured:
@@ -63,7 +63,7 @@ def test_run_mutations_reports_per_mutant_overhead(tmp_path, caplog):
     assert match, f"no 'Per-Mutant overhead:' line found in:\n{output}"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_mutations_omits_overhead_when_the_measurement_is_injected(tmp_path, caplog):
     """An injected Measurement was taken by the caller, who owns the overhead
     line; the run must not claim an overhead it did not measure."""
@@ -78,7 +78,7 @@ def test_run_mutations_omits_overhead_when_the_measurement_is_injected(tmp_path,
     assert "Per-Mutant overhead:" not in caplog.text
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_mutations_measurement_failure_exits_1(tmp_path, caplog):
     """A suite that fails under the Measurement gives the run no Baseline, so
     it stops before any Mutant and names the Measurement as the cause."""

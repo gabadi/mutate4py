@@ -26,6 +26,7 @@ from acceptance.steps.run_loop_helpers import (
     function_names,
     outcome_test_body,
 )
+from acceptance.steps.nested_pytest_helpers import nested_pytest_env
 from acceptance.steps.step_lib import make_registry
 from mutate4py._manifest import strip_manifest
 
@@ -58,6 +59,8 @@ class Context:
         # Set for the project-venv src-layout scenario: the orchestrator runs under the
         # project's own .venv, where the original src is an editable install (ADR 0015).
         self.orchestrator_python: str | None = None
+        # True only for the scenario that keeps pytest plugin autoload on (see _setup_src_layout).
+        self.autoload: bool = False
 
 
 ctx = Context()
@@ -80,6 +83,7 @@ def _reset_ctx():
     ctx.runs = []
     ctx.orchestrator_pythonpath = None
     ctx.orchestrator_python = None
+    ctx.autoload = False
 
 
 def _write_test(path: str, body: str) -> None:
@@ -94,7 +98,11 @@ def _tests_dir(d: str) -> str:
 
 
 def _make_project_dir() -> str:
-    """Create a temp project dir with the minimal uv project structure."""
+    """Create a temp project dir with the minimal uv project structure.
+
+    The dev group names pytest-cov because the run's nested pytest loads it explicitly
+    (autoload is off, nested_pytest_helpers.py) and mutate4py passes `--no-cov` to a pytest
+    that has it: the Worker venvs must have the plugin the orchestrator names."""
     d = tempfile.mkdtemp()
     pyproject = textwrap.dedent("""\
         [project]
@@ -104,7 +112,7 @@ def _make_project_dir() -> str:
         dependencies = []
 
         [dependency-groups]
-        dev = ["pytest==9.1.1"]
+        dev = ["pytest==9.1.1", "pytest-cov==7.1.0"]
     """)
     with open(os.path.join(d, "pyproject.toml"), "w") as f:
         f.write(pyproject)
@@ -380,6 +388,11 @@ def given_src_layout_with_cov(m, params):
 @step(r"the project is a src-layout editable package with pytest but without pytest-cov")
 def given_src_layout_without_cov(m, params):
     _setup_src_layout(with_cov=False)
+    # parallel-workers-15 is the ONE scenario that keeps pytest plugin autoload on (every other
+    # acceptance run turns it off, nested_pytest_helpers.py). Its Worker venv has no pytest-cov while
+    # the orchestrator has it, which one explicit `-p pytest_cov` cannot express, and autoload is the
+    # default path a user's run takes.
+    ctx.autoload = True
 
 
 @step(r'"([^"]*)" occurs during the parallel run')
@@ -397,7 +410,7 @@ def given_failure_scenario(m, params):
 
 
 def _run_mutate4py(extra: list[str]) -> subprocess.CompletedProcess:
-    env = dict(os.environ)
+    env = nested_pytest_env(autoload=ctx.autoload)
     if ctx.orchestrator_python:
         # REPO_ROOT/src lies outside the project, so the Worker rebase leaves it alone.
         env["PYTHONPATH"] = os.path.join(REPO_ROOT, "src")
@@ -484,24 +497,29 @@ def then_serial_counts_match(m, params):
 def then_takes_path(m, params):
     path = params.get("path") or m.group(1)
     stdout = ctx.cli_result.stdout
+    progress = [ln for ln in stdout.splitlines() if ln.startswith("[")]
+    assert progress, f"No per-mutant progress lines. stdout:\n{stdout}"
+    # The worker-<k> token tracks the path: on every per-mutant line when parallel, on none when serial.
     if path == "serial":
-        for line in stdout.splitlines():
-            if line.startswith("["):
-                assert "worker-" not in line, f"Expected serial path but got worker token: {line}"
+        for line in progress:
+            assert "worker-" not in line, f"Expected serial path but got worker token: {line}"
     elif path == "parallel":
-        progress = [ln for ln in stdout.splitlines() if ln.startswith("[")]
-        assert progress, f"No progress lines; parallel path expected. stdout:\n{stdout}"
-        assert any("worker-" in ln for ln in progress), f"Expected worker-k token in progress lines. stdout:\n{stdout}"
+        for line in progress:
+            assert "worker-" in line, f"Expected worker-k token in: {line}"
     else:
         raise AssertionError(f"Unknown path value: {path!r}; expected 'serial' or 'parallel'")
 
 
-@step(r'the output line "Mutation workers: (\d+)" is printed')
-def then_workers_line(m, params):
-    shown = params.get("shown") or m.group(1)
-    expected = f"Mutation workers: {shown}"
-    stdout = ctx.cli_result.stdout
-    assert expected in stdout, f"Expected '{expected}' in stdout:\n{stdout}"
+@step(r'the workers header is "([^"]*)"')
+def then_workers_header(m, params):
+    header = params.get("header") or m.group(1)
+    lines = ctx.cli_result.stdout.splitlines()
+    shown = [ln for ln in lines if ln.startswith("Mutation workers:")]
+    # The line tracks the flag, not the path: it is absent only when --max-workers is unset.
+    if header == "(none)":
+        assert not shown, f"Did not expect a 'Mutation workers:' line in:\n{ctx.cli_result.stdout}"
+    else:
+        assert shown == [header], f"Expected the single header line {header!r}, got {shown} in:\n{ctx.cli_result.stdout}"
 
 
 @step(r'the output line "Total mutation sites: (\d+)" is printed')
@@ -510,34 +528,6 @@ def then_total_sites_line(m, params):
     expected = f"Total mutation sites: {total}"
     stdout = ctx.cli_result.stdout
     assert expected in stdout, f"Expected '{expected}' in stdout:\n{stdout}"
-
-
-@step(r'a "Mutation workers:" line "([^"]*)" printed')
-def then_workers_header_visibility(m, params):
-    vis = params.get("visibility") or m.group(1)
-    stdout = ctx.cli_result.stdout
-    if vis == "is":
-        assert "Mutation workers:" in stdout, f"Expected 'Mutation workers:' in:\n{stdout}"
-    elif vis == "is not":
-        assert "Mutation workers:" not in stdout, f"Did not expect 'Mutation workers:' in:\n{stdout}"
-    else:
-        raise AssertionError(f"Unknown visibility value: {vis!r}; expected 'is' or 'is not'")
-
-
-@step(r'a "worker-" token "([^"]*)" present in every per-mutant progress line')
-def then_worker_token_visibility(m, params):
-    vis = params.get("visibility") or m.group(1)
-    stdout = ctx.cli_result.stdout
-    progress = [ln for ln in stdout.splitlines() if ln.startswith("[")]
-    assert progress, f"No progress lines in stdout:\n{stdout}"
-    if vis == "is":
-        for line in progress:
-            assert "worker-" in line, f"Expected worker-k token in: {line}"
-    elif vis == "is not":
-        for line in progress:
-            assert "worker-" not in line, f"Did not expect worker-k token in: {line}"
-    else:
-        raise AssertionError(f"Unknown visibility value: {vis!r}; expected 'is' or 'is not'")
 
 
 @step(r'the output line "\[2/4\] worker-3 killed line 7 a > b -> a >= b: func/calc" is printed')

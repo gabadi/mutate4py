@@ -37,21 +37,21 @@ def test_describe_renders_the_subprocess_executor_with_its_reason(tmp_path):
     assert executor.describe().render() == "subprocess (--no-fork)"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_survives_when_tests_pass(tmp_path):
     cwd = _write_project(tmp_path, target_body="def add(a, b):\n    return a + b\n", test_body=_ADD_TEST_BODY)
     executor = _executor(cwd)
     assert executor.run(["-q", "tests"], timeout=30.0) == "survived"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_killed_when_tests_fail(tmp_path):
     cwd = _write_project(tmp_path, target_body="def add(a, b):\n    return a - b\n", test_body=_ADD_TEST_BODY)
     executor = _executor(cwd)
     assert executor.run(["-q", "tests"], timeout=30.0) == "killed"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_reports_no_tests_collected_when_filter_deselects_everything(tmp_path):
     """A -k filter matching nothing is pytest exit 5 ("no tests were
     collected") — must not be scored killed (issue #55)."""
@@ -60,7 +60,7 @@ def test_run_reports_no_tests_collected_when_filter_deselects_everything(tmp_pat
     assert executor.run(["-q", "tests", "-k", "no_such_test_name"], timeout=30.0) == "no-tests-collected"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_reports_usage_error_for_a_stale_node_id(tmp_path):
     """A stale/renamed node ID (e.g. from a stale test-context db) is pytest
     exit 4 ("not found: ... no tests ran"), not exit 5 — must not be scored
@@ -71,7 +71,7 @@ def test_run_reports_usage_error_for_a_stale_node_id(tmp_path):
     assert status == "usage-error"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_reports_timeout(tmp_path):
     cwd = _write_project(
         tmp_path,
@@ -109,7 +109,7 @@ def test_run_invokes_sys_executable_module_pytest(tmp_path, monkeypatch):
     assert captured_argv["env"]["MUTATE4PY_ENV_PROBE"] == "kept"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_does_not_leak_child_output(tmp_path, capsys):
     cwd = _write_project(
         tmp_path,
@@ -125,7 +125,7 @@ def test_run_does_not_leak_child_output(tmp_path, capsys):
     assert "SHOULD_NOT_APPEAR" not in captured.err
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_writes_no_bytecode(tmp_path, monkeypatch):
     """The child must not write .pyc: the next mutant can load a stale one and falsely survive (issue #81)."""
     monkeypatch.delenv("PYTHONDONTWRITEBYTECODE", raising=False)
@@ -135,7 +135,7 @@ def test_run_writes_no_bytecode(tmp_path, monkeypatch):
     assert not list(Path(cwd).rglob("*.pyc"))
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_does_not_load_a_stale_pyc_for_a_same_size_same_mtime_mutant(tmp_path):
     """A pyc compiled from the original source is still in __pycache__ when the
     mutant has the same size and mtime, so a child would load the original and

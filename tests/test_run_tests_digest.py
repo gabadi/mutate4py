@@ -86,27 +86,23 @@ def _forget_digests(src_path: str, *, manifest_file: bool) -> None:
         f.write("".join(lines))
 
 
-@pytest.mark.component
+@pytest.mark.system
 @pytest.mark.parametrize("manifest_file", [False, True], ids=["footer", "sidecar"])
-def test_a_scored_run_records_the_tests_digest_of_each_scored_function(tmp_path, manifest_file):
+def test_a_scored_run_records_the_tests_digest_and_an_unchanged_function_without_one_gains_it_on_rerun(
+    tmp_path, manifest_file
+):
+    """One scored run records the function's tests digest (#105). Its Manifest is then stored as
+    a 0.2.x run left it, and the rerun, which does not rescore the unchanged function, gives it one."""
     src_path = _write_project(tmp_path)
-    executor = FakeExecutor("killed")
+    first_executor = FakeExecutor("killed")
 
-    rc = _run(src_path, executor, manifest_file=manifest_file)
+    rc = _run(src_path, first_executor, manifest_file=manifest_file)
 
     assert rc == 0
-    assert executor.calls, "the function must be scored in this run"
-    (fn,) = _manifest_of(src_path, manifest_file=manifest_file)["functions"]
-    assert fn["id"] == "func/f"
-    assert isinstance(fn["tests_digest"], str) and fn["tests_digest"]
-
-
-@pytest.mark.component
-@pytest.mark.parametrize("manifest_file", [False, True], ids=["footer", "sidecar"])
-def test_an_unchanged_function_without_a_digest_gains_one_on_a_run_that_does_not_rescore_it(tmp_path, manifest_file):
-    src_path = _write_project(tmp_path)
-    _run(src_path, FakeExecutor("killed"), manifest_file=manifest_file)
+    assert first_executor.calls, "the function must be scored in this run"
     (first,) = _manifest_of(src_path, manifest_file=manifest_file)["functions"]
+    assert first["id"] == "func/f"
+    assert isinstance(first["tests_digest"], str) and first["tests_digest"]
     _forget_digests(src_path, manifest_file=manifest_file)
     executor = FakeExecutor("killed")
 
@@ -158,7 +154,7 @@ def _write_project_with_helpers(tmp_path) -> str:
     return src_path
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_an_acceptance_helper_or_a_file_outside_the_test_roots_never_changes_the_digest(tmp_path):
     src_path = _write_project_with_helpers(tmp_path)
     _run(src_path, FakeExecutor("killed"), manifest_file=False)
@@ -181,7 +177,7 @@ def test_an_acceptance_helper_or_a_file_outside_the_test_roots_never_changes_the
     assert second["tests_digest"] == first["tests_digest"]
 
 
-@pytest.mark.component
+@pytest.mark.system
 @pytest.mark.parametrize(
     ("relpath", "text"),
     [
@@ -237,7 +233,7 @@ def _rescored_ids(caplog) -> set[str]:
     return {m.group(1) for m in (_PROGRESS_FID.match(line) for line in lines) if m}
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_an_edit_to_a_test_that_reaches_a_function_re_scores_only_that_function(tmp_path, caplog):
     caplog.set_level(logging.INFO)
     src_path = _write_two_function_project(tmp_path)
@@ -255,7 +251,7 @@ def test_an_edit_to_a_test_that_reaches_a_function_re_scores_only_that_function(
     assert second["func/g"] == first["func/g"]
 
 
-@pytest.mark.component
+@pytest.mark.system
 @pytest.mark.parametrize(
     ("relpath", "text"),
     [
@@ -281,7 +277,7 @@ def test_an_edit_under_the_test_roots_re_scores_the_function_it_reaches(tmp_path
     assert _digests(src_path)["func/f"] != first["func/f"]
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_a_file_outside_the_test_roots_re_scores_nothing_once_a_digest_is_stored(tmp_path, caplog):
     caplog.set_level(logging.INFO)
     src_path = _write_project_with_helpers(tmp_path)
@@ -303,7 +299,7 @@ def test_a_file_outside_the_test_roots_re_scores_nothing_once_a_digest_is_stored
     assert _digests(src_path) == first
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_an_unrelated_test_edit_re_scores_nothing(tmp_path, caplog):
     caplog.set_level(logging.INFO)
     src_path = _write_two_function_project(tmp_path)
@@ -320,7 +316,7 @@ def test_an_unrelated_test_edit_re_scores_nothing(tmp_path, caplog):
     assert _digests(src_path) == first
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_an_edit_to_a_test_file_whose_tests_are_all_deselected_re_scores_nothing(tmp_path, caplog):
     """A deselected test module is imported to collect it, but it is a test file, not a helper (#110)."""
     caplog.set_level(logging.INFO)
@@ -340,7 +336,7 @@ def test_an_edit_to_a_test_file_whose_tests_are_all_deselected_re_scores_nothing
     assert _digests(src_path) == first
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_a_definition_line_only_reach_change_re_scores_nothing(tmp_path, caplog):
     caplog.set_level(logging.INFO)
     src_path = _write_two_function_project(tmp_path)
@@ -357,7 +353,7 @@ def test_a_definition_line_only_reach_change_re_scores_nothing(tmp_path, caplog)
     assert _digests(src_path) == first
 
 
-@pytest.mark.component
+@pytest.mark.system
 @pytest.mark.parametrize("manifest_file", [False, True], ids=["footer", "sidecar"])
 def test_a_0_2_x_entry_with_survivors_is_re_scored_once_then_skipped(tmp_path, manifest_file):
     src_path = _write_project(tmp_path)
@@ -375,7 +371,7 @@ def test_a_0_2_x_entry_with_survivors_is_re_scored_once_then_skipped(tmp_path, m
     assert skipped.calls == [], "once it has a digest, an unchanged function with survivors is skipped"
 
 
-@pytest.mark.component
+@pytest.mark.system
 @pytest.mark.parametrize(
     ("allow_survivors", "rc"),
     [(False, 3), (True, 0)],

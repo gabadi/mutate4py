@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "tested_at": "2026-11-15T05:21:01Z",
+  "tested_at": "2026-11-15T11:46:10Z",
   "module_hash": "5abdaab8f3cc9e9b10d54b59dd8251bf949326dc4938e46f9e918a5dcf15a2d2",
   "source_sha256": "ade276179d92c1e770cd58869e373c8fd90d7c1b926ceadcc995c8e0a92dcfd8",
   "functions": [
@@ -17,7 +17,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/ForkUnsafePlugin.__init__",
@@ -32,7 +32,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/ForkUnsafePlugin.reason",
@@ -47,7 +47,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/refuse_fork_unsafe_plugins",
@@ -62,7 +62,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "d7766c7b30338c5affca8cc0a07dac8039e7bae1633f24bd0e410ddbd5d1bc24"
+      "tests_digest": "6a6338494daabf02dcdb285d0e2b8162def87870add171c2316b4f9ff3c8e886"
     },
     {
       "id": "func/is_available",
@@ -77,7 +77,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/loaded_files",
@@ -92,7 +92,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/file_mode",
@@ -107,7 +107,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "d7766c7b30338c5affca8cc0a07dac8039e7bae1633f24bd0e410ddbd5d1bc24"
+      "tests_digest": "6a6338494daabf02dcdb285d0e2b8162def87870add171c2316b4f9ff3c8e886"
     },
     {
       "id": "func/_PluginRecorder.__init__",
@@ -122,7 +122,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/_PluginRecorder.pytest_configure",
@@ -137,7 +137,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/ForkingExecutor.__init__",
@@ -152,7 +152,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "6b69914a1bb6fddaf513780a8f65fa24333cc2ae4d220bbd87b00d36c8517664"
+      "tests_digest": "b52a138846da1a6005c4c3f7668f46c52f1aff004c26b8ac6ea4daecae656e25"
     },
     {
       "id": "func/ForkingExecutor.describe",
@@ -167,7 +167,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/ForkingExecutor.prime",
@@ -182,7 +182,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/ForkingExecutor._fork_and_wait",
@@ -197,7 +197,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/ForkingExecutor.run",
@@ -212,7 +212,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "d7766c7b30338c5affca8cc0a07dac8039e7bae1633f24bd0e410ddbd5d1bc24"
+      "tests_digest": "6a6338494daabf02dcdb285d0e2b8162def87870add171c2316b4f9ff3c8e886"
     },
     {
       "id": "func/ForkingExecutor._child",
@@ -227,7 +227,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/ForkingExecutor._exec_fresh_interpreter",
@@ -242,7 +242,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/ForkingExecutor._run_child",
@@ -257,7 +257,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/fresh_interpreter_argv",
@@ -272,7 +272,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/fresh_interpreter_env",
@@ -287,7 +287,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/_silence_std_fds",
@@ -302,7 +302,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "a0bb1b01d181854df16f448da207d41243247508a149327c3170983f692ceea3"
+      "tests_digest": "13860b57c2531a3499aaffba5cb2139f4e51cb427a4fca56092b23652b71986a"
     },
     {
       "id": "func/_run_pytest_output_suppressed",
@@ -317,7 +317,7 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "d7766c7b30338c5affca8cc0a07dac8039e7bae1633f24bd0e410ddbd5d1bc24"
+      "tests_digest": "6a6338494daabf02dcdb285d0e2b8162def87870add171c2316b4f9ff3c8e886"
     },
     {
       "id": "func/_wait_for_child",
@@ -332,8 +332,8 @@
       },
       "survivors": [],
       "accepted": [],
-      "tests_digest": "d7766c7b30338c5affca8cc0a07dac8039e7bae1633f24bd0e410ddbd5d1bc24"
+      "tests_digest": "6a6338494daabf02dcdb285d0e2b8162def87870add171c2316b4f9ff3c8e886"
     }
   ],
-  "tests_fingerprint": "665b6af13267728dacb56d945eac20413666de6b51293ff1f9e8093d41ba0d4d"
+  "tests_fingerprint": "af64abda1fbfd47dd58bd7d2999f8924072729b045afbc1eab051062434d2228"
 }

@@ -119,7 +119,7 @@ def sandbox(tmp_path):
     return Sandbox(root=tmp_path, home=home, calls=tmp_path / "calls.log")
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_fetches_the_pinned_drywall_asset_for_this_platform(sandbox):
     result = sandbox.install(os_name="Darwin", arch="arm64")
 
@@ -129,7 +129,7 @@ def test_fetches_the_pinned_drywall_asset_for_this_platform(sandbox):
     assert os.access(sandbox.bin / "drywall", os.X_OK)
 
 
-@pytest.mark.integration
+@pytest.mark.system
 @pytest.mark.parametrize(
     ("os_name", "arch", "asset"),
     [
@@ -145,7 +145,7 @@ def test_fetches_the_pinned_drywall_asset_on_other_platforms(sandbox, os_name, a
     assert any(line.startswith("curl ") and url in line for line in sandbox.call_lines())
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_refuses_a_platform_without_a_pinned_drywall_asset(sandbox):
     result = sandbox.install(os_name="Linux", arch="aarch64")
 
@@ -154,7 +154,7 @@ def test_refuses_a_platform_without_a_pinned_drywall_asset(sandbox):
     assert not any(line.startswith("curl ") for line in sandbox.call_lines())
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_builds_gherkin_parser_from_the_pinned_commit(sandbox):
     result = sandbox.install()
 
@@ -167,7 +167,7 @@ def test_builds_gherkin_parser_from_the_pinned_commit(sandbox):
     assert f"vcs.revision={commit}" in (sandbox.bin / "gherkin-parser").read_text()
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_second_run_downloads_and_builds_nothing(sandbox):
     first = sandbox.install()
     assert first.returncode == 0, first.stdout + first.stderr
@@ -180,7 +180,7 @@ def test_second_run_downloads_and_builds_nothing(sandbox):
     assert not any(line.startswith(("curl ", "git ", "go build")) for line in new_calls)
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_warns_when_the_bin_directory_is_not_on_path(sandbox):
     result = sandbox.install()
 

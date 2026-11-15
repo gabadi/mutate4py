@@ -167,17 +167,12 @@ Feature: The mutation run loop and report
     When I run mutate4py mutating that file
     Then the output line "[1/1] killed line 7 a > b -> a >= b: func/calc" is printed
 
-  # run-loop-4: the mutant timeout is timeout-factor times the baseline, floored at 1s
-  Scenario Outline: the mutant timeout is derived from the baseline duration
-    Given the baseline takes "<baseline>" to pass
-    And the timeout factor is "<factor>"
-    When I run mutate4py mutating that file
-    Then the mutant timeout is "<timeout>"
-
-    Examples:
-      | baseline | factor | timeout |
-      | 2s       | 10     | 20s     |
-      | 10ms     | 10     | 1s      |
+  # run-loop-4 (removed, #125): the Mutant timeout is not printed, so no scenario can observe
+  # it. The derivation, max(--min-timeout, factor x the Mutant's tests' budget) + the
+  # Per-Mutant overhead, with defaults factor 10 and --min-timeout 5, is pinned by unit tests:
+  # tests/test_test_dispatch.py (formula), tests/test_measurement_index.py (budget, overhead),
+  # tests/test_runner_measurement.py (the policy built from the run), tests/test_main_cli_flags.py
+  # (the flag defaults). The timeout classification is run-loop-1 (exceed timeout).
 
   # run-loop-5: a failing baseline aborts the run before any mutant
   Scenario: a failing baseline aborts with no mutant applied and no backup

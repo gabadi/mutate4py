@@ -106,22 +106,14 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
   Background:
     Given an existing Python source file with discovered mutation sites
 
-  # cli-surface-1: every flag in the matrix parses to its option with the documented default
-  Scenario Outline: the full flag matrix parses and applies its default
-    When I run mutate4py with the flag "<flag>"
-    Then the option "<option>" is set to "<value>"
-    And the invocation is accepted
-
-    Examples:
-      | flag                    | option           | value     |
-      | --mutation-warning 25   | mutation-warning | 25        |
-      | --timeout-factor 4      | timeout-factor   | 4         |
-      | --pytest-args "-x -k foo" | pytest-args   | -x -k foo |
-      | --max-workers 4         | max-workers      | 4         |
-      | (none)                  | mutation-warning | 50        |
-      | (none)                  | timeout-factor   | 10        |
-      | (none)                  | pytest-args      | (none)    |
-      | (none)                  | max-workers      | serial    |
+  # cli-surface-1 (removed, #125): its rows only checked that a flag was accepted, which
+  # no scenario can fail on. Parsing and defaults are pinned in-process by
+  # tests/test_main_cli_flags.py (--mutation-warning, --timeout-factor and --min-timeout,
+  # --pytest-args, --max-workers) and the flags' reach into the run by
+  # tests/test_dispatch.py::test_run_on_file_wires_args_into_run_mutations. The effects
+  # acceptance can see are asserted where they happen: run-loop-9 (--mutation-warning),
+  # site-discovery-5 (--mutation-warning on --scan), parallel-workers-1 and cli-surface-10
+  # (--max-workers), test-selection (--pytest-args verbatim).
 
   # cli-surface-2: positive-int flags reject non-integer and non-positive values
   Scenario Outline: a numeric flag rejects values that are not positive integers
@@ -257,11 +249,11 @@ Feature: The CLI surface parses, validates, and dispatches the flag matrix
       | --update-manifest | manifest write  |
       | (a scored run) | run loop        |
 
-  # cli-surface-10: the accepted --max-workers count is passed through to the dispatcher
-  Scenario: an accepted --max-workers count reaches the run dispatcher
+  # cli-surface-10: the accepted --max-workers count reaches the run, which reports it
+  Scenario: an accepted --max-workers count is reported by the run
     When I run mutate4py with the accepted flags "--max-workers 4 (a scored run)"
     Then the run is dispatched to the "run loop" behaviour
-    And the dispatcher receives a worker count of "4"
+    And the run reports a worker count of "4"
 
   # cli-surface-11: an --exclude match is dropped from the directory walk entirely
   Scenario: an excluded file takes no part in a directory-mode run

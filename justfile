@@ -87,13 +87,13 @@ install-tools:
 # Verbose gate output. Truncated at the start of every `just check`; gitignored.
 LOG := "check.log"
 
-# Test selection for `mutate`'s scored runs (#98): unit tests only. `integration`
-# tests are coverage-blind and `component` tests are excluded too, so a Mutant
-# that only a component test kills is scored a Survivor; the fix is a unit test
-# that kills it (ADR 0023). `-p no:tach` skips tach's pytest plugin, which re-runs its
-# impact analysis uncached on every subprocess spawn (~1-1.3s per Mutant, issue
-# #26); `tach check` already covers it in the `lint` gate.
-MUTATE_PYTEST_ARGS := "-p no:tach -m 'not integration and not component'"
+# Test selection for `mutate`'s scored runs (#98): unit tests only. `system`
+# tests are coverage-blind and excluded too, so a Mutant that only a system
+# test kills is scored a Survivor; the fix is a unit test that kills it (ADR
+# 0023). `-p no:tach` skips tach's pytest plugin, which re-runs its impact
+# analysis uncached on every subprocess spawn (~1-1.3s per Mutant, issue #26);
+# `tach check` already covers it in the `lint` gate.
+MUTATE_PYTEST_ARGS := "-p no:tach -m unit"
 
 # No argument runs everything CI runs, in CI's order. Naming gates runs
 # exactly those, in the order given: `just check lint test`.
@@ -106,7 +106,7 @@ MUTATE_PYTEST_ARGS := "-p no:tach -m 'not integration and not component'"
 check *gates:
     #!/usr/bin/env bash
     set -euo pipefail
-    all=(lint format-check test-unit test-component test-integration crap dry manifest acceptance)
+    all=(lint format-check test-unit test-system crap dry manifest acceptance)
     extra=(gherkin-mutation mutate-sample)
     known=("${all[@]}" "${extra[@]}")
     selected=({{gates}})
@@ -123,8 +123,8 @@ check *gates:
         fi
     done
     # `test-unit` writes both lcov.info and .coverage, and --no-deps means
-    # nothing here will produce either on its own. `test-integration` is
-    # coverage-blind, so it is never a prerequisite — see `test-unit`'s comment.
+    # nothing here will produce either on its own. `test-system` runs with
+    # --no-cov, so it is never a prerequisite — see its comment.
     # Each guard's `run:` must name the COMPLETE command.
     for needs_test in crap; do
         if [[ " ${selected[*]} " == *" ${needs_test} "* && " ${selected[*]} " != *" test-unit "* ]]; then
@@ -133,19 +133,6 @@ check *gates:
             exit 1
         fi
     done
-    # The append chain runs test-unit -> test-component -> test-integration.
-    # Only test-unit starts the data file; either later gate on its own would
-    # append to whatever stale data happened to be on disk.
-    if [[ " ${selected[*]} " == *" test-component "* && " ${selected[*]} " != *" test-unit "* ]]; then
-        echo "  ✗ test-component appends to test-unit's coverage; run both" >&2
-        echo "    run:  just check test-unit test-component" >&2
-        exit 1
-    fi
-    if [[ " ${selected[*]} " == *" test-integration "* && ( " ${selected[*]} " != *" test-unit "* || " ${selected[*]} " != *" test-component "* ) ]]; then
-        echo "  ✗ test-integration appends to test-unit's and test-component's coverage; run all three" >&2
-        echo "    run:  just check test-unit test-component test-integration" >&2
-        exit 1
-    fi
     # A missing tool otherwise surfaces only when its gate runs, as exit 127,
     # after the gates before it have spent their minutes. Check them first.
     just --no-deps require-tools "${selected[@]}"
@@ -231,57 +218,39 @@ format-check:
 format:
     uv run ruff format src/ tests/
 
-# Three gates so a slow or flaky test shows up as itself rather than as
-# "tests took a while": `integration` tests each spawn a fresh interpreter
-# (9% of the suite, about half its wall clock); `component` tests are the
-# slowest of the remainder (real subprocess/fork execution via an Executor,
-# but in-process); `test-unit` runs the fast remainder (issue #71).
+# Two gates so a slow or flaky test shows up as itself rather than as "tests
+# took a while": `test-unit` runs the fast set (issue #71), and `test-system`
+# runs the `system` tests, which start real processes (ADR 0023).
 #
 # Coverage is measured on `test-unit` ALONE: it writes the data, emits
-# lcov.info, and applies the threshold. The other two append to .coverage
-# afterwards without touching lcov.info or any threshold, so both the coverage
-# gate and the CRAP score `crap` computes from lcov.info are unit-only.
-# Deliberate: `component` runs real subprocess/fork execution through
-# mutate4py's own Executor — integration-nature work that merely happens to
-# stay in-process and therefore coverage-visible, and visibility is an
-# implementation accident, not a reason to count it in a unit metric.
-# `test-integration` is coverage-blind outright (see its own comment).
+# lcov.info, and applies the threshold, so both the coverage gate and the CRAP
+# score `crap` computes from lcov.info are unit-only. `test-system` passes
+# --no-cov and writes no coverage data at all. Deliberate: system tests run
+# real subprocess/fork execution through mutate4py's own Executor, work the
+# Measurement cannot see, so counting it in a unit metric would mislead.
 # Reasoning and evidence: docs/adr/0023-unit-component-integration-test-split.md.
 #
-# .coverage still accumulates all three, because --cov-context=test records
-# which test covers which line. Nothing in `check` reads those contexts since
-# `context-deselection` and the test-context db went (#98), so the flag is a
-# candidate for removal in a follow-up. `mutate` scores with unit tests only
-# (MUTATE_PYTEST_ARGS), so moving a test to `component` costs it its place in
-# the fast gate, the coverage metric and `mutate`'s scoring alike.
+# .coverage holds plain line data, with no per-test contexts: nothing in `check`
+# reads them since `context-deselection` and the test-context db went (#98), so
+# `--cov-context=test` is gone. `-p no:tach` skips tach's pytest plugin here as
+# in MUTATE_PYTEST_ARGS; `tach check` covers it in the `lint` gate. `mutate`
+# scores with unit tests only (MUTATE_PYTEST_ARGS), so a test moved to `system`
+# loses its place in the fast gate, the coverage metric and `mutate`'s scoring
+# alike.
 [private]
 test-unit:
-    uv run pytest -m 'not integration and not component' --cov --cov-context=test \
+    uv run pytest -m unit -p no:tach --cov \
         --cov-report=lcov:lcov.info --cov-report=term-missing --cov-fail-under=90
 
-# Appends its contexts to test-unit's data. Emits no report and applies no
-# threshold: the measurement already closed (see above).
+# Real processes: a fork server, worker servers, nested pytest runs and a
+# spawned interpreter. Outside code mutation and coverage, so it runs with
+# --no-cov and no scored run's test set includes it (ADR 0023). `-p no:tach`
+# as in MUTATE_PYTEST_ARGS: the tests that need tach re-enable it themselves.
+# Runs under pytest-xdist (`-n auto`), which assumes the tests are independent
+# of one another; a failure only under xdist is a shared-state bug to fix.
 [private]
-test-component:
-    uv run pytest -m component --cov --cov-append --cov-context=test \
-        --cov-report= --cov-fail-under=0
-
-# Coverage-blind: COVERAGE_PROCESS_START is unset, so a spawned interpreter's
-# execution is invisible to the parent's .coverage. Measured — lcov.info and
-# the named-context set are identical with and without this gate (ADR 0023).
-# It still appends so that enabling subprocess coverage later lands the data
-# in the same file instead of needing this plumbing rebuilt.
-# Runs under pytest-xdist (`-n auto`): each test spawns its own interpreter and
-# shares no state with the others, so they run in parallel (about 60 s serial,
-# 31-42 s with `-n auto`, measured on #114). Under xdist pytest-cov combines the
-# workers' data into .coverage on the controller. Checked on #114: after this
-# gate appends, every unit and component context from the serial run is still
-# there (only the self-scan test, deleted on #114, is gone) and lcov.info is
-# unchanged.
-[private]
-test-integration:
-    uv run pytest -m integration -n auto --cov --cov-append --cov-context=test \
-        --cov-report= --cov-fail-under=0
+test-system:
+    uv run pytest -m system -n auto -p no:tach --no-cov
 
 # Requires lcov.info from `test-unit`.
 [private]
@@ -337,13 +306,12 @@ mutate-sample:
 # `Measurement: skipped` line, which keeps its recorded Survivors visible.
 #
 # MUTATE_PYTEST_ARGS (declared above the gates) selects unit tests only.
-# `integration` tests are coverage-blind (see `test-integration`), and
-# `component` tests are excluded too: a Mutant only a component test kills
-# scores as a Survivor; the fix is a unit test that kills it (ADR 0023). `{{args}}` can
-# override with an explicit --pytest-args, which changes this run's selection
-# scope. `-p no:tach` skips tach's pytest plugin, which re-runs its impact
-# analysis uncached on every subprocess spawn (~1-1.3s per mutant, issue #26);
-# `tach check` already covers it in the `lint` gate.
+# `system` tests are coverage-blind (see `test-system`), so a Mutant only a
+# system test kills scores as a Survivor; the fix is a unit test that kills it
+# (ADR 0023). `{{args}}` can override with an explicit --pytest-args, which
+# changes this run's selection scope. `-p no:tach` skips tach's pytest plugin,
+# which re-runs its impact analysis uncached on every subprocess spawn (~1-1.3s
+# per mutant, issue #26); `tach check` already covers it in the `lint` gate.
 mutate path *args:
     #!/usr/bin/env bash
     set -uo pipefail
@@ -390,8 +358,8 @@ mutate-scratch path *args:
 #
 # Every step below calls the gate recipe rather than restating its command,
 # so timings measure what `check` and CI actually run. Restated copies drift:
-# these three test steps once carried their own --cov flags and kept the old
-# arrangement (integration emitting lcov.info) after the recipes moved on.
+# these test steps once carried their own --cov flags and kept an old
+# arrangement (a system gate emitting lcov.info) after the recipes moved on.
 perf:
     #!/usr/bin/env bash
     set -uo pipefail
@@ -414,8 +382,7 @@ perf:
     _run "tach"   uv run tach check
     _run "format" uv run ruff format --check src/ tests/
     _run "test (unit)"        just --no-deps test-unit
-    _run "test (component)"   just --no-deps test-component
-    _run "test (integration)" just --no-deps test-integration
+    _run "test (system)"      just --no-deps test-system
     _run "crap"   uv run crap4py src/ --lcov lcov.info --max-crap 6
     DRYWALL="${DRYWALL:-$(command -v drywall 2>/dev/null || echo "$HOME/.local/bin/drywall")}"
     _run "dry"    "$DRYWALL" src/

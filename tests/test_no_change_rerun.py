@@ -15,14 +15,11 @@ import pytest
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SKIPPED_LINE = "Measurement: skipped (code and tests unchanged since the last scored run)"
-RECORDED_HEADER = "Recorded survivors (function unchanged, not re-run):"
 
 # Every relational mutant of `a > b` is killed by these assertions, so the scored run has no Survivor.
 _KILLING_TESTS = (
     "from calc import f\n\n\ndef test_f():\n    assert f(2, 1)\n    assert not f(1, 2)\n    assert not f(1, 1)\n"
 )
-# `assert f(2, 1)` alone lets `a >= b` and `a != b` survive, so the scored run keeps Survivors.
-_SURVIVING_TESTS = "from calc import f\n\n\ndef test_f():\n    assert f(2, 1)\n"
 _SRC = "def f(a, b):\n    return a > b\n"
 # `h` is never called by the killing tests, so none of its Sites is covered.
 _SRC_WITH_UNREACHED_FUNCTION = _SRC + "\n\ndef h(a, b):\n    return a > b\n"
@@ -59,16 +56,7 @@ def _sidecar_functions(root) -> dict[str, dict]:
         return {fn["id"]: fn for fn in json.load(handle)["functions"]}
 
 
-def _recorded_survivor_lines(stdout: str) -> list[str]:
-    """The `  line N desc fid` entries under the Recorded survivors header, if any."""
-    lines = stdout.splitlines()
-    if RECORDED_HEADER not in lines:
-        return []
-    start = lines.index(RECORDED_HEADER) + 1
-    return [line for line in lines[start:] if line.startswith("  line ")]
-
-
-@pytest.mark.integration
+@pytest.mark.system
 def test_a_rerun_with_nothing_changed_skips_the_measurement_and_writes_nothing(tmp_path):
     _project(tmp_path, _KILLING_TESTS)
     scored = _scored(tmp_path)
@@ -84,7 +72,7 @@ def test_a_rerun_with_nothing_changed_skips_the_measurement_and_writes_nothing(t
     assert not (tmp_path / "calc.py.bak").exists()
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_an_edited_test_file_runs_the_mutants_again(tmp_path):
     _project(tmp_path, _KILLING_TESTS)
     assert _scored(tmp_path).returncode == 0
@@ -96,7 +84,7 @@ def test_an_edited_test_file_runs_the_mutants_again(tmp_path):
     assert "Mutation Report" in rerun.stdout
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_a_default_run_scores_every_unscored_function_of_a_014_sidecar(tmp_path):
     _project(tmp_path, _KILLING_TESTS, source=_SRC_WITH_UNREACHED_FUNCTION)
     _write_unscored_manifest(tmp_path)
@@ -107,7 +95,7 @@ def test_a_default_run_scores_every_unscored_function_of_a_014_sidecar(tmp_path)
     assert all("score" in fn for fn in _sidecar_functions(tmp_path).values())
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_a_no_change_rerun_after_that_default_run_skips_the_measurement(tmp_path):
     _project(tmp_path, _KILLING_TESTS, source=_SRC_WITH_UNREACHED_FUNCTION)
     _write_unscored_manifest(tmp_path)
@@ -119,7 +107,7 @@ def test_a_no_change_rerun_after_that_default_run_skips_the_measurement(tmp_path
     assert SKIPPED_LINE in rerun.stdout
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_an_unscored_function_no_test_reaches_is_scored_uncovered(tmp_path):
     _project(tmp_path, _KILLING_TESTS, source=_SRC_WITH_UNREACHED_FUNCTION)
     _write_unscored_manifest(tmp_path)
@@ -128,7 +116,7 @@ def test_an_unscored_function_no_test_reaches_is_scored_uncovered(tmp_path):
     assert _sidecar_functions(tmp_path)["func/h"]["score"] == {"killed": 0, "survived": 0, "uncovered": 1}
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_an_edited_function_no_test_reaches_is_scored_so_the_next_run_skips(tmp_path):
     _project(tmp_path, _KILLING_TESTS, source=_SRC_WITH_UNREACHED_FUNCTION)
     assert _scored(tmp_path, "--manifest-file").returncode == 0
@@ -140,30 +128,3 @@ def test_an_edited_function_no_test_reaches_is_scored_so_the_next_run_skips(tmp_
     assert edit_run.returncode == 0, edit_run.stdout + edit_run.stderr
     assert SKIPPED_LINE in rerun.stdout, rerun.stdout
     assert _sidecar_functions(tmp_path)["func/h"]["score"] == {"killed": 0, "survived": 0, "uncovered": 1}
-
-
-@pytest.mark.integration
-def test_a_skipped_rerun_exits_3_and_lists_the_survivors_the_scored_run_left(tmp_path):
-    _project(tmp_path, _SURVIVING_TESTS)
-    scored = _scored(tmp_path)
-    assert scored.returncode == 3, scored.stdout + scored.stderr
-    scored_survivors = [line for line in scored.stdout.splitlines() if line.startswith("  line ")]
-    assert scored_survivors
-
-    rerun = _scored(tmp_path)
-
-    assert SKIPPED_LINE in rerun.stdout
-    assert rerun.returncode == 3
-    assert _recorded_survivor_lines(rerun.stdout)
-
-
-@pytest.mark.integration
-def test_allow_survivors_on_a_skipped_rerun_exits_0_and_still_lists_the_survivors(tmp_path):
-    _project(tmp_path, _SURVIVING_TESTS)
-    assert _scored(tmp_path).returncode == 3
-
-    rerun = _scored(tmp_path, "--allow-survivors")
-
-    assert SKIPPED_LINE in rerun.stdout
-    assert rerun.returncode == 0
-    assert _recorded_survivor_lines(rerun.stdout)

@@ -1,17 +1,11 @@
 """Unit tests for run_parallel's dispatch: the plan's selection tally reaches each
 Worker, an unrecognized selection outcome aborts before any Worker is provisioned,
-executors are primed per Worker, and the dogfood run scores the same under
-workers as serially. Internals are covered in test_workers.py."""
-
-import os
-import shutil
-import subprocess
+executors are primed per Worker. Internals are covered in test_workers.py."""
 
 import pytest
 
 from mutate4py._discovery import discover_sites
 from mutate4py._test_dispatch import TimeoutPolicy
-from mutate4py._worker_provision import _SKIP_ENTRIES
 from mutate4py._workers import ParallelRunError, ParallelRunRequest, run_parallel
 
 from ._worker_fakes_helpers import FakeExecutor, noop_on_result
@@ -305,47 +299,3 @@ def test_run_parallel_times_each_mutant_into_the_bucket_its_status_names(tmp_pat
         )
     )
     assert (result.timing.timeouts_count, result.timing.mutants_count) == (2, 0)
-
-
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-
-
-def _outcome_lines(stdout: str) -> list[str]:
-    return [ln.strip() for ln in stdout.splitlines() if ln.strip().startswith(("Killed:", "Survived:"))]
-
-
-@pytest.mark.integration
-def test_parallel_dogfood_run_scores_the_same_as_the_serial_run(tmp_path):
-    """C1: mutate4py mutating its own source must score the same under workers as serially.
-    The Worker copy's mutate4py has to be the one imported; an import root on PYTHONPATH
-    would resolve to the unmutated original, and every Mutant would survive."""
-    env = {k: v for k, v in os.environ.items() if k not in ("VIRTUAL_ENV", "PYTHONPATH")}
-    # Each run gets a fresh copy. A default run after a complete scored run with unchanged inputs
-    # skips its Measurement (spec 5b), so a shared project would leave the parallel run nothing to score.
-    serial_project, parallel_project = tmp_path / "serial", tmp_path / "parallel"
-    for project in (serial_project, parallel_project):
-        project.mkdir()
-        for name in ("pyproject.toml", "uv.lock", ".python-version", "README.md", "LICENSE"):
-            shutil.copy2(os.path.join(REPO_ROOT, name), project / name)
-        for name in ("src", "tests"):
-            shutil.copytree(
-                os.path.join(REPO_ROOT, name), project / name, ignore=shutil.ignore_patterns(*_SKIP_ENTRIES)
-            )
-        subprocess.run(["uv", "sync"], cwd=project, env=env, capture_output=True, text=True, check=True)
-    base = [
-        "uv",
-        "run",
-        "mutate4py",
-        "src/mutate4py/_cmd.py",
-        "--pytest-args",
-        "tests/test_cmd.py",
-    ]
-    serial = subprocess.run(base, cwd=serial_project, env=env, capture_output=True, text=True)
-    parallel = subprocess.run(
-        base + ["--max-workers", "2"], cwd=parallel_project, env=env, capture_output=True, text=True
-    )
-    serial_lines = _outcome_lines(serial.stdout)
-    assert any(ln.startswith("Killed:") for ln in serial_lines), serial.stdout + serial.stderr
-    assert any(ln.startswith("Survived:") for ln in serial_lines), serial.stdout + serial.stderr
-    assert _outcome_lines(parallel.stdout) == serial_lines, parallel.stdout + parallel.stderr
-    assert not any(ln == "Killed: 0" for ln in serial_lines)

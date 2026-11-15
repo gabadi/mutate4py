@@ -1,7 +1,9 @@
 """Unit tests for _fork_child.py: what a forked child decides before pytest
 starts, driven in-process over functions built from real sources."""
 
+import gc
 import os
+from types import FunctionType
 
 import pytest
 
@@ -80,6 +82,39 @@ def test_live_functions_are_the_ones_whose_code_comes_from_the_file_by_real_path
 
     assert namespace["add"] in found
     assert other["add"] not in found
+
+
+@pytest.mark.unit
+def test_live_functions_resolve_each_distinct_filename_once_and_keep_gc_order(tmp_path, monkeypatch):
+    path = _guarded(tmp_path, _CLEAN)
+    link = tmp_path / "link.py"
+    link.symlink_to(path)
+    namespaces = [_load(_CLEAN, name) for name in (path, str(link), path, str(tmp_path / "other.py"), path)]
+    calls: list[str] = []
+    real_realpath = os.path.realpath
+
+    def spy(name, *args, **kwargs):
+        calls.append(name)
+        return real_realpath(name, *args, **kwargs)
+
+    gc.disable()  # a collection between the two walks would reorder gc.get_objects()
+    try:
+        expected = [
+            obj
+            for obj in gc.get_objects()
+            if isinstance(obj, FunctionType) and os.path.realpath(obj.__code__.co_filename) == os.path.realpath(path)
+        ]
+        monkeypatch.setattr(os.path, "realpath", spy)
+        found = live_functions_of(path)
+    finally:
+        gc.enable()
+
+    assert found == expected
+    assert [ns["add"] in found for ns in namespaces] == [True, True, True, False, True]
+    assert len(calls) == len(set(calls))
+    assert calls.count(path) == 1
+    assert calls.count(str(link)) == 1
+    assert calls.count(str(tmp_path / "other.py")) == 1
 
 
 @pytest.mark.unit

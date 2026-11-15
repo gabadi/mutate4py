@@ -1,6 +1,6 @@
 """Survivor gate (#76): a scored run with an unaccepted survivor exits 3.
 
-Component tests drive run_mutations in-process with real pytest subprocesses.
+System tests drive run_mutations in-process with real pytest subprocesses.
 Each run is handed the Measurement the test states (see `_measurement_helpers`),
 so a test controls which lines the suite reached without a coverage file.
 Unit tests cover the --allow-survivors flag, its rejection in no-run modes,
@@ -66,7 +66,7 @@ def _run(tmp_path, src_path, measurement, pytest_args, **extra):
         return run_mutations(request)
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_mutations_returns_3_when_a_mutant_survives(tmp_path):
     src_path, sites = _write_source(tmp_path)
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
@@ -74,7 +74,7 @@ def test_run_mutations_returns_3_when_a_mutant_survives(tmp_path):
     assert _run(tmp_path, src_path, _covering_all(src_path, sites), pytest_args) == 3
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_mutations_returns_0_when_survivors_allowed(tmp_path):
     src_path, sites = _write_source(tmp_path)
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
@@ -82,7 +82,7 @@ def test_run_mutations_returns_0_when_survivors_allowed(tmp_path):
     assert _run(tmp_path, src_path, _covering_all(src_path, sites), pytest_args, allow_survivors=True) == 0
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_mutations_timeout_is_not_a_survivor(tmp_path):
     # A mutant that exceeds the timeout is Killed, so the run exits 0.
     # A fast pass would be a survivor and exit 3, so 0 proves the timeout path.
@@ -93,7 +93,7 @@ def test_run_mutations_timeout_is_not_a_survivor(tmp_path):
     assert _run(tmp_path, src_path, measurement, pytest_args, timeout_factor=1, min_timeout=0.1) == 0
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_run_mutations_exits_0_when_every_survivor_is_accepted(tmp_path):
     # The marker accepts the survivor, so the run does not exit 3 and the reason is recorded.
     marked = "def f(a, b):\n    return a > b  # mutate4py: equivalent same for all inputs\n"
@@ -108,7 +108,7 @@ def test_run_mutations_exits_0_when_every_survivor_is_accepted(tmp_path):
     assert fn["accepted"][0]["reason"] == "same for all inputs"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_empty_marker_reason_returns_2_before_baseline(tmp_path):
     # An empty reason is a usage error, raised before any .bak is written or the source is touched.
     bare = "def f(a, b):\n    return a > b  # mutate4py: equivalent\n"
@@ -179,7 +179,7 @@ def _recorded_function(src_path, function_id=_SURVIVOR_FN):
     return next(fn for fn in manifest["functions"] if fn["id"] == function_id)
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_scored_run_records_survivor_in_sidecar(tmp_path):
     src_path, sites = _write_source(tmp_path)
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
@@ -191,7 +191,7 @@ def test_scored_run_records_survivor_in_sidecar(tmp_path):
     assert fn["survivors"] == [{"line": sites[0].line, "desc": sites[0].desc}]
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_default_rerun_retries_survivor_function_once_its_tests_change_and_clears_it(tmp_path):
     src_path, sites = _write_source(tmp_path)
     # The Measurement names the content-check test as reaching the function, so the digest
@@ -212,7 +212,7 @@ def test_default_rerun_retries_survivor_function_once_its_tests_change_and_clear
     assert fn["score"]["survived"] == 0
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_default_run_without_coverage_keeps_recorded_survivor(tmp_path):
     # A default run that selects no Site (its coverage misses the survivor's line) must not
     # clear the survivor it never retested. The skipped function's recorded survivor still
@@ -231,7 +231,7 @@ def test_default_run_without_coverage_keeps_recorded_survivor(tmp_path):
 _TWO_SITES_IN_F = "def f(a, b):\n    x = a > b\n    return x < b\n"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_default_run_keeps_survivor_whose_line_lost_coverage(tmp_path):
     # The function stays partly covered (its second line is still covered), yet the first line's
     # survivor was never retested. The rerun must not replace the function's recorded survivors.
@@ -246,7 +246,7 @@ def test_default_run_keeps_survivor_whose_line_lost_coverage(tmp_path):
     assert {"line": lost.line, "desc": lost.desc} in _recorded_function(src_path)["survivors"]
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_default_run_scores_every_function_of_a_014_sidecar(tmp_path):
     # A 0.1.4 sidecar carries no score blocks, so every function is Unscored and a default run scores
     # all of them (ADR 0029 rule 1). g's Site is not covered, yet g is scored uncovered, not skipped:
@@ -353,7 +353,7 @@ _MARKED = "def f(a, b):\n    return a > b  # mutate4py: equivalent same for all 
 _UNMARKED = "def f(a, b):\n    return a > b\n"
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_default_rerun_retests_function_whose_marker_was_removed(tmp_path):
     src_path, sites = _write_source(tmp_path, _MARKED)
     pytest_args = write_always_passing_pytest_project(str(tmp_path))
@@ -394,7 +394,7 @@ def _write_memoised_project(tmp_path) -> list[str]:
     return ["-q", "tests"]
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_memoised_body_survivor_is_confirmed_killed_by_the_full_set(tmp_path):
     # The narrowed run of a body Mutant names test_a alone and passes. The full set kills it,
     # so the Mutant is a confirmation kill and the run has no unaccepted Survivor.

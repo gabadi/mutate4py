@@ -5,8 +5,6 @@ and --help/--check-manifest/--manifest-file behavior. Split from test_main.py
 import os
 import subprocess
 import sys
-import tempfile
-import textwrap
 
 import pytest
 
@@ -14,25 +12,15 @@ import pytest
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 
-def run_cli(*args: str, source: str | None = None) -> subprocess.CompletedProcess:
-    """Run mutate4py CLI with given args; optionally write source to a temp file."""
-    with tempfile.TemporaryDirectory() as d:
-        if source is not None:
-            path = os.path.join(d, "sample.py")
-            with open(path, "w") as f:
-                f.write(textwrap.dedent(source))
-            cli_args = [path] + list(args)
-        else:
-            cli_args = list(args)
+def _help_text(monkeypatch, capsys) -> str:
+    """Print `mutate4py --help` in-process and return it. argparse exits 0 after printing the help."""
+    from mutate4py.__main__ import main
 
-        result = subprocess.run(
-            [sys.executable, "-m", "mutate4py"] + cli_args,
-            capture_output=True,
-            text=True,
-            cwd=REPO_ROOT,
-            env={**os.environ, "PYTHONPATH": os.path.join(REPO_ROOT, "src")},
-        )
-    return result
+    monkeypatch.setattr(sys, "argv", ["mutate4py", "--help"])
+    with pytest.raises(SystemExit) as exit_info:
+        main()
+    assert exit_info.value.code == 0
+    return capsys.readouterr().out
 
 
 # ── _build_parser: dest and flag-name mutants ─────────────────────────────────
@@ -70,6 +58,34 @@ def test_build_parser_mutate_all_flag_is_parsed_for_refusal():
     parser = _build_parser()
     args = parser.parse_args(["somefile.py", "--mutate-all"])
     assert args.mutate_all is True
+
+
+@pytest.mark.unit
+def test_build_parser_mutation_warning_sets_its_value_and_defaults_to_50():
+    from mutate4py.__main__ import _build_parser
+
+    parser = _build_parser()
+    assert parser.parse_args(["somefile.py", "--mutation-warning", "25"]).warning_threshold == 25
+    assert parser.parse_args(["somefile.py"]).warning_threshold == 50
+
+
+@pytest.mark.unit
+def test_build_parser_timeout_flags_default_to_factor_10_and_a_5_second_floor():
+    # The Mutant timeout is max(--min-timeout, factor x budget) + overhead; these are its two inputs.
+    from mutate4py.__main__ import _build_parser
+
+    args = _build_parser().parse_args(["somefile.py"])
+    assert args.timeout_factor == 10
+    assert args.min_timeout == 5.0
+
+
+@pytest.mark.unit
+def test_build_parser_timeout_flags_set_their_values():
+    from mutate4py.__main__ import _build_parser
+
+    args = _build_parser().parse_args(["somefile.py", "--timeout-factor", "3", "--min-timeout", "0.25"])
+    assert args.timeout_factor == 3
+    assert args.min_timeout == 0.25
 
 
 # ── F5: --max-workers flag ────────────────────────────────────────────────────
@@ -161,24 +177,6 @@ def test_build_parser_manifest_file_defaults_to_false():
     assert args.manifest_file is False
 
 
-@pytest.mark.unit
-def test_max_workers_zero_is_usage_error(source="x = 1\n"):
-    result = run_cli("--max-workers", "0", source="x = 1\n")
-    assert result.returncode != 0
-
-
-@pytest.mark.unit
-def test_max_workers_negative_is_usage_error():
-    result = run_cli("--max-workers", "-1", source="x = 1\n")
-    assert result.returncode != 0
-
-
-@pytest.mark.unit
-def test_max_workers_non_integer_is_usage_error():
-    result = run_cli("--max-workers", "many", source="x = 1\n")
-    assert result.returncode != 0
-
-
 # ── F5: --mutation-warning default is 50 ─────────────────────────────────────
 
 
@@ -204,27 +202,13 @@ def test_mutation_warning_default_is_50():
 
 
 @pytest.mark.unit
-def test_help_exits_zero():
-    result = run_cli("--help", source="x = 1\n")
-    assert result.returncode == 0
+def test_help_lists_manifest_file(monkeypatch, capsys):
+    assert "--manifest-file" in _help_text(monkeypatch, capsys)
 
 
 @pytest.mark.unit
-def test_help_lists_max_workers():
-    result = run_cli("--help", source="x = 1\n")
-    assert "--max-workers" in result.stdout
-
-
-@pytest.mark.unit
-def test_help_lists_manifest_file():
-    result = run_cli("--help", source="x = 1\n")
-    assert "--manifest-file" in result.stdout
-
-
-@pytest.mark.unit
-def test_help_lists_exclude():
-    result = run_cli("--help", source="x = 1\n")
-    assert "--exclude" in result.stdout
+def test_help_lists_exclude(monkeypatch, capsys):
+    assert "--exclude" in _help_text(monkeypatch, capsys)
 
 
 @pytest.mark.unit
@@ -238,65 +222,7 @@ def test_build_parser_declares_the_file_scratch_field():
     assert args.file is None
 
 
-@pytest.mark.unit
-def test_help_with_invalid_args_still_exits_zero():
-    # --help is honoured before any validation
-    result = run_cli("--help", "--max-workers", "0", source="x = 1\n")
-    assert result.returncode == 0
-
-
-# ── F5: positive-int rejection ────────────────────────────────────────────────
-
-
-@pytest.mark.unit
-def test_mutation_warning_zero_is_usage_error():
-    result = run_cli("--scan", "--mutation-warning", "0", source="x = 1\n")
-    assert result.returncode != 0
-
-
-@pytest.mark.unit
-def test_mutation_warning_negative_is_usage_error():
-    result = run_cli("--scan", "--mutation-warning", "-3", source="x = 1\n")
-    assert result.returncode != 0
-
-
-@pytest.mark.unit
-def test_mutation_warning_non_integer_is_usage_error():
-    result = run_cli("--scan", "--mutation-warning", "two", source="x = 1\n")
-    assert result.returncode != 0
-
-
-@pytest.mark.unit
-def test_timeout_factor_zero_is_usage_error():
-    result = run_cli("--scan", "--timeout-factor", "0", source="x = 1\n")
-    assert result.returncode != 0
-
-
-@pytest.mark.unit
-def test_timeout_factor_float_is_usage_error():
-    result = run_cli("--scan", "--timeout-factor", "1.5", source="x = 1\n")
-    assert result.returncode != 0
-
-
 # ── F5: unknown flag / missing file ──────────────────────────────────────────
-
-
-@pytest.mark.unit
-def test_unknown_flag_is_usage_error():
-    result = run_cli("--bogus-flag", source="x = 1\n")
-    assert result.returncode != 0
-
-
-@pytest.mark.integration
-def test_no_positional_file_is_usage_error():
-    result = subprocess.run(
-        [sys.executable, "-m", "mutate4py"],
-        capture_output=True,
-        text=True,
-        cwd=REPO_ROOT,
-        env={**os.environ, "PYTHONPATH": os.path.join(REPO_ROOT, "src")},
-    )
-    assert result.returncode != 0
 
 
 # ── F5: --verbose flag ────────────────────────────────────────────────────────
@@ -364,7 +290,7 @@ def _run_cli_path(path: str, *args: str) -> subprocess.CompletedProcess:
     )
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_check_manifest_missing_exits_1(tmp_path):
     p = tmp_path / "mod.py"
     p.write_text("def f(a, b):\n    return a > b\n")
@@ -373,7 +299,7 @@ def test_check_manifest_missing_exits_1(tmp_path):
     assert "Manifest missing:" in result.stdout
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_check_manifest_current_exits_0(tmp_path):
     p = tmp_path / "mod.py"
     p.write_text("def f(a, b):\n    return a > b\n")
@@ -385,15 +311,14 @@ def test_check_manifest_current_exits_0(tmp_path):
 
 
 @pytest.mark.unit
-def test_check_manifest_in_help():
-    result = run_cli("--help", source="x = 1\n")
-    assert "--check-manifest" in result.stdout
+def test_check_manifest_in_help(monkeypatch, capsys):
+    assert "--check-manifest" in _help_text(monkeypatch, capsys)
 
 
 # ── --manifest-file: single file end-to-end ────────────────────────────────────
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_manifest_file_update_writes_sidecar_and_footer_free_source(tmp_path):
     import json
 
@@ -411,7 +336,7 @@ def test_manifest_file_update_writes_sidecar_and_footer_free_source(tmp_path):
     assert "mutate4py-manifest-begin" not in p.read_text()
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_manifest_file_check_reads_sidecar(tmp_path):
     p = tmp_path / "mod.py"
     p.write_text("def f(a, b):\n    return a > b\n")
@@ -423,7 +348,7 @@ def test_manifest_file_check_reads_sidecar(tmp_path):
     assert "Manifest current:" in result.stdout
 
 
-@pytest.mark.integration
+@pytest.mark.system
 def test_manifest_file_check_missing_sidecar_reports_missing(tmp_path):
     p = tmp_path / "mod.py"
     p.write_text("def f(a, b):\n    return a > b\n")

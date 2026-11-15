@@ -80,6 +80,10 @@ _Avoid_: coverage filter, eligibility check
 **covered / uncovered**:
 The two disjoint, exhaustive partitions of the discovered Sites.
 
+**Test levels**:
+Three levels: `unit` (in-process, coverage-measured, the only tests a scored run's Measurement takes), `system` (real processes: a fork server, worker servers, nested pytest, a spawned interpreter; run by `test-system` without coverage), and acceptance (the Gherkin features). Every test carries exactly one of `unit` or `system` (ADR 0030).
+_Avoid_: component test, integration test (both markers are retired)
+
 **Measurement**:
 The one pytest session a scored run takes before any Mutant runs: the run's unit tests
 in the Project environment, under coverage.py's `ctrace` core, each test in its own

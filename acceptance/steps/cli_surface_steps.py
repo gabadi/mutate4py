@@ -19,7 +19,6 @@ from acceptance.steps.cli_surface_helpers import (
     assert_no_baseline_run,
     assert_nonzero_exit,
     assert_only_reported,
-    assert_option_accepted,
     assert_usage_error,
     assert_usage_lists_max_workers,
     assert_usage_printed,
@@ -42,6 +41,7 @@ from acceptance.steps.cli_surface_helpers import (
     write_placeholder_venv,
     write_pyproject,
 )
+from acceptance.steps.nested_pytest_helpers import nested_pytest_env
 from acceptance.steps.step_lib import make_registry
 
 STEP_HANDLERS, step, run_step = make_registry()
@@ -55,6 +55,7 @@ def _run_mutate4py(*args: str, cwd: str | None = None) -> subprocess.CompletedPr
         capture_output=True,
         text=True,
         cwd=cwd or REPO_ROOT,
+        env=nested_pytest_env(),
     )
 
 
@@ -64,7 +65,6 @@ class Context:
         self.src_path: str | None = None
         self.src_bytes_before: bytes | None = None
         self.cli_result: subprocess.CompletedProcess | None = None
-        self.dispatch_max_workers: int | None = None
         self.dir_path: str | None = None
         self.file_pair: tuple[str, str] | None = None
         self.foreign_env: str | None = None
@@ -75,7 +75,6 @@ class Context:
         self.src_path = None
         self.src_bytes_before = None
         self.cli_result = None
-        self.dispatch_max_workers = None
         self.dir_path = None
         self.file_pair = None
         self.foreign_env = None
@@ -211,18 +210,11 @@ def when_run_rejected_invocation(m, params):
 @step(r'I run mutate4py with the accepted flags "(.*)"')
 def when_run_with_accepted_flags(m, params):
     ctx.ensure_passing_tests()
-    args, _target, workers = accepted_flags_args(m.group(1).strip(), ctx.ensure_src())
-    ctx.dispatch_max_workers = workers
+    args, _target = accepted_flags_args(m.group(1).strip(), ctx.ensure_src())
     ctx.cli_result = _run_mutate4py(*args, cwd=ctx.ensure_tmpdir())
 
 
 # ── Then steps ────────────────────────────────────────────────────────────────
-
-
-@step(r'the option "(.*)" is set to "(.*)"')
-def then_option_set(m, params):
-    r = require_result(ctx.cli_result)
-    assert_option_accepted(m.group(1).strip(), m.group(2).strip(), r.returncode, r.stderr)
 
 
 @step(r"the invocation is accepted")
@@ -300,10 +292,10 @@ def then_both_reported(m, params):
     assert_all_reported(r.stdout, [m.group(1).strip(), m.group(2).strip()])
 
 
-@step(r'the dispatcher receives a worker count of "(.*)"')
-def then_dispatcher_receives_workers(m, params):
+@step(r'the run reports a worker count of "(.*)"')
+def then_run_reports_worker_count(m, params):
     r = require_result(ctx.cli_result)
-    assert_worker_count(ctx.dispatch_max_workers, m.group(1).strip(), r.returncode, r.stderr)
+    assert_worker_count(r.stdout, m.group(1).strip(), r.returncode, r.stderr)
 
 
 # ── Project environment (cli-surface-15) ──────────────────────────────────────
@@ -330,7 +322,7 @@ def when_run_from_outside_env(m, params):
 
 
 def _run_accepted_flags_from_project(flags: str) -> None:
-    args, _target, _workers = accepted_flags_args(flags.strip(), ctx.ensure_src())
+    args, _target = accepted_flags_args(flags.strip(), ctx.ensure_src())
     ctx.cli_result = run_with_running_interpreter(args, cwd=ctx.ensure_tmpdir())
 
 

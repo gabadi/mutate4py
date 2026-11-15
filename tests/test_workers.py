@@ -405,19 +405,25 @@ def test_link_import_root_writes_a_pth_file_into_the_worker_venv_after_its_own_e
     assert not os.path.lexists(worker_root / "mutate4py")
 
 
-def _fake_worker_interpreter(worker_root, version: str) -> None:
-    """A stand-in .venv/bin/python that answers the version probe with `version`."""
-    bin_dir = os.path.join(str(worker_root), ".venv", "bin")
-    os.makedirs(bin_dir)
-    script = os.path.join(bin_dir, "python")
-    with open(script, "w") as f:
-        f.write(f"#!/bin/sh\necho {version}\n")
-    os.chmod(script, 0o755)
+def _stub_interpreter_probe(monkeypatch, *, version: str | None = None) -> None:
+    """Answer the Worker interpreter probe (subprocess.run) without starting a process: the interpreter
+    prints `version`, or, when `version` is None, is missing and the run raises OSError. The stub
+    refuses a call that does not capture text output and check the exit status, as the probe must."""
+
+    def fake_run(cmd, **kwargs):
+        if version is None:
+            raise FileNotFoundError(2, "No such file or directory", cmd[0])
+        assert kwargs.get("capture_output") is True
+        assert kwargs.get("text") is True
+        assert kwargs.get("check") is True
+        return subprocess.CompletedProcess(cmd, 0, stdout=f"{version}\n", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
 
 
 @pytest.mark.unit
-def test_check_worker_python_refuses_an_interpreter_below_the_3_11_floor(tmp_path):
-    _fake_worker_interpreter(tmp_path, "3.9")
+def test_check_worker_python_refuses_an_interpreter_below_the_3_11_floor(tmp_path, monkeypatch):
+    _stub_interpreter_probe(monkeypatch, version="3.9")
     with pytest.raises(WorkerProcessError) as exc:
         check_worker_python(str(tmp_path))
     assert "3.9" in str(exc.value)
@@ -425,27 +431,31 @@ def test_check_worker_python_refuses_an_interpreter_below_the_3_11_floor(tmp_pat
 
 
 @pytest.mark.unit
-def test_check_worker_python_accepts_the_3_11_floor(tmp_path):
-    _fake_worker_interpreter(tmp_path, "3.11")
+def test_check_worker_python_accepts_the_3_11_floor(tmp_path, monkeypatch):
+    _stub_interpreter_probe(monkeypatch, version="3.11")
     check_worker_python(str(tmp_path))
 
 
 @pytest.mark.unit
-def test_check_worker_python_reports_a_missing_worker_interpreter(tmp_path):
+def test_check_worker_python_reports_a_missing_worker_interpreter(tmp_path, monkeypatch):
+    _stub_interpreter_probe(monkeypatch)
     with pytest.raises(WorkerProcessError, match="no usable interpreter"):
         check_worker_python(str(tmp_path))
 
 
 @pytest.mark.unit
 def test_provision_worker_turns_a_below_floor_interpreter_into_a_worker_failure(tmp_path, monkeypatch):
-    real_run = subprocess.run
-    monkeypatch.setattr(subprocess, "run", lambda cmd, **kwargs: None if cmd[0] == "uv" else real_run(cmd, **kwargs))
-    _fake_worker_interpreter(tmp_path, "3.9")
+    def fake_run(cmd, **kwargs):
+        if cmd[0] == "uv":
+            return None  # the uv sync step is not under test
+        return subprocess.CompletedProcess(cmd, 0, stdout="3.9\n", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
     with pytest.raises(WorkerFailureError, match="runs Python 3.9"):
         _provision_worker(str(tmp_path), frozenset())
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_provision_worker_maps_a_failed_uv_step_to_a_worker_failure_with_its_stderr_tail(tmp_path, monkeypatch):
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
@@ -462,7 +472,7 @@ def test_provision_worker_maps_a_failed_uv_step_to_a_worker_failure_with_its_std
     assert isinstance(exc.value.__cause__, subprocess.CalledProcessError)
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_provision_worker_maps_a_missing_uv_to_a_worker_failure(tmp_path, monkeypatch):
     empty_bin = tmp_path / "empty-bin"
     empty_bin.mkdir()
@@ -492,9 +502,10 @@ def test_provision_workers_restates_an_import_root_link_failure_as_a_worker_fail
 
 
 @pytest.mark.unit
-def test_prime_worker_executor_reports_a_missing_worker_interpreter_as_a_worker_failure(tmp_path):
+def test_prime_worker_executor_reports_a_missing_worker_interpreter_as_a_worker_failure(tmp_path, monkeypatch):
     from mutate4py._worker_protocol import WorkerProcessExecutor
 
+    _stub_interpreter_probe(monkeypatch)  # the Worker interpreter cannot be started
     executor = WorkerProcessExecutor(
         worker_root=str(tmp_path),
         guarded_path=str(tmp_path / "calc.py"),
@@ -506,7 +517,7 @@ def test_prime_worker_executor_reports_a_missing_worker_interpreter_as_a_worker_
     assert isinstance(exc.value.__cause__, WorkerProcessError)
 
 
-@pytest.mark.component
+@pytest.mark.system
 def test_prime_worker_executor_refuses_a_worker_venv_without_pytest(tmp_path):
     """A Worker venv that cannot import pytest exits 1 on every Mutant, which would
     read as killed. Priming refuses it as a Worker failure, before any dispatch."""

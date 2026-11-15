@@ -106,86 +106,41 @@ Feature: Parallel worker execution for --max-workers
     Given a Python source file with covered mutation sites
     And a baseline test command that passes
 
-  # parallel-workers-1: the serial/parallel switch follows --max-workers and site count.
-  # The effective-0 serial path is reachable ONLY by omitting the flag (the default);
-  # --max-workers 0 is a usage error (positive-int flag, see cli-surface-2), so the
-  # "0 workers -> serial" case is exercised via the unset default, not a literal 0.
-  Scenario Outline: the worker count and site count decide serial vs parallel
+  # parallel-workers-1: one run per distinct invocation decides the path, the workers
+  # header and the worker token. (Merged from the former 1-4: those four outlines
+  # shared 5 distinct invocations and ran 14 scored runs; every assertion is kept.)
+  #   - The serial/parallel switch follows --max-workers and site count.
+  #   - The effective-0 serial path is reachable ONLY by omitting the flag (the default);
+  #     --max-workers 0 is a usage error (positive-int flag, see cli-surface-2), so the
+  #     "0 workers -> serial" case is exercised via the unset default, not a literal 0.
+  #   - The Mutation workers line tracks the flag, not the path: it is suppressed only
+  #     when the flag is unset, and shows the clamped count on the parallel path.
+  #   - The worker-<k> token tracks the path, not the flag: every per-mutant line carries
+  #     it on the parallel path and none does on the serial path.
+  #   - Clamp-DOWN correctness (workers > sites -> shown == sites) is verified by the unit
+  #     test test_parallel_path_workers_header_clamped. The above-clamp regime is an
+  #     equivalent-mutant trap for gherkin: mutating the workers cell upward (e.g. 8 -> 17)
+  #     still clamps to the same site count, so no row here would catch it. The rows cover
+  #     only the load-bearing regime (workers <= sites, plus the equal boundary).
+  Scenario Outline: the worker count and site count decide the path, the workers header and the worker token
     Given the file has "<sites>" selected mutation sites
     And the max-workers flag is "<flag>"
     When I run mutate4py mutating that file
     Then the run takes the "<path>" path
     And the output line "Total mutation sites: <total>" is printed
+    And the workers header is "<header>"
 
-    # <sites> drives the fixture size; <total> is the count the run must report.
-    # They match but are separate columns, so mutating either literal — or the
-    # <flag> string (a garbage flag aborts before the header prints) — is caught.
+    # <sites> drives the fixture size; <total> is the count the run must report. They
+    # match but are separate columns, so mutating either literal — or the <flag> string
+    # (a garbage flag aborts before the header prints) — is caught. <header> is the
+    # exact "Mutation workers:" line, or "(none)" when no such line may print.
     Examples:
-      | flag            | sites | total | path     |
-      | (unset)         | 5     | 5     | serial   |
-      | --max-workers 1 | 5     | 5     | serial   |
-      | --max-workers 4 | 1     | 1     | serial   |
-      | --max-workers 2 | 2     | 2     | parallel |
-      | --max-workers 4 | 5     | 5     | parallel |
-
-  # parallel-workers-2: maxWorkers is clamped to the selected-site count
-  # Clamp-DOWN correctness (workers > sites -> shown == sites) is verified by the unit test
-  # test_parallel_path_workers_header_clamped. The above-clamp regime is an equivalent-mutant
-  # trap for gherkin: mutating the workers cell upward (e.g. 8 -> 17) still clamps to the same
-  # site count, so no row here would catch it. This scenario therefore covers only the
-  # load-bearing regime (workers <= sites, plus the equal boundary) where shown == workers.
-  Scenario Outline: the worker count clamps to the number of selected sites
-    Given the file has "<sites>" selected mutation sites
-    And the flag supplied is "--max-workers <workers>"
-    When I run mutate4py mutating that file
-    Then the output line "Mutation workers: <shown>" is printed
-    And the output line "Total mutation sites: <total>" is printed
-
-    # <sites> drives the fixture; <total> is the reported count and <shown> the
-    # clamped worker count — separate columns so mutating any input literal is caught.
-    Examples:
-      | workers | sites | total | shown |
-      | 4       | 5     | 5     | 4     |
-      | 2       | 2     | 2     | 2     |
-
-  # parallel-workers-3: the Mutation workers line tracks the flag, not the path.
-  # The header is suppressed only when the flag is unset (default serial); a literal
-  # --max-workers 0 is a usage error (see cli-surface-2), so the "is not" case is
-  # exercised via the unset default rather than a literal 0.
-  Scenario Outline: the workers header line prints whenever --max-workers is set
-    Given the file has "<sites>" selected mutation sites
-    And the max-workers flag is "<flag>"
-    When I run mutate4py mutating that file
-    Then a "Mutation workers:" line "<visibility>" printed
-    And the output line "Total mutation sites: <total>" is printed
-
-    # <sites> drives the fixture; <total> is the reported count — separate columns so
-    # mutating either literal, or the <flag> string (garbage aborts before the
-    # header prints), is caught.
-    Examples:
-      | flag            | sites | total | visibility |
-      | (unset)         | 5     | 5     | is not     |
-      | --max-workers 1 | 5     | 5     | is         |
-      | --max-workers 4 | 1     | 1     | is         |
-      | --max-workers 4 | 5     | 5     | is         |
-
-  # parallel-workers-4: the worker-<k> token tracks the path, not the flag
-  Scenario Outline: the per-mutant worker token appears only on the parallel path
-    Given the file has "<sites>" selected mutation sites
-    And the flag supplied is "--max-workers <workers>"
-    When I run mutate4py mutating that file
-    Then a "worker-" token "<visibility>" present in every per-mutant progress line
-    And the output line "Total mutation sites: <total>" is printed
-    And the output line "Mutation workers: <shown>" is printed
-
-    # <sites> drives the fixture; <total> is the reported count and <shown> the
-    # displayed worker count (clamped on the parallel path) — separate columns so
-    # mutating any input literal is caught.
-    Examples:
-      | workers | sites | total | shown | visibility |
-      | 1       | 5     | 5     | 1     | is not     |
-      | 4       | 1     | 1     | 4     | is not     |
-      | 4       | 5     | 5     | 4     | is         |
+      | flag            | sites | total | path     | header               |
+      | (unset)         | 5     | 5     | serial   | (none)               |
+      | --max-workers 1 | 5     | 5     | serial   | Mutation workers: 1  |
+      | --max-workers 4 | 1     | 1     | serial   | Mutation workers: 4  |
+      | --max-workers 2 | 2     | 2     | parallel | Mutation workers: 2  |
+      | --max-workers 4 | 5     | 5     | parallel | Mutation workers: 4  |
 
   # parallel-workers-5: the parallel per-mutant line is the verbatim upstream format
   Scenario: a parallel per-mutant line carries the worker token in upstream format

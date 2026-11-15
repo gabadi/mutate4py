@@ -31,6 +31,7 @@ from acceptance.steps.run_loop_helpers import (
     compare_source,
     reaching_test_body,
 )
+from acceptance.steps.nested_pytest_helpers import nested_pytest_env
 from acceptance.steps.step_lib import make_registry
 
 STEP_HANDLERS, step, run_step = make_registry()
@@ -67,7 +68,7 @@ class Context:
             self.source_bytes = text.encode()
 
     def run(self, *args: str) -> None:
-        env = {**os.environ, **self.env}
+        env = nested_pytest_env({**os.environ, **self.env})
         self.cli_result = subprocess.run(
             ["uv", "run", "mutate4py", *args],
             capture_output=True,
