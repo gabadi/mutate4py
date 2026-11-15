@@ -697,6 +697,22 @@ def test_config_file_ends_the_walk_at_its_directory_like_c(tmp_path, spelling):
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("option", ["-c", "--config-file", "--config-file="])
+def test_a_config_file_bound_above_the_checkouts_own_inifile_records_the_conftest_there(tmp_path, option):
+    base = tmp_path / "base"
+    root = _checkout(base, "checkout")
+    (base / "custom.ini").write_text("[pytest]\n")
+    (base / "conftest.py").write_text("SHARED = 1\n")
+    separator = "" if option.endswith("=") else " "
+    args = f"{option}{separator}../custom.ini tests"
+    assert (base / "checkout" / "pytest.ini").is_file()
+    assert "../conftest.py" in fingerprint_inputs(root, args)
+    before = fingerprint_of(root, args)
+    (base / "conftest.py").write_text("SHARED = 2\n")
+    assert fingerprint_of(root, args) != before
+
+
+@pytest.mark.unit
 def test_the_last_config_file_option_sets_the_bound_whichever_spelling_it_uses(tmp_path):
     base = tmp_path / "base"
     root = _checkout(base, "checkout")
