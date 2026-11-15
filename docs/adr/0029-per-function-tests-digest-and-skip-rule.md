@@ -188,6 +188,12 @@ named file is hashed whole. `--confcutdir` bounds the conftests too, and takes p
 is the conftest bound when no inifile exists (`config/__init__.py:1598-1603`), and its directory is
 a start point for the config search. Not read: `--noconftest`, `-p` plugins and `--pyargs`.
 
+A `--confcutdir` that comes from the inifile's `addopts` (any inifile format, or the `-c` file) or from
+the `PYTEST_ADDOPTS` environment variable is not in the arguments this reads, so the bound it sets
+cannot be known. It is treated as no bound: the conftest walk goes to `/`. Recording more conftests than
+pytest loads only over-invalidates, which is the safe direction. This holds even when the command line
+also gives a `--confcutdir`.
+
 The conftest chain above a collection root follows `_is_in_confcutdir`
 (`config/__init__.py:682`, `:703-704`): a directory is skipped only when it is strictly above
 `confcutdir`. A bound at or below the root therefore loads no ancestor conftest. A worktree

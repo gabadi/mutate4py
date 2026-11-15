@@ -713,6 +713,30 @@ def test_a_config_file_bound_above_the_checkouts_own_inifile_records_the_conftes
 
 
 @pytest.mark.unit
+def test_a_confcutdir_in_the_inifile_addopts_leaves_the_conftest_walk_unbounded(tmp_path):
+    root = _checkout(tmp_path / "up", "checkout")
+    (tmp_path / "up" / "checkout" / "pytest.ini").write_text("[pytest]\naddopts = -q --confcutdir=.\n")
+    (tmp_path / "up" / "conftest.py").write_text("SHARED = 1\n")
+    (tmp_path / "conftest.py").write_text("SHARED = 1\n")
+    assert {"../conftest.py", "../../conftest.py"} <= set(fingerprint_inputs(root, "tests"))
+    before = fingerprint_of(root, "tests")
+    (tmp_path / "conftest.py").write_text("SHARED = 2\n")
+    assert fingerprint_of(root, "tests") != before
+
+
+@pytest.mark.unit
+def test_a_confcutdir_in_pytest_addopts_leaves_the_conftest_walk_unbounded(tmp_path, monkeypatch):
+    root = _checkout(tmp_path / "up", "checkout")
+    (tmp_path / "conftest.py").write_text("SHARED = 1\n")
+    assert "../../conftest.py" not in fingerprint_inputs(root, "tests")
+    monkeypatch.setenv("PYTEST_ADDOPTS", "--confcutdir=.")
+    assert "../../conftest.py" in fingerprint_inputs(root, "tests")
+    before = fingerprint_of(root, "tests")
+    (tmp_path / "conftest.py").write_text("SHARED = 2\n")
+    assert fingerprint_of(root, "tests") != before
+
+
+@pytest.mark.unit
 def test_the_last_config_file_option_sets_the_bound_whichever_spelling_it_uses(tmp_path):
     base = tmp_path / "base"
     root = _checkout(base, "checkout")

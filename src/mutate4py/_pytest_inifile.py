@@ -141,6 +141,8 @@ def last_option_value(tokens: list[str], *names: str) -> str | None:
     return values[-1] if values else None
 
 
+_CONFCUTDIR = "--confcutdir"
+
 # `-c` and `--config-file` are one option for pytest (_pytest/main.py:263-264, dest `inifilename`).
 CONFIG_FILE_OPTIONS = ("-c", "--config-file")
 
@@ -163,12 +165,66 @@ def _rootdir_option(cwd: str, tokens: list[str]) -> str | None:
     return os.path.abspath(os.path.join(cwd, os.path.expandvars(value))) if value else None
 
 
+def _toml_addopts(data: dict, path: str) -> str:
+    """The `addopts` of parsed pytest.toml or pyproject.toml `data`, whichever table declares them."""
+    table = data.get("pytest")
+    if os.path.basename(path) == "pyproject.toml":
+        tool = data.get("tool")
+        table = tool.get("pytest") if isinstance(tool, dict) else None
+    if not isinstance(table, dict):
+        return ""
+    declared = [table, table.get("ini_options")]
+    values = [entry.get("addopts") for entry in declared if isinstance(entry, dict)]
+    return " ".join(str(value) for value in values if value)
+
+
+def _addopts_of(path: str) -> str:
+    """The `addopts` the config file at `path` declares, as one string; empty when it has none or cannot be read.
+
+    A `.toml` file holds them under `[pytest]` (pytest.toml), `[tool.pytest]` or `[tool.pytest.ini_options]`
+    (pyproject.toml); any other file is read as ini, from `[pytest]` or `[tool:pytest]`.
+    """
+    if path.endswith(".toml"):
+        try:
+            with open(path, "rb") as handle:
+                return _toml_addopts(tomllib.load(handle), path)
+        except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError):
+            return ""
+    parser = configparser.ConfigParser(interpolation=None)
+    try:
+        parser.read(path, encoding="utf-8")
+    except (configparser.Error, UnicodeDecodeError):
+        return ""
+    return " ".join(parser.get(section, "addopts", fallback="") for section in ("pytest", "tool:pytest"))
+
+
+def _searched_config_files(starts: list[str]) -> list[str]:
+    """The config files in the inifile directory of each of `starts` (none for a start with no inifile)."""
+    directories = [directory for directory in map(inifile_dir, starts) if directory]
+    return [os.path.join(directory, name) for directory in directories for name in (*CONFIG_FILES, "pyproject.toml")]
+
+
+def _addopts_set_confcutdir(cwd: str, tokens: list[str], starts: list[str]) -> bool:
+    """Whether pytest gets a `--confcutdir` from `PYTEST_ADDOPTS` or from its inifile's `addopts`.
+
+    Those options are not in the command line this module reads, so the conftest bound they set cannot
+    be known here. The caller then takes no bound: recording more conftests than pytest loads is the
+    safe direction. With `-c` or `--config-file`, only the named files are read, as pytest searches for none.
+    """
+    if _CONFCUTDIR in os.environ.get("PYTEST_ADDOPTS", ""):
+        return True
+    named = [os.path.join(cwd, value) for value in option_values(tokens, *CONFIG_FILE_OPTIONS)]
+    paths = named or _searched_config_files(starts)
+    return any(_CONFCUTDIR in _addopts_of(path) for path in paths if os.path.isfile(path))
+
+
 def conftest_bounds(cwd: str, tokens: list[str], starts: list[str]) -> list[str] | None:
     """The directories where conftest loading ends, or None when it reaches the filesystem root.
 
     pytest loads a conftest from every directory that is not strictly above `confcutdir`
     (config/__init__.py:669-682, :703-704). Its default is the inifile's directory, else the rootdir
     (config/__init__.py:1598-1603). So, in order:
+    - a `--confcutdir` in `PYTEST_ADDOPTS` or in an inifile's `addopts`: no bound, see `_addopts_set_confcutdir`;
     - `--confcutdir`, then the directory of the `-c` file;
     - the inifile's directory, for each of `starts` (where pytest's search may begin);
     - with no inifile, `--rootdir`;
@@ -176,6 +232,8 @@ def conftest_bounds(cwd: str, tokens: list[str], starts: list[str]) -> list[str]
 
     Left out: `--noconftest`, `-p` plugins and `conftest.py` files found by `--pyargs`.
     """
+    if _addopts_set_confcutdir(cwd, tokens, starts):
+        return None
     explicit = explicit_bound(cwd, tokens)
     if explicit:
         return explicit
