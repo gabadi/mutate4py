@@ -4,6 +4,7 @@ subprocess/pytest. Companion to the real-process round trips in
 test_worker_protocol.py.
 """
 
+import dataclasses
 import io
 import json
 
@@ -229,3 +230,11 @@ def test_main_asks_for_the_kill_switches_in_the_workers_own_directory(monkeypatc
     assert [json.loads(line) for line in stdout.getvalue().splitlines()] == [{"ready": True}, {"status": "survived"}]
     assert asked == [(["-q"], "/the/worker/cwd")]
     assert executor.calls == [["-q", "--fake-flag"]]
+
+
+@pytest.mark.unit
+def test_the_worker_startup_args_cannot_be_changed_after_they_are_parsed():
+    args = parse_worker_argv(["/w", "/w/calc.py", "1"])
+
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        args.cwd = "/elsewhere"  # type: ignore[misc]

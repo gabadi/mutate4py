@@ -656,3 +656,10 @@ def test_fresh_interpreter_is_a_subprocess_executor_over_the_same_tree_and_file(
 
     assert isinstance(fresh, SubprocessExecutor)
     assert (fresh._cwd, fresh._guarded_path) == (str(tmp_path), guarded)
+
+
+@pytest.mark.unit
+def test_an_executor_that_has_not_primed_describes_an_empty_file_mode(tmp_path):
+    executor = ForkingExecutor(cwd=str(tmp_path), guarded_path=str(tmp_path / "calc.py"), prime_args=_NO_TACH)
+
+    assert executor.describe().file_mode == ""

@@ -1,5 +1,6 @@
 """Unit tests for mutate4py CLI entry point (__main__)."""
 
+import logging
 import os
 import sys
 
@@ -406,3 +407,12 @@ def test_mutation_warning_threshold_comparison_is_numeric(tmp_path, capsys):
         m.main()
     out = capsys.readouterr().out
     assert "Warning" not in out
+
+
+@pytest.mark.unit
+def test_the_package_logger_does_not_pass_its_records_to_the_root_logger():
+    import mutate4py
+
+    mutate4py._configure_logging()
+
+    assert logging.getLogger("mutate4py").propagate is False

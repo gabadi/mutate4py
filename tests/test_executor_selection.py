@@ -7,6 +7,7 @@ both the single-Worker path and each parallel Worker's own subprocess can
 reach it.
 """
 
+import dataclasses
 import importlib.util
 import sys
 
@@ -215,3 +216,11 @@ def test_select_executor_on_a_platform_without_fork_starts_no_fork_server(tmp_pa
     chosen = select_executor(no_fork_reason=None, cwd=str(tmp_path), guarded_path="x.py")
 
     assert chosen.describe().render() == "subprocess (the forking executor needs a POSIX platform)"
+
+
+@pytest.mark.unit
+def test_forking_options_cannot_be_changed_after_they_are_built():
+    options = ForkingOptions()
+
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        options.prime_args = ("-q",)  # type: ignore[misc]

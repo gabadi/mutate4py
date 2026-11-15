@@ -7,12 +7,13 @@ wrong score. Each test builds a throwaway project in `tmp_path`; the inifile the
 search to the project.
 """
 
+import dataclasses
 import os
 import stat
 
 import pytest
 
-from mutate4py._plugin_neutralisation import neutralising_args
+from mutate4py._plugin_neutralisation import _Plugin, neutralising_args
 
 _COV = "--no-cov"
 _BENCH = "--benchmark-disable"
@@ -440,3 +441,11 @@ def test_disabled_plugin_args_ignores_a_trailing_bare_p():
     from mutate4py._plugin_neutralisation import disabled_plugin_args
 
     assert disabled_plugin_args(["tests", "-p"]) == []
+
+
+@pytest.mark.unit
+def test_a_kill_switch_plugin_cannot_be_changed_after_it_is_built():
+    plugin = _Plugin("pytest_cov", "--no-cov", "pytest_cov", ("pytest_cov",))
+
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        plugin.module = "other"  # type: ignore[misc]
