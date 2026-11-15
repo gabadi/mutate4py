@@ -220,7 +220,7 @@ class _CallerOwnedExecutor:
     def prime(self):  # pragma: no cover - the run must never re-prime it
         raise AssertionError("a caller-supplied executor must not be re-primed")
 
-    def run(self, args, timeout):  # pragma: no cover - never dispatched here
+    def run(self, args, timeout, *, control=False):  # pragma: no cover - never dispatched here
         raise AssertionError("must not dispatch")
 
     def describe(self):  # pragma: no cover - never described here

@@ -8,6 +8,7 @@ goes on. A pytest argv that is itself bad must still abort the run, on both Exec
 """
 
 import os
+import re
 
 import pytest
 
@@ -61,6 +62,10 @@ def test_a_mutant_that_breaks_the_module_at_import_is_killed_and_the_run_goes_on
     assert "Killed: 3" in out
     assert "Survived: 0" in out
     assert executor_line in out
+    if forking_requested:
+        # Three Mutants ran, and the Control run beside them is no Mutant: the counts add up to three.
+        counts = re.search(r"fresh import (\d+), swap (\d+), fresh interpreter (\d+)", out)
+        assert sum(int(n) for n in counts.groups()) == 3, out
     assert _source_on_disk(src_path) == source
 
 

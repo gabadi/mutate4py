@@ -150,10 +150,11 @@ def _control_run(target: ControlTarget, plan: MutantPlan) -> str:
     """Run `plan` against the original code: restore `clean_source` at `target.path`, then dispatch.
 
     The caller's own restore, or its next splice, still follows; this leaves the original at `path`.
+    The Executor is told it is a Control run, so it leaves the run out of its Mutant counts.
     """
     with open(target.path, "w") as f:
         f.write(target.clean_source)
-    return target.executor.run(plan.args, plan.timeout)
+    return target.executor.run(plan.args, plan.timeout, control=True)
 
 
 def _control_abort(where: str, status: str, control: str, plan: MutantPlan) -> NoTestsCollectedError:

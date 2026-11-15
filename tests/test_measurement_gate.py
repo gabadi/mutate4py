@@ -51,7 +51,7 @@ class _FakeExecutor:
     def prime(self) -> None:
         self.primed = True
 
-    def run(self, args, timeout):
+    def run(self, args, timeout, *, control=False):
         self.calls.append(list(args))
         return "killed"
 
@@ -209,7 +209,7 @@ def test_a_single_file_run_that_measures_itself_prints_the_measurement_and_overh
 
 
 class _SurvivingExecutor(_FakeExecutor):
-    def run(self, args, timeout):
+    def run(self, args, timeout, *, control=False):
         self.calls.append(list(args))
         return "survived"
 

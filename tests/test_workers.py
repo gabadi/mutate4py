@@ -696,6 +696,7 @@ def test_run_one_site_kills_a_mutant_that_breaks_the_run_when_the_original_code_
     assert reported == [result]
     assert executor.calls == [(["-q"], 5.0), (["-q"], 5.0)]
     assert executor.seen_sources == [src.replace(">", ">="), src]
+    assert executor.controls == [False, True]
     assert worker_file.read_text() == src
 
 
@@ -851,7 +852,7 @@ class _TimedFakeExecutor:
     def prime(self) -> None:
         pass
 
-    def run(self, args: list[str], timeout: float) -> str:
+    def run(self, args: list[str], timeout: float, *, control: bool = False) -> str:
         self.dispatched.append((list(args), timeout))
         return self._status
 

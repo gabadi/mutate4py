@@ -107,6 +107,12 @@ def test_encode_request_is_one_newline_terminated_json_line():
 
 
 @pytest.mark.unit
+def test_encode_request_marks_a_control_run_and_only_a_control_run():
+    assert json.loads(encode_request(["-q"], 30.0, control=True)) == {"args": ["-q"], "timeout": 30.0, "control": True}
+    assert "control" not in json.loads(encode_request(["-q"], 30.0, control=False))
+
+
+@pytest.mark.unit
 def test_encode_describe_is_one_newline_terminated_describe_request():
     line = encode_describe()
     assert line.endswith("\n")
@@ -206,6 +212,30 @@ def test_run_before_prime_is_rejected():
     )
     with pytest.raises(WorkerProcessError, match="prime\\(\\) must succeed before run\\(\\)"):
         executor.run(["-q"], timeout=1.0)
+
+
+@pytest.mark.unit
+def test_run_sends_a_control_run_to_the_worker_marked_as_one(monkeypatch):
+    stdin = io.StringIO()
+    stdout = io.StringIO(
+        json.dumps({"ready": True})
+        + "\n"
+        + json.dumps({"status": "survived"})
+        + "\n"
+        + json.dumps({"status": "killed"})
+        + "\n"
+    )
+    monkeypatch.setattr(subprocess, "Popen", lambda argv, **kwargs: types.SimpleNamespace(stdin=stdin, stdout=stdout))
+    monkeypatch.setattr("mutate4py._worker_protocol.check_worker_pytest", lambda root: None)
+    executor = WorkerProcessExecutor(
+        worker_root="/w", guarded_path="/w/calc.py", source_root="/src", launch=ServerLaunch(forking_requested=False)
+    )
+    executor.prime()
+
+    assert executor.run(["-q"], 5.0, control=True) == "survived"
+    assert executor.run(["-q"], 5.0) == "killed"
+
+    assert stdin.getvalue() == encode_request(["-q"], 5.0, control=True) + encode_request(["-q"], 5.0)
 
 
 @pytest.mark.unit
@@ -434,6 +464,28 @@ def test_worker_process_executor_describes_the_subprocess_executor_its_worker_ru
     try:
         assert executor.describe() == ExecutorDescription(mode="subprocess", reason="--no-fork")
         assert executor.run(["-q", "tests/test_calc.py::test_add"], timeout=30.0) == "survived"
+    finally:
+        executor.close()
+
+
+@pytest.mark.system
+def test_worker_process_executor_leaves_a_control_run_out_of_its_forking_counts(tmp_path):
+    """A Control run is no Mutant: the Worker's forking executor runs it but does not count it, so the
+    Executor line of the report counts only the Mutants."""
+    target = _write_add_sub_project(tmp_path)
+    _provision_test_worker(tmp_path)
+    executor = WorkerProcessExecutor(
+        worker_root=str(tmp_path),
+        guarded_path=str(target),
+        source_root=str(tmp_path),
+        launch=ServerLaunch(forking_requested=True),
+    )
+    executor.prime()
+    try:
+        assert executor.run(["-q", "tests/test_calc.py::test_add"], timeout=30.0, control=True) == "survived"
+        assert executor.describe().render() == "forking (fresh import 0, swap 0, fresh interpreter 0)"
+        assert executor.run(["-q", "tests/test_calc.py::test_add"], timeout=30.0) == "survived"
+        assert executor.describe().render() == "forking (fresh import 1, swap 0, fresh interpreter 0)"
     finally:
         executor.close()
 

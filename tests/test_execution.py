@@ -29,7 +29,7 @@ class _FakeExecutor:
     def prime(self):
         pass
 
-    def run(self, args, timeout):
+    def run(self, args, timeout, *, control=False):
         self.calls.append((list(args), timeout))
         return self._status
 
@@ -295,6 +295,7 @@ def test_run_mutation_loop_kills_a_mutant_that_breaks_the_run_when_the_original_
     assert survivors == []
     assert executor.calls == [(["-q"], 5.0), (["-q"], 5.0)]
     assert executor.seen_sources == [apply_mutant(_ONE_SITE, site), _ONE_SITE]
+    assert executor.controls == [False, True]
     assert (ctx.timing.mutants_count, ctx.timing.mutants_seconds) == (1, 1.5)
 
 
@@ -442,10 +443,10 @@ class _SourceRecordingExecutor(_FakeExecutor):
         self._path = path
         self.seen_sources = []
 
-    def run(self, args, timeout):
+    def run(self, args, timeout, *, control=False):
         with open(self._path) as f:
             self.seen_sources.append(f.read())
-        return super().run(args, timeout)
+        return super().run(args, timeout, control=control)
 
 
 def _confirm_ctx(tmp_path, src_file, markers=None) -> MutantExecCtx:
@@ -552,6 +553,7 @@ def test_confirm_survivors_a_full_set_run_that_breaks_pytest_is_a_kill_when_the_
     assert (still, runs, kills) == ([], 1, 1)
     assert executor.calls == [(FULL_SET, 7.5), (FULL_SET, 7.5)]
     assert executor.seen_sources == [apply_mutant(_ONE_SITE, site), _ONE_SITE]
+    assert executor.controls == [False, True]
 
 
 @pytest.mark.unit

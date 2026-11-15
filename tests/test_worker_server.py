@@ -65,9 +65,11 @@ def test_worker_environ_updates_is_empty_without_a_worker_id():
 class _RecordingExecutor:
     def __init__(self):
         self.calls: list[list[str]] = []
+        self.controls: list[bool] = []
 
-    def run(self, args: list[str], timeout: float) -> str:
+    def run(self, args: list[str], timeout: float, *, control: bool = False) -> str:
         self.calls.append(args)
+        self.controls.append(control)
         return "survived"
 
 
@@ -99,6 +101,19 @@ def test_serve_leaves_args_untouched_when_there_are_no_plugin_args():
     executor = _RecordingExecutor()
     _drive(executor, [], {"args": ["-q", "tests"], "timeout": 5.0})
     assert executor.calls == [["-q", "tests"]]
+
+
+@pytest.mark.unit
+def test_serve_tells_the_executor_which_dispatch_is_a_control_run():
+    """The request carries `control` for a Control run only; the executor leaves such a run out of its counts."""
+    executor = _RecordingExecutor()
+    _drive(
+        executor,
+        [],
+        {"args": ["-q", "a"], "timeout": 5.0},
+        {"args": ["-q", "a"], "timeout": 5.0, "control": True},
+    )
+    assert executor.controls == [False, True]
 
 
 class _DescribingExecutor(_RecordingExecutor):

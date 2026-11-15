@@ -135,6 +135,12 @@ class MutantTiming:
 class Executor(Protocol):
     def prime(self) -> None: ...
 
-    def run(self, args: list[str], timeout: float) -> str: ...
+    def run(self, args: list[str], timeout: float, *, control: bool = False) -> str:
+        """Run pytest once over args and classify how it ended.
+
+        `control` marks a Control run: a re-run of the same args on the original code, which proves nothing
+        about a Mutant. An Executor that counts its Mutants leaves a Control run out of the count.
+        """
+        ...
 
     def describe(self) -> ExecutorDescription: ...

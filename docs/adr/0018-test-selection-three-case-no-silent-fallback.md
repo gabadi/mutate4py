@@ -206,8 +206,11 @@ Control run. It applies to exit 4 and exit 5 alike.
   because the run aborts on it. The serial loop and Survivor confirmation each keep their
   own record. A parallel run keeps one record for all its Workers: the argv is the same in
   every Worker tree.
-- **The Control run is not timed into the Mutant timing.** It is not a Mutant, so the
-  `Time:` line does not count it.
+- **The Control run is not counted as a Mutant.** It is not a Mutant, so the `Time:` line
+  does not time it and the `Executor:` line does not count it. The run tells the Executor
+  that a dispatch is a Control run (the `control` flag of `Executor.run`, which a Worker
+  carries in its request). A forking Executor runs it but leaves it out of its mode
+  counts, so the three counts add up to the number of Mutants that ran.
 
 **The timing dependence on `--no-fork` (0.3.0).** A node id from the Measurement is
 relative to pytest's rootdir. Mutants run from the working directory. When the two

@@ -278,6 +278,7 @@ def test_settle_kills_a_mutant_whose_control_run_ran_tests(tmp_path, status, con
     assert settled == "killed"
     assert executor.calls == [(["-q", GT], 6.0)]
     assert executor.seen_sources == ["original\n"]
+    assert executor.controls == [True]
 
 
 _CONTROL_ENDS = [
