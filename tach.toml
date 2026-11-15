@@ -103,6 +103,14 @@ path = "mutate4py._pytest_inifile"
 layer = "primitives"
 depends_on = []
 
+# What a pytest run reads (collection roots, inifile search start, conftest directories). Split from
+# `_tests_fingerprint` so `_plugin_neutralisation` reads the same inputs; both sit in `domain`, so it lives
+# in `primitives`.
+[[modules]]
+path = "mutate4py._pytest_session"
+layer = "primitives"
+depends_on = ["mutate4py._pytest_argv", "mutate4py._pytest_config", "mutate4py._pytest_inifile", "mutate4py._py_tree"]
+
 [[modules]]
 path = "mutate4py._sidecar_io"
 layer = "primitives"
